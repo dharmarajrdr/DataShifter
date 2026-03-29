@@ -3,11 +3,10 @@ package com.dharmaraj.datashifter.exceptions;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
-@Getter
 /**
- * Extend any exception class with this class to handle custom exceptions in the application.
- * This class will be used to handle exceptions in the GlobalExceptionHandler class.
+ * Base exception carrying HTTP status for API error responses.
  */
+@Getter
 public class CustomException extends RuntimeException {
 
     private final String message;
