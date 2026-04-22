@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="DataShifterServices" type="CompoundRunConfigurationType">
+    <toRun name="AuthServiceApplication" type="Application" />
+    <toRun name="ConnectorServiceApplication" type="Application" />
+    <toRun name="ExecutionEngineApplication" type="Application" />
+    <toRun name="GatewayServiceApplication" type="Application" />
+    <toRun name="MonitorServiceApplication" type="Application" />
+    <toRun name="NotificationServiceApplication" type="Application" />
+    <toRun name="PipelineServiceApplication" type="Application" />
+    <method v="2" />
+  </configuration>
+</component>
