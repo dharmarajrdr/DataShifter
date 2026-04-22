@@ -287,12 +287,24 @@ public class PostgresConnector implements DatabaseConnector {
             // Add all rows to the batch
             for (Map<String, Object> record : records) {
                 int paramIdx = 1;
-                for (String col : columns) {
-                    ps.setObject(paramIdx++, record.get(col));
-                }
-                if (("UPSERT".equals(writeMode) || "UPDATE_ONLY".equals(writeMode)) && primaryKeyColumn != null) {
+
+                if ("UPDATE_ONLY".equals(writeMode)) {
+                    // UPDATE SET col1=?, col2=? WHERE pk=?
+                    // Bind non-PK columns first, then PK for WHERE clause
+                    for (String col : columns) {
+                        if (!col.equals(primaryKeyColumn)) {
+                            ps.setObject(paramIdx++, record.get(col));
+                        }
+                    }
                     ps.setObject(paramIdx, record.get(primaryKeyColumn));
+                } else {
+                    // INSERT_ONLY and UPSERT: bind all columns in order
+                    // UPSERT uses EXCLUDED.col syntax — no extra PK parameter needed
+                    for (String col : columns) {
+                        ps.setObject(paramIdx++, record.get(col));
+                    }
                 }
+
                 ps.addBatch();
             }
 

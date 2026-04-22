@@ -6,6 +6,8 @@ import { PageHeader, Button, Chip, ApiGuard, Loader } from '../components/common
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../services/authApi';
 
+import SettingsTabs from '../components/common/SettingsTabs';
+
 const inputStyle = {
   width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border.light}`,
   borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.md, boxSizing: 'border-box',
@@ -131,17 +133,12 @@ const OrgSettingsPage = () => {
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>
       <div>
-        <PageHeader
+        <SettingsTabs
           title="Organization settings"
           subtitle={user?.orgName || 'Your organization'}
-          actions={
-            hasPermission('org:manage_roles') && (
-              <Button variant="secondary" onClick={() => navigate('/settings/roles')}>Manage roles</Button>
-            )
-          }
         />
 
-        <div style={{ maxWidth: '680px' }}>
+        <div style={{ maxWidth: '680px', paddingTop: SPACING.xl }}>
 
           {/* Org info */}
           <SectionTitle title="Organization" subtitle="Basic information about your org" />

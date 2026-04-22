@@ -22,6 +22,7 @@ public class MonitorDtos {
         private long errorsSkipped;
         private String eta;
         private double overallProgress;
+        private boolean previewInflightRecords;
         private List<TableProgressResponse> tables;
         private List<Map<String, Object>> inflightRecords;
     }

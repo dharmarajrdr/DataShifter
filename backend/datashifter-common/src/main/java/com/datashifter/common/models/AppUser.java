@@ -40,7 +40,7 @@ public class AppUser extends BaseEntity {
     @Column(name = "timezone")
     private String timezone;
 
-    @OneToMany(mappedBy = "userId", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "userId", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<UserPermission> permissionOverrides = new ArrayList<>();
 }

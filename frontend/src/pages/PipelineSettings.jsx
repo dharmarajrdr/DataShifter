@@ -90,7 +90,14 @@ const PipelineSettings = () => {
 
   const updateTableWriteMode = (ttmId, mode) => { setTableOverrides(prev => ({ ...prev, [ttmId]: mode })); setHasChanges(true); };
 
+  const isRunning = settings.status === 'RUNNING';
+
   const handleSave = async () => {
+    if (isRunning) {
+      setSaveMsg('Pause the pipeline before updating settings');
+      setTimeout(() => setSaveMsg(null), 4000);
+      return;
+    }
     setSaving(true); setSaveMsg(null);
     try {
       const payload = {
@@ -153,9 +160,10 @@ const PipelineSettings = () => {
         breadcrumbs={[{ label: settings.name, onClick: () => navigate(`/pipelines/${pipelineId}/monitor`) }, { label: SETTINGS.title }]}
         actions={
           <div style={{ ...FRSC, gap: SPACING.xs }}>
-            {saveMsg && <span style={{ fontSize: FONT.size.xs, color: saveMsg.includes('failed') || saveMsg.includes('Failed') ? '#A32D2D' : '#0F6E56' }}>{saveMsg}</span>}
-            {hasChanges && <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>Unsaved changes</span>}
-            <Button onClick={handleSave} disabled={saving || !hasChanges}>{saving ? 'Saving...' : SETTINGS.save}</Button>
+            {saveMsg && <span style={{ fontSize: FONT.size.xs, color: saveMsg.includes('failed') || saveMsg.includes('Failed') || saveMsg.includes('Pause') ? '#A32D2D' : '#0F6E56' }}>{saveMsg}</span>}
+            {hasChanges && !isRunning && <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>Unsaved changes</span>}
+            {isRunning && <span style={{ fontSize: FONT.size.xs, color: COLORS.status.warning }}>Pipeline is running</span>}
+            <Button onClick={handleSave} disabled={saving || !hasChanges || isRunning}>{saving ? 'Saving...' : SETTINGS.save}</Button>
           </div>
         }
         headerStyles={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACING.sm }}

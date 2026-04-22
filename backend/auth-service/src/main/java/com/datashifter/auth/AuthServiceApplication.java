@@ -8,11 +8,12 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @EntityScan(basePackages = "com.datashifter.common.models")
-@EnableJpaRepositories(basePackages = "com.datashifter.auth.repositories")
+@EnableJpaRepositories(basePackages = {"com.datashifter.auth.repositories", "com.datashifter.common.repositories"})
 @ComponentScan(basePackages = {
     "com.datashifter.auth",
     "com.datashifter.common.utils",
-    "com.datashifter.common.exceptions"
+    "com.datashifter.common.exceptions",
+    "com.datashifter.common.services"
     // Do NOT add common.security — it brings SharedSecurityConfig
 })
 public class AuthServiceApplication {

@@ -52,6 +52,7 @@ public class MonitorServiceImpl implements MonitorService {
                 .errorsSkipped(getLongFromMap(stats, "errorsSkipped"))
                 .eta(getStringFromMap(stats, "eta"))
                 .overallProgress(getDoubleFromMap(stats, "overallProgress"))
+                .previewInflightRecords(pipeline.getPreviewInflightRecords() != null ? pipeline.getPreviewInflightRecords() : true)
                 .inflightRecords(List.of())
                 .build();
     }

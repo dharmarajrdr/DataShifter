@@ -5,6 +5,7 @@ import com.datashifter.common.dtos.AuthDtos.*;
 import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.exceptions.ResourceNotFoundException;
 import com.datashifter.common.models.*;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ public class RoleService {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public List<RoleResponse> getAllByOrg(String orgId) {
@@ -73,6 +75,7 @@ public class RoleService {
 
         if (request.getPermissions() != null) {
             role.getPermissions().clear();
+            roleRepository.saveAndFlush(role); // flush deletes before re-inserting
             for (String perm : request.getPermissions()) {
                 role.getPermissions().add(RolePermission.builder()
                         .roleId(role.getId()).permission(perm).build());

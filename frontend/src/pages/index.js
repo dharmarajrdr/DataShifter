@@ -12,3 +12,5 @@ export { default as SignupPage } from './SignupPage';
 export { default as OnboardPage } from './OnboardPage';
 export { default as OrgSettingsPage } from './OrgSettingsPage';
 export { default as RolesPage } from './RolesPage';
+export { default as DocsPage } from './DocsPage';
+export { default as BillingPage } from './BillingPage';

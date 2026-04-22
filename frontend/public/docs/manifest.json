@@ -1,0 +1,48 @@
+[
+  {
+    "title": "Getting started",
+    "items": [
+      { "title": "Introduction", "path": "getting-started/introduction.md" },
+      { "title": "Quick start", "path": "getting-started/quick-start.md" },
+      { "title": "Architecture", "path": "getting-started/architecture.md" }
+    ]
+  },
+  {
+    "title": "Connections",
+    "items": [
+      { "title": "Overview", "path": "connections/overview.md" },
+      { "title": "PostgreSQL", "path": "connections/postgresql.md" },
+      { "title": "Oracle", "path": "connections/oracle.md" }
+    ]
+  },
+  {
+    "title": "Pipelines",
+    "items": [
+      { "title": "Creating a pipeline", "path": "pipelines/creating-a-pipeline.md" },
+      { "title": "Column mapping", "path": "pipelines/column-mapping.md" },
+      { "title": "Transforms", "path": "pipelines/transforms.md" },
+      { "title": "Filters", "path": "pipelines/filters.md" }
+    ]
+  },
+  {
+    "title": "Monitoring",
+    "items": [
+      { "title": "Live monitor", "path": "monitoring/live-monitor.md" },
+      { "title": "Error logs", "path": "monitoring/error-logs.md" }
+    ]
+  },
+  {
+    "title": "Settings",
+    "items": [
+      { "title": "Pipeline settings", "path": "settings/pipeline-settings.md" },
+      { "title": "Organization", "path": "settings/organization.md" }
+    ]
+  },
+  {
+    "title": "API Reference",
+    "items": [
+      { "title": "Authentication", "path": "api-reference/authentication.md" },
+      { "title": "Pipelines API", "path": "api-reference/pipelines.md" }
+    ]
+  }
+]

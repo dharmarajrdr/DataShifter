@@ -5,6 +5,7 @@ import com.datashifter.common.dtos.AuthDtos.*;
 import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.exceptions.ResourceNotFoundException;
 import com.datashifter.common.models.*;
+import com.datashifter.common.services.SubscriptionLimitChecker;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class InvitationService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final EntityManager entityManager;
+    private final SubscriptionLimitChecker limitChecker;
 
     @Transactional(readOnly = true)
     public List<InvitationResponse> getPending(String orgId) {
@@ -37,6 +39,10 @@ public class InvitationService {
 
     @Transactional
     public InvitationResponse sendInvite(String orgId, String invitedByUserId, InviteRequest request) {
+        // Enforce member limit
+        long currentMembers = userRepository.countByOrganization_Id(orgId);
+        limitChecker.assertCanAddMember(orgId, currentMembers);
+
         // Check if already a member via account
         accountRepository.findByEmail(request.getEmail()).ifPresent(account -> {
             if (userRepository.existsByAccount_IdAndOrganization_Id(account.getId(), orgId)) {

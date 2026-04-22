@@ -71,6 +71,7 @@ public class AuthDtos {
         private Set<String> effectivePermissions;
         private boolean active;
         private boolean emailVerified;
+        private boolean orgOwner;
         private Instant lastLoginAt;
         private Instant createdAt;
         private String timezone;

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import SubscriptionGuard from './components/auth/SubscriptionGuard';
 import AuthLayout from './components/auth/AuthLayout';
 import AppLayout from './components/layout/AppLayout';
 import {
@@ -18,6 +19,8 @@ import {
   OnboardPage,
   OrgSettingsPage,
   RolesPage,
+  DocsPage,
+  BillingPage,
 } from './pages';
 
 const App = () => (
@@ -31,26 +34,26 @@ const App = () => (
           <Route path="/onboard" element={<OnboardPage />} />
         </Route>
 
+        {/* Docs — standalone page, no sidebar */}
+        <Route path="/docs" element={<DocsPage />} />
+
         {/* App pages — sidebar, protected */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/" element={<Navigate to="/pipelines" replace />} />
 
-          {/* Pipelines */}
-          <Route path="/pipelines" element={<PipelineDashboard />} />
-          <Route path="/pipelines/new" element={<PipelineWizard />} />
-          <Route path="/pipelines/:pipelineId/monitor" element={<LiveMonitor />} />
-          <Route path="/pipelines/:pipelineId/mapping" element={<ColumnMappingBoard />} />
-          <Route path="/pipelines/:pipelineId/errors" element={<ErrorLogViewer />} />
-          <Route path="/pipelines/:pipelineId/settings" element={<PipelineSettings />} />
+          {/* Billing — always accessible (owner check inside component) */}
+          <Route path="/settings/billing" element={<BillingPage />} />
 
-          {/* Connections */}
-          <Route path="/connections" element={<ConnectionsManager />} />
-
-          {/* Org settings + Roles */}
-          <Route path="/settings/org" element={<OrgSettingsPage />} />
-          <Route path="/settings/roles" element={<RolesPage />} />
-
-          {/* Profile */}
+          {/* Everything below is gated by subscription status */}
+          <Route path="/pipelines" element={<SubscriptionGuard><PipelineDashboard /></SubscriptionGuard>} />
+          <Route path="/pipelines/new" element={<SubscriptionGuard><PipelineWizard /></SubscriptionGuard>} />
+          <Route path="/pipelines/:pipelineId/monitor" element={<SubscriptionGuard><LiveMonitor /></SubscriptionGuard>} />
+          <Route path="/pipelines/:pipelineId/mapping" element={<SubscriptionGuard><ColumnMappingBoard /></SubscriptionGuard>} />
+          <Route path="/pipelines/:pipelineId/errors" element={<SubscriptionGuard><ErrorLogViewer /></SubscriptionGuard>} />
+          <Route path="/pipelines/:pipelineId/settings" element={<SubscriptionGuard><PipelineSettings /></SubscriptionGuard>} />
+          <Route path="/connections" element={<SubscriptionGuard><ConnectionsManager /></SubscriptionGuard>} />
+          <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
+          <Route path="/settings/roles" element={<SubscriptionGuard><RolesPage /></SubscriptionGuard>} />
           <Route path="/profile" element={<UserProfile />} />
         </Route>
 

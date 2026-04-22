@@ -7,5 +7,6 @@ public enum ErrorType {
     WRITE_TIMEOUT,
     CONNECTION_LOST,
     TRANSFORMATION_FAILED,
-    UNKNOWN
+    UNKNOWN,
+    WRITE_FAILED
 }

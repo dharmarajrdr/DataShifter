@@ -65,17 +65,20 @@ public class ExecutionServiceImpl implements ExecutionService {
     public void execute(String pipelineId, String executionLogId) {
         log.info("=== Starting pipeline execution: {} ===", pipelineId);
 
-        // 1. Load full pipeline graph
-        Pipeline pipeline = pipelineRepo.findByIdWithFullGraph(pipelineId)
-                .orElseThrow(() -> new ResourceNotFoundException("Pipeline", pipelineId));
-
-        // 2. Build execution context
-        ExecutionContext ctx = buildContext(pipeline, executionLogId);
-
-        // 3. Publish RUNNING status
-        publishStatus(ctx, PipelineStatus.VALIDATED, PipelineStatus.RUNNING, "Execution started");
+        Pipeline pipeline = null;
+        ExecutionContext ctx = null;
 
         try {
+            // 1. Load full pipeline graph
+            pipeline = pipelineRepo.findByIdWithFullGraph(pipelineId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Pipeline", pipelineId));
+
+            // 2. Build execution context (validates mappings, connects to DBs)
+            ctx = buildContext(pipeline, executionLogId);
+
+            // 3. Publish RUNNING status
+            publishStatus(ctx, PipelineStatus.VALIDATED, PipelineStatus.RUNNING, "Execution started");
+
             // 4. Table loop — sequential, user-defined order
             executeTableLoop(ctx);
 
@@ -105,22 +108,28 @@ public class ExecutionServiceImpl implements ExecutionService {
             publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.COMPLETED, "All tables migrated");
 
         } catch (PipelinePausedException e) {
-            log.info("Pipeline paused: {} at table {} chunk {}", pipelineId, ctx.getCurrentTableName(), ctx.getCurrentChunkNumber());
-            pipeline.setStatus(PipelineStatus.PAUSED);
-            pipelineRepo.save(pipeline);
-            publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.PAUSED, e.getMessage());
+            log.info("Pipeline paused: {} at table {} chunk {}", pipelineId,
+                    ctx != null ? ctx.getCurrentTableName() : "?", ctx != null ? ctx.getCurrentChunkNumber() : 0);
+            if (pipeline != null) { pipeline.setStatus(PipelineStatus.PAUSED); pipelineRepo.save(pipeline); }
+            if (ctx != null) publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.PAUSED, e.getMessage());
 
         } catch (PipelineStoppedException e) {
             log.info("Pipeline stopped by user: {}", pipelineId);
-            pipeline.setStatus(PipelineStatus.ERRORED);
-            pipelineRepo.save(pipeline);
-            publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, "Stopped by user");
+            if (pipeline != null) { pipeline.setStatus(PipelineStatus.ERRORED); pipelineRepo.save(pipeline); }
+            if (ctx != null) publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, "Stopped by user");
 
         } catch (Exception e) {
             log.error("Pipeline failed: {} — {}", pipelineId, e.getMessage(), e);
-            pipeline.setStatus(PipelineStatus.ERRORED);
-            pipelineRepo.save(pipeline);
-            publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, e.getMessage());
+            if (pipeline != null) { pipeline.setStatus(PipelineStatus.ERRORED); pipelineRepo.save(pipeline); }
+            if (ctx != null) {
+                publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, e.getMessage());
+            } else {
+                // Context build failed — update status directly via DB
+                pipelineRepo.findById(pipelineId).ifPresent(p -> {
+                    p.setStatus(PipelineStatus.ERRORED);
+                    pipelineRepo.save(p);
+                });
+            }
         }
     }
 
@@ -333,15 +342,43 @@ public class ExecutionServiceImpl implements ExecutionService {
         boolean ignoreExceptions = ctx.getPipeline().getIgnoreExceptions();
         boolean logSourceRow = ctx.getPipeline().getLogSourceRow();
 
+        // If NOT ignoring exceptions — publish only the first error, then stop immediately
+        if (!ignoreExceptions) {
+            WriteResult.FailedRecord first = result.getFailedRecords().isEmpty() ? null : result.getFailedRecords().get(0);
+            String firstError = first != null
+                    ? enrichErrorMessage(first.getErrorMessage(), first.getRecord(), pt.getSourceTable(), ttm.getTargetTable())
+                    : "Unknown write error";
+
+            log.error("WRITE ERROR (stopping): pipeline={}, table={} → {}, chunk={}, failures={}, firstError={}",
+                    ctx.getPipelineId(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber, result.getFailureCount(), firstError);
+
+            // Publish single summary error event
+            kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
+                    .pipelineId(ctx.getPipelineId())
+                    .executionLogId(ctx.getExecutionLogId())
+                    .errorType(first != null ? resolveErrorType(first.getErrorType()) : ErrorType.WRITE_FAILED)
+                    .sourceTable(pt.getSourceTable())
+                    .targetTable(ttm.getTargetTable())
+                    .chunkNumber(chunkNumber)
+                    .errorMessage(String.format("%d rows failed in chunk %d. First error: %s", result.getFailureCount(), chunkNumber, firstError))
+                    .sourceRowData(logSourceRow && first != null ? serializeRecord(first.getRecord()) : null)
+                    .pipelineStopped(true)
+                    .timestamp(Instant.now())
+                    .build());
+
+            throw new DatashifterException(String.format(
+                    "Write failed: %d errors on %s → %s at chunk %d. First error: %s. Pipeline stopped (ignoreExceptions=false).",
+                    result.getFailureCount(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber, firstError));
+        }
+
+        // Ignoring exceptions — log each failed row individually
         for (WriteResult.FailedRecord failed : result.getFailedRecords()) {
-            // Build enriched error message with context
             String rawError = failed.getErrorMessage();
             String enrichedMessage = enrichErrorMessage(rawError, failed.getRecord(), pt.getSourceTable(), ttm.getTargetTable());
 
             log.error("WRITE ERROR: pipeline={}, table={} → {}, chunk={}, error={}", ctx.getPipelineId(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber, enrichedMessage);
 
-            // Publish error event to monitor-service
-            ErrorEvent event = ErrorEvent.builder()
+            kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
                     .pipelineId(ctx.getPipelineId())
                     .executionLogId(ctx.getExecutionLogId())
                     .errorType(resolveErrorType(failed.getErrorType()))
@@ -350,23 +387,12 @@ public class ExecutionServiceImpl implements ExecutionService {
                     .chunkNumber(chunkNumber)
                     .errorMessage(enrichedMessage)
                     .sourceRowData(logSourceRow ? serializeRecord(failed.getRecord()) : null)
-                    .pipelineStopped(!ignoreExceptions)
+                    .pipelineStopped(false)
                     .timestamp(Instant.now())
-                    .build();
-            kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, event);
+                    .build());
         }
 
-        // If not ignoring exceptions — stop the pipeline
-        if (!ignoreExceptions) {
-            String firstError = result.getFailedRecords().isEmpty() ? "Unknown error"
-                    : enrichErrorMessage(result.getFailedRecords().get(0).getErrorMessage(),
-                    result.getFailedRecords().get(0).getRecord(), pt.getSourceTable(), ttm.getTargetTable());
-            throw new DatashifterException(String.format(
-                    "Write failed: %d errors on %s → %s at chunk %d. First error: %s. Pipeline stopped (ignoreExceptions=false).",
-                    result.getFailureCount(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber, firstError));
-        }
-
-        // If ignoring but threshold exceeded — stop
+        // Threshold check
         if (ctx.isErrorThresholdExceeded()) {
             throw new DatashifterException(String.format(
                     "Error threshold exceeded: %d errors (max: %d). Pipeline stopped.",

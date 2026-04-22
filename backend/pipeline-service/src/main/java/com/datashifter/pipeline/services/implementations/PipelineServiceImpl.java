@@ -10,6 +10,7 @@ import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.exceptions.ResourceNotFoundException;
 import com.datashifter.common.models.*;
 import com.datashifter.common.security.UserContext;
+import com.datashifter.common.services.SubscriptionLimitChecker;
 import com.datashifter.pipeline.repositories.PipelineRepository;
 import com.datashifter.pipeline.services.interfaces.PipelineService;
 import com.datashifter.pipeline.statemachine.PipelineStateMachine;
@@ -36,6 +37,7 @@ public class PipelineServiceImpl implements PipelineService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final com.datashifter.pipeline.repositories.NamespaceRepository namespaceRepository;
     private final StringRedisTemplate redisTemplate;
+    private final SubscriptionLimitChecker limitChecker;
 
     // =========================================================================
     // CREATE — builds PipelineTable + TargetTableMapping entries
@@ -44,6 +46,11 @@ public class PipelineServiceImpl implements PipelineService {
     @Override
     @Transactional
     public PipelineResponse create(CreatePipelineRequest req) {
+        // Enforce subscription limit
+        String orgId = UserContext.getCurrentOrgId();
+        long currentCount = repository.findByOrgId(orgId).size();
+        limitChecker.assertCanCreatePipeline(orgId, currentCount);
+
         // Resolve namespace
         Namespace namespace = null;
         if (req.getNamespaceId() != null && !req.getNamespaceId().isBlank()) {
@@ -123,6 +130,11 @@ public class PipelineServiceImpl implements PipelineService {
     @Transactional
     public PipelineResponse update(String id, UpdatePipelineRequest req) {
         Pipeline entity = findEntity(id);
+
+        if (entity.getStatus() == PipelineStatus.RUNNING) {
+            throw new DatashifterException("Cannot update settings while the pipeline is running. Pause the pipeline first.");
+        }
+
         if (req.getName() != null) entity.setName(req.getName());
         if (req.getDescription() != null) entity.setDescription(req.getDescription());
         if (req.getChunkSize() != null) entity.setChunkSize(req.getChunkSize());
@@ -257,6 +269,12 @@ public class PipelineServiceImpl implements PipelineService {
 
             case START:
             case RESUME:
+                // Enforce parallel pipeline limit
+                String orgId2 = UserContext.getCurrentOrgId();
+                long runningCount = repository.findByOrgId(orgId2).stream()
+                        .filter(p -> p.getStatus() == PipelineStatus.RUNNING).count();
+                limitChecker.assertCanRunParallel(orgId2, runningCount);
+
                 PipelineStatus target = PipelineStatus.RUNNING;
                 PipelineStateMachine.validateTransition(entity.getStatus(), target);
                 entity.setStatus(target);

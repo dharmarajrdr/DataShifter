@@ -6,6 +6,7 @@ import { PageHeader, Button, Chip, Toggle } from '../components/common';
 import { CloseIcon } from '../components/layout/Icons';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../services/authApi';
+import SettingsTabs from '../components/common/SettingsTabs';
 
 /* ================================================================
    PERMISSION GROUPS — organized by resource for the UI
@@ -220,7 +221,7 @@ const RolesPage = () => {
 
   useEffect(() => {
     authApi.getRoles().then(res => setRoles(res.data || []));
-    authApi.getMembers().then(res => setMembers(res.data || []));
+    authApi.getMembers('', 0, 1000).then(res => setMembers(res.data?.members || []));
   }, []);
 
   const handleCreateRole = async (payload) => {
@@ -243,17 +244,13 @@ const RolesPage = () => {
 
   return (
     <div>
-      <PageHeader
+      <SettingsTabs
         title="Roles & permissions"
         subtitle="Define what each role can do in your organization"
-        breadcrumbs={[
-          { label: 'Org settings', onClick: () => navigate('/settings/org') },
-          { label: 'Roles' },
-        ]}
         actions={canManage && <Button onClick={() => setEditingRole({})}>Create role</Button>}
       />
 
-      <div style={{ maxWidth: '680px' }}>
+      <div style={{ maxWidth: '680px', paddingTop: SPACING.xl }}>
         {roles.map(role => {
           const roleMembers = getMembersForRole(role.id);
           const isExpanded = expandedRole === role.id;

@@ -413,6 +413,7 @@ public class AuthService {
                 .effectivePermissions(getEffectivePermissions(user))
                 .active(user.getIsActive())
                 .emailVerified(account.getEmailVerified())
+                .orgOwner(org.getCreatedBy() != null && org.getCreatedBy().getId().equals(account.getId()))
                 .lastLoginAt(user.getLastLoginAt())
                 .createdAt(user.getCreatedAt())
                 .timezone(user.getTimezone())

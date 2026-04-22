@@ -179,6 +179,25 @@ const Sidebar = () => {
         )}
       </div>
 
+      {/* Docs link */}
+      <div style={{ padding: `0 ${SPACING.sm}`, marginBottom: SPACING.xs }}>
+        <div onClick={() => navigate('/docs')}
+          style={{
+            ...FRSC, justifyContent: 'center', gap: '6px', padding: `${SPACING.xs} ${SPACING.sm}`,
+            borderRadius: BORDER_RADIUS.md, cursor: 'pointer',
+            background: 'transparent',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = COLORS.background.secondary}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 2.5h7l3 3V13a.5.5 0 01-.5.5h-9A.5.5 0 013 13V3a.5.5 0 01.5-.5z" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinejoin="round"/>
+            <path d="M10 2.5V5.5h3" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinejoin="round"/>
+            <path d="M5.5 8h5M5.5 10.5h3.5" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>Documentation</span>
+        </div>
+      </div>
+
       {/* Profile + Org Switcher */}
       <div style={{ padding: `0 ${SPACING.xs}`, borderTop: `1px solid ${COLORS.border.light}`, paddingTop: SPACING.sm }}>
 

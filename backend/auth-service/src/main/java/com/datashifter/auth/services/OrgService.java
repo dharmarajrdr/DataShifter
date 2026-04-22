@@ -182,6 +182,7 @@ public class OrgService {
                 .effectivePermissions(perms)
                 .active(user.getIsActive())
                 .emailVerified(account.getEmailVerified())
+                .orgOwner(user.getOrganization().getCreatedBy() != null && user.getOrganization().getCreatedBy().getId().equals(account.getId()))
                 .lastLoginAt(user.getLastLoginAt())
                 .createdAt(user.getCreatedAt())
                 .timezone(user.getTimezone())

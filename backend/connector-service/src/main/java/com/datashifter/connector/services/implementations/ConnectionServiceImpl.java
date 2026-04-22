@@ -7,6 +7,7 @@ import com.datashifter.common.exceptions.ResourceNotFoundException;
 import com.datashifter.common.models.AppUser;
 import com.datashifter.common.models.Connection;
 import com.datashifter.common.security.UserContext;
+import com.datashifter.common.services.SubscriptionLimitChecker;
 import com.datashifter.common.utils.EncryptionUtil;
 import com.datashifter.connector.factories.ConnectorFactory;
 import com.datashifter.connector.repositories.ConnectionRepository;
@@ -29,10 +30,16 @@ public class ConnectionServiceImpl implements ConnectionService {
     private final ConnectionRepository repository;
     private final ConnectorFactory connectorFactory;
     private final EntityManager entityManager;
+    private final SubscriptionLimitChecker limitChecker;
 
     @Override
     @Transactional
     public ConnectionResponse create(CreateConnectionRequest request) {
+        // Enforce subscription limit
+        String orgId = UserContext.getCurrentOrgId();
+        long currentCount = repository.findByOrgId(orgId).size();
+        limitChecker.assertCanCreateConnection(orgId, currentCount);
+
         AppUser createdBy = entityManager.getReference(AppUser.class, UserContext.getCurrentUserId());
         Connection entity = Connection.builder()
                 .name(request.getName())

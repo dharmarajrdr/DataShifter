@@ -39,6 +39,11 @@ spring:
           predicates:
             - Path=/api/v1/stream/**
 
+        - id: payment-service
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/v1/payments/**
+
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
         - PreserveHostHeader
