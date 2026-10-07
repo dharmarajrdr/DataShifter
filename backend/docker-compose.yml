@@ -12,7 +12,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U datashifter -d datashifter_db"]
+      test: [ "CMD-SHELL", "pg_isready -U datashifter -d datashifter_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,7 +22,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,6 +38,7 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -67,12 +68,11 @@ services:
       DS_DB_USERNAME: datashifter
       DS_DB_PASSWORD: datashifter_password
       DS_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DS_REDIS_HOST: redis
+      DS_KAFKA_BOOTSTRAP: kafka:29092
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
-
 
   connector-service:
     build:
@@ -95,12 +95,11 @@ services:
       DS_DB_USERNAME: datashifter
       DS_DB_PASSWORD: datashifter_password
       DS_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DS_REDIS_HOST: redis
+      DS_KAFKA_BOOTSTRAP: kafka:29092
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
-
 
   pipeline-service:
     build:
@@ -123,12 +122,11 @@ services:
       DS_DB_USERNAME: datashifter
       DS_DB_PASSWORD: datashifter_password
       DS_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DS_REDIS_HOST: redis
+      DS_KAFKA_BOOTSTRAP: kafka:29092
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
-
 
   monitor-service:
     build:
@@ -151,12 +149,11 @@ services:
       DS_DB_USERNAME: datashifter
       DS_DB_PASSWORD: datashifter_password
       DS_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DS_REDIS_HOST: redis
+      DS_KAFKA_BOOTSTRAP: kafka:29092
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
-
 
   execution-engine:
     build:
@@ -179,12 +176,11 @@ services:
       DS_DB_USERNAME: datashifter
       DS_DB_PASSWORD: datashifter_password
       DS_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DS_REDIS_HOST: redis
+      DS_KAFKA_BOOTSTRAP: kafka:29092
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
-
 
   notification-service:
     build:
@@ -207,12 +203,11 @@ services:
       DS_DB_USERNAME: datashifter
       DS_DB_PASSWORD: datashifter_password
       DS_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DS_REDIS_HOST: redis
+      DS_KAFKA_BOOTSTRAP: kafka:29092
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
-
 
   auth-service:
     build:
@@ -235,12 +230,11 @@ services:
       DS_DB_USERNAME: datashifter
       DS_DB_PASSWORD: datashifter_password
       DS_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DS_REDIS_HOST: redis
+      DS_KAFKA_BOOTSTRAP: kafka:29092
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
-
 
   payment-service:
     build:
@@ -263,12 +257,13 @@ services:
       DS_DB_USERNAME: datashifter
       DS_DB_PASSWORD: datashifter_password
       DS_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DS_REDIS_HOST: redis
+      DS_KAFKA_BOOTSTRAP: kafka:29092
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
-
+      DS_RAZORPAY_KEY_ID: mock_razorpay_key_id
+      DS_RAZORPAY_KEY_SECRET: mock_razorpay_key_secret
 
 volumes:
   pgdata:
