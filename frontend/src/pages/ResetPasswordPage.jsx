@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { authApi } from '../services/authApi';
 import { Button } from '../components/common';
-import AuthLayout from '../components/auth/AuthLayout';
+import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
+
+const inputStyle = {
+  width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border.light}`,
+  borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.md, boxSizing: 'border-box',
+};
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -18,10 +23,14 @@ export default function ResetPasswordPage() {
   if (!token) {
     return (
       <div>
-        <h2 style={{ fontSize: '20px', fontWeight: 500, margin: '0 0 6px', color: '#111827' }}>Invalid Link</h2>
-        <p style={{ fontSize: '14px', color: '#6B7280', margin: '0 0 24px' }}>No reset token provided.</p>
-        <div className="text-center">
-          <Link to="/forgot-password" className="text-blue-600 hover:underline text-sm font-medium">
+        <h2 style={{ fontSize: '20px', fontWeight: 500, margin: '0 0 6px', color: COLORS.text.primary }}>
+          Invalid Link
+        </h2>
+        <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, margin: '0 0 24px' }}>
+          No reset token provided.
+        </p>
+        <div style={{ textAlign: 'center' }}>
+          <Link to="/forgot-password" style={{ color: COLORS.brand.primary, textDecoration: 'none', fontSize: FONT.size.sm, fontWeight: 500 }}>
             Request a new link
           </Link>
         </div>
@@ -49,47 +58,71 @@ export default function ResetPasswordPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: '20px', fontWeight: 500, margin: '0 0 6px', color: '#111827' }}>Reset Password</h2>
-      <p style={{ fontSize: '14px', color: '#6B7280', margin: '0 0 24px' }}>Choose a new password for your account.</p>
+      <h2 style={{ fontSize: '20px', fontWeight: 500, margin: '0 0 6px', color: COLORS.text.primary }}>
+        Reset Password
+      </h2>
+      <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, margin: '0 0 24px' }}>
+        Choose a new password for your account.
+      </p>
+      
       {success ? (
-        <div className="text-center">
-          <div className="mb-4 text-green-600 bg-green-50 p-3 rounded text-sm">
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            background: COLORS.status.successLight, color: COLORS.status.successText,
+            padding: '8px 12px', borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm,
+            marginBottom: SPACING.md,
+          }}>
             Password has been successfully reset!
           </div>
-          <Button onClick={() => navigate('/login')} className="w-full">
+          <Button onClick={() => navigate('/login')} style={{ width: '100%' }}>
             Go to Login
           </Button>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <div className="text-red-600 text-sm bg-red-50 p-2 rounded">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          {error && (
+            <div style={{
+              background: COLORS.status.errorLight, color: COLORS.status.errorText,
+              padding: '8px 12px', borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.xs,
+              marginBottom: SPACING.md,
+            }}>
+              {error}
+            </div>
+          )}
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+          <div style={{ marginBottom: SPACING.md }}>
+            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+              New Password
+            </label>
             <input
               type="password"
               required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              style={inputStyle}
+              placeholder="Min 8 characters"
+              autoFocus
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+          <div style={{ marginBottom: SPACING.md }}>
+            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+              Confirm New Password
+            </label>
             <input
               type="password"
               required
               minLength={8}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              style={inputStyle}
+              placeholder="Confirm password"
             />
           </div>
 
-          <Button type="submit" variant="primary" className="w-full" isLoading={loading}>
-            Reset Password
+          <Button type="submit" style={{ width: '100%', opacity: loading ? 0.6 : 1 }} isLoading={loading}>
+            {loading ? 'Resetting...' : 'Reset Password'}
           </Button>
         </form>
       )}
