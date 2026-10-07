@@ -135,44 +135,29 @@ redis-server
 
 ### Backend
 
-Build the entire backend from the root `backend/` directory:
+Start the entire backend stack (including databases and Kafka) using Docker Compose from the `backend/` directory:
 
 ```bash
 cd backend
-mvn clean install -DskipTests
+docker-compose up --build -d
 ```
 
-Start each service in a separate terminal (order matters for the first launch):
+This will automatically:
+1. Build the multi-module Maven project and create Docker images for all 8 services.
+2. Start PostgreSQL, Redis, and Kafka (with Zookeeper).
+3. Start all services in the correct order.
 
+To view logs for a specific service:
 ```bash
-# Terminal 1 — Gateway (must start first)
-cd backend/gateway-service
-mvn spring-boot:run
-
-# Terminal 2 — Auth
-cd backend/auth-service
-mvn spring-boot:run
-
-# Terminal 3 — Connector
-cd backend/connector-service
-mvn spring-boot:run
-
-# Terminal 4 — Pipeline
-cd backend/pipeline-service
-mvn spring-boot:run
-
-# Terminal 5 — Monitor
-cd backend/monitor-service
-mvn spring-boot:run
-
-# Terminal 6 — Execution Engine
-cd backend/execution-engine
-mvn spring-boot:run
-
-# Terminal 7 — Notification (SSE)
-cd backend/notification-service
-mvn spring-boot:run
+docker-compose logs -f execution-engine
 ```
+
+To stop the cluster:
+```bash
+docker-compose down
+```
+
+*(Alternatively, to run services manually without Docker, build with `mvn clean install -DskipTests` and run `mvn spring-boot:run` in each service directory.)*
 
 ### Frontend
 

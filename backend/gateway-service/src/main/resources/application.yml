@@ -8,39 +8,39 @@ spring:
     gateway:
       routes:
         - id: connector-service
-          uri: http://localhost:8081
+          uri: http://connector-service:8081
           predicates:
             - Path=/api/v1/connections/**
 
         # Monitor routes — MUST be before pipeline-service
         - id: monitor-service
-          uri: http://localhost:8083
+          uri: http://monitor-service:8083
           predicates:
             - Path=/api/v1/pipelines/*/monitor,/api/v1/pipelines/*/monitor/**,/api/v1/pipelines/*/errors,/api/v1/pipelines/*/errors/**,/api/v1/pipelines/*/executions,/api/v1/pipelines/*/executions/**
 
         # Mappings + Settings — route to pipeline-service
         - id: pipeline-service-sub
-          uri: http://localhost:8082
+          uri: http://pipeline-service:8082
           predicates:
             - Path=/api/v1/pipelines/*/mappings,/api/v1/pipelines/*/mappings/**,/api/v1/pipelines/*/settings,/api/v1/pipelines/*/settings/**
 
         - id: pipeline-service
-          uri: http://localhost:8082
+          uri: http://pipeline-service:8082
           predicates:
             - Path=/api/v1/pipelines/**,/api/v1/namespaces/**
 
         - id: auth-service
-          uri: http://localhost:8086
+          uri: http://auth-service:8086
           predicates:
             - Path=/api/v1/auth/**
 
         - id: notification-service
-          uri: http://localhost:8085
+          uri: http://notification-service:8085
           predicates:
             - Path=/api/v1/stream/**
 
         - id: payment-service
-          uri: http://localhost:8087
+          uri: http://payment-service:8087
           predicates:
             - Path=/api/v1/payments/**
 
