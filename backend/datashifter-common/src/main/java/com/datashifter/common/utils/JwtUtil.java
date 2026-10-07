@@ -43,7 +43,6 @@ public class JwtUtil {
     /** Access token — scoped to AppUser (user-in-org). sub = userId. */
     public String generateAccessToken(String userId, String accountId, String email, String orgId, String roleName, Set<String> permissions) {
         return Jwts.builder()
-                .subject(userId)
                 .claims(Map.of(
                         "accountId", accountId != null ? accountId : "",
                         "email", email != null ? email : "",
@@ -52,6 +51,7 @@ public class JwtUtil {
                         "perms", permissions != null ? String.join(",", permissions) : "",
                         "type", "access"
                 ))
+                .subject(userId)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpiryMs))
                 .signWith(key)
@@ -61,8 +61,8 @@ public class JwtUtil {
     /** Refresh token — org-agnostic. sub = accountId. Used for org switching. */
     public String generateRefreshToken(String accountId) {
         return Jwts.builder()
-                .subject(accountId)
                 .claims(Map.of("type", "refresh"))
+                .subject(accountId)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + refreshTokenExpiryMs))
                 .signWith(key)
