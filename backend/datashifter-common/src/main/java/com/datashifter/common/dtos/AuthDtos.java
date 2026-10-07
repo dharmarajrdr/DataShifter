@@ -48,6 +48,17 @@ public class AuthDtos {
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class ForgotPasswordRequest {
+        @NotBlank @Email private String email;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class ResetPasswordRequest {
+        @NotBlank private String token;
+        @NotBlank @Size(min = 8, max = 100) private String newPassword;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
     public static class SwitchOrgRequest {
         @NotBlank private String orgId;
     }

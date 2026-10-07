@@ -46,7 +46,12 @@ const LoginPage = () => {
         </div>
 
         <div style={{ marginBottom: SPACING.md }}>
-          <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>Password</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary }}>Password</label>
+            <Link to="/forgot-password" style={{ fontSize: '12px', color: COLORS.brand.primary, textDecoration: 'none' }}>
+              Forgot password?
+            </Link>
+          </div>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)}
             style={inputStyle} placeholder="Enter your password" required />
         </div>

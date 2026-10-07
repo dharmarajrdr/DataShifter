@@ -45,6 +45,14 @@ export const authApi = {
     ? mockResponse(MOCK_TOKEN_RESPONSE)
     : apiClient.post('/auth/login', payload, { skipAuth: true }),
 
+  forgotPassword: (payload) => USE_MOCK
+    ? mockResponse(null)
+    : apiClient.post('/auth/forgot-password', payload, { skipAuth: true }),
+
+  resetPassword: (payload) => USE_MOCK
+    ? mockResponse(null)
+    : apiClient.post('/auth/reset-password', payload, { skipAuth: true }),
+
   refresh: (payload) => USE_MOCK
     ? mockResponse(MOCK_TOKEN_RESPONSE)
     : apiClient.post('/auth/refresh', payload, { skipAuth: true }),

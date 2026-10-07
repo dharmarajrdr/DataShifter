@@ -238,6 +238,40 @@ public class AuthService {
     }
 
     // =========================================================================
+    // FORGOT / RESET PASSWORD
+    // =========================================================================
+
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest req) {
+        accountRepository.findByEmail(req.getEmail()).ifPresent(account -> {
+            String token = UUID.randomUUID().toString();
+            account.setResetToken(token);
+            account.setResetTokenExpiry(Instant.now().plus(1, java.time.temporal.ChronoUnit.HOURS));
+            accountRepository.save(account);
+            
+            // Mocking email send
+            log.info("Mock Email: Sending password reset email to {} with token {}", account.getEmail(), token);
+        });
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest req) {
+        Account account = accountRepository.findByResetToken(req.getToken())
+                .orElseThrow(() -> new DatashifterException("Invalid or expired reset token"));
+
+        if (account.getResetTokenExpiry() == null || account.getResetTokenExpiry().isBefore(Instant.now())) {
+            throw new DatashifterException("Reset token has expired");
+        }
+
+        account.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        account.setResetToken(null);
+        account.setResetTokenExpiry(null);
+        accountRepository.save(account);
+
+        log.info("Password successfully reset for account {}", account.getEmail());
+    }
+
+    // =========================================================================
     // EFFECTIVE PERMISSIONS
     // =========================================================================
 
