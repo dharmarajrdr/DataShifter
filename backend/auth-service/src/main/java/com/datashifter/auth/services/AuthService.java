@@ -249,8 +249,8 @@ public class AuthService {
             account.setResetTokenExpiry(Instant.now().plus(1, java.time.temporal.ChronoUnit.HOURS));
             accountRepository.save(account);
             
-            // Mocking email send
-            log.info("Mock Email: Sending password reset email to {} with token {}", account.getEmail(), token);
+            // Log the problem in the system logs for further investigation
+            log.error("Email delivery failed for user {}: No email service or SMTP token configured in the system. Reset token generated but not sent: {}", account.getEmail(), token);
         });
     }
 
