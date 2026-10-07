@@ -47,7 +47,7 @@ const DeleteConfirm = ({ onConfirm, onCancel }) => (
 /* ================================================================
    CONNECTION CARD
    ================================================================ */
-const ConnectionCard = ({ conn, onEdit, onDelete, onTest, onBrowse }) => {
+const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) => {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -55,11 +55,23 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onTest, onBrowse }) => {
   const handleTest = async () => {
     setTesting(true);
     setTestResult(null);
+    if (onUpdate) {
+      onUpdate(conn.id, { status: 'TESTING' });
+    }
     try {
       const res = await connectionApi.test(conn.id);
       setTestResult(res.data);
+      if (onUpdate) {
+        onUpdate(conn.id, { 
+          status: res.data.success ? 'CONNECTED' : 'FAILED',
+          error: res.data.success ? null : res.data.message 
+        });
+      }
     } catch (e) {
       setTestResult({ success: false, message: e.message });
+      if (onUpdate) {
+        onUpdate(conn.id, { status: 'FAILED', error: e.message });
+      }
     } finally {
       setTesting(false);
     }
@@ -186,6 +198,10 @@ const ConnectionsManager = () => {
     loadConnections();
   };
 
+  const handleUpdateStatus = (connId, updates) => {
+    setConnections(prev => prev.map(c => c.id === connId ? { ...c, ...updates } : c));
+  };
+
   const handleDelete = (connId) => {
     setConnections(prev => prev.filter(c => c.id !== connId));
   };
@@ -215,7 +231,14 @@ const ConnectionsManager = () => {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sm }}>
             {connections.map(conn => (
-              <ConnectionCard key={conn.id} conn={conn} onEdit={openEdit} onDelete={handleDelete} onBrowse={setBrowsingConn} />
+              <ConnectionCard 
+                key={conn.id} 
+                conn={conn} 
+                onEdit={openEdit} 
+                onDelete={handleDelete} 
+                onUpdate={handleUpdateStatus}
+                onBrowse={setBrowsingConn} 
+              />
             ))}
           </div>
         )}
