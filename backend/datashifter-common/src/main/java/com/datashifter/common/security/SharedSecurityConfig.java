@@ -1,6 +1,7 @@
 package com.datashifter.common.security;
 
 import lombok.RequiredArgsConstructor;
+import com.datashifter.common.utils.JwtUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -34,11 +35,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SharedSecurityConfig implements WebMvcConfigurer {
 
-    private final JwtAuthFilter jwtAuthFilter;
+    private final JwtUtil jwtUtil;
     private final PermissionInterceptor permissionInterceptor;
 
     @Bean
     public SecurityFilterChain sharedFilterChain(HttpSecurity http) throws Exception {
+        JwtAuthFilter jwtAuthFilter = new JwtAuthFilter(jwtUtil);
+
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsSource()))
