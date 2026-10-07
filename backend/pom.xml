@@ -27,7 +27,8 @@
         <module>gateway-service</module>
         <module>auth-service</module>
         <module>notification-service</module>
-        <module>payment-service</module>\n    </modules>
+        <module>payment-service</module>
+    </modules>
 
     <properties>
         <java.version>17</java.version>
