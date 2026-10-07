@@ -14,3 +14,5 @@ export { default as OrgSettingsPage } from './OrgSettingsPage';
 export { default as RolesPage } from './RolesPage';
 export { default as DocsPage } from './DocsPage';
 export { default as BillingPage } from './BillingPage';
+export { default as ForgotPasswordPage } from './ForgotPasswordPage';
+export { default as ResetPasswordPage } from './ResetPasswordPage';

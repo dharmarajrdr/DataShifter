@@ -21,6 +21,8 @@ import {
   RolesPage,
   DocsPage,
   BillingPage,
+  ForgotPasswordPage,
+  ResetPasswordPage,
 } from './pages';
 
 const App = () => (
@@ -32,6 +34,8 @@ const App = () => (
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/onboard" element={<OnboardPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
 
         {/* Docs — standalone page, no sidebar */}
