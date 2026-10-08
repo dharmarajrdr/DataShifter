@@ -38,6 +38,10 @@ export const MOCK_CONNECTIONS = [
   { id: 'c-003', name: 'Oracle staging', type: 'Oracle 19c', dbType: 'ORACLE', host: 'oracle-stg.company.com:1521', schema: 'STG_SCHEMA', tableCount: 0, status: 'FAILED', lastTested: '2026-04-16T06:00:00Z', error: 'Connection refused: timeout after 30s.' },
 ];
 
+export const MOCK_UDFS = [
+  { id: 'udf-001', name: 'customer-eligibility', description: 'Sets eligibility based on customer age and account status.', version: '1.0.0', status: 'READY', sizeBytes: 18432, updatedAt: '2026-10-01T10:00:00Z' },
+];
+
 export const MOCK_MONITOR = {
   pipelineId: 'p-001', pipelineName: 'Orders migration', status: 'RUNNING',
   rowsProcessed: 72450000, rowsPerSec: 12400, errorsSkipped: 23, eta: '~37 min', overallProgress: 72.4,
@@ -206,6 +210,25 @@ export const connectionApi = {
   getForeignKeys: (id, tableName) => USE_MOCK
     ? mockResponse([])
     : apiClient.get(`/connections/${id}/tables/${tableName}/foreign-keys`),
+};
+
+/* ----- JAVA UDFS (udf-service via gateway:8080) ----- */
+
+export const udfApi = {
+  getAll: () => USE_MOCK
+    ? mockResponse(MOCK_UDFS)
+    : apiClient.get('/udfs'),
+
+  upload: (file, metadata) => {
+    if (USE_MOCK) {
+      return mockResponse({ id: 'udf-' + Date.now(), ...metadata, version: '1.0.0', status: 'VALIDATING', sizeBytes: file.size, updatedAt: new Date().toISOString() }, 'UDF uploaded');
+    }
+    const form = new FormData();
+    form.append('file', file);
+    form.append('name', metadata.name);
+    form.append('description', metadata.description || '');
+    return apiClient.upload('/udfs', form, { timeout: 120000 });
+  },
 };
 
 /* ----- MONITORING (monitor-service via gateway:8080) ----- */

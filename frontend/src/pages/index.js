@@ -16,3 +16,4 @@ export { default as DocsPage } from './DocsPage';
 export { default as BillingPage } from './BillingPage';
 export { default as ForgotPasswordPage } from './ForgotPasswordPage';
 export { default as ResetPasswordPage } from './ResetPasswordPage';
+export { default as UdfLibrary } from './UdfLibrary';

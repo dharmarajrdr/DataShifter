@@ -23,6 +23,7 @@ import {
   BillingPage,
   ForgotPasswordPage,
   ResetPasswordPage,
+  UdfLibrary,
 } from './pages';
 
 const App = () => (
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/pipelines/:pipelineId/errors" element={<SubscriptionGuard><ErrorLogViewer /></SubscriptionGuard>} />
           <Route path="/pipelines/:pipelineId/settings" element={<SubscriptionGuard><PipelineSettings /></SubscriptionGuard>} />
           <Route path="/connections" element={<SubscriptionGuard><ConnectionsManager /></SubscriptionGuard>} />
+          <Route path="/udfs" element={<SubscriptionGuard><UdfLibrary /></SubscriptionGuard>} />
           <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
           <Route path="/settings/roles" element={<SubscriptionGuard><RolesPage /></SubscriptionGuard>} />
           <Route path="/profile" element={<UserProfile />} />

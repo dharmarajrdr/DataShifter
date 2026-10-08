@@ -36,8 +36,9 @@ async function request(method, path, body = null, options = {}) {
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    const isMultipart = typeof FormData !== 'undefined' && body instanceof FormData;
     const headers = {
-      'Content-Type': 'application/json',
+      ...(isMultipart ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     };
 
@@ -56,7 +57,7 @@ async function request(method, path, body = null, options = {}) {
     };
 
     if (body !== null && method !== 'GET') {
-      fetchOptions.body = JSON.stringify(body);
+      fetchOptions.body = isMultipart ? body : JSON.stringify(body);
     }
 
     const response = await fetch(url, fetchOptions);
@@ -133,5 +134,6 @@ export const apiClient = {
   post:   (path, body, options) => request('POST', path, body, options),
   put:    (path, body, options) => request('PUT', path, body, options),
   delete: (path, options)       => request('DELETE', path, null, options),
+  upload: (path, formData, options) => request('POST', path, formData, options),
   API_BASE
 };

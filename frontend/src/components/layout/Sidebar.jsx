@@ -4,12 +4,14 @@ import { COLORS, FONT, SPACING, BORDER_RADIUS, SIDEBAR_WIDTH } from '../../const
 import { FCSS, FRSC, FRBC } from '../../constants/layouts';
 import { APP, NAV } from '../../constants/literals';
 import { PipelineIcon, ConnectionIcon, SettingsIcon, LogoIcon } from './Icons';
+import { Code2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { authApi } from '../../services/authApi';
 
 const NAV_ITEMS = [
   { label: NAV.pipelines, path: '/pipelines', icon: PipelineIcon },
   { label: NAV.connections, path: '/connections', icon: ConnectionIcon },
+  { label: NAV.udfs, path: '/udfs', icon: Code2 },
   { label: 'Settings', path: '/settings', icon: SettingsIcon },
 ];
 
