@@ -235,6 +235,10 @@ services:
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
+      DS_SMTP_HOST: ${DS_SMTP_HOST:-localhost}
+      DS_SMTP_PORT: ${DS_SMTP_PORT:-25}
+      DS_SMTP_USERNAME: ${DS_SMTP_USERNAME:-}
+      DS_SMTP_PASSWORD: ${DS_SMTP_PASSWORD:-}
 
   payment-service:
     build:
