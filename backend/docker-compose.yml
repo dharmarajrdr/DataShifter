@@ -265,5 +265,30 @@ services:
       DS_RAZORPAY_KEY_ID: mock_razorpay_key_id
       DS_RAZORPAY_KEY_SECRET: mock_razorpay_key_secret
 
+  udf-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: udf-service
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DS_DB_URL: jdbc:postgresql://postgres:5432/datashifter_db
+      DS_DB_DRIVER: org.postgresql.Driver
+      DS_DB_USERNAME: datashifter
+      DS_DB_PASSWORD: datashifter_password
+      DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
+      DS_JWT_ACCESS_EXPIRY: 3600000
+      DS_JWT_REFRESH_EXPIRY: 86400000
+      DS_UDF_STORAGE_ROOT: /var/lib/datashifter/udfs
+      DS_UDF_MAX_FILE_SIZE_BYTES: 26214400
+    volumes:
+      - udfdata:/var/lib/datashifter/udfs
+
 volumes:
   pgdata:
+  udfdata:

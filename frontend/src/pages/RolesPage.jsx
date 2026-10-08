@@ -46,6 +46,13 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
+    label: 'User-defined functions', permissions: [
+      { key: 'udf:create', label: 'Upload UDFs' },
+      { key: 'udf:view', label: 'View UDFs' },
+      { key: 'udf:delete', label: 'Delete UDFs' },
+    ],
+  },
+  {
     label: 'Settings', permissions: [
       { key: 'settings:edit', label: 'Edit pipeline settings' },
     ],
