@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS, SIDEBAR_WIDTH } from '../../constants/design';
-import { FCSS, FRSC, FRBC } from '../../constants/layouts';
-import { APP, NAV } from '../../constants/literals';
-import { PipelineIcon, ConnectionIcon, SettingsIcon, LogoIcon } from './Icons';
 import { Code2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { BORDER_RADIUS, COLORS, FONT, SIDEBAR_WIDTH, SPACING } from '../../constants/design';
+import { FCSS, FRBC, FRSC } from '../../constants/layouts';
+import { APP, NAV } from '../../constants/literals';
 import { useAuth } from '../../contexts/AuthContext';
 import { authApi } from '../../services/authApi';
+import { ConnectionIcon, LogoIcon, PipelineIcon, SettingsIcon } from './Icons';
 
 const NAV_ITEMS = [
   { label: NAV.pipelines, path: '/pipelines', icon: PipelineIcon },
@@ -31,7 +31,7 @@ const Sidebar = () => {
 
   // Fetch pending invitations on mount
   useEffect(() => {
-    if (user) authApi.myInvitations().then(r => setInvitations(r.data || [])).catch(() => {});
+    if (user) authApi.myInvitations().then(r => setInvitations(r.data || [])).catch(() => { });
   }, [user]);
 
   // Close dropdowns on outside click
@@ -60,7 +60,7 @@ const Sidebar = () => {
       await authApi.handleInvitation(invId, action);
       setInvitations(prev => prev.filter(i => i.id !== invId));
       if (action === 'ACCEPT') {
-        authApi.me().then(r => updateUser(r.data)).catch(() => {});
+        authApi.me().then(r => updateUser(r.data)).catch(() => { });
         refreshOrganizations();
       }
     } catch (e) { console.error('Invitation response failed:', e); }
@@ -127,8 +127,8 @@ const Sidebar = () => {
           onMouseEnter={e => e.currentTarget.style.background = COLORS.background.secondary}
           onMouseLeave={e => { if (!showNotif) e.currentTarget.style.background = 'transparent'; }}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6v2.5L2 10v1h12v-1l-1.5-1.5V6c0-2.5-2-4.5-4.5-4.5z" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinejoin="round"/>
-            <path d="M6 12a2 2 0 004 0" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinecap="round"/>
+            <path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6v2.5L2 10v1h12v-1l-1.5-1.5V6c0-2.5-2-4.5-4.5-4.5z" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinejoin="round" />
+            <path d="M6 12a2 2 0 004 0" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinecap="round" />
           </svg>
           <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>Notifications</span>
           {invitations.length > 0 && (
@@ -192,9 +192,9 @@ const Sidebar = () => {
           onMouseEnter={e => e.currentTarget.style.background = COLORS.background.secondary}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M3 2.5h7l3 3V13a.5.5 0 01-.5.5h-9A.5.5 0 013 13V3a.5.5 0 01.5-.5z" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinejoin="round"/>
-            <path d="M10 2.5V5.5h3" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinejoin="round"/>
-            <path d="M5.5 8h5M5.5 10.5h3.5" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinecap="round"/>
+            <path d="M3 2.5h7l3 3V13a.5.5 0 01-.5.5h-9A.5.5 0 013 13V3a.5.5 0 01.5-.5z" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinejoin="round" />
+            <path d="M10 2.5V5.5h3" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinejoin="round" />
+            <path d="M5.5 8h5M5.5 10.5h3.5" stroke={COLORS.text.secondary} strokeWidth="1.2" strokeLinecap="round" />
           </svg>
           <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>Documentation</span>
         </div>

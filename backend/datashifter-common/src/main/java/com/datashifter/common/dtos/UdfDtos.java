@@ -1,13 +1,15 @@
 package com.datashifter.common.dtos;
 
+import java.time.Instant;
+
 import com.datashifter.common.enums.UdfStatus;
+
 import lombok.Builder;
 import lombok.Getter;
 
-import java.time.Instant;
-
 public final class UdfDtos {
-    private UdfDtos() {}
+    private UdfDtos() {
+    }
 
     @Getter
     @Builder

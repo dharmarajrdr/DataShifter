@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC, FRWSC } from '../constants/layouts';
-import { PageHeader, Button, Chip, Toggle } from '../components/common';
+import { Button, Chip } from '../components/common';
+import SettingsTabs from '../components/common/SettingsTabs';
 import { CloseIcon } from '../components/layout/Icons';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { FRBC, FRSC, FRWSC } from '../constants/layouts';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../services/authApi';
-import SettingsTabs from '../components/common/SettingsTabs';
 
 /* ================================================================
    PERMISSION GROUPS — organized by resource for the UI

@@ -15,7 +15,7 @@ import { apiClient, USE_MOCK } from './apiClient';
    MOCK DATA — kept for offline development and demo mode
    ================================================================ */
 
-const mockResponse = (data, message = 'Success') => 
+const mockResponse = (data, message = 'Success') =>
   Promise.resolve({ message, data, info: null, status: 200 });
 
 export const MOCK_NAMESPACES = [

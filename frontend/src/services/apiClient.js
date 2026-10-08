@@ -106,7 +106,7 @@ async function request(method, path, body = null, options = {}) {
     if (error.name === 'AbortError') {
       throw new ApiError('Request timed out', 408);
     }
-    if(error.message == 'Failed to fetch') {
+    if (error.message == 'Failed to fetch') {
       throw new ApiError('Network error — is the backend running?', 500);
     }
     throw new ApiError(error.message, error.status || 500);
@@ -130,10 +130,10 @@ export class ApiError extends Error {
    ============================================================ */
 
 export const apiClient = {
-  get:    (path, options)       => request('GET', path, null, options),
-  post:   (path, body, options) => request('POST', path, body, options),
-  put:    (path, body, options) => request('PUT', path, body, options),
-  delete: (path, options)       => request('DELETE', path, null, options),
+  get: (path, options) => request('GET', path, null, options),
+  post: (path, body, options) => request('POST', path, body, options),
+  put: (path, body, options) => request('PUT', path, body, options),
+  delete: (path, options) => request('DELETE', path, null, options),
   upload: (path, formData, options) => request('POST', path, formData, options),
   API_BASE
 };
