@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication
 @EntityScan(basePackages = "com.datashifter.common.models")
-@ComponentScan(basePackages = {"com.datashifter.execution", "com.datashifter.common.security", "com.datashifter.common.utils", "com.datashifter.common.services", "com.datashifter.connector"})
+@ComponentScan(basePackages = {"com.datashifter.execution", "com.datashifter.common.security", "com.datashifter.common.utils", "com.datashifter.common.services", "com.datashifter.common.exceptions", "com.datashifter.connector"})
 @EnableJpaRepositories(basePackages = {"com.datashifter.execution.repositories", "com.datashifter.common.repositories"})
 public class ExecutionEngineApplication {
     public static void main(String[] args) {

@@ -48,6 +48,7 @@ public class SharedSecurityConfig implements WebMvcConfigurer {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
