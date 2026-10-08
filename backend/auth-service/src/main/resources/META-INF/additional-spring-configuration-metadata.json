@@ -1,0 +1,19 @@
+{
+    "properties": [
+        {
+            "name": "datashifter.jwt.secret",
+            "type": "java.lang.String",
+            "description": "A description for 'datashifter.jwt.secret'"
+        },
+        {
+            "name": "datashifter.jwt.access-token-expiry-ms",
+            "type": "java.lang.String",
+            "description": "A description for 'datashifter.jwt.access-token-expiry-ms'"
+        },
+        {
+            "name": "datashifter.jwt.refresh-token-expiry-ms",
+            "type": "java.lang.String",
+            "description": "A description for 'datashifter.jwt.refresh-token-expiry-ms'"
+        }
+    ]
+}
