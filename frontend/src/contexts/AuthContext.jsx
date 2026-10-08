@@ -114,6 +114,20 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token, user, clearAuth, refreshOrganizations]);
 
+  useEffect(() => {
+    const handleAuthUpdated = () => {
+      try {
+        const storedUser = JSON.parse(localStorage.getItem(USER_KEY));
+        setToken(localStorage.getItem(TOKEN_KEY));
+        setUser(storedUser);
+      } catch {
+        clearAuth();
+      }
+    };
+    window.addEventListener('ds-auth-updated', handleAuthUpdated);
+    return () => window.removeEventListener('ds-auth-updated', handleAuthUpdated);
+  }, [clearAuth]);
+
   const value = {
     user,
     token,
