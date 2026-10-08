@@ -28,6 +28,7 @@
         <module>auth-service</module>
         <module>notification-service</module>
         <module>payment-service</module>
+        <module>udf-service</module>
     </modules>
 
     <properties>

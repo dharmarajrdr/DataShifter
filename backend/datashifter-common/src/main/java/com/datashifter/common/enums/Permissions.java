@@ -45,6 +45,11 @@ public final class Permissions {
     // --- Settings ---
     public static final String SETTINGS_EDIT = "settings:edit";
 
+        // --- User-defined functions ---
+        public static final String UDF_CREATE = "udf:create";
+        public static final String UDF_VIEW = "udf:view";
+        public static final String UDF_DELETE = "udf:delete";
+
     // --- Organization ---
     public static final String ORG_MANAGE_MEMBERS = "org:manage_members";
     public static final String ORG_MANAGE_ROLES   = "org:manage_roles";
@@ -60,6 +65,7 @@ public final class Permissions {
             CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
             MONITOR_VIEW, MONITOR_VIEW_ERRORS,
             SETTINGS_EDIT,
+            UDF_CREATE, UDF_VIEW, UDF_DELETE,
             ORG_MANAGE_MEMBERS, ORG_MANAGE_ROLES, ORG_MANAGE_INVITES, ORG_VIEW_AUDIT
     );
 
@@ -70,11 +76,12 @@ public final class Permissions {
             NAMESPACE_CREATE, NAMESPACE_EDIT,
             CONNECTION_CREATE, CONNECTION_EDIT, CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
             MONITOR_VIEW, MONITOR_VIEW_ERRORS,
-            SETTINGS_EDIT
+            SETTINGS_EDIT,
+            UDF_CREATE, UDF_VIEW
     );
 
     /** Default Viewer permissions */
     public static final List<String> VIEWER = List.of(
-            PIPELINE_VIEW, MONITOR_VIEW, MONITOR_VIEW_ERRORS, CONNECTION_BROWSE_SCHEMA
+            PIPELINE_VIEW, MONITOR_VIEW, MONITOR_VIEW_ERRORS, CONNECTION_BROWSE_SCHEMA, UDF_VIEW
     );
 }
