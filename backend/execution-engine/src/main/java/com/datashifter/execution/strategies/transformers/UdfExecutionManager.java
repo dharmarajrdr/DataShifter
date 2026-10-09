@@ -17,6 +17,7 @@ import com.datashifter.execution.exceptions.UdfTimeoutException;
 import com.datashifter.udf.sdk.Row;
 import com.datashifter.udf.sdk.SimpleRow;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -54,10 +56,10 @@ public class UdfExecutionManager {
     private final AtomicLong totalExecutionTimeNanos = new AtomicLong(0);
     private final AtomicLong totalFailures = new AtomicLong(0);
 
-    // Thread pool for isolated execution with timeout
-    private final ExecutorService udfExecutor = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r);
-        t.setName("udf-worker-" + t.getId());
+    // Active thread tracking for timeout watchdog (0 threads spawned per row)
+    private final ConcurrentHashMap<Thread, Long> activeExecutions = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "udf-watchdog");
         t.setDaemon(true);
         return t;
     });
@@ -73,10 +75,30 @@ public class UdfExecutionManager {
         this.udfDefinitionRepository = udfDefinitionRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
+
+        // Schedule periodic watchdog to check for infinite loops or stuck executions
+        this.watchdog.scheduleWithFixedDelay(this::checkTimeouts, 500, 500, TimeUnit.MILLISECONDS);
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        watchdog.shutdownNow();
+    }
+
+    private void checkTimeouts() {
+        long now = System.currentTimeMillis();
+        for (Map.Entry<Thread, Long> entry : activeExecutions.entrySet()) {
+            if (now - entry.getValue() > defaultTimeoutMs) {
+                Thread thread = entry.getKey();
+                log.warn("UDF execution exceeded timeout of {}ms on thread {}. Interrupting.",
+                        defaultTimeoutMs, thread.getName());
+                thread.interrupt();
+            }
+        }
     }
 
     /**
-     * Executes a UDF for a single record row context.
+     * Executes a UDF for a single record row context in-memory.
      *
      * @param config       parsed UDF configuration
      * @param input        current column input value
@@ -106,32 +128,45 @@ public class UdfExecutionManager {
         Method method = loadedClass.getMethod(config.getMethodName());
         Object instance = loadedClass.getInstance();
 
-        // 4. Execute with timeout
+        // 4. Direct in-memory invocation on the execution worker thread
         Object result;
+        Thread currentThread = Thread.currentThread();
+        activeExecutions.put(currentThread, System.currentTimeMillis());
         try {
-            long timeout = defaultTimeoutMs;
-            Future<Object> future = udfExecutor.submit(() -> method.invoke(instance, row));
-            try {
-                Object invokedResult = future.get(timeout, TimeUnit.MILLISECONDS);
-                if (method.getReturnType() != void.class && method.getReturnType() != Void.class) {
-                    result = invokedResult;
-                } else if (targetColumn != null && row.has(targetColumn)) {
-                    result = row.get(targetColumn);
-                } else {
-                    result = input;
-                }
-            } catch (TimeoutException te) {
-                future.cancel(true);
-                throw new UdfTimeoutException(String.format("UDF execution timed out after %d ms for method %s.%s",
-                        timeout, config.getClassName(), config.getMethodName()), te);
-            } catch (ExecutionException ee) {
-                Throwable cause = ee.getCause() != null ? ee.getCause() : ee;
-                throw new UdfExecutionException("UDF invocation error: " + cause.getMessage(), cause);
+            Object invokedResult = method.invoke(instance, row);
+            if (method.getReturnType() != void.class && method.getReturnType() != Void.class) {
+                result = invokedResult;
+            } else if (targetColumn != null && row.has(targetColumn)) {
+                result = row.get(targetColumn);
+            } else {
+                result = input;
             }
+        } catch (InvocationTargetException ite) {
+            totalFailures.incrementAndGet();
+            long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+            Throwable cause = ite.getCause() != null ? ite.getCause() : ite;
+            if (cause instanceof InterruptedException || currentThread.isInterrupted()) {
+                Thread.interrupted(); // clear interrupted status
+                return handleFailure(config, new UdfTimeoutException(String.format(
+                        "UDF execution timed out after %d ms for method %s.%s",
+                        defaultTimeoutMs, config.getClassName(), config.getMethodName()), cause),
+                        sourceRecord, targetColumn, elapsedMs);
+            }
+            return handleFailure(config, new UdfExecutionException("UDF invocation error: " + cause.getMessage(), cause),
+                    sourceRecord, targetColumn, elapsedMs);
         } catch (Exception e) {
             totalFailures.incrementAndGet();
             long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+            if (e instanceof InterruptedException || currentThread.isInterrupted()) {
+                Thread.interrupted(); // clear interrupted status
+                return handleFailure(config, new UdfTimeoutException(String.format(
+                        "UDF execution timed out after %d ms for method %s.%s",
+                        defaultTimeoutMs, config.getClassName(), config.getMethodName()), e),
+                        sourceRecord, targetColumn, elapsedMs);
+            }
             return handleFailure(config, e, sourceRecord, targetColumn, elapsedMs);
+        } finally {
+            activeExecutions.remove(currentThread);
         }
 
         long elapsedNanos = System.nanoTime() - startNanos;

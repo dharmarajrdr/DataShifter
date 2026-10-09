@@ -19,6 +19,15 @@ public class CustomerFunctions {
         return email == null ? null : email.trim().toLowerCase();
     }
 
+    @DataShifterUdf(name = "to-zoho-account", description = "Converts an email to a Zoho account")
+    public String toZohoAccount(Row row) {
+        String email = row.get("email", String.class);
+        if (email == null) return null;
+        int atIndex = email.indexOf('@');
+        if (atIndex == -1) return email; // Invalid email, return as is
+        return email.substring(0, atIndex) + "@zoho.com";
+    }
+
     public static String internalHelper(String value) {
         return value;
     }

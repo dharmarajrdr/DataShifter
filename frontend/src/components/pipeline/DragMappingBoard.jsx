@@ -310,11 +310,11 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
       {sel !== null && mappings[sel] && (
         <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', background: '#fff', border: '1px solid #E8E8E5', padding: '6px 16px', borderRadius: '99px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', fontSize: '12px', zIndex: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ color: '#6B6B6B' }}>{mappings[sel].targetOnly ? `⚙ ${mappings[sel].target}` : `${mappings[sel].source} → ${mappings[sel].target}`}</span>
-          {mappings[sel].transforms?.some(t => t.fn === 'UDF') ? (
+          {/* {mappings[sel].transforms?.some(t => t.fn === 'UDF') ? (
             <span style={{ background: '#EEEDFE', color: '#534AB7', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>UDF Pinned</span>
           ) : mappings[sel].targetOnly ? (
             <span style={{ background: '#FEF3C7', color: '#854F0B', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 500 }}>System</span>
-          ) : null}
+          ) : null} */}
           <span style={{ color: '#D4D4D0' }}>|</span>
           {onMappingClick && <><span style={{ cursor: 'pointer', color: '#534AB7', fontWeight: 500 }} onClick={() => onMappingClick(mappings[sel], sel)}>Transform</span><span style={{ color: '#D4D4D0' }}>|</span></>}
           <span style={{ cursor: 'pointer', color: '#A32D2D', fontWeight: 500 }} onClick={delS}>Remove</span>
