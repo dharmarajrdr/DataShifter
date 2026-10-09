@@ -1,9 +1,10 @@
+# syntax=docker/dockerfile:1.7
 FROM maven:3.9.6-eclipse-temurin-17 AS builder
 WORKDIR /app
-# Copy all source code
+ARG SERVICE_NAME
 COPY . .
-# Build the multi-module project
-RUN mvn clean package -DskipTests
+RUN --mount=type=cache,id=datashifter-m2,target=/root/.m2 \
+    mvn -pl ${SERVICE_NAME} -am clean package -DskipTests
 
 FROM eclipse-temurin:17-jre
 ARG SERVICE_NAME
