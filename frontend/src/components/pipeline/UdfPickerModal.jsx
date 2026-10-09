@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../../constants/design';
-import { FRBC, FREC, FRSC } from '../../constants/layouts';
-import { Loader } from '../common';
-import { CloseIcon } from '../layout/Icons';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../../constants/design';
+import { FRBC, FREC } from '../../constants/layouts';
 import { udfApi } from '../../services/api';
+import { Loader } from '../common';
+import { CloseIcon, InfoIcon } from '../layout/Icons';
 
 const FAILURE_POLICIES = [
   { value: 'SKIP_ROW', label: 'Skip Row', desc: 'Drop failed row and continue pipeline' },
@@ -11,6 +11,282 @@ const FAILURE_POLICIES = [
   { value: 'FAIL_CHUNK', label: 'Fail Chunk', desc: 'Fail current chunk and retry batch' },
   { value: 'STOP_PIPELINE', label: 'Stop Pipeline', desc: 'Abort entire migration immediately' },
 ];
+
+const MethodDropdown = ({ functions, selectedMethodName, onSelect }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [hoveredInfoMethod, setHoveredInfoMethod] = useState(null);
+  const dropdownRef = useRef(null);
+
+  const selectedFunction = useMemo(() => {
+    return functions.find(f => f.methodName === selectedMethodName) || functions[0] || null;
+  }, [functions, selectedMethodName]);
+
+  // Close when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+      {/* Trigger Button */}
+      <button
+        type="button"
+        id="udf-method-select"
+        onClick={() => setIsOpen(prev => !prev)}
+        style={{
+          width: '100%',
+          height: '38px',
+          padding: `${SPACING.xs} 10px`,
+          borderRadius: BORDER_RADIUS.md,
+          border: `1px solid ${isOpen ? COLORS.brand.primary : COLORS.border.medium}`,
+          boxShadow: isOpen ? `0 0 0 3px ${COLORS.brand.primaryLight}` : 'none',
+          fontSize: FONT.size.sm,
+          fontFamily: 'monospace',
+          color: COLORS.text.primary,
+          background: COLORS.background.primary,
+          cursor: 'pointer',
+          outline: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+          boxSizing: 'border-box',
+        }}
+        onMouseEnter={e => {
+          if (!isOpen) e.currentTarget.style.borderColor = COLORS.brand.primaryHover;
+        }}
+        onMouseLeave={e => {
+          if (!isOpen) e.currentTarget.style.borderColor = COLORS.border.medium;
+        }}
+      >
+        <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', textAlign: 'left' }}>
+          {selectedFunction
+            ? `${selectedFunction.returnType || 'void'} ${selectedFunction.methodName}(Row row)`
+            : 'Select method...'}
+        </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '8px' }}>
+          {selectedFunction?.description && (
+            <div
+              style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+              onClick={e => e.stopPropagation()}
+              onMouseEnter={() => setHoveredInfoMethod('selected')}
+              onMouseLeave={() => setHoveredInfoMethod(null)}
+            >
+              <span
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: COLORS.brand.primary,
+                  cursor: 'help',
+                }}
+              >
+                <InfoIcon size={14} color={COLORS.brand.primary} />
+              </span>
+
+              {/* Tooltip for selected method */}
+              {hoveredInfoMethod === 'selected' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: 'calc(100% + 8px)',
+                    background: '#1A1A1A',
+                    color: '#FFFFFF',
+                    padding: '6px 10px',
+                    borderRadius: BORDER_RADIUS.md,
+                    fontSize: FONT.size.xs,
+                    fontFamily: FONT.family,
+                    whiteSpace: 'normal',
+                    width: 'max-content',
+                    maxWidth: '260px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
+                    zIndex: 1050,
+                    pointerEvents: 'none',
+                    lineHeight: '1.4',
+                  }}
+                >
+                  <div style={{ fontWeight: FONT.weight.semibold, color: COLORS.brand.primaryLight, marginBottom: '2px' }}>
+                    Method Description
+                  </div>
+                  <div>{selectedFunction.description}</div>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: '6px',
+                      borderWidth: '4px',
+                      borderStyle: 'solid',
+                      borderColor: '#1A1A1A transparent transparent transparent',
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Chevron */}
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            style={{
+              transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.15s ease',
+            }}
+          >
+            <path d="M2.5 4.5L6 8L9.5 4.5" stroke={COLORS.text.secondary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </button>
+
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            right: 0,
+            background: COLORS.background.primary,
+            border: `1px solid ${COLORS.border.light}`,
+            borderRadius: BORDER_RADIUS.md,
+            boxShadow: '0 12px 28px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.05)',
+            maxHeight: '220px',
+            overflowY: 'auto',
+            zIndex: 1000,
+          }}
+        >
+          {functions.map(f => {
+            const isSelected = f.methodName === selectedMethodName;
+            return (
+              <div
+                key={f.methodName}
+                onClick={() => {
+                  onSelect(f.methodName);
+                  setIsOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: `8px 12px`,
+                  cursor: 'pointer',
+                  background: isSelected ? COLORS.brand.primaryLight : 'transparent',
+                  transition: 'background-color 0.12s ease',
+                  borderBottom: `1px solid ${COLORS.border.light}`,
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = COLORS.background.secondary;
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'monospace',
+                    fontSize: FONT.size.sm,
+                    color: isSelected ? COLORS.brand.primaryDark : COLORS.text.primary,
+                    fontWeight: isSelected ? FONT.weight.semibold : FONT.weight.regular,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                  }}
+                >
+                  {f.returnType || 'void'} {f.methodName}(Row row)
+                </span>
+
+                {/* Info Icon with On-Hover description */}
+                {f.description && (
+                  <div
+                    style={{
+                      position: 'relative',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      marginLeft: SPACING.xs,
+                      flexShrink: 0,
+                    }}
+                    onClick={e => e.stopPropagation()}
+                    onMouseEnter={() => setHoveredInfoMethod(f.methodName)}
+                    onMouseLeave={() => setHoveredInfoMethod(null)}
+                  >
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        color: isSelected ? COLORS.brand.primaryDark : COLORS.text.secondary,
+                        background: hoveredInfoMethod === f.methodName ? COLORS.border.light : 'transparent',
+                        cursor: 'help',
+                        transition: 'background 0.15s ease',
+                      }}
+                    >
+                      <InfoIcon size={14} color={isSelected ? COLORS.brand.primary : COLORS.text.secondary} />
+                    </span>
+
+                    {/* Hover Tooltip displaying f.description */}
+                    {hoveredInfoMethod === f.methodName && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          bottom: 'calc(100% + 6px)',
+                          background: '#1A1A1A',
+                          color: '#FFFFFF',
+                          padding: '6px 10px',
+                          borderRadius: BORDER_RADIUS.md,
+                          fontSize: FONT.size.xs,
+                          fontFamily: FONT.family,
+                          whiteSpace: 'normal',
+                          width: 'max-content',
+                          maxWidth: '260px',
+                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
+                          zIndex: 1100,
+                          pointerEvents: 'none',
+                          lineHeight: '1.4',
+                        }}
+                      >
+                        <div style={{ fontWeight: FONT.weight.semibold, color: COLORS.brand.primaryLight, marginBottom: '2px' }}>
+                          Method Description
+                        </div>
+                        <div>{f.description}</div>
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            right: '7px',
+                            borderWidth: '4px',
+                            borderStyle: 'solid',
+                            borderColor: '#1A1A1A transparent transparent transparent',
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const UdfPickerModal = ({
   targetColumn,
@@ -386,7 +662,7 @@ const UdfPickerModal = ({
                     ))}
                   </select>
 
-                  {/* Pinned Version Badge */}
+                  {/* Pinned Version Badge
                   {selectedUdf && (
                     <div
                       title="This specific version will be permanently pinned for pipeline execution reproducibility"
@@ -410,7 +686,7 @@ const UdfPickerModal = ({
                       <span>📌</span>
                       <span>v{selectedUdf.version || '1.0.0'}</span>
                     </div>
-                  )}
+                  )} */}
                 </div>
                 {selectedUdf?.description && (
                   <p
@@ -456,46 +732,12 @@ const UdfPickerModal = ({
                     ⚠ No methods annotated with <code>@DataShifterUdf</code> were found in this JAR.
                   </div>
                 ) : (
-                  <select
-                    id="udf-method-select"
-                    value={selectedMethodName}
-                    onChange={e => setSelectedMethodName(e.target.value)}
-                    onFocus={() => setFocusedField('method')}
-                    onBlur={() => setFocusedField(null)}
-                    style={{
-                      ...getSelectStyle('method'),
-                      fontFamily: 'monospace',
-                    }}
-                  >
-                    {functions.map(f => (
-                      <option key={f.methodName} value={f.methodName}>
-                        {f.returnType || 'void'} {f.methodName}(Row row) — {f.description || f.className}
-                      </option>
-                    ))}
-                  </select>
+                  <MethodDropdown
+                    functions={functions}
+                    selectedMethodName={selectedMethodName}
+                    onSelect={setSelectedMethodName}
+                  />
                 )}
-              </div>
-
-              {/* Row Processing Information Note */}
-              <div
-                style={{
-                  background: COLORS.status.infoLight,
-                  border: `1px solid #C2DCF6`,
-                  borderRadius: BORDER_RADIUS.md,
-                  padding: `${SPACING.xs} ${SPACING.sm}`,
-                  fontSize: FONT.size.sm,
-                  color: COLORS.status.infoText,
-                  lineHeight: '1.45',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '8px',
-                }}
-              >
-                <span style={{ fontSize: '14px', flexShrink: 0, marginTop: '1px' }}>💡</span>
-                <div>
-                  <span style={{ fontWeight: FONT.weight.semibold }}>Full Row Context: </span>
-                  The entire <code style={{ fontFamily: 'monospace', background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(55,138,221,0.25)', padding: '1px 5px', borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs }}>Row</code> is passed to the UDF. The method can read any source column and directly modify values via <code style={{ fontFamily: 'monospace', background: 'rgba(255,255,221,0.8)', border: '1px solid rgba(55,138,221,0.25)', padding: '1px 5px', borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs }}>row.set(...)</code>.
-                </div>
               </div>
 
               {/* Failure Policy Selector */}
