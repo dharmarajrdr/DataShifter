@@ -11,7 +11,7 @@
     <dependencies>
         <dependency>
             <groupId>com.datashifter</groupId>
-            <artifactId>datashifter-common</artifactId>
+            <artifactId>udf-sdk</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>

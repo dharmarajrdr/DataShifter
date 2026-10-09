@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.datashifter</groupId>
+        <artifactId>datashifter-backend</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>udf-sdk</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>Datashifter UDF SDK</name>
+    <description>Lightweight SDK for users to write DataShifter UDFs</description>
+    
+    <dependencies>
+        <!-- No dependencies! Pure Java to keep the user's UDF JAR lightweight -->
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- Disable annotation processing for this module itself to avoid compiling the processor before it's built -->
+                    <compilerArgument>-proc:none</compilerArgument>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
