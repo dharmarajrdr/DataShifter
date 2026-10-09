@@ -2,6 +2,7 @@ package com.datashifter.udf.validation;
 
 import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.udf.sdk.DataShifterUdf;
+import com.datashifter.udf.sdk.Row;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -28,7 +29,7 @@ class UdfFunctionDiscoveryTest {
         UdfFunctionDiscovery.DiscoveredFunction function = functions.get(0);
         assertEquals("age-eligibility", function.functionName());
         assertEquals("eligible", function.methodName());
-        assertEquals(List.of("java.lang.Integer"), function.parameterTypes());
+        assertEquals(List.of("com.datashifter.udf.sdk.Row"), function.parameterTypes());
         assertEquals("boolean", function.returnType());
         assertTrue(function.staticMethod());
     }
@@ -54,13 +55,14 @@ class UdfFunctionDiscoveryTest {
 
     static class ValidFixture {
         @DataShifterUdf(name = "age-eligibility", description = "Returns whether an age is eligible")
-        public static boolean eligible(Integer age) {
+        public static boolean eligible(Row row) {
+            Integer age = row.get("age", Integer.class);
             return age != null && age >= 18;
         }
 
         @DataShifterUdf
-        private static String hidden(String value) {
-            return value;
+        private static String hidden(Row row) {
+            return "hidden";
         }
     }
 
