@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../../constants/design';
+import UdfPickerModal from './UdfPickerModal';
 
 const LINE_COLORS = [
   { stroke: '#534AB7', bg: '#EEEDFE', text: '#3C3489', key: 'purple' },
@@ -32,15 +33,27 @@ const ResetIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="no
 const GearIcon = () => <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="1.5" stroke="currentColor" strokeWidth=".8"/><path d="M5 1v1M5 8v1M1 5h1M8 5h1M2.2 2.2l.7.7M7.1 7.1l.7.7M7.8 2.2l-.7.7M2.9 7.1l-.7.7" stroke="currentColor" strokeWidth=".8" strokeLinecap="round"/></svg>;
 
 /* ================================================================
-   SYSTEM VALUE PICKER MODAL
+   TARGET COLUMN CONFIG MODAL (System Value or Java UDF)
    ================================================================ */
-const SystemValuePicker = ({ colName, onSelect, onClose }) => {
+const TargetConfigModal = ({ colName, sourceTables, onSelectSystem, onSelectUdf, onClose }) => {
+  const [mode, setMode] = useState('system');
   const [selectedFn, setSelectedFn] = useState(null);
   const [args, setArgs] = useState('');
 
+  if (mode === 'udf') {
+    return (
+      <UdfPickerModal
+        targetColumn={colName}
+        sourceTables={sourceTables}
+        onApply={(config, primaryCol) => onSelectUdf(config, primaryCol)}
+        onClose={onClose}
+      />
+    );
+  }
+
   const handleApply = () => {
     if (!selectedFn) return;
-    onSelect(selectedFn, args);
+    onSelectSystem(selectedFn, args);
     onClose();
   };
 
@@ -48,18 +61,42 @@ const SystemValuePicker = ({ colName, onSelect, onClose }) => {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,.15)', zIndex: 100 }} />
-      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 101, background: '#fff', borderRadius: '12px', boxShadow: '0 8px 30px rgba(0,0,0,.12)', width: '380px', overflow: 'hidden' }}>
-        {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #E8E8E5' }}>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A1A' }}>System value</div>
-          <div style={{ fontSize: '12px', color: '#9B9B9B', marginTop: '2px' }}>
-            Set an auto-generated value for <span style={{ color: '#534AB7', fontWeight: 500 }}>{colName}</span>
+      <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,.2)', zIndex: 100 }} />
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 101, background: '#fff', borderRadius: '12px', boxShadow: '0 8px 30px rgba(0,0,0,.12)', width: '400px', overflow: 'hidden' }}>
+        {/* Header with Mode Tabs */}
+        <div style={{ padding: '16px 20px 0', borderBottom: '1px solid #E8E8E5', background: '#FAFAF9' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A1A' }}>Target Column Configuration</div>
+          <div style={{ fontSize: '12px', color: '#9B9B9B', marginTop: '2px', marginBottom: '12px' }}>
+            Configure generation for <span style={{ color: '#534AB7', fontWeight: 600 }}>{colName}</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setMode('system')}
+              style={{
+                flex: 1, padding: '8px 12px', border: 'none', background: 'transparent',
+                borderBottom: mode === 'system' ? '2px solid #534AB7' : '2px solid transparent',
+                color: mode === 'system' ? '#534AB7' : '#6B6B6B', fontWeight: mode === 'system' ? 600 : 400,
+                fontSize: '12px', cursor: 'pointer'
+              }}
+            >
+              ⚙ System Value
+            </button>
+            <button
+              onClick={() => setMode('udf')}
+              style={{
+                flex: 1, padding: '8px 12px', border: 'none', background: 'transparent',
+                borderBottom: mode === 'udf' ? '2px solid #534AB7' : '2px solid transparent',
+                color: mode === 'udf' ? '#534AB7' : '#6B6B6B', fontWeight: mode === 'udf' ? 600 : 400,
+                fontSize: '12px', cursor: 'pointer'
+              }}
+            >
+              ☕ Java UDF
+            </button>
           </div>
         </div>
 
         {/* Options list */}
-        <div style={{ padding: '8px' }}>
+        <div style={{ padding: '8px', maxHeight: '320px', overflowY: 'auto' }}>
           {SYSTEM_VALUES.map(sv => {
             const isSel = selectedFn === sv.fn;
             return (
@@ -105,7 +142,7 @@ const SystemValuePicker = ({ colName, onSelect, onClose }) => {
 /* ================================================================
    MAIN BOARD
    ================================================================ */
-const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChange, onMappingClick, onAddSystemValue }) => {
+const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChange, onMappingClick, onAddSystemValue, onAddUdf }) => {
   const cRef = useRef(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -175,9 +212,10 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
           const k = toKey(table.tableName, col.name);
           const hasRegularMapping = iS ? mS.has(k) : (mT.has(k) && !toMap[k]);
           const hasSysMapping = !iS && toMap[k];
+          const hasUdfMapping = !iS && toMap[k]?.mapping?.transforms?.some(t => t.fn === 'UDF');
           const im = hasRegularMapping || hasSysMapping;
           const mp = iS ? mappings.find(m => m.source === k) : mappings.find(m => m.target === k && m.source);
-          const dc = mp ? getLC(mp).stroke : hasSysMapping ? '#F59E0B' : '#D4D4D0';
+          const dc = mp ? getLC(mp).stroke : hasUdfMapping ? '#534AB7' : hasSysMapping ? '#F59E0B' : '#D4D4D0';
           const cy = TBL_HEADER_H + TBL_PAD + ci * COL_ROW_H + COL_ROW_H / 2;
           const dx = iS ? TBL_WIDTH - DOT_R - 4 : DOT_R + 4;
           return (
@@ -195,24 +233,22 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
                   {!col.nullable && !col.primaryKey && <text x={DOT_R * 2 + 8} y={cy + 3} fontSize="9" fill="#A32D2D">*</text>}
                   <text x={col.primaryKey || !col.nullable ? DOT_R * 2 + 20 : DOT_R * 2 + 14} y={cy + 3} fontSize="10" fill="#1A1A1A" fontFamily="system-ui">{col.name}</text>
                   <text x={!col.primaryKey ? TBL_WIDTH - 22 : TBL_WIDTH - 8} y={cy + 3} fontSize="8" fill="#9B9B9B" fontFamily="monospace" textAnchor="end">{col.type}</text>
-                  {/* ⚙ icon — 3 states: default (gray), system active (amber), mapped (hidden) */}
+                  {/* ⚙ icon — states: default (gray), system active (amber), udf active (purple) */}
                   {!col.primaryKey && !hasRegularMapping && (
                     <g transform={`translate(${TBL_WIDTH - 16},${cy - 5})`}
                       style={{ cursor: 'pointer' }}
                       onClick={e => {
                         e.stopPropagation();
                         if (hasSysMapping) {
-                          // System value active — select it (user can remove via action bar)
                           setSel(toMap[k].idx);
                         } else {
-                          // No mapping — open system value picker
                           setSysTarget({ table: table.tableName, col: col.name });
                         }
                       }}>
                       <rect x={-3} y={-3} width={16} height={16} rx={4}
-                        fill={hasSysMapping ? '#FEF3C7' : 'transparent'}
-                        stroke={hasSysMapping ? '#F59E0B' : 'transparent'} strokeWidth={hasSysMapping ? .8 : 0} />
-                      <g fill={hasSysMapping ? '#D97706' : '#9B9B9B'}>
+                        fill={hasUdfMapping ? '#EEEDFE' : hasSysMapping ? '#FEF3C7' : 'transparent'}
+                        stroke={hasUdfMapping ? '#534AB7' : hasSysMapping ? '#F59E0B' : 'transparent'} strokeWidth={hasSysMapping || hasUdfMapping ? .8 : 0} />
+                      <g fill={hasUdfMapping ? '#534AB7' : hasSysMapping ? '#D97706' : '#9B9B9B'}>
                         <GearIcon />
                       </g>
                     </g>
@@ -262,7 +298,7 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
             {mappings.map((m, i) => {
               if (m.targetOnly || !m.source) return null;
               const [sT, sC] = m.source.split('.'), [tT, tC] = m.target.split('.'); const st = sourceTables.find(t => t.tableName === sT), tt = targetTables.find(t => t.tableName === tT); const si = st?.columns?.findIndex(c => c.name === sC) ?? -1, ti = tt?.columns?.findIndex(c => c.name === tC) ?? -1; const sp = dotP(sT, si, 'source'), tP = dotP(tT, ti, 'target'); if (!sp || !tP) return null; const lc = getLC(m), isSel = sel === i;
-              return (<g key={`${m.source}-${m.target}`}><path d={bz(sp.x, sp.y, tP.x, tP.y)} fill="none" stroke="transparent" strokeWidth={12} style={{ cursor: 'pointer' }} onClick={() => setSel(isSel ? null : i)} /><path d={bz(sp.x, sp.y, tP.x, tP.y)} fill="none" stroke={lc.stroke} strokeWidth={isSel ? 2.5 : 1.5} strokeDasharray={isSel ? 'none' : '5 3'} opacity={isSel ? 1 : 0.45} />{m.transforms?.length > 0 && (() => { const mx = (sp.x + tP.x) / 2, my = (sp.y + tP.y) / 2, lb = m.transforms.map(t => t.fn).join('→'), tw = Math.min(lb.length * 5 + 12, 90); return (<g style={{ cursor: 'pointer' }} onClick={() => { setSel(i); if (onMappingClick) onMappingClick(m, i); }}><rect x={mx - tw / 2} y={my - 7} width={tw} height={14} rx={3} fill={lc.bg} stroke={lc.stroke} strokeWidth={.5} /><text x={mx} y={my + 3} textAnchor="middle" fill={lc.text} fontSize="7" fontFamily="monospace" fontWeight="500">{lb.length > 14 ? lb.slice(0, 13) + '…' : lb}</text></g>); })()}</g>); })}
+              return (<g key={`${m.source}-${m.target}`}><path d={bz(sp.x, sp.y, tP.x, tP.y)} fill="none" stroke="transparent" strokeWidth={12} style={{ cursor: 'pointer' }} onClick={() => setSel(isSel ? null : i)} /><path d={bz(sp.x, sp.y, tP.x, tP.y)} fill="none" stroke={lc.stroke} strokeWidth={isSel ? 2.5 : 1.5} strokeDasharray={isSel ? 'none' : '5 3'} opacity={isSel ? 1 : 0.45} />{m.transforms?.length > 0 && (() => { const mx = (sp.x + tP.x) / 2, my = (sp.y + tP.y) / 2; const lb = m.transforms.map(t => { if (t.fn === 'UDF') { try { const u = typeof t.args === 'string' ? JSON.parse(t.args) : t.args; return `${u.methodName || 'UDF'} (v${u.version || '1.0'})`; } catch { return 'UDF'; } } return t.fn; }).join('→'); const tw = Math.min(lb.length * 6 + 14, 120); return (<g style={{ cursor: 'pointer' }} onClick={() => { setSel(i); if (onMappingClick) onMappingClick(m, i); }}><rect x={mx - tw / 2} y={my - 7} width={tw} height={14} rx={3} fill={lc.bg} stroke={lc.stroke} strokeWidth={.5} /><text x={mx} y={my + 3} textAnchor="middle" fill={lc.text} fontSize="7" fontFamily="monospace" fontWeight="500">{lb.length > 20 ? lb.slice(0, 19) + '…' : lb}</text></g>); })()}</g>); })}
             {dLine && <path d={bz(dLine.sx, dLine.sy, dLine.cx, dLine.cy)} fill="none" stroke="#534AB7" strokeWidth={2} strokeDasharray="6 4" opacity={.7} />}
             {(sourceTables || []).map(t => rTbl(t, 'source'))}
             {(targetTables || []).map(t => rTbl(t, 'target'))}
@@ -274,7 +310,11 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
       {sel !== null && mappings[sel] && (
         <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', background: '#fff', border: '1px solid #E8E8E5', padding: '6px 16px', borderRadius: '99px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', fontSize: '12px', zIndex: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ color: '#6B6B6B' }}>{mappings[sel].targetOnly ? `⚙ ${mappings[sel].target}` : `${mappings[sel].source} → ${mappings[sel].target}`}</span>
-          {mappings[sel].targetOnly && <span style={{ background: '#FEF3C7', color: '#854F0B', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 500 }}>System</span>}
+          {mappings[sel].transforms?.some(t => t.fn === 'UDF') ? (
+            <span style={{ background: '#EEEDFE', color: '#534AB7', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>☕ UDF Pinned</span>
+          ) : mappings[sel].targetOnly ? (
+            <span style={{ background: '#FEF3C7', color: '#854F0B', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 500 }}>System</span>
+          ) : null}
           <span style={{ color: '#D4D4D0' }}>|</span>
           {onMappingClick && <><span style={{ cursor: 'pointer', color: '#534AB7', fontWeight: 500 }} onClick={() => onMappingClick(mappings[sel], sel)}>Transform</span><span style={{ color: '#D4D4D0' }}>|</span></>}
           <span style={{ cursor: 'pointer', color: '#A32D2D', fontWeight: 500 }} onClick={delS}>Remove</span>
@@ -282,12 +322,16 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
         </div>
       )}
 
-      {/* System value picker modal */}
+      {/* Target column config modal (System value or Java UDF) */}
       {sysTarget && (
-        <SystemValuePicker
+        <TargetConfigModal
           colName={sysTarget.col}
-          onSelect={(fn, args) => {
+          sourceTables={sourceTables}
+          onSelectSystem={(fn, args) => {
             if (onAddSystemValue) onAddSystemValue(sysTarget.table, sysTarget.col, fn, args);
+          }}
+          onSelectUdf={(config, primaryCol) => {
+            if (onAddUdf) onAddUdf(sysTarget.table, sysTarget.col, config, primaryCol);
           }}
           onClose={() => setSysTarget(null)}
         />

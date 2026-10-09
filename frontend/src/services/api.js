@@ -39,7 +39,27 @@ export const MOCK_CONNECTIONS = [
 ];
 
 export const MOCK_UDFS = [
-  { id: 'udf-001', name: 'customer-eligibility', description: 'Sets eligibility based on customer age and account status.', version: '1.0.0', status: 'READY', sizeBytes: 18432, updatedAt: '2026-10-01T10:00:00Z' },
+  {
+    id: 'udf-001',
+    name: 'customer-eligibility',
+    description: 'Sets eligibility based on customer age and account status.',
+    version: '1.0.0',
+    status: 'READY',
+    sizeBytes: 18432,
+    updatedAt: '2026-10-01T10:00:00Z',
+    functions: [
+      {
+        id: 'fn-001',
+        className: 'com.datashifter.udf.CustomerEligibility',
+        methodName: 'checkEligibility',
+        functionName: 'checkEligibility',
+        description: 'Transforms row: calculates eligibility flag based on age',
+        parameterTypes: ['Row'],
+        returnType: 'void',
+        staticMethod: false
+      }
+    ]
+  },
 ];
 
 export const MOCK_MONITOR = {
@@ -233,6 +253,10 @@ export const udfApi = {
   delete: (id) => USE_MOCK
     ? mockResponse(null)
     : apiClient.delete(`/udfs/${id}`),
+
+  test: (id, payload) => USE_MOCK
+    ? mockResponse({ ...(payload?.inputData || {}), [payload?.methodName || 'result']: true })
+    : apiClient.post(`/udfs/${id}/test`, payload),
 };
 
 /* ----- MONITORING (monitor-service via gateway:8080) ----- */

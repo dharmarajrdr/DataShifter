@@ -6,6 +6,7 @@ import { MAPPING as LIT, TRANSFORM } from '../constants/literals';
 import { PageHeader, Button, ApiGuard, Loader } from '../components/common';
 import { CloseIcon } from '../components/layout/Icons';
 import DragMappingBoard from '../components/pipeline/DragMappingBoard';
+import UdfPickerModal from '../components/pipeline/UdfPickerModal';
 import { mappingApi } from '../services/api';
 
 const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];
@@ -34,6 +35,7 @@ const FN_META = {
   STATIC_VALUE:    { desc: 'Fixed constant for every row', needsArgs: true, argHint: 'value (e.g., STANDARD)', category: 'System', isSystemValue: true },
   UUID:            { desc: 'Generate UUID v4', needsArgs: false, category: 'System', isSystemValue: true },
   ROW_NUMBER:      { desc: 'Sequential counter (1, 2, 3...)', needsArgs: false, category: 'System', isSystemValue: true },
+  UDF:             { desc: 'Custom Java row UDF', needsArgs: 'udf', category: 'Custom' },
 };
 
 const ALL_FUNCTIONS = ['TRIM', 'UPPER', 'LOWER', 'APPEND', 'PREPEND', 'CONCAT', 'CONCAT_COLUMNS', 'SUBSTRING', 'TO_STRING', 'TO_DATE', 'TO_NUMBER', 'TO_BOOLEAN', 'DEFAULT_IF_NULL', 'TO_JSON', 'TO_JSON_ARRAY'];
@@ -49,6 +51,14 @@ const simulateOne = (value, fn, args) => {
     case 'UUID': return { ok: true, val: 'xxxxxxxx-xxxx-4xxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16)) + '-...' };
     case 'ROW_NUMBER': return { ok: true, val: Math.floor(Math.random() * 100) + 1 };
     case 'STATIC_VALUE': return args ? { ok: true, val: args } : { ok: false, val: null, err: 'Value required' };
+    case 'UDF': {
+      try {
+        const u = typeof args === 'string' ? JSON.parse(args) : (args || {});
+        return { ok: true, val: `[${u.methodName || 'UDF'}(${value ?? 'row'})]` };
+      } catch {
+        return { ok: true, val: `[UDF(${value ?? 'row'})]` };
+      }
+    }
     default: break;
   }
   if (value === null || value === undefined) {
@@ -109,7 +119,7 @@ const getSampleData = (dataType) => {
 /* ================================================================
    TRANSFORM SLIDE-OVER PANEL
    ================================================================ */
-const TransformPanel = ({ mapping, mappingIdx, onApply, onClose }) => {
+const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClose }) => {
   const isSystemValue = mapping?.targetOnly;
 
   const [steps, setSteps] = useState((mapping?.transforms || []).map((t, i) => ({
@@ -117,6 +127,24 @@ const TransformPanel = ({ mapping, mappingIdx, onApply, onClose }) => {
     ...(t.fn === 'SUBSTRING' && t.args ? (() => { const p = t.args.split(','); return { start: p[0] || '', end: p[1] || '' }; })() : {}),
     isSystemStep: i === 0 && !!FN_META[t.fn]?.isSystemValue,
   })));
+
+  const [udfModalOpen, setUdfModalOpen] = useState(false);
+  const [editingUdfStepId, setEditingUdfStepId] = useState(null);
+
+  const handleOpenUdfModal = (stepId = null) => {
+    setEditingUdfStepId(stepId);
+    setUdfModalOpen(true);
+  };
+
+  const handleApplyUdfConfig = (config) => {
+    const configStr = JSON.stringify(config);
+    if (editingUdfStepId) {
+      setSteps(prev => prev.map(s => s.id === editingUdfStepId ? { ...s, args: configStr } : s));
+    } else {
+      setSteps(prev => [...prev, { id: `s${Date.now()}`, fn: 'UDF', args: configStr, start: '', end: '', isSystemStep: false }]);
+    }
+    setEditingUdfStepId(null);
+  };
 
   // For system values, use null as starting sample. For regular mappings, use type-based samples.
   const srcType = mapping?.source?.split('.')?.[1] || '';
@@ -152,6 +180,9 @@ const TransformPanel = ({ mapping, mappingIdx, onApply, onClose }) => {
     const errors = [];
     steps.forEach(s => {
       const meta = FN_META[s.fn] || {};
+      if (s.fn === 'UDF' && (!s.args || !s.args.trim())) {
+        errors.push({ id: s.id, error: 'UDF configuration is required' });
+      }
       if (meta.needsArgs === true && (!s.args || !s.args.trim())) {
         errors.push({ id: s.id, error: `${s.fn} requires a value` });
       }
@@ -239,7 +270,32 @@ const TransformPanel = ({ mapping, mappingIdx, onApply, onClose }) => {
                       {isLocked ? '⚙' : i + 1}
                     </span>
                     <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, fontFamily: 'monospace', flexShrink: 0 }}>{step.fn}</span>
-                    {meta.needsArgs === 'split' ? (
+                    {step.fn === 'UDF' ? (() => {
+                      let parsed = {};
+                      try { parsed = typeof step.args === 'string' ? JSON.parse(step.args) : (step.args || {}); } catch {}
+                      return (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
+                          <span style={{ fontSize: FONT.size.xs, fontWeight: 600, color: '#3C3489', fontFamily: 'monospace' }}>
+                            {parsed.methodName || 'UDF'}
+                          </span>
+                          <span style={{ fontSize: '10px', background: '#EEEDFE', color: '#534AB7', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, flexShrink: 0 }}>
+                            📌 v{parsed.version || '1.0.0'}
+                          </span>
+                          {parsed.inputColumns?.length > 0 && (
+                            <span style={{ fontSize: '10px', color: '#6B6B6B', fontFamily: 'monospace', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              in: [{parsed.inputColumns.join(',')}]
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenUdfModal(step.id)}
+                            style={{ marginLeft: 'auto', background: '#fff', border: '1px solid #D4D4D0', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer', color: '#534AB7', fontWeight: 500, flexShrink: 0 }}
+                          >
+                            Configure / Test
+                          </button>
+                        </div>
+                      );
+                    })() : meta.needsArgs === 'split' ? (
                       <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
                         <input value={step.start} onChange={e => updateSubstr(step.id, 'start', e.target.value)} placeholder="Start" type="number" min="0"
                           style={{ width: '60px', padding: '2px 6px', border: inputBorder, borderRadius: '4px', fontSize: FONT.size.xs, fontFamily: 'monospace' }} />
@@ -272,6 +328,25 @@ const TransformPanel = ({ mapping, mappingIdx, onApply, onClose }) => {
             The system value generates data automatically. You can add additional transforms below to modify the generated value. To remove the system value entirely, use the <b>Remove</b> button on the mapping board.
           </div>
         )}
+
+        {/* Custom Java UDF Callout */}
+        <div style={{ marginBottom: SPACING.md, background: '#F4F2FF', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CECBF6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: FONT.size.xs, fontWeight: 600, color: '#3C3489', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>☕ Custom Java UDF</span>
+            </div>
+            <div style={{ fontSize: '11px', color: '#6B6B6B', marginTop: '1px' }}>
+              Execute custom row-level Java transformations
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleOpenUdfModal(null)}
+            style={{ background: '#534AB7', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: '6px', fontSize: FONT.size.xs, fontWeight: 500, cursor: 'pointer' }}
+          >
+            + Add Java UDF
+          </button>
+        </div>
 
         {/* Available functions grouped — system values not shown here */}
         <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: '#6B6B6B', marginBottom: SPACING.xs }}>Add transformation</p>
@@ -335,6 +410,23 @@ const TransformPanel = ({ mapping, mappingIdx, onApply, onClose }) => {
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
         <Button onClick={handleApply} style={!canApply ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>Apply</Button>
       </div>
+
+      {/* Embedded UDF Picker Modal */}
+      {udfModalOpen && (
+        <UdfPickerModal
+          targetColumn={mapping?.target?.split('.')?.[1] || mapping?.target || ''}
+          sourceTables={sourceTables}
+          initialConfig={(() => {
+            if (editingUdfStepId) {
+              const st = steps.find(s => s.id === editingUdfStepId);
+              try { return JSON.parse(st?.args || '{}'); } catch { return null; }
+            }
+            return null;
+          })()}
+          onApply={handleApplyUdfConfig}
+          onClose={() => { setUdfModalOpen(false); setEditingUdfStepId(null); }}
+        />
+      )}
     </div>
   );
 };
@@ -562,6 +654,21 @@ const ColumnMappingBoard = () => {
     setHasChanges(true);
   }, [mappings]);
 
+  /** Add a target UDF mapping with pinned version and input column */
+  const handleAddUdf = useCallback((targetTable, colName, udfConfig, primarySourceCol) => {
+    const targetKey = `${targetTable}.${colName}`;
+    const primarySource = primarySourceCol ? `${sourceTables[0]?.tableName || ''}.${primarySourceCol}` : null;
+    const newMapping = {
+      source: primarySource,
+      target: targetKey,
+      color: 'purple',
+      transforms: [{ fn: 'UDF', args: JSON.stringify(udfConfig) }],
+      targetOnly: !primarySource,
+    };
+    setMappings(p => [...p.filter(m => m.target !== targetKey), newMapping]);
+    setHasChanges(true);
+  }, [sourceTables]);
+
   const validate = useCallback(() => { const e = []; targetTables.forEach(tt => { const mp = new Set(mappings.filter(m => m.target.startsWith(tt.tableName + '.')).map(m => m.target.split('.')[1])); (tt.columns || []).forEach(c => { if (!c.nullable && !mp.has(c.name)) e.push(`${tt.tableName}: "${c.name}" is ${c.primaryKey ? 'PK' : 'NOT NULL'} — needs mapping`); }); }); return e; }, [targetTables, mappings]);
 
   const handleSave = async () => {
@@ -667,7 +774,15 @@ const ColumnMappingBoard = () => {
             {hasChanges && <><span style={{ color: '#D4D4D0' }}>|</span><span style={{ color: '#A32D2D' }}>Unsaved</span></>}
           </div>
           {sourceTables.length > 0 && targetTables.length > 0 ? (
-            <DragMappingBoard sourceTables={sourceTables} targetTables={targetTables} mappings={mappings} onMappingsChange={handleChange} onMappingClick={handleMappingClick} onAddSystemValue={handleAddSystemValue} />
+            <DragMappingBoard
+              sourceTables={sourceTables}
+              targetTables={targetTables}
+              mappings={mappings}
+              onMappingsChange={handleChange}
+              onMappingClick={handleMappingClick}
+              onAddSystemValue={handleAddSystemValue}
+              onAddUdf={handleAddUdf}
+            />
           ) : (
             <div style={{ padding: 40, textAlign: 'center', color: '#9B9B9B', border: '1px dashed #D4D4D0', borderRadius: '12px' }}>No tables configured.</div>
           )}
@@ -688,7 +803,18 @@ const ColumnMappingBoard = () => {
           </div>
 
           {/* Transform slide-over */}
-          {transformTarget && <><Backdrop onClick={() => setTransformTarget(null)} /><TransformPanel mapping={transformTarget.mapping} mappingIdx={transformTarget.idx} onApply={handleTransformApply} onClose={() => setTransformTarget(null)} /></>}
+          {transformTarget && (
+            <>
+              <Backdrop onClick={() => setTransformTarget(null)} />
+              <TransformPanel
+                mapping={transformTarget.mapping}
+                mappingIdx={transformTarget.idx}
+                sourceTables={sourceTables}
+                onApply={handleTransformApply}
+                onClose={() => setTransformTarget(null)}
+              />
+            </>
+          )}
           {/* Filter slide-over */}
           {filterTarget && <><Backdrop onClick={() => setFilterTarget(null)} /><FilterPanel sourceTable={filterTarget.tableName} sourceColumns={filterTarget.columns} existingFilters={filters[filterTarget.tableName]} onApply={handleFilterApply} onClose={() => setFilterTarget(null)} /></>}
         </div>

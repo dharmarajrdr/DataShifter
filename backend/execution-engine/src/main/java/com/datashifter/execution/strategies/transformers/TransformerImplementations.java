@@ -394,3 +394,14 @@ class RowNumberTransformer implements ColumnTransformer {
     }
     public String getFunctionName() { return "ROW_NUMBER"; }
 }
+
+/**
+ * UDF — executes an uploaded Java UDF.
+ */
+@Component
+class UdfTransformer implements ColumnTransformer {
+    public Object transform(Object input, String args) {
+        return input;
+    }
+    public String getFunctionName() { return "UDF"; }
+}

@@ -29,5 +29,8 @@ public enum TransformFunction {
     CURRENT_DATE,       // Returns current date (no time component)
     STATIC_VALUE,       // Returns a fixed constant value for every row
     UUID,               // Generates a random UUID v4
-    ROW_NUMBER          // Sequential counter per pipeline execution
+    ROW_NUMBER,         // Sequential counter per pipeline execution
+
+    // Java UDF
+    UDF
 }
