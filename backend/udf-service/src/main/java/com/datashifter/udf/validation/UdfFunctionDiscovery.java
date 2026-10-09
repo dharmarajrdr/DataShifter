@@ -33,7 +33,9 @@ public class UdfFunctionDiscovery {
         File tempFile = null;
         try {
             tempFile = Files.createTempFile("udf-", ".jar").toFile();
-            file.transferTo(tempFile);
+            try (InputStream input = file.getInputStream()) {
+                Files.copy(input, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
             
             try (JarFile jar = new JarFile(tempFile)) {
                 JarEntry listEntry = (JarEntry) jar.getEntry(INDEX_FILE_PATH);

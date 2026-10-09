@@ -21,8 +21,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.Arrays;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UdfRegistryService {
 
     private final UdfDefinitionRepository repository;
@@ -46,7 +49,8 @@ public class UdfRegistryService {
         try {
             artifact = storage.store(file, storageKey);
         } catch (IOException e) {
-            throw new DatashifterException("Could not store the UDF artifact", e);
+            log.error("Failed to store UDF artifact key {}: {}", storageKey, e.getMessage(), e);
+            throw new DatashifterException("Could not store the UDF artifact: " + e.getMessage(), e);
         }
 
         UdfDefinition entity = UdfDefinition.builder()
