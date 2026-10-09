@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../../constants/design';
-import { FRBC, FRSC, FREC } from '../../constants/layouts';
-import { Button, Loader } from '../common';
+import { FRBC, FREC } from '../../constants/layouts';
+import { Loader } from '../common';
 import { CloseIcon } from '../layout/Icons';
 import { udfApi } from '../../services/api';
 
@@ -18,14 +17,8 @@ const UdfPickerModal = ({
 
   const [selectedUdfId, setSelectedUdfId] = useState(initialConfig?.udfId || '');
   const [selectedMethodName, setSelectedMethodName] = useState(initialConfig?.methodName || '');
-  const [selectedInputColumns, setSelectedInputColumns] = useState(initialConfig?.inputColumns || []);
   const [failurePolicy, setFailurePolicy] = useState(initialConfig?.failurePolicy || 'SKIP_ROW');
   const [defaultValue, setDefaultValue] = useState(initialConfig?.defaultValue || '');
-
-  const [previewInput, setPreviewInput] = useState({});
-  const [previewResult, setPreviewResult] = useState(null);
-  const [testing, setTesting] = useState(false);
-  const [testError, setTestError] = useState(null);
 
   // Fetch all registered UDFs
   useEffect(() => {
@@ -72,78 +65,6 @@ const UdfPickerModal = ({
     }
   }, [functions, selectedMethodName]);
 
-  // Flatten all source columns
-  const allSourceColumns = useMemo(() => {
-    const list = [];
-    sourceTables.forEach(t => {
-      (t.columns || []).forEach(c => {
-        list.push({
-          table: t.tableName,
-          name: c.name,
-          type: c.type || c.dataType || 'STRING',
-        });
-      });
-    });
-    return list;
-  }, [sourceTables]);
-
-  // Default select input column if none selected (e.g. column with matching or similar name)
-  useEffect(() => {
-    if (selectedInputColumns.length === 0 && allSourceColumns.length > 0) {
-      const match = allSourceColumns.find(c => c.name.toLowerCase() === (targetColumn || '').toLowerCase()) || allSourceColumns[0];
-      if (match) {
-        setSelectedInputColumns([match.name]);
-      }
-    }
-  }, [allSourceColumns, targetColumn]);
-
-  // Sync sample inputs when input columns change
-  useEffect(() => {
-    setPreviewInput(prev => {
-      const updated = { ...prev };
-      selectedInputColumns.forEach(col => {
-        if (updated[col] === undefined) {
-          const meta = allSourceColumns.find(c => c.name === col);
-          const t = (meta?.type || '').toUpperCase();
-          if (t.includes('INT') || t.includes('NUMBER')) updated[col] = 25;
-          else if (t.includes('BOOL')) updated[col] = true;
-          else if (t.includes('DATE')) updated[col] = '2026-01-01';
-          else updated[col] = 'sample_value';
-        }
-      });
-      return updated;
-    });
-  }, [selectedInputColumns, allSourceColumns]);
-
-  const toggleInputColumn = (colName) => {
-    setSelectedInputColumns(prev => {
-      if (prev.includes(colName)) {
-        return prev.filter(c => c !== colName);
-      }
-      return [...prev, colName];
-    });
-  };
-
-  const handleTest = async () => {
-    if (!selectedUdf || !selectedFunction) return;
-    setTesting(true);
-    setTestError(null);
-    setPreviewResult(null);
-    try {
-      const payload = {
-        className: selectedFunction.className,
-        methodName: selectedFunction.methodName,
-        inputData: previewInput,
-      };
-      const res = await udfApi.test(selectedUdf.id, payload);
-      setPreviewResult(res.data);
-    } catch (err) {
-      setTestError(err.message || 'Execution failed');
-    } finally {
-      setTesting(false);
-    }
-  };
-
   const handleApply = () => {
     if (!selectedUdf || !selectedFunction) return;
     const config = {
@@ -152,11 +73,10 @@ const UdfPickerModal = ({
       version: selectedUdf.version || '1.0.0', // Pin exact version!
       className: selectedFunction.className,
       methodName: selectedFunction.methodName,
-      inputColumns: selectedInputColumns,
       failurePolicy,
       defaultValue: failurePolicy === 'DEFAULT_VALUE' ? defaultValue : undefined,
     };
-    onApply(config, selectedInputColumns[0] || null);
+    onApply(config, null);
     onClose();
   };
 
@@ -166,7 +86,7 @@ const UdfPickerModal = ({
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
         zIndex: 111, background: '#fff', borderRadius: '12px',
-        boxShadow: '0 16px 40px rgba(0,0,0,.16)', width: '560px', maxHeight: '88vh',
+        boxShadow: '0 16px 40px rgba(0,0,0,.16)', width: '500px', maxHeight: '88vh',
         display: 'flex', flexDirection: 'column', overflow: 'hidden'
       }}>
         {/* Header */}
@@ -175,9 +95,11 @@ const UdfPickerModal = ({
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A1A', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span>☕ Java UDF Transformation</span>
             </div>
-            <div style={{ fontSize: '12px', color: '#6B6B6B', marginTop: '2px' }}>
-              Target column: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#534AB7' }}>{targetColumn}</span>
-            </div>
+            {targetColumn && (
+              <div style={{ fontSize: '12px', color: '#6B6B6B', marginTop: '2px' }}>
+                Target column: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#534AB7' }}>{targetColumn}</span>
+              </div>
+            )}
           </div>
           <span onClick={onClose} style={{ cursor: 'pointer', color: '#9B9B9B' }}><CloseIcon /></span>
         </div>
@@ -256,42 +178,12 @@ const UdfPickerModal = ({
                 )}
               </div>
 
-              {/* Source Input Column Selection */}
-              <div>
-                <div style={{ ...FRBC, marginBottom: '6px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 600, color: '#6B6B6B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Select Input Columns for Row
-                  </label>
-                  <span style={{ fontSize: '11px', color: '#9B9B9B' }}>
-                    {selectedInputColumns.length} selected
-                  </span>
-                </div>
-                <div style={{
-                  display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '10px',
-                  background: '#F7F7F5', borderRadius: '8px', border: '1px solid #E8E8E5', maxHeight: '110px', overflowY: 'auto'
-                }}>
-                  {allSourceColumns.map(col => {
-                    const isSelected = selectedInputColumns.includes(col.name);
-                    return (
-                      <div
-                        key={`${col.table}.${col.name}`}
-                        onClick={() => toggleInputColumn(col.name)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 8px',
-                          borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontFamily: 'monospace',
-                          background: isSelected ? '#534AB7' : '#fff',
-                          color: isSelected ? '#fff' : '#1A1A1A',
-                          border: isSelected ? '1px solid #534AB7' : '1px solid #D4D4D0',
-                          userSelect: 'none'
-                        }}
-                      >
-                        <span>{isSelected ? '✓' : '+'}</span>
-                        <span>{col.name}</span>
-                        <span style={{ fontSize: '9px', opacity: 0.7 }}>({col.type})</span>
-                      </div>
-                    );
-                  })}
-                </div>
+              {/* Row processing information note */}
+              <div style={{
+                background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '8px',
+                padding: '10px 12px', fontSize: '12px', color: '#0369A1', lineHeight: '1.4'
+              }}>
+                <span style={{ fontWeight: 600 }}>💡 Full Row Access:</span> The entire <code style={{ fontFamily: 'monospace', background: '#E0F2FE', padding: '1px 4px', borderRadius: '4px' }}>Row</code> is passed to the UDF method. The UDF reads any source column and updates values directly via <code style={{ fontFamily: 'monospace', background: '#E0F2FE', padding: '1px 4px', borderRadius: '4px' }}>row.set(...)</code>.
               </div>
 
               {/* Failure Policy Selector */}
@@ -337,55 +229,6 @@ const UdfPickerModal = ({
                         borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box'
                       }}
                     />
-                  </div>
-                )}
-              </div>
-
-              {/* Live Preview & Test Box */}
-              <div style={{ border: '1px solid #E8E8E5', borderRadius: '8px', padding: '12px', background: '#FAFAF9' }}>
-                <div style={{ ...FRBC, marginBottom: '10px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#1A1A1A' }}>
-                    🧪 Live Input / Output Preview
-                  </span>
-                  <button
-                    onClick={handleTest}
-                    disabled={testing || !selectedUdf || !selectedFunction}
-                    style={{
-                      background: testing ? '#D4D4D0' : '#085041', color: '#fff', border: 'none',
-                      padding: '4px 10px', borderRadius: '5px', fontSize: '11px', fontWeight: 500, cursor: testing ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    {testing ? 'Testing...' : '▶ Run Test Preview'}
-                  </button>
-                </div>
-
-                {/* Sample row input fields */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px', marginBottom: '10px' }}>
-                  {selectedInputColumns.map(col => (
-                    <div key={col}>
-                      <span style={{ display: 'block', fontSize: '10px', color: '#6B6B6B', fontFamily: 'monospace', marginBottom: '2px' }}>
-                        {col}:
-                      </span>
-                      <input
-                        value={previewInput[col] !== undefined ? previewInput[col] : ''}
-                        onChange={e => setPreviewInput({ ...previewInput, [col]: e.target.value })}
-                        placeholder="Value"
-                        style={{ width: '100%', padding: '4px 6px', border: '1px solid #D4D4D0', borderRadius: '4px', fontSize: '11px', fontFamily: 'monospace', boxSizing: 'border-box' }}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Test Result Display */}
-                {testError && (
-                  <div style={{ background: '#FAECE7', border: '1px solid #D85A30', padding: '8px', borderRadius: '6px', color: '#A32D2D', fontSize: '11px' }}>
-                    ⚠ {testError}
-                  </div>
-                )}
-                {previewResult && (
-                  <div style={{ background: '#1A1A1A', color: '#E1F5EE', borderRadius: '6px', padding: '8px 10px', fontSize: '11px', fontFamily: 'monospace', overflowX: 'auto' }}>
-                    <div style={{ color: '#1D9E75', fontWeight: 600, marginBottom: '4px' }}>✓ Output Row:</div>
-                    <pre style={{ margin: 0 }}>{JSON.stringify(previewResult, null, 2)}</pre>
                   </div>
                 )}
               </div>
