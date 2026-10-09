@@ -7,7 +7,7 @@ import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.models.UdfDefinition;
 import com.datashifter.common.models.UdfFunction;
 import com.datashifter.common.security.UserContext;
-import com.datashifter.udf.repositories.UdfDefinitionRepository;
+import com.datashifter.common.repositories.UdfDefinitionRepository;
 import com.datashifter.udf.storage.UdfArtifactStorage;
 import com.datashifter.udf.validation.UdfArtifactValidator;
 import com.datashifter.udf.validation.UdfFunctionDiscovery;

@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.datashifter.udf", "com.datashifter.common.security", "com.datashifter.common.utils", "com.datashifter.common.services", "com.datashifter.common.exceptions"})
 @EntityScan(basePackages = "com.datashifter.common.models")
-@EnableJpaRepositories(basePackages = {"com.datashifter.udf.repositories", "com.datashifter.common.repositories"})
+@EnableJpaRepositories(basePackages = {"com.datashifter.common.repositories"})
 public class UdfServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(UdfServiceApplication.class, args);
