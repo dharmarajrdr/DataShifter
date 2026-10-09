@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock3, Code2, FileCode2, ShieldCheck, Upload, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, FileCode2, ShieldCheck, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ApiGuard, Button, Chip, Loader, PageHeader } from '../components/common';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
@@ -107,19 +107,36 @@ const UploadModal = ({ onClose, onUploaded }) => {
     );
 };
 
-const UdfCard = ({ udf }) => (
-    <div style={{ background: COLORS.background.primary, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, boxShadow: SHADOWS.sm }}>
-        <div style={{ ...FRBC, alignItems: 'flex-start', gap: SPACING.md }}>
-            <div style={{ ...FRSC, gap: SPACING.sm, minWidth: 0 }}>
-                <div style={{ width: 36, height: 36, borderRadius: BORDER_RADIUS.md, background: COLORS.brand.primaryLight, color: COLORS.brand.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Code2 size={18} /></div>
-                <div style={{ minWidth: 0 }}><p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{udf.name}</p><p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>Version {udf.version || '1.0.0'} · Java</p></div>
+const UdfCard = ({ udf }) => {
+    const [showFunctions, setShowFunctions] = useState(false);
+    const functions = udf.functions || [];
+    return (
+        <div style={{ background: COLORS.background.primary, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, boxShadow: SHADOWS.sm }}>
+            <div style={{ ...FRBC, alignItems: 'flex-start', gap: SPACING.md }}>
+                <div style={{ ...FRSC, gap: SPACING.sm, minWidth: 0 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: BORDER_RADIUS.md, background: COLORS.brand.primaryLight, color: COLORS.brand.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Code2 size={18} /></div>
+                    <div style={{ minWidth: 0 }}><p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{udf.name}</p><p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>Version {udf.version || '1.0.0'} · Java</p></div>
+                </div>
+                <StatusChip status={udf.status} />
             </div>
-            <StatusChip status={udf.status} />
+            <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, lineHeight: 1.5, minHeight: '42px', margin: `${SPACING.md} 0` }}>{udf.description || 'No description provided.'}</p>
+            <button type="button" onClick={() => setShowFunctions(value => !value)} aria-expanded={showFunctions} style={{ ...FRBC, width: '100%', padding: `${SPACING.xs} 0`, border: 0, borderTop: `1px solid ${COLORS.border.light}`, background: 'transparent', color: COLORS.brand.primary, cursor: 'pointer', fontSize: FONT.size.xs }}>
+                <span>{functions.length} callable function{functions.length === 1 ? '' : 's'}</span>
+                {showFunctions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {showFunctions && <div style={{ marginTop: SPACING.xs, padding: SPACING.xs, background: COLORS.background.secondary, borderRadius: BORDER_RADIUS.sm }}>
+                {functions.length === 0 ? <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>No annotated public methods discovered.</p> : functions.map(fn => (
+                    <div key={fn.id || `${fn.className}.${fn.methodName}`} style={{ padding: `${SPACING.xs} 0`, borderBottom: `1px solid ${COLORS.border.light}` }}>
+                        <p style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: COLORS.text.primary }}>{fn.functionName}</p>
+                        <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px', wordBreak: 'break-word' }}>{fn.className}.{fn.methodName}({(fn.parameterTypes || []).join(', ')}) : {fn.returnType}</p>
+                        {fn.description && <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, marginTop: '2px' }}>{fn.description}</p>}
+                    </div>
+                ))}
+            </div>}
+            <div style={{ ...FRBC, borderTop: `1px solid ${COLORS.border.light}`, paddingTop: SPACING.sm, color: COLORS.text.tertiary, fontSize: FONT.size.xs }}><span>{formatBytes(udf.sizeBytes)}</span><span>{udf.updatedAt ? new Date(udf.updatedAt).toLocaleDateString() : 'Not published'}</span></div>
         </div>
-        <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, lineHeight: 1.5, minHeight: '42px', margin: `${SPACING.md} 0` }}>{udf.description || 'No description provided.'}</p>
-        <div style={{ ...FRBC, borderTop: `1px solid ${COLORS.border.light}`, paddingTop: SPACING.sm, color: COLORS.text.tertiary, fontSize: FONT.size.xs }}><span>{formatBytes(udf.sizeBytes)}</span><span>{udf.updatedAt ? new Date(udf.updatedAt).toLocaleDateString() : 'Not published'}</span></div>
-    </div>
-);
+    );
+};
 
 const UdfLibrary = () => {
     const [udfs, setUdfs] = useState([]);
@@ -137,7 +154,7 @@ const UdfLibrary = () => {
                 <PageHeader title="UDF library" subtitle="Manage Java functions that can be used in your migration pipelines" actions={<Button onClick={() => setShowUpload(true)}><Upload size={14} style={{ verticalAlign: 'text-bottom', marginRight: '6px' }} /> Upload UDF</Button>} />
                 <div style={{ ...FRBC, padding: `${SPACING.sm} ${SPACING.md}`, background: COLORS.background.secondary, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, marginBottom: SPACING.lg }}>
                     <div style={{ ...FRSC, gap: SPACING.xs, fontSize: FONT.size.xs, color: COLORS.text.secondary }}><ShieldCheck size={14} color={COLORS.status.success} /><span>Only Java JARs are accepted and every upload is validated.</span></div>
-                    <Chip label={`${udfs.length} function${udfs.length === 1 ? '' : 's'}`} colorScheme="purple" />
+                    <Chip label={`${udfs.length} UDF${udfs.length === 1 ? '' : 's'}`} colorScheme="purple" />
                 </div>
                 {udfs.length === 0 ? (
                     <div style={{ padding: '60px 24px', textAlign: 'center', color: COLORS.text.secondary, border: `1px dashed ${COLORS.border.medium}`, borderRadius: BORDER_RADIUS.lg }}>
