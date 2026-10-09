@@ -37,24 +37,33 @@ public class UdfFunctionDiscovery {
             
             try (JarFile jar = new JarFile(tempFile)) {
                 JarEntry listEntry = (JarEntry) jar.getEntry(INDEX_FILE_PATH);
-                if (listEntry == null) {
-                    throw new DatashifterException("JAR is missing UDF index (" + INDEX_FILE_PATH + "). Ensure it was compiled with the datashifter-udf-sdk Annotation Processor.");
-                }
-                
-                List<String> classNames;
-                try (InputStream in = jar.getInputStream(listEntry);
-                     BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
-                    classNames = reader.lines().filter(l -> !l.isBlank()).toList();
-                }
-                
-                for (String className : classNames) {
-                    String classPath = className.replace('.', '/') + ".class";
-                    JarEntry classEntry = (JarEntry) jar.getEntry(classPath);
-                    if (classEntry == null) {
-                        throw new DatashifterException("Class " + className + " listed in index not found in JAR");
+                if (listEntry != null) {
+                    List<String> classNames;
+                    try (InputStream in = jar.getInputStream(listEntry);
+                         BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+                        classNames = reader.lines().filter(l -> !l.isBlank()).toList();
                     }
-                    try (InputStream classIn = jar.getInputStream(classEntry)) {
-                        discoverClass(classIn.readAllBytes(), functions);
+                    
+                    for (String className : classNames) {
+                        String classPath = className.replace('.', '/') + ".class";
+                        JarEntry classEntry = (JarEntry) jar.getEntry(classPath);
+                        if (classEntry == null) {
+                            throw new DatashifterException("Class " + className + " listed in index not found in JAR");
+                        }
+                        try (InputStream classIn = jar.getInputStream(classEntry)) {
+                            discoverClass(classIn.readAllBytes(), functions);
+                        }
+                    }
+                } else {
+                    // Fallback: scan all .class entries in the JAR
+                    java.util.Enumeration<JarEntry> entries = jar.entries();
+                    while (entries.hasMoreElements()) {
+                        JarEntry entry = entries.nextElement();
+                        if (entry.getName().endsWith(".class") && !entry.isDirectory()) {
+                            try (InputStream classIn = jar.getInputStream(entry)) {
+                                discoverClass(classIn.readAllBytes(), functions);
+                            }
+                        }
                     }
                 }
             }
@@ -67,7 +76,7 @@ public class UdfFunctionDiscovery {
         }
         
         if (functions.isEmpty()) {
-            throw new DatashifterException("No public methods annotated with @DataShifterUdf were found in the indexed classes");
+            throw new DatashifterException("No public methods annotated with @DataShifterUdf were found");
         }
         return functions;
     }
