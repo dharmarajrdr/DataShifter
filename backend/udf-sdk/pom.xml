@@ -16,7 +16,12 @@
     <description>Lightweight SDK for users to write DataShifter UDFs</description>
     
     <dependencies>
-        <!-- No dependencies! Pure Java to keep the user's UDF JAR lightweight -->
+        <!-- No runtime dependencies! Pure Java to keep the user's UDF JAR lightweight -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

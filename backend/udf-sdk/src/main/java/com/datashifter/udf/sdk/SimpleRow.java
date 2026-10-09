@@ -6,15 +6,29 @@ import java.util.Set;
 
 public class SimpleRow implements Row {
 
-    private final Map<String, Object> data = new HashMap<>();
+    private final Map<String, Object> data;
 
     public SimpleRow() {
+        this.data = new HashMap<>();
     }
 
     public SimpleRow(Map<String, Object> initialData) {
-        if (initialData != null) {
-            this.data.putAll(initialData);
+        this(initialData, false);
+    }
+
+    public SimpleRow(Map<String, Object> initialData, boolean directWrap) {
+        if (directWrap && initialData != null) {
+            this.data = initialData;
+        } else {
+            this.data = new HashMap<>();
+            if (initialData != null) {
+                this.data.putAll(initialData);
+            }
         }
+    }
+
+    public static Row wrap(Map<String, Object> map) {
+        return new SimpleRow(map, true);
     }
 
     @Override

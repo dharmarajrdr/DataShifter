@@ -407,8 +407,7 @@ class RowNumberTransformer implements ColumnTransformer {
 class UdfTransformer implements ColumnTransformer {
 
     private final UdfExecutionManager udfExecutionManager;
-    private final ObjectMapper objectMapper;
-    private final Map<String, UdfConfig> configCache = new ConcurrentHashMap<>();
+    private final Map<String, PreparedUdf> preparedCache = new ConcurrentHashMap<>();
 
     @Override
     public Object transform(Object input, String args) {
@@ -426,15 +425,8 @@ class UdfTransformer implements ColumnTransformer {
             return input;
         }
 
-        UdfConfig config = configCache.computeIfAbsent(args, a -> {
-            try {
-                return objectMapper.readValue(a, UdfConfig.class);
-            } catch (Exception e) {
-                throw new DatashifterException("Invalid UDF configuration JSON: " + a, e);
-            }
-        });
-
-        return udfExecutionManager.execute(config, input, sourceRow, targetColumn);
+        PreparedUdf prepared = preparedCache.computeIfAbsent(args, udfExecutionManager::prepare);
+        return udfExecutionManager.executePrepared(prepared, input, sourceRow, targetColumn);
     }
 
     @Override

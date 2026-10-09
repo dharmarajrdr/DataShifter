@@ -14,8 +14,8 @@ import com.datashifter.execution.exceptions.UdfFailChunkException;
 import com.datashifter.execution.exceptions.UdfSkipRowException;
 import com.datashifter.execution.exceptions.UdfStopPipelineException;
 import com.datashifter.execution.exceptions.UdfTimeoutException;
+import com.datashifter.udf.sdk.DirectRow;
 import com.datashifter.udf.sdk.Row;
-import com.datashifter.udf.sdk.SimpleRow;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +34,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 @Service
 @Slf4j
@@ -50,14 +50,34 @@ public class UdfExecutionManager {
     private final Map<String, LoadedUdfClass> classCache = new ConcurrentHashMap<>();
     // Cache: udfId -> storageKey
     private final Map<String, String> udfIdToStorageKey = new ConcurrentHashMap<>();
+    // Cache: args JSON -> PreparedUdf
+    private final Map<String, PreparedUdf> preparedCache = new ConcurrentHashMap<>();
 
-    // Metrics
-    private final AtomicLong totalExecutions = new AtomicLong(0);
-    private final AtomicLong totalExecutionTimeNanos = new AtomicLong(0);
-    private final AtomicLong totalFailures = new AtomicLong(0);
+    // Metrics (striped LongAdder to eliminate cross-thread CPU cache contention)
+    private final LongAdder totalExecutions = new LongAdder();
+    private final LongAdder totalExecutionTimeNanos = new LongAdder();
+    private final LongAdder totalFailures = new LongAdder();
 
-    // Active thread tracking for timeout watchdog (0 threads spawned per row)
-    private final ConcurrentHashMap<Thread, Long> activeExecutions = new ConcurrentHashMap<>();
+    // Zero-allocation row wrapper per worker thread
+    private final ThreadLocal<DirectRow> threadRow = ThreadLocal.withInitial(DirectRow::new);
+
+    // High-performance thread watchdog (0 allocations & 0 map operations on hot path)
+    public static class WatchdogSlot {
+        final Thread thread;
+        volatile long startTimeMs = 0L;
+
+        WatchdogSlot(Thread thread) {
+            this.thread = thread;
+        }
+    }
+
+    private final List<WatchdogSlot> registeredSlots = new CopyOnWriteArrayList<>();
+    private final ThreadLocal<WatchdogSlot> threadWatchdogSlot = ThreadLocal.withInitial(() -> {
+        WatchdogSlot slot = new WatchdogSlot(Thread.currentThread());
+        registeredSlots.add(slot);
+        return slot;
+    });
+
     private final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "udf-watchdog");
         t.setDaemon(true);
@@ -87,14 +107,98 @@ public class UdfExecutionManager {
 
     private void checkTimeouts() {
         long now = System.currentTimeMillis();
-        for (Map.Entry<Thread, Long> entry : activeExecutions.entrySet()) {
-            if (now - entry.getValue() > defaultTimeoutMs) {
-                Thread thread = entry.getKey();
+        for (WatchdogSlot slot : registeredSlots) {
+            long start = slot.startTimeMs;
+            if (start > 0 && (now - start) > defaultTimeoutMs) {
                 log.warn("UDF execution exceeded timeout of {}ms on thread {}. Interrupting.",
-                        defaultTimeoutMs, thread.getName());
-                thread.interrupt();
+                        defaultTimeoutMs, slot.thread.getName());
+                slot.thread.interrupt();
             }
         }
+    }
+
+    /**
+     * Prepares and caches the metadata, classloader, and method for a given UDF argument JSON.
+     */
+    public PreparedUdf prepare(String args) {
+        return preparedCache.computeIfAbsent(args, a -> {
+            try {
+                UdfConfig config = objectMapper.readValue(a, UdfConfig.class);
+                return prepare(config);
+            } catch (Exception e) {
+                throw new DatashifterException("Failed to prepare UDF from args: " + a, e);
+            }
+        });
+    }
+
+    /**
+     * Prepares and caches the metadata, classloader, and method for a given UdfConfig.
+     */
+    public PreparedUdf prepare(UdfConfig config) {
+        String storageKey = resolveStorageKey(config);
+        LoadedUdfClass loadedClass = getOrCreateLoadedClass(storageKey, config.getClassName());
+        Method method = loadedClass.getMethod(config.getMethodName());
+        method.setAccessible(true);
+        return new PreparedUdf(config, loadedClass, method);
+    }
+
+    /**
+     * Fast-path execution for pre-compiled UDF metadata.
+     * Zero map allocations, zero map copies, and zero concurrent map synchronization overhead.
+     */
+    public Object executePrepared(PreparedUdf prepared, Object input, Map<String, Object> sourceRecord, String targetColumn) {
+        long startNanos = System.nanoTime();
+        totalExecutions.increment();
+
+        DirectRow row = threadRow.get().reset(sourceRecord, targetColumn, input);
+        Object instance = prepared.getInstance();
+        Method method = prepared.getMethod();
+
+        WatchdogSlot slot = threadWatchdogSlot.get();
+        slot.startTimeMs = System.currentTimeMillis();
+
+        Object result;
+        Thread currentThread = slot.thread;
+        try {
+            Object invokedResult = method.invoke(instance, row);
+            if (!prepared.isVoidReturn()) {
+                result = invokedResult;
+            } else if (targetColumn != null && row.has(targetColumn)) {
+                result = row.get(targetColumn);
+            } else {
+                result = input;
+            }
+        } catch (InvocationTargetException ite) {
+            totalFailures.increment();
+            long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+            Throwable cause = ite.getCause() != null ? ite.getCause() : ite;
+            if (cause instanceof InterruptedException || currentThread.isInterrupted()) {
+                Thread.interrupted(); // clear interrupted status
+                return handleFailure(prepared.getConfig(), new UdfTimeoutException(String.format(
+                        "UDF execution timed out after %d ms for method %s.%s",
+                        defaultTimeoutMs, prepared.getConfig().getClassName(), prepared.getConfig().getMethodName()), cause),
+                        sourceRecord, targetColumn, elapsedMs);
+            }
+            return handleFailure(prepared.getConfig(), new UdfExecutionException("UDF invocation error: " + cause.getMessage(), cause),
+                    sourceRecord, targetColumn, elapsedMs);
+        } catch (Exception e) {
+            totalFailures.increment();
+            long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+            if (e instanceof InterruptedException || currentThread.isInterrupted()) {
+                Thread.interrupted(); // clear interrupted status
+                return handleFailure(prepared.getConfig(), new UdfTimeoutException(String.format(
+                        "UDF execution timed out after %d ms for method %s.%s",
+                        defaultTimeoutMs, prepared.getConfig().getClassName(), prepared.getConfig().getMethodName()), e),
+                        sourceRecord, targetColumn, elapsedMs);
+            }
+            return handleFailure(prepared.getConfig(), e, sourceRecord, targetColumn, elapsedMs);
+        } finally {
+            slot.startTimeMs = 0L;
+        }
+
+        long elapsedNanos = System.nanoTime() - startNanos;
+        totalExecutionTimeNanos.add(elapsedNanos);
+        return result;
     }
 
     /**
@@ -107,87 +211,25 @@ public class UdfExecutionManager {
      * @return transformed value for target column
      */
     public Object execute(UdfConfig config, Object input, Map<String, Object> sourceRecord, String targetColumn) {
-        long startNanos = System.nanoTime();
-        totalExecutions.incrementAndGet();
-
-        // 1. Resolve storage key
-        String storageKey = resolveStorageKey(config);
-
-        // 2. Prepare SDK Row wrapper
-        Map<String, Object> rowMap = new LinkedHashMap<>();
-        if (sourceRecord != null) {
-            rowMap.putAll(sourceRecord);
-        }
-        if (targetColumn != null && !rowMap.containsKey(targetColumn) && input != null) {
-            rowMap.put(targetColumn, input);
-        }
-        Row row = new SimpleRow(rowMap);
-
-        // 3. Load or retrieve cached class and method
-        LoadedUdfClass loadedClass = getOrCreateLoadedClass(storageKey, config.getClassName());
-        Method method = loadedClass.getMethod(config.getMethodName());
-        Object instance = loadedClass.getInstance();
-
-        // 4. Direct in-memory invocation on the execution worker thread
-        Object result;
-        Thread currentThread = Thread.currentThread();
-        activeExecutions.put(currentThread, System.currentTimeMillis());
-        try {
-            Object invokedResult = method.invoke(instance, row);
-            if (method.getReturnType() != void.class && method.getReturnType() != Void.class) {
-                result = invokedResult;
-            } else if (targetColumn != null && row.has(targetColumn)) {
-                result = row.get(targetColumn);
-            } else {
-                result = input;
-            }
-        } catch (InvocationTargetException ite) {
-            totalFailures.incrementAndGet();
-            long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
-            Throwable cause = ite.getCause() != null ? ite.getCause() : ite;
-            if (cause instanceof InterruptedException || currentThread.isInterrupted()) {
-                Thread.interrupted(); // clear interrupted status
-                return handleFailure(config, new UdfTimeoutException(String.format(
-                        "UDF execution timed out after %d ms for method %s.%s",
-                        defaultTimeoutMs, config.getClassName(), config.getMethodName()), cause),
-                        sourceRecord, targetColumn, elapsedMs);
-            }
-            return handleFailure(config, new UdfExecutionException("UDF invocation error: " + cause.getMessage(), cause),
-                    sourceRecord, targetColumn, elapsedMs);
-        } catch (Exception e) {
-            totalFailures.incrementAndGet();
-            long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
-            if (e instanceof InterruptedException || currentThread.isInterrupted()) {
-                Thread.interrupted(); // clear interrupted status
-                return handleFailure(config, new UdfTimeoutException(String.format(
-                        "UDF execution timed out after %d ms for method %s.%s",
-                        defaultTimeoutMs, config.getClassName(), config.getMethodName()), e),
-                        sourceRecord, targetColumn, elapsedMs);
-            }
-            return handleFailure(config, e, sourceRecord, targetColumn, elapsedMs);
-        } finally {
-            activeExecutions.remove(currentThread);
-        }
-
-        long elapsedNanos = System.nanoTime() - startNanos;
-        totalExecutionTimeNanos.addAndGet(elapsedNanos);
-        return result;
+        PreparedUdf prepared = prepare(config);
+        return executePrepared(prepared, input, sourceRecord, targetColumn);
     }
 
     /**
      * Executes UDF for a batch of records.
      */
     public List<Object> executeBatch(UdfConfig config, List<Map<String, Object>> sourceRecords, String targetColumn) {
+        PreparedUdf prepared = prepare(config);
         List<Object> results = new ArrayList<>(sourceRecords.size());
         for (Map<String, Object> sourceRecord : sourceRecords) {
             Object inputVal = sourceRecord != null && targetColumn != null ? sourceRecord.get(targetColumn) : null;
-            results.add(execute(config, inputVal, sourceRecord, targetColumn));
+            results.add(executePrepared(prepared, inputVal, sourceRecord, targetColumn));
         }
         return results;
     }
 
     private Object handleFailure(UdfConfig config, Exception error, Map<String, Object> sourceRecord,
-                                 String targetColumn, long latencyMs) {
+                                  String targetColumn, long latencyMs) {
         UdfFailurePolicy policy = config.getFailurePolicy() != null
                 ? config.getFailurePolicy()
                 : UdfFailurePolicy.SKIP_ROW;
@@ -311,29 +353,29 @@ public class UdfExecutionManager {
     }
 
     public double getAverageLatencyMicros() {
-        long executions = totalExecutions.get();
-        return executions == 0 ? 0.0 : (double) totalExecutionTimeNanos.get() / executions / 1000.0;
+        long executions = totalExecutions.sum();
+        return executions == 0 ? 0.0 : (double) totalExecutionTimeNanos.sum() / executions / 1000.0;
     }
 
     public long getTotalExecutions() {
-        return totalExecutions.get();
+        return totalExecutions.sum();
     }
 
     public long getTotalFailures() {
-        return totalFailures.get();
+        return totalFailures.sum();
     }
 
     /**
      * Holds cached reflection metadata and thread-local instances for a loaded UDF class.
      */
-    private static class LoadedUdfClass {
-        private final URLClassLoader classLoader;
+    static class LoadedUdfClass {
+        private final ClassLoader classLoader;
         private final Class<?> clazz;
         private final Constructor<?> constructor;
         private final Map<String, Method> methodCache = new ConcurrentHashMap<>();
         private final ThreadLocal<Object> instanceThreadLocal;
 
-        public LoadedUdfClass(URLClassLoader classLoader, Class<?> clazz, Constructor<?> constructor) {
+        public LoadedUdfClass(ClassLoader classLoader, Class<?> clazz, Constructor<?> constructor) {
             this.classLoader = classLoader;
             this.clazz = clazz;
             this.constructor = constructor;
