@@ -1,6 +1,9 @@
 package com.datashifter.execution.services.implementations;
 
 import com.datashifter.execution.contexts.ExecutionContext.ResolvedColumnMapping;
+import com.datashifter.execution.exceptions.UdfFailChunkException;
+import com.datashifter.execution.exceptions.UdfSkipRowException;
+import com.datashifter.execution.exceptions.UdfStopPipelineException;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,7 @@ import java.util.*;
  *   - Transform errors caught per-column (doesn't fail entire row unless configured)
  *   - Unmapped target columns filled with default or null
  *   - Diagnostics: tracks which columns had transform errors
+ *   - Supports UDF Failure Policies (SKIP_ROW, DEFAULT_VALUE, FAIL_CHUNK, STOP_PIPELINE)
  */
 @Service
 @Slf4j
@@ -44,8 +48,27 @@ public class ColumnMapperService {
             try {
                 Object value = resolveValue(sourceRecord, mapping);
                 targetRecord.put(targetCol, value);
+            } catch (UdfSkipRowException e) {
+                // SKIP_ROW failure policy: skip the entire record
+                columnErrors.add(ColumnError.builder()
+                        .sourceColumn(mapping.getSourceColumn())
+                        .targetColumn(targetCol)
+                        .errorMessage(e.getMessage())
+                        .originalValue(mapping.getSourceColumn() != null
+                                ? sourceRecord.get(mapping.getSourceColumn()) : null)
+                        .build());
+
+                return MappingResult.builder()
+                        .targetRecord(null)
+                        .columnErrors(columnErrors)
+                        .skipped(true)
+                        .success(false)
+                        .build();
+            } catch (UdfFailChunkException | UdfStopPipelineException e) {
+                // Propagate FAIL_CHUNK and STOP_PIPELINE immediately
+                throw e;
             } catch (Exception e) {
-                // Transform error on this column — record the error
+                // Standard transform error on this column — record the error
                 columnErrors.add(ColumnError.builder()
                         .sourceColumn(mapping.getSourceColumn())
                         .targetColumn(targetCol)
@@ -62,6 +85,7 @@ public class ColumnMapperService {
         return MappingResult.builder()
                 .targetRecord(targetRecord)
                 .columnErrors(columnErrors)
+                .skipped(false)
                 .success(columnErrors.isEmpty())
                 .build();
     }
@@ -75,10 +99,23 @@ public class ColumnMapperService {
         List<Map<String, Object>> successRecords = new ArrayList<>(sourceRecords.size());
         List<FailedMappingRecord> failedRecords = new ArrayList<>();
         int totalColumnErrors = 0;
+        int skippedRowCount = 0;
 
         for (int i = 0; i < sourceRecords.size(); i++) {
             Map<String, Object> source = sourceRecords.get(i);
             MappingResult result = mapRecord(source, columnMappings);
+
+            if (result.isSkipped()) {
+                skippedRowCount++;
+                totalColumnErrors += result.getColumnErrors().size();
+                failedRecords.add(FailedMappingRecord.builder()
+                        .rowIndex(i)
+                        .sourceRecord(source)
+                        .targetRecord(null)
+                        .columnErrors(result.getColumnErrors())
+                        .build());
+                continue;
+            }
 
             if (result.isSuccess()) {
                 successRecords.add(result.getTargetRecord());
@@ -100,8 +137,8 @@ public class ColumnMapperService {
         }
 
         if (totalColumnErrors > 0) {
-            log.warn("Batch mapping: {} rows had column-level transform errors ({} total column errors)",
-                    failedRecords.size(), totalColumnErrors);
+            log.warn("Batch mapping: {} rows had column errors, {} rows skipped ({} total column errors)",
+                    failedRecords.size(), skippedRowCount, totalColumnErrors);
         }
 
         return BatchMappingResult.builder()
@@ -113,13 +150,16 @@ public class ColumnMapperService {
 
     /**
      * Simple batch mapping — returns just the target records (no diagnostics).
-     * Use this when you don't need per-column error tracking (e.g., preview mode).
+     * Filters out skipped rows.
      */
     public List<Map<String, Object>> mapBatchSimple(List<Map<String, Object>> sourceRecords,
                                                      List<ResolvedColumnMapping> columnMappings) {
         List<Map<String, Object>> results = new ArrayList<>(sourceRecords.size());
         for (Map<String, Object> source : sourceRecords) {
-            results.add(mapRecordSimple(source, columnMappings));
+            MappingResult result = mapRecord(source, columnMappings);
+            if (!result.isSkipped()) {
+                results.add(result.getTargetRecord());
+            }
         }
         return results;
     }
@@ -148,11 +188,11 @@ public class ColumnMapperService {
         }
 
         // CASE 2: Target-only mapping — no source column, run transform chain with null/default input
-        // Examples: CURRENT_TIMESTAMP, DEFAULT_IF_NULL('STANDARD')
+        // Examples: CURRENT_TIMESTAMP, DEFAULT_IF_NULL('STANDARD'), UDF with row inputs
         if (mapping.isTargetOnly()) {
             Object value = mapping.getDefaultValue();
             if (mapping.getChain() != null) {
-                value = mapping.getChain().applyWithContext(value, sourceRecord);
+                value = mapping.getChain().applyWithContext(value, sourceRecord, mapping.getTargetColumn());
             }
             return value;
         }
@@ -170,9 +210,9 @@ public class ColumnMapperService {
             }
         }
 
-        // CASE 4: Apply transformer chain (handles null-aware transforms like DEFAULT_IF_NULL)
+        // CASE 4: Apply transformer chain (handles null-aware transforms like DEFAULT_IF_NULL and UDF)
         if (mapping.getChain() != null) {
-            value = mapping.getChain().applyWithContext(value, sourceRecord);
+            value = mapping.getChain().applyWithContext(value, sourceRecord, mapping.getTargetColumn());
         }
 
         return value;
@@ -187,6 +227,7 @@ public class ColumnMapperService {
         private Map<String, Object> targetRecord;
         private List<ColumnError> columnErrors;
         private boolean success;
+        private boolean skipped;
     }
 
     @Getter @Setter @Builder

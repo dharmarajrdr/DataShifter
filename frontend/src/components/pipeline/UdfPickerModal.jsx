@@ -19,6 +19,8 @@ const UdfPickerModal = ({
   const [selectedUdfId, setSelectedUdfId] = useState(initialConfig?.udfId || '');
   const [selectedMethodName, setSelectedMethodName] = useState(initialConfig?.methodName || '');
   const [selectedInputColumns, setSelectedInputColumns] = useState(initialConfig?.inputColumns || []);
+  const [failurePolicy, setFailurePolicy] = useState(initialConfig?.failurePolicy || 'SKIP_ROW');
+  const [defaultValue, setDefaultValue] = useState(initialConfig?.defaultValue || '');
 
   const [previewInput, setPreviewInput] = useState({});
   const [previewResult, setPreviewResult] = useState(null);
@@ -151,6 +153,8 @@ const UdfPickerModal = ({
       className: selectedFunction.className,
       methodName: selectedFunction.methodName,
       inputColumns: selectedInputColumns,
+      failurePolicy,
+      defaultValue: failurePolicy === 'DEFAULT_VALUE' ? defaultValue : undefined,
     };
     onApply(config, selectedInputColumns[0] || null);
     onClose();
@@ -288,6 +292,53 @@ const UdfPickerModal = ({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Failure Policy Selector */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#1A1A1A', marginBottom: '4px' }}>
+                  Failure Policy on Error
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {[
+                    { value: 'SKIP_ROW', label: 'Skip Row', desc: 'Drop failed row and continue migration' },
+                    { value: 'DEFAULT_VALUE', label: 'Default Value', desc: 'Use fallback value for target column' },
+                    { value: 'FAIL_CHUNK', label: 'Fail Chunk', desc: 'Fail current chunk and retry' },
+                    { value: 'STOP_PIPELINE', label: 'Stop Pipeline', desc: 'Abort entire migration immediately' },
+                  ].map(policy => (
+                    <div
+                      key={policy.value}
+                      onClick={() => setFailurePolicy(policy.value)}
+                      style={{
+                        border: failurePolicy === policy.value ? '2px solid #534AB7' : '1px solid #D4D4D0',
+                        background: failurePolicy === policy.value ? '#EEEDFE' : '#fff',
+                        borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: failurePolicy === policy.value ? '#3C3489' : '#1A1A1A' }}>
+                        {policy.label}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#6B6B6B', marginTop: '2px' }}>
+                        {policy.desc}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {failurePolicy === 'DEFAULT_VALUE' && (
+                  <div style={{ marginTop: '8px' }}>
+                    <input
+                      type="text"
+                      placeholder="Enter fallback default value (e.g. 0, N/A, null)"
+                      value={defaultValue}
+                      onChange={e => setDefaultValue(e.target.value)}
+                      style={{
+                        width: '100%', padding: '6px 10px', border: '1px solid #D4D4D0',
+                        borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Live Preview & Test Box */}

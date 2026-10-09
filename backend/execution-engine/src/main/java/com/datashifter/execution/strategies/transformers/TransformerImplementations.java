@@ -1,14 +1,18 @@
 package com.datashifter.execution.strategies.transformers;
 
+import com.datashifter.common.exceptions.DatashifterException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 // =========================================================================
 // TEXT TRANSFORMERS
@@ -396,12 +400,45 @@ class RowNumberTransformer implements ColumnTransformer {
 }
 
 /**
- * UDF — executes an uploaded Java UDF.
+ * UDF — executes an uploaded Java UDF with dynamic loading, timeout, and failure policies.
  */
 @Component
+@RequiredArgsConstructor
 class UdfTransformer implements ColumnTransformer {
+
+    private final UdfExecutionManager udfExecutionManager;
+    private final ObjectMapper objectMapper;
+    private final Map<String, UdfConfig> configCache = new ConcurrentHashMap<>();
+
+    @Override
     public Object transform(Object input, String args) {
-        return input;
+        return transform(input, args, null, null);
     }
-    public String getFunctionName() { return "UDF"; }
+
+    @Override
+    public Object transform(Object input, String args, Map<String, Object> sourceRow) {
+        return transform(input, args, sourceRow, null);
+    }
+
+    @Override
+    public Object transform(Object input, String args, Map<String, Object> sourceRow, String targetColumn) {
+        if (args == null || args.isBlank()) {
+            return input;
+        }
+
+        UdfConfig config = configCache.computeIfAbsent(args, a -> {
+            try {
+                return objectMapper.readValue(a, UdfConfig.class);
+            } catch (Exception e) {
+                throw new DatashifterException("Invalid UDF configuration JSON: " + a, e);
+            }
+        });
+
+        return udfExecutionManager.execute(config, input, sourceRow, targetColumn);
+    }
+
+    @Override
+    public String getFunctionName() {
+        return "UDF";
+    }
 }
