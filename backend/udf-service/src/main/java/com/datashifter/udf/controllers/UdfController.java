@@ -19,6 +19,7 @@ import java.util.List;
 public class UdfController {
 
     private final UdfRegistryService service;
+    private final com.datashifter.udf.services.UdfExecutionService executionService;
 
     @GetMapping
     @RequiresPermission(Permissions.UDF_VIEW)
@@ -41,5 +42,13 @@ public class UdfController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable String id) {
         service.delete(id);
+    }
+
+    @PostMapping("/{id}/test")
+    @RequiresPermission(Permissions.UDF_VIEW)
+    public ApiResponse<java.util.Map<String, Object>> test(
+            @PathVariable String id,
+            @RequestBody com.datashifter.common.dtos.UdfDtos.UdfTestRequest request) {
+        return ApiResponse.success(service.testFunction(id, request.getClassName(), request.getMethodName(), request.getInputData(), executionService));
     }
 }

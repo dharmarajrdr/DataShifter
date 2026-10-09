@@ -87,6 +87,21 @@ public class UdfRegistryService {
         repository.delete(entity);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> testFunction(String id, String className, String methodName, java.util.Map<String, Object> inputData, UdfExecutionService executionService) {
+        String organizationId = requireContext(UserContext.getCurrentOrgId(), "organization");
+        UdfDefinition entity = repository.findById(id).orElseThrow(() -> new DatashifterException("UDF not found"));
+        if (!organizationId.equals(entity.getOrganizationId())) throw new DatashifterException("UDF not found or access denied");
+
+        boolean functionExists = entity.getFunctions().stream()
+                .anyMatch(f -> f.getClassName().equals(className) && f.getMethodName().equals(methodName));
+        if (!functionExists) {
+            throw new DatashifterException("Function not found in UDF");
+        }
+
+        return executionService.testFunction(entity.getStorageKey(), className, methodName, inputData);
+    }
+
     private UdfResponse toResponse(UdfDefinition entity) {
         List<UdfFunctionResponse> functions = entity.getFunctions().stream().map(function -> UdfFunctionResponse.builder()
             .id(function.getId()).className(function.getClassName()).methodName(function.getMethodName())

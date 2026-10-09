@@ -47,6 +47,11 @@ public class LocalFileSystemUdfArtifactStorage implements UdfArtifactStorage {
         Files.deleteIfExists(resolve(storageKey));
     }
 
+    @Override
+    public Path getFilePath(String storageKey) {
+        return resolve(storageKey);
+    }
+
     private Path resolve(String storageKey) {
         Path resolved = root.resolve(storageKey).normalize();
         if (!resolved.startsWith(root)) throw new IllegalArgumentException("Invalid UDF storage key");

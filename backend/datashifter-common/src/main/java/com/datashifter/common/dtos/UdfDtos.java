@@ -41,4 +41,11 @@ public final class UdfDtos {
         private String returnType;
         private boolean staticMethod;
     }
+
+    @Getter
+    public static class UdfTestRequest {
+        private String className;
+        private String methodName;
+        private java.util.Map<String, Object> inputData;
+    }
 }
