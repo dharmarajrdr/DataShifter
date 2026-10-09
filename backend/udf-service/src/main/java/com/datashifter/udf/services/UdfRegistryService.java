@@ -94,9 +94,9 @@ public class UdfRegistryService {
                     COUNT(DISTINCT pt.pipeline_id) AS pipeline_count,
                     COUNT(DISTINCT cm.id) AS column_count
                 FROM transformations t
-                JOIN column_mappings cm ON t.column_mapping_id = cm.id
-                JOIN target_table_mappings ttm ON cm.target_table_mapping_id = ttm.id
-                JOIN pipeline_tables pt ON ttm.pipeline_table_id = pt.id
+                LEFT JOIN column_mappings cm ON t.column_mapping_id = cm.id
+                LEFT JOIN target_table_mappings ttm ON cm.target_table_mapping_id = ttm.id
+                LEFT JOIN pipeline_tables pt ON ttm.pipeline_table_id = pt.id
                 WHERE t.function_name = 'UDF' AND t.arguments IS NOT NULL
                 GROUP BY 1
             """;
@@ -127,6 +127,15 @@ public class UdfRegistryService {
         String organizationId = requireContext(UserContext.getCurrentOrgId(), "organization");
         UdfDefinition entity = repository.findById(id).orElseThrow(() -> new DatashifterException("UDF not found"));
         if (!organizationId.equals(entity.getOrganizationId())) throw new DatashifterException("UDF not found or access denied");
+
+        UdfReferenceCounts refCounts = fetchReferenceCounts().get(id);
+        if (refCounts != null && (refCounts.pipelineCount() > 0 || refCounts.columnCount() > 0)) {
+            throw new DatashifterException(String.format(
+                    "Cannot delete UDF '%s' because it is referenced in %d pipeline(s) and %d column(s). Remove the transformations first.",
+                    entity.getName(), refCounts.pipelineCount(), refCounts.columnCount()
+            ));
+        }
+
         try { storage.delete(entity.getStorageKey()); } catch (IOException e) { throw new DatashifterException("Could not delete the UDF artifact", e); }
         repository.delete(entity);
     }

@@ -127,6 +127,8 @@ const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
     const [showFunctions, setShowFunctions] = useState(false);
     const functions = udf.functions || [];
     const ToggleIcon = showFunctions ? ChevronUp : ChevronDown;
+    const isReferenced = (Number(udf.pipelineCount) > 0) || (Number(udf.columnCount) > 0);
+    const deleteDisabled = deleting || isReferenced;
     return (
         <div style={{ background: COLORS.background.primary, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, boxShadow: SHADOWS.sm }}>
             <div style={{ ...FRBC, alignItems: 'flex-start', gap: SPACING.md }}>
@@ -136,7 +138,30 @@ const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
                 </div>
                 <div style={{ ...FRSC, gap: SPACING.xs }}>
                     <StatusChip status={udf.status} />
-                    {canDelete && <button type="button" aria-label={`Delete ${udf.name}`} title="Delete UDF" onClick={() => onDelete(udf)} disabled={deleting} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, background: 'transparent', color: COLORS.status.errorDark, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.5 : 1 }}><Trash2 size={14} /></button>}
+                    {canDelete && (
+                        <button
+                            type="button"
+                            aria-label={`Delete ${udf.name}`}
+                            title={isReferenced ? `Cannot delete: referenced in ${udf.pipelineCount || 0} pipeline(s) and ${udf.columnCount || 0} column(s)` : (deleting ? 'Deleting...' : 'Delete UDF')}
+                            onClick={deleteDisabled ? undefined : () => onDelete(udf)}
+                            disabled={deleteDisabled}
+                            style={{
+                                width: 28,
+                                height: 28,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: `1px solid ${COLORS.border.light}`,
+                                borderRadius: BORDER_RADIUS.sm,
+                                background: 'transparent',
+                                color: isReferenced ? COLORS.text.tertiary : COLORS.status.errorDark,
+                                cursor: deleteDisabled ? 'not-allowed' : 'pointer',
+                                opacity: isReferenced ? 0.35 : (deleting ? 0.5 : 1)
+                            }}
+                        >
+                            <Trash2 size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
             <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, lineHeight: 1.5, minHeight: '42px', margin: `${SPACING.md} 0` }}>{udf.description || 'No description provided.'}</p>
@@ -184,6 +209,7 @@ const UdfLibrary = () => {
     }, []);
 
     const handleDelete = async (udf) => {
+        if ((Number(udf.pipelineCount) > 0) || (Number(udf.columnCount) > 0)) return;
         if (!window.confirm(`Delete UDF "${udf.name}"? This cannot be undone.`)) return;
         setDeletingId(udf.id);
         setError(null);
