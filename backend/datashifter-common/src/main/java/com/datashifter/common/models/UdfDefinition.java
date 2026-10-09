@@ -1,12 +1,19 @@
 package com.datashifter.common.models;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.datashifter.common.enums.UdfStatus;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -61,4 +68,9 @@ public class UdfDefinition extends BaseEntity {
 
     @Column(name = "validation_message", length = 2000)
     private String validationMessage;
+
+    @OneToMany(mappedBy = "udfDefinition", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("functionName ASC")
+    @Builder.Default
+    private List<UdfFunction> functions = new ArrayList<>();
 }

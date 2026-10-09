@@ -1,6 +1,7 @@
 package com.datashifter.common.dtos;
 
 import java.time.Instant;
+import java.util.List;
 
 import com.datashifter.common.enums.UdfStatus;
 
@@ -25,5 +26,19 @@ public final class UdfDtos {
         private String validationMessage;
         private Instant createdAt;
         private Instant updatedAt;
+        private List<UdfFunctionResponse> functions;
+    }
+
+    @Getter
+    @Builder
+    public static class UdfFunctionResponse {
+        private String id;
+        private String className;
+        private String methodName;
+        private String functionName;
+        private String description;
+        private List<String> parameterTypes;
+        private String returnType;
+        private boolean staticMethod;
     }
 }

@@ -21,3 +21,23 @@ CREATE TABLE IF NOT EXISTS udf_definitions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_udf_definitions_org ON udf_definitions (organization_id);
+
+CREATE TABLE IF NOT EXISTS udf_functions (
+    id VARCHAR(36) PRIMARY KEY,
+    udf_definition_id VARCHAR(36) NOT NULL REFERENCES udf_definitions (id) ON DELETE CASCADE,
+    class_name VARCHAR(500) NOT NULL,
+    method_name VARCHAR(255) NOT NULL,
+    function_name VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    parameter_types TEXT NOT NULL,
+    return_type VARCHAR(500) NOT NULL,
+    static_method BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP
+    WITH
+        TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_udf_functions_definition ON udf_functions (udf_definition_id);
