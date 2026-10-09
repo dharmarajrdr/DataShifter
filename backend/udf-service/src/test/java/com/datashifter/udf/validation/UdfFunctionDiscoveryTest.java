@@ -1,7 +1,7 @@
 package com.datashifter.udf.validation;
 
 import com.datashifter.common.exceptions.DatashifterException;
-import com.datashifter.common.udf.DataShifterUdf;
+import com.datashifter.udf.sdk.DataShifterUdf;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 

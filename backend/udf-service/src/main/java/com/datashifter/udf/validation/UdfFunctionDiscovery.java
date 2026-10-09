@@ -1,7 +1,7 @@
 package com.datashifter.udf.validation;
 
 import com.datashifter.common.exceptions.DatashifterException;
-import com.datashifter.common.udf.DataShifterUdf;
+import com.datashifter.udf.sdk.DataShifterUdf;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;

@@ -1,6 +1,6 @@
 package com.datashifter.fixtures;
 
-import com.datashifter.common.udf.DataShifterUdf;
+import com.datashifter.udf.sdk.DataShifterUdf;
 
 public final class CustomerFunctions {
     private CustomerFunctions() {}
