@@ -17,6 +17,13 @@ public enum TransformFunction {
     TO_BOOLEAN,         // Parse string to boolean (true/false, 1/0, yes/no)
     TO_DATE,            // Parse string to date: "pattern"
 
+    // Math / Numeric
+    ROUND,              // Round number to scale (default 0 decimals)
+    CEIL,               // Smallest integer >= number
+    FLOOR,              // Largest integer <= number
+    ABS,                // Absolute value
+    TRUNC,              // Truncate number towards zero to scale (default 0 decimals)
+
     // Null handling
     DEFAULT_IF_NULL,    // Replace null with default value
 

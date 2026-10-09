@@ -12,33 +12,149 @@ import { mappingApi } from '../services/api';
 const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];
 
 /* ================================================================
-   TRANSFORM FUNCTION METADATA
+   TRANSFORM FUNCTION METADATA & TYPE COMPATIBILITY
    ================================================================ */
 const FN_META = {
-  TRIM: { desc: 'Remove leading/trailing whitespace', needsArgs: false, category: 'Text' },
-  UPPER: { desc: 'Convert to UPPERCASE', needsArgs: false, category: 'Text' },
-  LOWER: { desc: 'Convert to lowercase', needsArgs: false, category: 'Text' },
-  APPEND: { desc: 'Append suffix to value', needsArgs: true, argHint: "'_suffix'", category: 'Text' },
-  PREPEND: { desc: 'Prepend prefix to value', needsArgs: true, argHint: "'PREFIX_'", category: 'Text' },
-  CONCAT: { desc: 'Append suffix (alias for APPEND)', needsArgs: true, argHint: "'_suffix'", category: 'Text' },
-  CONCAT_COLUMNS: { desc: 'Concat multiple columns', needsArgs: 'split', argHint: ['Separator', 'Column names (comma-sep)'], category: 'Text' },
-  SUBSTRING: { desc: 'Extract substring by index', needsArgs: 'split', argHint: ['Start index (required)', 'End index (required)'], category: 'Text' },
-  TO_STRING: { desc: 'Convert to string', needsArgs: false, category: 'Type' },
-  TO_DATE: { desc: 'Parse string to date', needsArgs: true, argHint: "yyyy-MM-dd", category: 'Type' },
-  TO_NUMBER: { desc: 'Parse string to number', needsArgs: false, category: 'Type' },
-  TO_BOOLEAN: { desc: 'Parse to boolean (true/false, 1/0, yes/no)', needsArgs: false, category: 'Type' },
-  DEFAULT_IF_NULL: { desc: 'Replace null with default (only when source is null)', needsArgs: true, argHint: "default value", category: 'Null' },
-  TO_JSON: { desc: 'Build JSON object field', needsArgs: true, argHint: 'field name', category: 'JSON' },
-  TO_JSON_ARRAY: { desc: 'Build JSON array', needsArgs: true, argHint: 'wrapper key (optional)', category: 'JSON' },
-  CURRENT_TIMESTAMP: { desc: 'Current system timestamp', needsArgs: false, category: 'System', isSystemValue: true },
-  CURRENT_DATE: { desc: 'Current date (no time)', needsArgs: false, category: 'System', isSystemValue: true },
-  STATIC_VALUE: { desc: 'Fixed constant for every row', needsArgs: true, argHint: 'value (e.g., STANDARD)', category: 'System', isSystemValue: true },
-  UUID: { desc: 'Generate UUID v4', needsArgs: false, category: 'System', isSystemValue: true },
-  ROW_NUMBER: { desc: 'Sequential counter (1, 2, 3...)', needsArgs: false, category: 'System', isSystemValue: true },
-  UDF: { desc: 'Custom Java row UDF', needsArgs: 'udf', category: 'Custom' },
+  // Text
+  TRIM: { desc: 'Remove leading/trailing whitespace', needsArgs: false, category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
+  UPPER: { desc: 'Convert to UPPERCASE', needsArgs: false, category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
+  LOWER: { desc: 'Convert to lowercase', needsArgs: false, category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
+  APPEND: { desc: 'Append suffix to value', needsArgs: true, argHint: "'_suffix'", category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
+  PREPEND: { desc: 'Prepend prefix to value', needsArgs: true, argHint: "'PREFIX_'", category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
+  CONCAT: { desc: 'Append suffix (alias for APPEND)', needsArgs: true, argHint: "'_suffix'", category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
+  CONCAT_COLUMNS: { desc: 'Concat multiple columns', needsArgs: 'split', argHint: ['Separator', 'Column names (comma-sep)'], category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
+  SUBSTRING: { desc: 'Extract substring by index', needsArgs: 'split', argHint: ['Start index (required)', 'End index (required)'], category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
+  TO_STRING: { desc: 'Convert to string', needsArgs: false, category: 'Type', inputTypes: ['ANY'], outputType: 'STRING' },
+
+  // Math / Numeric
+  ROUND: { desc: 'Round number to decimals (default 0)', needsArgs: 'optional', argHint: 'decimals (e.g., 2, 0)', category: 'Math', inputTypes: ['NUMBER'], outputType: 'NUMBER' },
+  CEIL: { desc: 'Smallest integer >= value', needsArgs: false, category: 'Math', inputTypes: ['NUMBER'], outputType: 'NUMBER' },
+  FLOOR: { desc: 'Largest integer <= value', needsArgs: false, category: 'Math', inputTypes: ['NUMBER'], outputType: 'NUMBER' },
+  ABS: { desc: 'Absolute value', needsArgs: false, category: 'Math', inputTypes: ['NUMBER'], outputType: 'NUMBER' },
+  TRUNC: { desc: 'Truncate towards zero to decimals (default 0)', needsArgs: 'optional', argHint: 'decimals (e.g., 2, 0)', category: 'Math', inputTypes: ['NUMBER'], outputType: 'NUMBER' },
+  TO_NUMBER: { desc: 'Parse string to number', needsArgs: false, category: 'Type', inputTypes: ['STRING', 'NUMBER', 'BOOLEAN'], outputType: 'NUMBER' },
+
+  // Date
+  TO_DATE: { desc: 'Parse string to date', needsArgs: true, argHint: "yyyy-MM-dd", category: 'Type', inputTypes: ['STRING', 'DATE'], outputType: 'DATE' },
+
+  // Boolean
+  TO_BOOLEAN: { desc: 'Parse to boolean (true/false, 1/0, yes/no)', needsArgs: false, category: 'Type', inputTypes: ['STRING', 'NUMBER', 'BOOLEAN'], outputType: 'BOOLEAN' },
+
+  // Null
+  DEFAULT_IF_NULL: { desc: 'Replace null with default (only when source is null)', needsArgs: true, argHint: "default value", category: 'Null', inputTypes: ['ANY'], outputType: 'SAME' },
+
+  // JSON
+  TO_JSON: { desc: 'Build JSON object field', needsArgs: true, argHint: 'field name', category: 'JSON', inputTypes: ['ANY'], outputType: 'JSON' },
+  TO_JSON_ARRAY: { desc: 'Build JSON array', needsArgs: true, argHint: 'wrapper key (optional)', category: 'JSON', inputTypes: ['ANY'], outputType: 'JSON' },
+
+  // System values (no source column needed)
+  CURRENT_TIMESTAMP: { desc: 'Current system timestamp', needsArgs: false, category: 'System', isSystemValue: true, inputTypes: ['ANY'], outputType: 'DATE' },
+  CURRENT_DATE: { desc: 'Current date (no time)', needsArgs: false, category: 'System', isSystemValue: true, inputTypes: ['ANY'], outputType: 'DATE' },
+  STATIC_VALUE: { desc: 'Fixed constant for every row', needsArgs: true, argHint: 'value (e.g., STANDARD)', category: 'System', isSystemValue: true, inputTypes: ['ANY'], outputType: 'STRING' },
+  UUID: { desc: 'Generate UUID v4', needsArgs: false, category: 'System', isSystemValue: true, inputTypes: ['ANY'], outputType: 'STRING' },
+  ROW_NUMBER: { desc: 'Sequential counter (1, 2, 3...)', needsArgs: false, category: 'System', isSystemValue: true, inputTypes: ['ANY'], outputType: 'NUMBER' },
+
+  // Java UDF
+  UDF: { desc: 'Custom Java row UDF', needsArgs: 'udf', category: 'Custom', inputTypes: ['ANY'], outputType: 'ANY' },
 };
 
-const ALL_FUNCTIONS = ['TRIM', 'UPPER', 'LOWER', 'APPEND', 'PREPEND', 'CONCAT', 'CONCAT_COLUMNS', 'SUBSTRING', 'TO_STRING', 'TO_DATE', 'TO_NUMBER', 'TO_BOOLEAN', 'DEFAULT_IF_NULL', 'TO_JSON', 'TO_JSON_ARRAY'];
+const ALL_FUNCTIONS = [
+  'TRIM', 'UPPER', 'LOWER', 'APPEND', 'PREPEND', 'CONCAT', 'CONCAT_COLUMNS', 'SUBSTRING',
+  'ROUND', 'CEIL', 'FLOOR', 'ABS', 'TRUNC',
+  'TO_STRING', 'TO_NUMBER', 'TO_BOOLEAN', 'TO_DATE',
+  'DEFAULT_IF_NULL', 'TO_JSON', 'TO_JSON_ARRAY'
+];
+
+/* ================================================================
+   DATA TYPE NORMALIZATION & VALIDATION
+   ================================================================ */
+const normalizeDataType = (rawType) => {
+  if (!rawType) return 'STRING';
+  const t = rawType.toUpperCase().trim();
+  if (
+    t.includes('INT') ||
+    t.includes('NUM') ||
+    t.includes('DEC') ||
+    t.includes('FLOAT') ||
+    t.includes('DOUBLE') ||
+    t.includes('REAL') ||
+    t.includes('SERIAL') ||
+    t.includes('MONEY') ||
+    t.includes('BYTE') ||
+    t.includes('LONG')
+  ) {
+    return 'NUMBER';
+  }
+  if (
+    t.includes('DATE') ||
+    t.includes('TIME') ||
+    t.includes('TIMESTAMP') ||
+    t.includes('INTERVAL')
+  ) {
+    return 'DATE';
+  }
+  if (t.includes('BOOL')) {
+    return 'BOOLEAN';
+  }
+  if (t.includes('JSON')) {
+    return 'JSON';
+  }
+  return 'STRING';
+};
+
+const validateInputForType = (val, type) => {
+  if (val === null || val === undefined || val === '') {
+    return { ok: true, message: null };
+  }
+  const s = String(val).trim();
+  switch (type) {
+    case 'NUMBER': {
+      const n = Number(s);
+      if (isNaN(n)) return { ok: false, message: `"${s}" is not a valid number for column type ${type}` };
+      return { ok: true, message: null };
+    }
+    case 'DATE': {
+      const d = Date.parse(s);
+      if (isNaN(d)) return { ok: false, message: `"${s}" is not a valid date for column type ${type} (expected YYYY-MM-DD or ISO)` };
+      return { ok: true, message: null };
+    }
+    case 'BOOLEAN': {
+      const valid = ['true', 'false', '1', '0', 'yes', 'no', 't', 'f', 'y', 'n'];
+      if (!valid.includes(s.toLowerCase())) return { ok: false, message: `"${s}" is not a valid boolean for column type ${type} (expected true/false, 1/0)` };
+      return { ok: true, message: null };
+    }
+    case 'JSON': {
+      try {
+        JSON.parse(s);
+        return { ok: true, message: null };
+      } catch {
+        return { ok: false, message: `"${s}" is not valid JSON` };
+      }
+    }
+    case 'STRING':
+    default:
+      return { ok: true, message: null };
+  }
+};
+
+const checkTargetCompatibility = (outputType, targetType) => {
+  if (!targetType || outputType === 'ANY' || targetType === 'ANY') return { ok: true };
+  if (outputType === targetType) return { ok: true };
+  if (targetType === 'STRING') return { ok: true };
+  if (targetType === 'NUMBER' && outputType !== 'NUMBER') {
+    return { ok: false, error: `Target column expects NUMBER, but transformation outputs ${outputType}. Add TO_NUMBER to convert.` };
+  }
+  if (targetType === 'DATE' && outputType !== 'DATE') {
+    return { ok: false, error: `Target column expects DATE, but transformation outputs ${outputType}. Add TO_DATE to convert.` };
+  }
+  if (targetType === 'BOOLEAN' && outputType !== 'BOOLEAN') {
+    return { ok: false, error: `Target column expects BOOLEAN, but transformation outputs ${outputType}. Add TO_BOOLEAN to convert.` };
+  }
+  if (targetType === 'JSON' && outputType !== 'JSON') {
+    return { ok: false, error: `Target column expects JSON, but transformation outputs ${outputType}. Add TO_JSON to convert.` };
+  }
+  return { ok: true };
+};
 
 /* ================================================================
    TRANSFORM SIMULATION (for preview)
@@ -82,6 +198,37 @@ const simulateOne = (value, fn, args) => {
       if (end < start) return { ok: false, val: s, err: `End ${end} < start ${start}` };
       return { ok: true, val: s.substring(start, end) };
     }
+    case 'ROUND': {
+      const n = Number(s.trim());
+      if (isNaN(n)) return { ok: false, val: s, err: `"${s.trim()}" is not a number` };
+      const scale = args && args.trim() ? parseInt(args.trim(), 10) : 0;
+      const factor = Math.pow(10, isNaN(scale) ? 0 : scale);
+      const rounded = Math.round(n * factor) / factor;
+      return { ok: true, val: scale <= 0 ? Math.round(n) : rounded };
+    }
+    case 'CEIL': {
+      const n = Number(s.trim());
+      if (isNaN(n)) return { ok: false, val: s, err: `"${s.trim()}" is not a number` };
+      return { ok: true, val: Math.ceil(n) };
+    }
+    case 'FLOOR': {
+      const n = Number(s.trim());
+      if (isNaN(n)) return { ok: false, val: s, err: `"${s.trim()}" is not a number` };
+      return { ok: true, val: Math.floor(n) };
+    }
+    case 'ABS': {
+      const n = Number(s.trim());
+      if (isNaN(n)) return { ok: false, val: s, err: `"${s.trim()}" is not a number` };
+      return { ok: true, val: Math.abs(n) };
+    }
+    case 'TRUNC': {
+      const n = Number(s.trim());
+      if (isNaN(n)) return { ok: false, val: s, err: `"${s.trim()}" is not a number` };
+      const scale = args && args.trim() ? parseInt(args.trim(), 10) : 0;
+      if (isNaN(scale) || scale <= 0) return { ok: true, val: Math.trunc(n) };
+      const factor = Math.pow(10, scale);
+      return { ok: true, val: Math.trunc(n * factor) / factor };
+    }
     case 'TO_STRING': return { ok: true, val: s };
     case 'TO_NUMBER': { const n = Number(s.trim()); return isNaN(n) ? { ok: false, val: s, err: `"${s.trim()}" is not a number` } : { ok: true, val: n }; }
     case 'TO_BOOLEAN': { const low = s.trim().toLowerCase(); const truthy = ['true', 'yes', '1', 'y', 't', 'on']; const falsy = ['false', 'no', '0', 'n', 'f', 'off']; if (truthy.includes(low)) return { ok: true, val: true }; if (falsy.includes(low)) return { ok: true, val: false }; return { ok: false, val: s, err: `"${s}" is not a boolean` }; }
@@ -93,10 +240,16 @@ const simulateOne = (value, fn, args) => {
   }
 };
 
-const simulateChain = (sourceValue, steps) => {
+const simulateChain = (sourceValue, steps, chainAnalysis) => {
   let current = sourceValue;
   const results = [];
-  for (const step of steps) {
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const stepEval = chainAnalysis?.steps?.[i];
+    if (stepEval?.typeError) {
+      results.push({ ok: false, val: current, err: stepEval.typeError });
+      break;
+    }
     const r = simulateOne(current, step.fn, step.args);
     results.push(r);
     if (!r.ok) break;
@@ -105,22 +258,39 @@ const simulateChain = (sourceValue, steps) => {
   return results;
 };
 
-const getSampleData = (dataType) => {
-  const t = (dataType || '').toUpperCase();
-  if (t.includes('INT') || t.includes('NUMBER') || t.includes('NUMERIC') || t.includes('DECIMAL') || t.includes('FLOAT') || t.includes('DOUBLE'))
-    return ['42', '0', '-17', '3.14', null];
-  if (t.includes('DATE') || t.includes('TIME') || t.includes('TIMESTAMP'))
-    return ['2024-03-15', '2023-12-01', 'not-a-date', '2025-01-01 14:30:00', null];
-  if (t.includes('BOOL'))
-    return ['true', 'false', '1', '0', null];
-  return ['  Hello World  ', 'john.doe@email.com', '', '  UPPERCASE  ', null];
+const getSampleData = (normType) => {
+  switch (normType) {
+    case 'NUMBER':
+      return ['123.45', '42', '-17.5', '0', null];
+    case 'DATE':
+      return ['2024-03-15', '2026-10-10', '2023-12-01', null];
+    case 'BOOLEAN':
+      return ['true', 'false', '1', '0', null];
+    case 'JSON':
+      return ['{"id": 101, "name": "Alpha"}', '{"status": "active"}', null];
+    case 'STRING':
+    default:
+      return ['abc', 'John Doe', '  sample text  ', '', null];
+  }
 };
 
 /* ================================================================
    TRANSFORM SLIDE-OVER PANEL
    ================================================================ */
-const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClose }) => {
+const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables = [], onApply, onClose }) => {
   const isSystemValue = mapping?.targetOnly;
+
+  const [sT, sC] = (mapping?.source || '').split('.');
+  const [tT, tC] = (mapping?.target || '').split('.');
+
+  const sourceCol = sourceTables.find(t => t.tableName === sT)?.columns?.find(c => c.name === sC);
+  const targetCol = targetTables.find(t => t.tableName === tT)?.columns?.find(c => c.name === tC);
+
+  const rawSourceType = sourceCol?.type || mapping?.sourceType || '';
+  const rawTargetType = targetCol?.type || mapping?.targetType || '';
+
+  const sourceNormType = isSystemValue ? 'SYSTEM' : normalizeDataType(rawSourceType);
+  const targetNormType = normalizeDataType(rawTargetType);
 
   const [steps, setSteps] = useState((mapping?.transforms || []).map((t, i) => ({
     id: `s${i}`, fn: t.fn, args: t.args || '', start: '', end: '',
@@ -130,6 +300,11 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
 
   const [udfModalOpen, setUdfModalOpen] = useState(false);
   const [editingUdfStepId, setEditingUdfStepId] = useState(null);
+
+  const [customInput, setCustomInput] = useState('');
+  const customValidation = useMemo(() => {
+    return validateInputForType(customInput, sourceNormType);
+  }, [customInput, sourceNormType]);
 
   const handleOpenUdfModal = (stepId = null) => {
     setEditingUdfStepId(stepId);
@@ -146,12 +321,94 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
     setEditingUdfStepId(null);
   };
 
-  // For system values, use null as starting sample. For regular mappings, use type-based samples.
-  const srcType = mapping?.source?.split('.')?.[1] || '';
-  const sampleData = useMemo(() => {
-    if (isSystemValue) return [null, null, null]; // system values ignore input
-    return getSampleData(mapping?.sourceType || srcType);
-  }, [mapping?.sourceType, srcType, isSystemValue]);
+  // Chain analysis: infers data type at every step and checks type compatibility
+  const chainAnalysis = useMemo(() => {
+    let currentType = isSystemValue ? (FN_META[steps[0]?.fn]?.outputType || 'STRING') : sourceNormType;
+    const evaluatedSteps = [];
+
+    steps.forEach((step, idx) => {
+      if (step.isSystemStep) {
+        const outType = FN_META[step.fn]?.outputType || 'STRING';
+        evaluatedSteps.push({
+          ...step,
+          inputType: 'NONE',
+          outputType: outType,
+          typeError: null,
+        });
+        currentType = outType;
+        return;
+      }
+
+      const meta = FN_META[step.fn] || {};
+      const allowedInputTypes = meta.inputTypes || ['ANY'];
+      const isTypeCompatible = allowedInputTypes.includes('ANY') || allowedInputTypes.includes(currentType) || currentType === 'ANY';
+
+      let typeError = null;
+      if (!isTypeCompatible) {
+        const fromDesc = idx === 0 ? `source column (${sourceNormType})` : `step ${idx} (${currentType})`;
+        typeError = `${step.fn} requires ${allowedInputTypes.join(' or ')}, but receives ${currentType} from ${fromDesc}`;
+      }
+
+      let outType = currentType;
+      if (meta.outputType === 'SAME') {
+        outType = currentType;
+      } else if (meta.outputType) {
+        outType = meta.outputType;
+      }
+
+      evaluatedSteps.push({
+        ...step,
+        inputType: currentType,
+        outputType: outType,
+        typeError,
+      });
+
+      currentType = outType;
+    });
+
+    return {
+      finalType: currentType,
+      steps: evaluatedSteps,
+    };
+  }, [steps, isSystemValue, sourceNormType]);
+
+  const targetComp = useMemo(() => {
+    return checkTargetCompatibility(chainAnalysis.finalType, targetNormType);
+  }, [chainAnalysis.finalType, targetNormType]);
+
+  const nextInputType = chainAnalysis.finalType;
+
+  // Filter available functions strictly matching the next input type
+  const availableFunctions = useMemo(() => {
+    return ALL_FUNCTIONS.filter(fn => {
+      const meta = FN_META[fn];
+      if (!meta) return false;
+      return meta.inputTypes.includes('ANY') || meta.inputTypes.includes(nextInputType) || nextInputType === 'ANY';
+    });
+  }, [nextInputType]);
+
+  const categories = useMemo(() => {
+    const cats = {};
+    availableFunctions.forEach(fn => {
+      const cat = FN_META[fn]?.category || 'Other';
+      if (!cats[cat]) cats[cat] = [];
+      cats[cat].push(fn);
+    });
+    return cats;
+  }, [availableFunctions]);
+
+  const defaultSamples = useMemo(() => {
+    if (isSystemValue) return [null, null, null];
+    return getSampleData(sourceNormType);
+  }, [sourceNormType, isSystemValue]);
+
+  const effectiveSamples = useMemo(() => {
+    if (isSystemValue) return [null, null, null];
+    if (customInput.trim() !== '') {
+      return [{ val: customInput, isCustom: true }, ...defaultSamples.map(v => ({ val: v, isCustom: false }))];
+    }
+    return defaultSamples.map(v => ({ val: v, isCustom: false }));
+  }, [isSystemValue, customInput, defaultSamples]);
 
   const addStep = (fn) => {
     setSteps(prev => [...prev, { id: `s${Date.now()}`, fn, args: '', start: '', end: '', isSystemStep: false }]);
@@ -172,14 +429,16 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
     }));
   };
 
-  // Build effective steps for simulation
   const effectiveSteps = steps.map(s => ({ fn: s.fn, args: s.fn === 'SUBSTRING' ? `${s.start || '0'},${s.end || ''}` : s.args }));
 
-  // Validate each step — returns array of { stepId, error } for invalid steps
   const stepErrors = useMemo(() => {
     const errors = [];
-    steps.forEach(s => {
+    steps.forEach((s, idx) => {
       const meta = FN_META[s.fn] || {};
+      const evalStep = chainAnalysis.steps[idx];
+      if (evalStep?.typeError) {
+        errors.push({ id: s.id, error: evalStep.typeError, isTypeError: true });
+      }
       if (s.fn === 'UDF' && (!s.args || !s.args.trim())) {
         errors.push({ id: s.id, error: 'UDF configuration is required' });
       }
@@ -194,31 +453,38 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
           else if (Number(start) < 0) errors.push({ id: s.id, error: 'Start must be ≥ 0' });
           if (!end) errors.push({ id: s.id, error: 'End index is required' });
           else if (isNaN(Number(end))) errors.push({ id: s.id, error: 'End must be a number' });
-          if (start && end && !isNaN(Number(start)) && !isNaN(Number(end)) && Number(end) < Number(start)) errors.push({ id: s.id, error: 'End must be ≥ start' });
+          if (start && end && !isNaN(Number(start)) && !isNaN(Number(end)) && Number(end) < Number(start)) {
+            errors.push({ id: s.id, error: 'End must be ≥ start' });
+          }
         }
         if (s.fn === 'CONCAT_COLUMNS') {
           const parts = (s.args || '').split('|');
           if (parts.length < 2 || !parts[1]?.trim()) errors.push({ id: s.id, error: 'Specify separator|column_names' });
         }
       }
+      if ((s.fn === 'ROUND' || s.fn === 'TRUNC') && s.args && s.args.trim() && isNaN(Number(s.args.trim()))) {
+        errors.push({ id: s.id, error: 'Scale/decimals must be a number' });
+      }
       if (s.fn === 'TO_JSON' && (!s.args || !s.args.trim())) errors.push({ id: s.id, error: 'Field name required' });
       if (s.fn === 'STATIC_VALUE' && (!s.args || !s.args.trim())) errors.push({ id: s.id, error: 'Value is required' });
     });
     return errors;
-  }, [steps]);
+  }, [steps, chainAnalysis]);
 
-  const hasValidationErrors = stepErrors.length > 0;
+  const hasValidationErrors = stepErrors.some(e => !e.isTypeError);
+  const hasTypeErrors = chainAnalysis.steps.some(s => s.typeError);
+  const targetMismatch = !targetComp.ok;
   const getStepError = (id) => stepErrors.find(e => e.id === id)?.error;
 
-  // Also check preview — if any sample fails, show warning (but don't block Apply)
   const previewHasErrors = useMemo(() => {
-    return sampleData.some(val => {
-      const chain = simulateChain(val, effectiveSteps);
+    return effectiveSamples.some(sample => {
+      if (sample.isCustom && !customValidation.ok) return true;
+      const chain = simulateChain(sample.val, effectiveSteps, chainAnalysis);
       return chain.some(r => !r.ok);
     });
-  }, [sampleData, effectiveSteps]);
+  }, [effectiveSamples, customValidation, effectiveSteps, chainAnalysis]);
 
-  const canApply = !hasValidationErrors && !previewHasErrors;
+  const canApply = !hasValidationErrors && !hasTypeErrors && !targetMismatch && !previewHasErrors;
 
   const handleApply = () => {
     if (!canApply) return;
@@ -226,63 +492,74 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
     onClose();
   };
 
-  // Group functions by category — exclude System category from the "add" list
-  const categories = {};
-  ALL_FUNCTIONS.forEach(fn => {
-    const cat = FN_META[fn]?.category || 'Other';
-    if (!categories[cat]) categories[cat] = [];
-    categories[cat].push(fn);
-  });
-
   return (
-    <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '480px', background: '#fff', borderLeft: '1px solid #E8E8E5', boxShadow: '-4px 0 16px rgba(0,0,0,.06)', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '500px', background: '#fff', borderLeft: '1px solid #E8E8E5', boxShadow: '-4px 0 16px rgba(0,0,0,.06)', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
       <div style={{ ...FRBC, padding: `${SPACING.md} ${SPACING.lg}`, borderBottom: '1px solid #E8E8E5', flexShrink: 0 }}>
         <div>
           <p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium }}>
             {isSystemValue ? 'System value + Transformation' : 'Transformation'}
           </p>
-          <p style={{ fontSize: FONT.size.xs, color: '#6B6B6B', marginTop: '2px' }}>
-            {isSystemValue ? `⚙ ${mapping?.target}` : `${mapping?.source} → ${mapping?.target}`}
-          </p>
+          <div style={{ ...FRSC, gap: '6px', marginTop: '3px' }}>
+            {isSystemValue ? (
+              <span style={{ fontSize: FONT.size.xs, color: '#6B6B6B' }}>⚙ {mapping?.target} ({rawTargetType || 'AUTO'})</span>
+            ) : (
+              <>
+                <span style={{ fontSize: FONT.size.xs, color: '#3C3489', background: '#EEEDFE', padding: '1px 6px', borderRadius: '4px', fontWeight: 500 }}>
+                  {mapping?.source} <small style={{ opacity: 0.8 }}>({rawSourceType || 'STRING'})</small>
+                </span>
+                <span style={{ fontSize: FONT.size.xs, color: '#9B9B9B' }}>→</span>
+                <span style={{ fontSize: FONT.size.xs, color: '#085041', background: '#E1F5EE', padding: '1px 6px', borderRadius: '4px', fontWeight: 500 }}>
+                  {mapping?.target} <small style={{ opacity: 0.8 }}>({rawTargetType || 'STRING'})</small>
+                </span>
+              </>
+            )}
+          </div>
         </div>
         <span onClick={onClose} style={{ cursor: 'pointer' }}><CloseIcon /></span>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: SPACING.lg }}>
         {/* Function chain */}
-        <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: '#6B6B6B', marginBottom: SPACING.xs }}>Function chain</p>
+        <div style={{ ...FRBC, marginBottom: SPACING.xs }}>
+          <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: '#6B6B6B' }}>Function chain</p>
+          <span style={{ fontSize: '10px', color: '#6B6B6B' }}>
+            Output: <strong style={{ color: targetComp.ok ? '#085041' : '#A32D2D' }}>{chainAnalysis.finalType}</strong>
+          </span>
+        </div>
+
         {steps.length === 0 ? (
-          <div style={{ border: '1px dashed #D4D4D0', borderRadius: '8px', padding: '16px', textAlign: 'center', color: '#9B9B9B', fontSize: FONT.size.xs, marginBottom: SPACING.md }}>No functions. Click below to add.</div>
+          <div style={{ border: '1px dashed #D4D4D0', borderRadius: '8px', padding: '16px', textAlign: 'center', color: '#9B9B9B', fontSize: FONT.size.xs, marginBottom: SPACING.md }}>
+            No functions. Direct passthrough of {sourceNormType}.
+          </div>
         ) : (
           <div style={{ border: '1px solid #E8E8E5', borderRadius: '8px', overflow: 'hidden', marginBottom: SPACING.md }}>
-            {steps.map((step, i) => {
+            {chainAnalysis.steps.map((step, i) => {
               const meta = FN_META[step.fn] || {};
               const isLocked = step.isSystemStep;
               const stepErr = getStepError(step.id);
+              const hasErr = !!step.typeError || !!stepErr;
               const clr = isLocked
                 ? { bg: '#FEF3C7', text: '#854F0B' }
                 : [{ bg: '#EEEDFE', text: '#3C3489' }, { bg: '#E1F5EE', text: '#085041' }, { bg: '#FAECE7', text: '#712B13' }][(isLocked ? 0 : i) % 3];
-              const inputBorder = stepErr ? '1px solid #D85A30' : '1px solid #E8E8E5';
+              const inputBorder = hasErr ? '1px solid #D85A30' : '1px solid #E8E8E5';
               return (
-                <div key={step.id}>
-                  {i > 0 && <div style={{ padding: '1px 0 1px 32px', fontSize: '10px', color: '#9B9B9B' }}>↓ then</div>}
-                  <div style={{ display: 'flex', alignItems: 'center', padding: `8px ${SPACING.sm}`, background: isLocked ? '#FFFBEB' : '#F7F7F5', gap: '6px' }}>
+                <div key={step.id} style={{ borderBottom: i < steps.length - 1 ? '1px solid #E8E8E5' : 'none' }}>
+                  {i > 0 && <div style={{ padding: '2px 0 2px 32px', fontSize: '10px', color: '#9B9B9B', background: '#FAFAF9' }}>↓ then ({step.inputType})</div>}
+                  <div style={{ display: 'flex', alignItems: 'center', padding: `8px ${SPACING.sm}`, background: hasErr ? '#FDF2F2' : isLocked ? '#FFFBEB' : '#F7F7F5', gap: '6px' }}>
                     <span style={{ background: clr.bg, color: clr.text, fontSize: '10px', padding: '1px 6px', borderRadius: '4px', fontWeight: 500, flexShrink: 0 }}>
                       {isLocked ? '⚙' : i + 1}
                     </span>
                     <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, fontFamily: 'monospace', flexShrink: 0 }}>{step.fn}</span>
+                    <span style={{ fontSize: '9px', color: '#6B6B6B', background: '#E8E8E5', padding: '1px 4px', borderRadius: '3px', fontFamily: 'monospace' }}>
+                      → {step.outputType}
+                    </span>
                     {step.fn === 'UDF' ? (() => {
                       let parsed = {};
                       try { parsed = typeof step.args === 'string' ? JSON.parse(step.args) : (step.args || {}); } catch { }
                       return (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
                           <span style={{ fontSize: FONT.size.xs, fontWeight: 600, color: '#3C3489', fontFamily: 'monospace' }}>
-                            {parsed.methodName}(Row row)
+                            {parsed.methodName || 'apply'}(row)
                           </span>
-                          {parsed.inputColumns?.length > 0 && (
-                            <span style={{ fontSize: '10px', color: '#6B6B6B', fontFamily: 'monospace', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                              in: [{parsed.inputColumns.join(',')}]
-                            </span>
-                          )}
                           <button
                             type="button"
                             onClick={() => handleOpenUdfModal(step.id)}
@@ -304,7 +581,7 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
                         disabled={isLocked && !meta.needsArgs}
                         style={{ flex: 1, padding: '2px 6px', border: inputBorder, borderRadius: '4px', fontSize: FONT.size.xs, fontFamily: 'monospace', minWidth: 0 }} />
                     ) : (
-                      <span style={{ fontSize: '10px', color: '#9B9B9B' }}>{meta.desc}</span>
+                      <span style={{ fontSize: '10px', color: '#9B9B9B', flex: 1 }}>{meta.desc}</span>
                     )}
                     {isLocked ? (
                       <span style={{ fontSize: '8px', color: '#D97706', flexShrink: 0 }} title="System value cannot be removed here. Use Remove on the board.">🔒</span>
@@ -312,10 +589,26 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
                       <span onClick={() => removeStep(step.id)} style={{ cursor: 'pointer', flexShrink: 0 }}><CloseIcon color="#9B9B9B" size={10} /></span>
                     )}
                   </div>
-                  {stepErr && <div style={{ padding: '2px 8px 4px 36px', fontSize: '10px', color: '#A32D2D' }}>⚠ {stepErr}</div>}
+                  {step.typeError && (
+                    <div style={{ padding: '3px 8px 4px 32px', fontSize: '10px', color: '#A32D2D', background: '#FDF2F2', fontWeight: 500 }}>
+                      ⚠ Type mismatch: {step.typeError}
+                    </div>
+                  )}
+                  {stepErr && !step.typeError && (
+                    <div style={{ padding: '2px 8px 4px 32px', fontSize: '10px', color: '#A32D2D', background: '#FDF2F2' }}>
+                      ⚠ {stepErr}
+                    </div>
+                  )}
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Target Datatype Compatibility Alert */}
+        {!targetComp.ok && (
+          <div style={{ background: '#FDF2F2', border: '1px solid #F87171', borderRadius: '6px', padding: '8px 10px', marginBottom: SPACING.md, fontSize: FONT.size.xs, color: '#991B1B' }}>
+            <strong>⚠ Target type incompatible:</strong> {targetComp.error}
           </div>
         )}
 
@@ -345,8 +638,16 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
           </button>
         </div>
 
-        {/* Available functions grouped — system values not shown here */}
-        <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: '#6B6B6B', marginBottom: SPACING.xs }}>Add transformation</p>
+        {/* Available functions grouped — strictly compatible with nextInputType */}
+        <div style={{ ...FRBC, marginBottom: SPACING.xs }}>
+          <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: '#6B6B6B' }}>
+            Add transformation
+          </p>
+          <span style={{ fontSize: '10px', color: '#534AB7', background: '#EEEDFE', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+            Input type: {nextInputType}
+          </span>
+        </div>
+
         {Object.entries(categories).map(([cat, fns]) => (
           <div key={cat} style={{ marginBottom: SPACING.sm }}>
             <p style={{ fontSize: '10px', color: '#9B9B9B', marginBottom: '4px' }}>{cat}</p>
@@ -364,31 +665,69 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
         ))}
 
         {/* Live preview */}
-        <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: '#6B6B6B', marginBottom: SPACING.xs, marginTop: SPACING.md }}>Preview</p>
+        <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: '#6B6B6B', marginBottom: SPACING.xs, marginTop: SPACING.md }}>
+          Preview (Source type: {sourceNormType})
+        </p>
+
+        {/* Interactive Custom Value Tester */}
+        {!isSystemValue && (
+          <div style={{ marginBottom: SPACING.xs, background: '#F7F7F5', padding: '6px 8px', borderRadius: '6px', border: customInput && !customValidation.ok ? '1px solid #D85A30' : '1px solid #E8E8E5' }}>
+            <div style={{ ...FRBC, marginBottom: '4px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 600, color: '#6B6B6B' }}>Test custom {sourceNormType} value:</span>
+              {customInput && (
+                <span onClick={() => setCustomInput('')} style={{ fontSize: '10px', color: '#534AB7', cursor: 'pointer' }}>Clear</span>
+              )}
+            </div>
+            <input
+              value={customInput}
+              onChange={e => setCustomInput(e.target.value)}
+              placeholder={`Enter test ${sourceNormType} value...`}
+              style={{ width: '100%', padding: '4px 6px', fontSize: '11px', fontFamily: 'monospace', borderRadius: '4px', border: '1px solid #D4D4D0', boxSizing: 'border-box' }}
+            />
+            {customInput && !customValidation.ok && (
+              <div style={{ fontSize: '10px', color: '#A32D2D', marginTop: '3px', fontWeight: 500 }}>
+                ⚠ {customValidation.message}
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{ border: '1px solid #E8E8E5', borderRadius: '8px', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
             <thead><tr style={{ background: '#F7F7F5' }}>
               <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500, color: '#6B6B6B' }}>{isSystemValue ? 'Row' : 'Input'}</th>
-              <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500, color: '#6B6B6B' }}>Output</th>
-              <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500, color: '#6B6B6B', width: '30%' }}>Status</th>
+              <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500, color: '#6B6B6B' }}>Output ({chainAnalysis.finalType})</th>
+              <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500, color: '#6B6B6B', width: '32%' }}>Status</th>
             </tr></thead>
             <tbody style={{ fontFamily: 'monospace' }}>
-              {sampleData.map((val, i) => {
-                const chain = simulateChain(val, effectiveSteps);
+              {effectiveSamples.map((sample, i) => {
+                const val = sample.val;
+                if (sample.isCustom && !customValidation.ok) {
+                  return (
+                    <tr key={i} style={{ borderTop: '1px solid #E8E8E5', background: '#FDF2F2' }}>
+                      <td style={{ padding: '5px 8px', color: '#A32D2D', fontWeight: 600 }}>"{val}" <small>(custom)</small></td>
+                      <td style={{ padding: '5px 8px', color: '#9B9B9B' }}>—</td>
+                      <td style={{ padding: '5px 8px', fontSize: '10px', color: '#A32D2D' }}>⚠ Invalid {sourceNormType}</td>
+                    </tr>
+                  );
+                }
+
+                const chain = simulateChain(val, effectiveSteps, chainAnalysis);
                 const last = chain.length > 0 ? chain[chain.length - 1] : { ok: true, val: val };
                 const hasErr = chain.some(r => !r.ok);
                 const errMsg = chain.find(r => !r.ok)?.err;
                 const finalVal = hasErr ? (chain.find(r => !r.ok)?.val ?? val) : (last?.val ?? val);
                 return (
-                  <tr key={i} style={{ borderTop: '1px solid #E8E8E5' }}>
-                    <td style={{ padding: '5px 8px', color: '#6B6B6B' }}>
+                  <tr key={i} style={{ borderTop: '1px solid #E8E8E5', background: sample.isCustom ? '#EEEDFE' : undefined }}>
+                    <td style={{ padding: '5px 8px', color: sample.isCustom ? '#3C3489' : '#6B6B6B', fontWeight: sample.isCustom ? 600 : 400 }}>
                       {isSystemValue ? `Row ${i + 1}` : val === null ? <em style={{ color: '#9B9B9B' }}>null</em> : `"${val}"`}
+                      {sample.isCustom && <small style={{ color: '#534AB7', marginLeft: '4px' }}>(test)</small>}
                     </td>
                     <td style={{ padding: '5px 8px', color: hasErr ? '#A32D2D' : '#1A1A1A', fontWeight: 500 }}>
-                      {finalVal === null ? <em style={{ color: '#9B9B9B' }}>null</em> : steps.length === 0 ? <em style={{ color: '#9B9B9B' }}>—</em> : `"${finalVal}"`}
+                      {finalVal === null ? <em style={{ color: '#9B9B9B' }}>null</em> : steps.length === 0 ? `"${val ?? ''}"` : `"${finalVal}"`}
                     </td>
                     <td style={{ padding: '5px 8px', fontSize: '10px' }}>
-                      {steps.length === 0 ? <span style={{ color: '#9B9B9B' }}>No transforms</span> : hasErr ? (
+                      {steps.length === 0 ? <span style={{ color: '#9B9B9B' }}>Passthrough</span> : hasErr ? (
                         <span style={{ color: '#A32D2D' }}>⚠ {errMsg}</span>
                       ) : (
                         <span style={{ color: '#0F6E56' }}>✓ OK</span>
@@ -402,8 +741,10 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
         </div>
       </div>
       <div style={{ ...FREC, gap: SPACING.xs, padding: `${SPACING.sm} ${SPACING.lg}`, borderTop: '1px solid #E8E8E5', flexShrink: 0 }}>
-        {hasValidationErrors && <span style={{ fontSize: '10px', color: '#A32D2D', flex: 1 }}>Fix {stepErrors.length} error{stepErrors.length > 1 ? 's' : ''} to apply</span>}
-        {previewHasErrors && !hasValidationErrors && <span style={{ fontSize: '10px', color: '#D97706', flex: 1 }}>⚠ Some preview rows show errors</span>}
+        {hasValidationErrors && <span style={{ fontSize: '10px', color: '#A32D2D', flex: 1 }}>Fix step argument errors</span>}
+        {hasTypeErrors && !hasValidationErrors && <span style={{ fontSize: '10px', color: '#A32D2D', flex: 1 }}>Fix chain type mismatch</span>}
+        {targetMismatch && !hasValidationErrors && !hasTypeErrors && <span style={{ fontSize: '10px', color: '#A32D2D', flex: 1 }}>Match target type ({targetNormType})</span>}
+        {previewHasErrors && !hasValidationErrors && !hasTypeErrors && !targetMismatch && <span style={{ fontSize: '10px', color: '#D97706', flex: 1 }}>⚠ Preview shows error</span>}
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
         <Button onClick={handleApply} style={!canApply ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>Apply</Button>
       </div>
@@ -809,6 +1150,7 @@ const ColumnMappingBoard = () => {
                 mapping={transformTarget.mapping}
                 mappingIdx={transformTarget.idx}
                 sourceTables={sourceTables}
+                targetTables={targetTables}
                 onApply={handleTransformApply}
                 onClose={() => setTransformTarget(null)}
               />
