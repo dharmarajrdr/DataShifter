@@ -1,8 +1,9 @@
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, FileCode2, ShieldCheck, Upload, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, FileCode2, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ApiGuard, Button, Chip, Loader, PageHeader } from '../components/common';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
 import { FRBC, FREC, FRSC } from '../constants/layouts';
+import { useAuth } from '../contexts/AuthContext';
 import { udfApi } from '../services/api';
 
 const inputStyle = {
@@ -107,7 +108,7 @@ const UploadModal = ({ onClose, onUploaded }) => {
     );
 };
 
-const UdfCard = ({ udf }) => {
+const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
     const [showFunctions, setShowFunctions] = useState(false);
     const functions = udf.functions || [];
     return (
@@ -117,7 +118,10 @@ const UdfCard = ({ udf }) => {
                     <div style={{ width: 36, height: 36, borderRadius: BORDER_RADIUS.md, background: COLORS.brand.primaryLight, color: COLORS.brand.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Code2 size={18} /></div>
                     <div style={{ minWidth: 0 }}><p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{udf.name}</p><p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>Version {udf.version || '1.0.0'} · Java</p></div>
                 </div>
-                <StatusChip status={udf.status} />
+                <div style={{ ...FRSC, gap: SPACING.xs }}>
+                    <StatusChip status={udf.status} />
+                    {canDelete && <button type="button" aria-label={`Delete ${udf.name}`} title="Delete UDF" onClick={() => onDelete(udf)} disabled={deleting} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, background: 'transparent', color: COLORS.status.errorDark, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.5 : 1 }}><Trash2 size={14} /></button>}
+                </div>
             </div>
             <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, lineHeight: 1.5, minHeight: '42px', margin: `${SPACING.md} 0` }}>{udf.description || 'No description provided.'}</p>
             <button type="button" onClick={() => setShowFunctions(value => !value)} aria-expanded={showFunctions} style={{ ...FRBC, width: '100%', padding: `${SPACING.xs} 0`, border: 0, borderTop: `1px solid ${COLORS.border.light}`, background: 'transparent', color: COLORS.brand.primary, cursor: 'pointer', fontSize: FONT.size.xs }}>
@@ -139,14 +143,31 @@ const UdfCard = ({ udf }) => {
 };
 
 const UdfLibrary = () => {
+    const { hasPermission } = useAuth();
     const [udfs, setUdfs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [showUpload, setShowUpload] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
+    const canDelete = hasPermission('udf:delete');
 
     useEffect(() => {
         udfApi.getAll().then(response => setUdfs(response.data || [])).catch(setError).finally(() => setLoading(false));
     }, []);
+
+    const handleDelete = async (udf) => {
+        if (!window.confirm(`Delete UDF "${udf.name}"? This cannot be undone.`)) return;
+        setDeletingId(udf.id);
+        setError(null);
+        try {
+            await udfApi.delete(udf.id);
+            setUdfs(prev => prev.filter(item => item.id !== udf.id));
+        } catch (err) {
+            setError(err);
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     return (
         <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>
@@ -163,7 +184,7 @@ const UdfLibrary = () => {
                         <p style={{ fontSize: FONT.size.sm, marginBottom: SPACING.md }}>Upload a Java function to reuse custom business rules across pipelines.</p>
                         <Button onClick={() => setShowUpload(true)}>Upload your first UDF</Button>
                     </div>
-                ) : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SPACING.md }}>{udfs.map(udf => <UdfCard key={udf.id} udf={udf} />)}</div>}
+                ) : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SPACING.md }}>{udfs.map(udf => <UdfCard key={udf.id} udf={udf} canDelete={canDelete} deleting={deletingId === udf.id} onDelete={handleDelete} />)}</div>}
                 {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUploaded={udf => setUdfs(prev => [udf, ...prev])} />}
             </div>
         </ApiGuard>

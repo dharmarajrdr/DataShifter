@@ -229,6 +229,10 @@ export const udfApi = {
     form.append('description', metadata.description || '');
     return apiClient.upload('/udfs', form, { timeout: 120000 });
   },
+
+  delete: (id) => USE_MOCK
+    ? mockResponse(null)
+    : apiClient.delete(`/udfs/${id}`),
 };
 
 /* ----- MONITORING (monitor-service via gateway:8080) ----- */
