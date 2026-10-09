@@ -1,5 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../../constants/design';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import UdfPickerModal from './UdfPickerModal';
 
 const LINE_COLORS = [
@@ -28,9 +27,9 @@ const organize = (src, tgt, w) => {
   return p;
 };
 
-const OrganizeIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="4" height="3" rx=".8" stroke="currentColor" strokeWidth="1.2"/><rect x="1" y="6" width="4" height="3" rx=".8" stroke="currentColor" strokeWidth="1.2"/><rect x="9" y="3.5" width="4" height="3" rx=".8" stroke="currentColor" strokeWidth="1.2"/><path d="M5 2.5h3M5 7.5h2.5M8.5 5H9" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>;
-const ResetIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 2.5v3.5h3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.8 6C3.4 3.8 5.3 2.2 7.5 2.2c2.8 0 5 2.2 5 5s-2.2 5-5 5c-1.8 0-3.3-.9-4.2-2.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>;
-const GearIcon = () => <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="1.5" stroke="currentColor" strokeWidth=".8"/><path d="M5 1v1M5 8v1M1 5h1M8 5h1M2.2 2.2l.7.7M7.1 7.1l.7.7M7.8 2.2l-.7.7M2.9 7.1l-.7.7" stroke="currentColor" strokeWidth=".8" strokeLinecap="round"/></svg>;
+const OrganizeIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="4" height="3" rx=".8" stroke="currentColor" strokeWidth="1.2" /><rect x="1" y="6" width="4" height="3" rx=".8" stroke="currentColor" strokeWidth="1.2" /><rect x="9" y="3.5" width="4" height="3" rx=".8" stroke="currentColor" strokeWidth="1.2" /><path d="M5 2.5h3M5 7.5h2.5M8.5 5H9" stroke="currentColor" strokeWidth="1" strokeLinecap="round" /></svg>;
+const ResetIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 2.5v3.5h3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /><path d="M2.8 6C3.4 3.8 5.3 2.2 7.5 2.2c2.8 0 5 2.2 5 5s-2.2 5-5 5c-1.8 0-3.3-.9-4.2-2.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>;
+const GearIcon = () => <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="1.5" stroke="currentColor" strokeWidth=".8" /><path d="M5 1v1M5 8v1M1 5h1M8 5h1M2.2 2.2l.7.7M7.1 7.1l.7.7M7.8 2.2l-.7.7M2.9 7.1l-.7.7" stroke="currentColor" strokeWidth=".8" strokeLinecap="round" /></svg>;
 
 /* ================================================================
    TARGET COLUMN CONFIG MODAL (System Value or Java UDF)
@@ -298,7 +297,8 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
             {mappings.map((m, i) => {
               if (m.targetOnly || !m.source) return null;
               const [sT, sC] = m.source.split('.'), [tT, tC] = m.target.split('.'); const st = sourceTables.find(t => t.tableName === sT), tt = targetTables.find(t => t.tableName === tT); const si = st?.columns?.findIndex(c => c.name === sC) ?? -1, ti = tt?.columns?.findIndex(c => c.name === tC) ?? -1; const sp = dotP(sT, si, 'source'), tP = dotP(tT, ti, 'target'); if (!sp || !tP) return null; const lc = getLC(m), isSel = sel === i;
-              return (<g key={`${m.source}-${m.target}`}><path d={bz(sp.x, sp.y, tP.x, tP.y)} fill="none" stroke="transparent" strokeWidth={12} style={{ cursor: 'pointer' }} onClick={() => setSel(isSel ? null : i)} /><path d={bz(sp.x, sp.y, tP.x, tP.y)} fill="none" stroke={lc.stroke} strokeWidth={isSel ? 2.5 : 1.5} strokeDasharray={isSel ? 'none' : '5 3'} opacity={isSel ? 1 : 0.45} />{m.transforms?.length > 0 && (() => { const mx = (sp.x + tP.x) / 2, my = (sp.y + tP.y) / 2; const lb = m.transforms.map(t => { if (t.fn === 'UDF') { try { const u = typeof t.args === 'string' ? JSON.parse(t.args) : t.args; return `${u.methodName || 'UDF'} (v${u.version || '1.0'})`; } catch { return 'UDF'; } } return t.fn; }).join('→'); const tw = Math.min(lb.length * 6 + 14, 120); return (<g style={{ cursor: 'pointer' }} onClick={() => { setSel(i); if (onMappingClick) onMappingClick(m, i); }}><rect x={mx - tw / 2} y={my - 7} width={tw} height={14} rx={3} fill={lc.bg} stroke={lc.stroke} strokeWidth={.5} /><text x={mx} y={my + 3} textAnchor="middle" fill={lc.text} fontSize="7" fontFamily="monospace" fontWeight="500">{lb.length > 20 ? lb.slice(0, 19) + '…' : lb}</text></g>); })()}</g>); })}
+              return (<g key={`${m.source}-${m.target}`}><path d={bz(sp.x, sp.y, tP.x, tP.y)} fill="none" stroke="transparent" strokeWidth={12} style={{ cursor: 'pointer' }} onClick={() => setSel(isSel ? null : i)} /><path d={bz(sp.x, sp.y, tP.x, tP.y)} fill="none" stroke={lc.stroke} strokeWidth={isSel ? 2.5 : 1.5} strokeDasharray={isSel ? 'none' : '5 3'} opacity={isSel ? 1 : 0.45} />{m.transforms?.length > 0 && (() => { const mx = (sp.x + tP.x) / 2, my = (sp.y + tP.y) / 2; const lb = m.transforms.map(t => { if (t.fn === 'UDF') { try { const u = typeof t.args === 'string' ? JSON.parse(t.args) : t.args; return `${u.methodName || 'UDF'} (v${u.version || '1.0'})`; } catch { return 'UDF'; } } return t.fn; }).join('→'); const tw = Math.min(lb.length * 6 + 14, 120); return (<g style={{ cursor: 'pointer' }} onClick={() => { setSel(i); if (onMappingClick) onMappingClick(m, i); }}><rect x={mx - tw / 2} y={my - 7} width={tw} height={14} rx={3} fill={lc.bg} stroke={lc.stroke} strokeWidth={.5} /><text x={mx} y={my + 3} textAnchor="middle" fill={lc.text} fontSize="7" fontFamily="monospace" fontWeight="500">{lb.length > 20 ? lb.slice(0, 19) + '…' : lb}</text></g>); })()}</g>);
+            })}
             {dLine && <path d={bz(dLine.sx, dLine.sy, dLine.cx, dLine.cy)} fill="none" stroke="#534AB7" strokeWidth={2} strokeDasharray="6 4" opacity={.7} />}
             {(sourceTables || []).map(t => rTbl(t, 'source'))}
             {(targetTables || []).map(t => rTbl(t, 'target'))}
@@ -311,7 +311,7 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
         <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', background: '#fff', border: '1px solid #E8E8E5', padding: '6px 16px', borderRadius: '99px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', fontSize: '12px', zIndex: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ color: '#6B6B6B' }}>{mappings[sel].targetOnly ? `⚙ ${mappings[sel].target}` : `${mappings[sel].source} → ${mappings[sel].target}`}</span>
           {mappings[sel].transforms?.some(t => t.fn === 'UDF') ? (
-            <span style={{ background: '#EEEDFE', color: '#534AB7', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>☕ UDF Pinned</span>
+            <span style={{ background: '#EEEDFE', color: '#534AB7', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>UDF Pinned</span>
           ) : mappings[sel].targetOnly ? (
             <span style={{ background: '#FEF3C7', color: '#854F0B', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 500 }}>System</span>
           ) : null}

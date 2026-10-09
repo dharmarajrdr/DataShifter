@@ -7,7 +7,7 @@ import { CloseIcon, InfoIcon } from '../layout/Icons';
 
 const FAILURE_POLICIES = [
   { value: 'SKIP_ROW', label: 'Skip Row', desc: 'Drop failed row and continue pipeline' },
-  { value: 'DEFAULT_VALUE', label: 'Default Value', desc: 'Use fallback value for target column' },
+  // { value: 'DEFAULT_VALUE', label: 'Default Value', desc: 'Use fallback value for target column' },
   { value: 'FAIL_CHUNK', label: 'Fail Chunk', desc: 'Fail current chunk and retry batch' },
   { value: 'STOP_PIPELINE', label: 'Stop Pipeline', desc: 'Abort entire migration immediately' },
 ];
@@ -115,9 +115,6 @@ const MethodDropdown = ({ functions, selectedMethodName, onSelect }) => {
                     lineHeight: '1.4',
                   }}
                 >
-                  <div style={{ fontWeight: FONT.weight.semibold, color: COLORS.brand.primaryLight, marginBottom: '2px' }}>
-                    Method Description
-                  </div>
                   <div>{selectedFunction.description}</div>
                   <div
                     style={{
@@ -261,9 +258,6 @@ const MethodDropdown = ({ functions, selectedMethodName, onSelect }) => {
                           lineHeight: '1.4',
                         }}
                       >
-                        <div style={{ fontWeight: FONT.weight.semibold, color: COLORS.brand.primaryLight, marginBottom: '2px' }}>
-                          Method Description
-                        </div>
                         <div>{f.description}</div>
                         <div
                           style={{

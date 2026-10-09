@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC, FREC, FRWSC } from '../constants/layouts';
-import { MAPPING as LIT, TRANSFORM } from '../constants/literals';
-import { PageHeader, Button, ApiGuard, Loader } from '../components/common';
+import { ApiGuard, Button, Loader, PageHeader } from '../components/common';
 import { CloseIcon } from '../components/layout/Icons';
 import DragMappingBoard from '../components/pipeline/DragMappingBoard';
 import UdfPickerModal from '../components/pipeline/UdfPickerModal';
+import { FONT, SPACING } from '../constants/design';
+import { FRBC, FREC, FRSC, FRWSC } from '../constants/layouts';
+import { MAPPING as LIT } from '../constants/literals';
 import { mappingApi } from '../services/api';
 
 const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];
@@ -15,27 +15,27 @@ const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];
    TRANSFORM FUNCTION METADATA
    ================================================================ */
 const FN_META = {
-  TRIM:            { desc: 'Remove leading/trailing whitespace', needsArgs: false, category: 'Text' },
-  UPPER:           { desc: 'Convert to UPPERCASE', needsArgs: false, category: 'Text' },
-  LOWER:           { desc: 'Convert to lowercase', needsArgs: false, category: 'Text' },
-  APPEND:          { desc: 'Append suffix to value', needsArgs: true, argHint: "'_suffix'", category: 'Text' },
-  PREPEND:         { desc: 'Prepend prefix to value', needsArgs: true, argHint: "'PREFIX_'", category: 'Text' },
-  CONCAT:          { desc: 'Append suffix (alias for APPEND)', needsArgs: true, argHint: "'_suffix'", category: 'Text' },
-  CONCAT_COLUMNS:  { desc: 'Concat multiple columns', needsArgs: 'split', argHint: ['Separator', 'Column names (comma-sep)'], category: 'Text' },
-  SUBSTRING:       { desc: 'Extract substring by index', needsArgs: 'split', argHint: ['Start index (required)', 'End index (required)'], category: 'Text' },
-  TO_STRING:       { desc: 'Convert to string', needsArgs: false, category: 'Type' },
-  TO_DATE:         { desc: 'Parse string to date', needsArgs: true, argHint: "yyyy-MM-dd", category: 'Type' },
-  TO_NUMBER:       { desc: 'Parse string to number', needsArgs: false, category: 'Type' },
-  TO_BOOLEAN:      { desc: 'Parse to boolean (true/false, 1/0, yes/no)', needsArgs: false, category: 'Type' },
+  TRIM: { desc: 'Remove leading/trailing whitespace', needsArgs: false, category: 'Text' },
+  UPPER: { desc: 'Convert to UPPERCASE', needsArgs: false, category: 'Text' },
+  LOWER: { desc: 'Convert to lowercase', needsArgs: false, category: 'Text' },
+  APPEND: { desc: 'Append suffix to value', needsArgs: true, argHint: "'_suffix'", category: 'Text' },
+  PREPEND: { desc: 'Prepend prefix to value', needsArgs: true, argHint: "'PREFIX_'", category: 'Text' },
+  CONCAT: { desc: 'Append suffix (alias for APPEND)', needsArgs: true, argHint: "'_suffix'", category: 'Text' },
+  CONCAT_COLUMNS: { desc: 'Concat multiple columns', needsArgs: 'split', argHint: ['Separator', 'Column names (comma-sep)'], category: 'Text' },
+  SUBSTRING: { desc: 'Extract substring by index', needsArgs: 'split', argHint: ['Start index (required)', 'End index (required)'], category: 'Text' },
+  TO_STRING: { desc: 'Convert to string', needsArgs: false, category: 'Type' },
+  TO_DATE: { desc: 'Parse string to date', needsArgs: true, argHint: "yyyy-MM-dd", category: 'Type' },
+  TO_NUMBER: { desc: 'Parse string to number', needsArgs: false, category: 'Type' },
+  TO_BOOLEAN: { desc: 'Parse to boolean (true/false, 1/0, yes/no)', needsArgs: false, category: 'Type' },
   DEFAULT_IF_NULL: { desc: 'Replace null with default (only when source is null)', needsArgs: true, argHint: "default value", category: 'Null' },
-  TO_JSON:         { desc: 'Build JSON object field', needsArgs: true, argHint: 'field name', category: 'JSON' },
-  TO_JSON_ARRAY:   { desc: 'Build JSON array', needsArgs: true, argHint: 'wrapper key (optional)', category: 'JSON' },
+  TO_JSON: { desc: 'Build JSON object field', needsArgs: true, argHint: 'field name', category: 'JSON' },
+  TO_JSON_ARRAY: { desc: 'Build JSON array', needsArgs: true, argHint: 'wrapper key (optional)', category: 'JSON' },
   CURRENT_TIMESTAMP: { desc: 'Current system timestamp', needsArgs: false, category: 'System', isSystemValue: true },
-  CURRENT_DATE:    { desc: 'Current date (no time)', needsArgs: false, category: 'System', isSystemValue: true },
-  STATIC_VALUE:    { desc: 'Fixed constant for every row', needsArgs: true, argHint: 'value (e.g., STANDARD)', category: 'System', isSystemValue: true },
-  UUID:            { desc: 'Generate UUID v4', needsArgs: false, category: 'System', isSystemValue: true },
-  ROW_NUMBER:      { desc: 'Sequential counter (1, 2, 3...)', needsArgs: false, category: 'System', isSystemValue: true },
-  UDF:             { desc: 'Custom Java row UDF', needsArgs: 'udf', category: 'Custom' },
+  CURRENT_DATE: { desc: 'Current date (no time)', needsArgs: false, category: 'System', isSystemValue: true },
+  STATIC_VALUE: { desc: 'Fixed constant for every row', needsArgs: true, argHint: 'value (e.g., STANDARD)', category: 'System', isSystemValue: true },
+  UUID: { desc: 'Generate UUID v4', needsArgs: false, category: 'System', isSystemValue: true },
+  ROW_NUMBER: { desc: 'Sequential counter (1, 2, 3...)', needsArgs: false, category: 'System', isSystemValue: true },
+  UDF: { desc: 'Custom Java row UDF', needsArgs: 'udf', category: 'Custom' },
 };
 
 const ALL_FUNCTIONS = ['TRIM', 'UPPER', 'LOWER', 'APPEND', 'PREPEND', 'CONCAT', 'CONCAT_COLUMNS', 'SUBSTRING', 'TO_STRING', 'TO_DATE', 'TO_NUMBER', 'TO_BOOLEAN', 'DEFAULT_IF_NULL', 'TO_JSON', 'TO_JSON_ARRAY'];
@@ -84,7 +84,7 @@ const simulateOne = (value, fn, args) => {
     }
     case 'TO_STRING': return { ok: true, val: s };
     case 'TO_NUMBER': { const n = Number(s.trim()); return isNaN(n) ? { ok: false, val: s, err: `"${s.trim()}" is not a number` } : { ok: true, val: n }; }
-    case 'TO_BOOLEAN': { const low = s.trim().toLowerCase(); const truthy = ['true','yes','1','y','t','on']; const falsy = ['false','no','0','n','f','off']; if (truthy.includes(low)) return { ok: true, val: true }; if (falsy.includes(low)) return { ok: true, val: false }; return { ok: false, val: s, err: `"${s}" is not a boolean` }; }
+    case 'TO_BOOLEAN': { const low = s.trim().toLowerCase(); const truthy = ['true', 'yes', '1', 'y', 't', 'on']; const falsy = ['false', 'no', '0', 'n', 'f', 'off']; if (truthy.includes(low)) return { ok: true, val: true }; if (falsy.includes(low)) return { ok: true, val: false }; return { ok: false, val: s, err: `"${s}" is not a boolean` }; }
     case 'TO_DATE': { const d = new Date(s.trim()); return isNaN(d.getTime()) ? { ok: false, val: s, err: `"${s.trim()}" is not a valid date` } : { ok: true, val: d.toISOString().split('T')[0] }; }
     case 'DEFAULT_IF_NULL': return { ok: true, val: s };
     case 'TO_JSON': return args ? { ok: true, val: `{"${args}": "${s}"}` } : { ok: false, val: s, err: 'No field name' };
@@ -272,14 +272,11 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
                     <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, fontFamily: 'monospace', flexShrink: 0 }}>{step.fn}</span>
                     {step.fn === 'UDF' ? (() => {
                       let parsed = {};
-                      try { parsed = typeof step.args === 'string' ? JSON.parse(step.args) : (step.args || {}); } catch {}
+                      try { parsed = typeof step.args === 'string' ? JSON.parse(step.args) : (step.args || {}); } catch { }
                       return (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
                           <span style={{ fontSize: FONT.size.xs, fontWeight: 600, color: '#3C3489', fontFamily: 'monospace' }}>
-                            {parsed.methodName || 'UDF'}
-                          </span>
-                          <span style={{ fontSize: '10px', background: '#EEEDFE', color: '#534AB7', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, flexShrink: 0 }}>
-                            📌 v{parsed.version || '1.0.0'}
+                            {parsed.methodName}(Row row)
                           </span>
                           {parsed.inputColumns?.length > 0 && (
                             <span style={{ fontSize: '10px', color: '#6B6B6B', fontFamily: 'monospace', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
@@ -291,7 +288,7 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
                             onClick={() => handleOpenUdfModal(step.id)}
                             style={{ marginLeft: 'auto', background: '#fff', border: '1px solid #D4D4D0', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer', color: '#534AB7', fontWeight: 500, flexShrink: 0 }}
                           >
-                            Configure / Test
+                            Edit
                           </button>
                         </div>
                       );
@@ -333,7 +330,7 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], onApply, onClo
         <div style={{ marginBottom: SPACING.md, background: '#F4F2FF', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CECBF6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: FONT.size.xs, fontWeight: 600, color: '#3C3489', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>☕ Custom Java UDF</span>
+              <span>Custom Java UDF</span>
             </div>
             <div style={{ fontSize: '11px', color: '#6B6B6B', marginTop: '1px' }}>
               Execute custom row-level Java transformations
@@ -632,10 +629,12 @@ const ColumnMappingBoard = () => {
   useEffect(() => { const h = e => { if (hasChanges) { e.preventDefault(); e.returnValue = 'Unsaved mappings.'; return e.returnValue; } }; window.addEventListener('beforeunload', h); return () => window.removeEventListener('beforeunload', h); }, [hasChanges]);
 
   const sourceTables = [], targetTables = []; const srcS = new Set(), tgtS = new Set();
-  if (data?.tablePairs) { data.tablePairs.forEach(p => {
-    if (p.sourceTable && !srcS.has(p.sourceTable)) { srcS.add(p.sourceTable); sourceTables.push({ tableName: p.sourceTable, columns: (p.sourceColumns || []).map(c => ({ name: c.name, type: c.dataType, nullable: c.nullable, primaryKey: c.primaryKey })) }); }
-    if (p.targetTable && !tgtS.has(p.targetTable)) { tgtS.add(p.targetTable); targetTables.push({ tableName: p.targetTable, columns: (p.targetColumns || []).map(c => ({ name: c.name, type: c.dataType, nullable: c.nullable, primaryKey: c.primaryKey })) }); }
-  }); }
+  if (data?.tablePairs) {
+    data.tablePairs.forEach(p => {
+      if (p.sourceTable && !srcS.has(p.sourceTable)) { srcS.add(p.sourceTable); sourceTables.push({ tableName: p.sourceTable, columns: (p.sourceColumns || []).map(c => ({ name: c.name, type: c.dataType, nullable: c.nullable, primaryKey: c.primaryKey })) }); }
+      if (p.targetTable && !tgtS.has(p.targetTable)) { tgtS.add(p.targetTable); targetTables.push({ tableName: p.targetTable, columns: (p.targetColumns || []).map(c => ({ name: c.name, type: c.dataType, nullable: c.nullable, primaryKey: c.primaryKey })) }); }
+    });
+  }
 
   const handleChange = useCallback(m => { setMappings(m); setHasChanges(true); setValErrors([]); }, []);
   const handleAutoMap = useCallback(() => { const a = []; sourceTables.forEach(st => targetTables.forEach(tt => (st.columns || []).forEach(sc => { const m = (tt.columns || []).find(tc => tc.name.replace(/_/g, '').toLowerCase() === sc.name.replace(/_/g, '').toLowerCase()); if (m) { const sk = `${st.tableName}.${sc.name}`, tk = `${tt.tableName}.${m.name}`; if (!a.some(x => x.source === sk && x.target === tk)) a.push({ source: sk, target: tk, color: COLOR_KEYS[a.length % COLOR_KEYS.length], transforms: [] }); } }))); handleChange(a); }, [sourceTables, targetTables, handleChange]);
