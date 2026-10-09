@@ -74,9 +74,11 @@ const TargetConfigModal = ({ colName, sourceTables, onSelectSystem, onSelectUdf,
                 flex: 1, padding: '8px 12px', border: 'none', background: 'transparent',
                 borderBottom: mode === 'system' ? '2px solid #534AB7' : '2px solid transparent',
                 color: mode === 'system' ? '#534AB7' : '#6B6B6B', fontWeight: mode === 'system' ? 600 : 400,
-                fontSize: '12px', cursor: 'pointer', textAlign: 'center', lineHeight: '1.4',
+                fontSize: '12px', cursor: 'pointer', te
               }}
-            >System Value</span>
+            >
+              ⚙ System Value
+            </span>
           </div>
         </div>
 
