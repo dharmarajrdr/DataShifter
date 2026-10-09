@@ -1,8 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { FRBC, FREC } from '../../constants/layouts';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../../constants/design';
+import { FRBC, FREC, FRSC } from '../../constants/layouts';
 import { Loader } from '../common';
 import { CloseIcon } from '../layout/Icons';
 import { udfApi } from '../../services/api';
+
+const FAILURE_POLICIES = [
+  { value: 'SKIP_ROW', label: 'Skip Row', desc: 'Drop failed row and continue pipeline' },
+  { value: 'DEFAULT_VALUE', label: 'Default Value', desc: 'Use fallback value for target column' },
+  { value: 'FAIL_CHUNK', label: 'Fail Chunk', desc: 'Fail current chunk and retry batch' },
+  { value: 'STOP_PIPELINE', label: 'Stop Pipeline', desc: 'Abort entire migration immediately' },
+];
 
 const UdfPickerModal = ({
   targetColumn,
@@ -19,6 +27,21 @@ const UdfPickerModal = ({
   const [selectedMethodName, setSelectedMethodName] = useState(initialConfig?.methodName || '');
   const [failurePolicy, setFailurePolicy] = useState(initialConfig?.failurePolicy || 'SKIP_ROW');
   const [defaultValue, setDefaultValue] = useState(initialConfig?.defaultValue || '');
+
+  // Track focused fields for accessible focus rings
+  const [focusedField, setFocusedField] = useState(null);
+  const modalRef = useRef(null);
+
+  // Close on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   // Fetch all registered UDFs
   useEffect(() => {
@@ -80,94 +103,369 @@ const UdfPickerModal = ({
     onClose();
   };
 
+  const getSelectStyle = (fieldName) => ({
+    width: '100%',
+    padding: `${SPACING.xs} 10px`,
+    borderRadius: BORDER_RADIUS.md,
+    border: `1px solid ${focusedField === fieldName ? COLORS.brand.primary : COLORS.border.medium}`,
+    boxShadow: focusedField === fieldName ? `0 0 0 3px ${COLORS.brand.primaryLight}` : 'none',
+    fontSize: FONT.size.sm,
+    fontFamily: FONT.family,
+    color: COLORS.text.primary,
+    background: COLORS.background.primary,
+    cursor: 'pointer',
+    outline: 'none',
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+    boxSizing: 'border-box',
+    height: '38px',
+  });
+
+  const getInputStyle = (fieldName) => ({
+    width: '100%',
+    padding: `${SPACING.xs} 10px`,
+    borderRadius: BORDER_RADIUS.md,
+    border: `1px solid ${focusedField === fieldName ? COLORS.brand.primary : COLORS.border.medium}`,
+    boxShadow: focusedField === fieldName ? `0 0 0 3px ${COLORS.brand.primaryLight}` : 'none',
+    fontSize: FONT.size.sm,
+    fontFamily: FONT.family,
+    color: COLORS.text.primary,
+    background: COLORS.background.primary,
+    outline: 'none',
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+    boxSizing: 'border-box',
+    height: '38px',
+  });
+
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,.35)', zIndex: 110 }} />
-      <div style={{
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        zIndex: 111, background: '#fff', borderRadius: '12px',
-        boxShadow: '0 16px 40px rgba(0,0,0,.16)', width: '500px', maxHeight: '88vh',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden'
-      }}>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(1px)',
+          zIndex: 1000,
+          animation: 'fadeIn 0.15s ease',
+        }}
+      />
+
+      {/* Modal Container */}
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="udf-modal-title"
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 1001,
+          background: COLORS.background.primary,
+          borderRadius: BORDER_RADIUS.lg,
+          border: `1px solid ${COLORS.border.light}`,
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.08)',
+          width: '520px',
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          fontFamily: FONT.family,
+          color: COLORS.text.primary,
+          boxSizing: 'border-box',
+        }}
+      >
         {/* Header */}
-        <div style={{ ...FRBC, padding: '16px 20px', borderBottom: '1px solid #E8E8E5', background: '#FAFAF9' }}>
+        <div
+          style={{
+            ...FRBC,
+            padding: `${SPACING.md} ${SPACING.lg}`,
+            borderBottom: `1px solid ${COLORS.border.light}`,
+            background: COLORS.background.secondary,
+            flexShrink: 0,
+          }}
+        >
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A1A', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>☕ Java UDF Transformation</span>
-            </div>
+            <h2
+              id="udf-modal-title"
+              style={{
+                fontSize: FONT.size.lg,
+                fontWeight: FONT.weight.semibold,
+                color: COLORS.text.primary,
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: SPACING.xs,
+                lineHeight: '1.2',
+              }}
+            >
+              <span>☕</span>
+              <span>Java UDF Transformation</span>
+            </h2>
             {targetColumn && (
-              <div style={{ fontSize: '12px', color: '#6B6B6B', marginTop: '2px' }}>
-                Target column: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#534AB7' }}>{targetColumn}</span>
-              </div>
+              <p
+                style={{
+                  fontSize: FONT.size.sm,
+                  color: COLORS.text.secondary,
+                  margin: `${SPACING.xxs} 0 0 0`,
+                  lineHeight: '1.4',
+                }}
+              >
+                Target column:{' '}
+                <code
+                  style={{
+                    fontFamily: 'monospace',
+                    fontWeight: FONT.weight.semibold,
+                    color: COLORS.brand.primary,
+                    background: COLORS.brand.primaryLight,
+                    padding: '1px 6px',
+                    borderRadius: BORDER_RADIUS.sm,
+                    fontSize: FONT.size.xs,
+                  }}
+                >
+                  {targetColumn}
+                </code>
+              </p>
             )}
           </div>
-          <span onClick={onClose} style={{ cursor: 'pointer', color: '#9B9B9B' }}><CloseIcon /></span>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close dialog"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: BORDER_RADIUS.md,
+              border: 'none',
+              background: 'transparent',
+              color: COLORS.text.tertiary,
+              cursor: 'pointer',
+              transition: 'background-color 0.15s ease, color 0.15s ease',
+              outline: 'none',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = COLORS.text.primary;
+              e.currentTarget.style.backgroundColor = COLORS.border.light;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = COLORS.text.tertiary;
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+            onFocus={e => {
+              e.currentTarget.style.boxShadow = `0 0 0 2px ${COLORS.brand.primaryLight}`;
+            }}
+            onBlur={e => {
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <CloseIcon />
+          </button>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Body Content */}
+        <div
+          style={{
+            padding: SPACING.lg,
+            overflowY: 'auto',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: SPACING.md,
+          }}
+        >
           {loading ? (
-            <div style={{ padding: '40px 0', textAlign: 'center' }}><Loader message="Loading UDFs..." /></div>
+            <div style={{ padding: `${SPACING.xxl} 0`, textAlign: 'center' }}>
+              <Loader message="Loading UDFs..." />
+            </div>
           ) : fetchError ? (
-            <div style={{ background: '#FAECE7', border: '1px solid #D85A30', padding: '12px', borderRadius: '8px', color: '#712B13', fontSize: '12px' }}>
+            <div
+              style={{
+                background: COLORS.status.errorLight,
+                border: `1px solid ${COLORS.status.error}`,
+                borderRadius: BORDER_RADIUS.md,
+                padding: `${SPACING.sm} ${SPACING.md}`,
+                color: COLORS.status.errorDark,
+                fontSize: FONT.size.sm,
+              }}
+            >
               ⚠ {fetchError}
             </div>
           ) : udfs.length === 0 ? (
-            <div style={{ border: '1px dashed #D4D4D0', borderRadius: '8px', padding: '30px', textAlign: 'center', color: '#6B6B6B', fontSize: '13px' }}>
-              <p style={{ fontWeight: 500, marginBottom: '6px' }}>No Java UDFs available</p>
-              <p style={{ fontSize: '12px', color: '#9B9B9B', marginBottom: '16px' }}>Upload your compiled UDF JAR in the UDF Library before using it here.</p>
-              <a href="/udfs" style={{ display: 'inline-block', background: '#534AB7', color: '#fff', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', textDecoration: 'none', fontWeight: 500 }}>
-                Go to UDF Library →
+            <div
+              style={{
+                border: `1px dashed ${COLORS.border.medium}`,
+                borderRadius: BORDER_RADIUS.lg,
+                background: COLORS.background.secondary,
+                padding: `${SPACING.xl} ${SPACING.lg}`,
+                textAlign: 'center',
+                color: COLORS.text.secondary,
+              }}
+            >
+              <p
+                style={{
+                  fontSize: FONT.size.base,
+                  fontWeight: FONT.weight.medium,
+                  color: COLORS.text.primary,
+                  marginBottom: SPACING.xxs,
+                }}
+              >
+                No Java UDFs available
+              </p>
+              <p
+                style={{
+                  fontSize: FONT.size.sm,
+                  color: COLORS.text.tertiary,
+                  marginBottom: SPACING.md,
+                }}
+              >
+                Upload your compiled UDF JAR in the UDF Library before applying it to columns.
+              </p>
+              <a
+                href="/udfs"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: COLORS.brand.primary,
+                  color: COLORS.text.inverse,
+                  padding: `${SPACING.xs} ${SPACING.md}`,
+                  borderRadius: BORDER_RADIUS.md,
+                  fontSize: FONT.size.sm,
+                  fontWeight: FONT.weight.medium,
+                  textDecoration: 'none',
+                  transition: 'opacity 0.15s ease',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+              >
+                <span>Go to UDF Library</span>
+                <span>→</span>
               </a>
             </div>
           ) : (
             <>
-              {/* UDF selection & Pinned version */}
+              {/* UDF Artifact Selection */}
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#6B6B6B', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                <label
+                  htmlFor="udf-artifact-select"
+                  style={{
+                    display: 'block',
+                    fontSize: FONT.size.xs,
+                    fontWeight: FONT.weight.semibold,
+                    color: COLORS.text.secondary,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: SPACING.xxs,
+                  }}
+                >
                   Select UDF Artifact
                 </label>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: SPACING.xs, alignItems: 'center' }}>
                   <select
+                    id="udf-artifact-select"
                     value={selectedUdfId}
                     onChange={e => setSelectedUdfId(e.target.value)}
-                    style={{ flex: 1, padding: '8px 10px', borderRadius: '6px', border: '1px solid #E8E8E5', fontSize: '13px', background: '#fff' }}
+                    onFocus={() => setFocusedField('artifact')}
+                    onBlur={() => setFocusedField(null)}
+                    style={getSelectStyle('artifact')}
                   >
                     {udfs.map(u => (
-                      <option key={u.id} value={u.id}>{u.name} ({u.artifactName || 'JAR'})</option>
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.artifactName || 'JAR'})
+                      </option>
                     ))}
                   </select>
 
-                  {/* Pinned version badge */}
+                  {/* Pinned Version Badge */}
                   {selectedUdf && (
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: '4px',
-                      background: '#EEEDFE', border: '1px solid #534AB7', color: '#3C3489',
-                      padding: '6px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, flexShrink: 0
-                    }}>
-                      <span>📌 Pinned v{selectedUdf.version || '1.0.0'}</span>
+                    <div
+                      title="This specific version will be permanently pinned for pipeline execution reproducibility"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        background: COLORS.brand.primaryLight,
+                        border: `1px solid ${COLORS.brand.primary}`,
+                        color: COLORS.brand.primaryDark,
+                        padding: `0 ${SPACING.sm}`,
+                        height: '38px',
+                        borderRadius: BORDER_RADIUS.md,
+                        fontSize: FONT.size.xs,
+                        fontWeight: FONT.weight.semibold,
+                        flexShrink: 0,
+                        boxSizing: 'border-box',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <span>📌</span>
+                      <span>v{selectedUdf.version || '1.0.0'}</span>
                     </div>
                   )}
                 </div>
                 {selectedUdf?.description && (
-                  <p style={{ fontSize: '11px', color: '#9B9B9B', marginTop: '4px' }}>{selectedUdf.description}</p>
+                  <p
+                    style={{
+                      fontSize: FONT.size.xs,
+                      color: COLORS.text.tertiary,
+                      marginTop: SPACING.xxs,
+                      marginBottom: 0,
+                    }}
+                  >
+                    {selectedUdf.description}
+                  </p>
                 )}
               </div>
 
-              {/* Function / Method selection */}
+              {/* Function / Method Selection */}
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#6B6B6B', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                <label
+                  htmlFor="udf-method-select"
+                  style={{
+                    display: 'block',
+                    fontSize: FONT.size.xs,
+                    fontWeight: FONT.weight.semibold,
+                    color: COLORS.text.secondary,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: SPACING.xxs,
+                  }}
+                >
                   UDF Method
                 </label>
                 {functions.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: '#D97706', background: '#FEF3C7', padding: '8px', borderRadius: '6px' }}>
-                    No `@DataShifterUdf` methods found in this JAR.
+                  <div
+                    style={{
+                      fontSize: FONT.size.sm,
+                      color: COLORS.status.warningDark,
+                      background: COLORS.status.warningLight,
+                      border: `1px solid ${COLORS.status.warning}`,
+                      padding: `${SPACING.xs} ${SPACING.sm}`,
+                      borderRadius: BORDER_RADIUS.md,
+                    }}
+                  >
+                    ⚠ No methods annotated with <code>@DataShifterUdf</code> were found in this JAR.
                   </div>
                 ) : (
                   <select
+                    id="udf-method-select"
                     value={selectedMethodName}
                     onChange={e => setSelectedMethodName(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #E8E8E5', fontSize: '13px', fontFamily: 'monospace', background: '#fff' }}
+                    onFocus={() => setFocusedField('method')}
+                    onBlur={() => setFocusedField(null)}
+                    style={{
+                      ...getSelectStyle('method'),
+                      fontFamily: 'monospace',
+                    }}
                   >
                     {functions.map(f => (
                       <option key={f.methodName} value={f.methodName}>
@@ -178,56 +476,164 @@ const UdfPickerModal = ({
                 )}
               </div>
 
-              {/* Row processing information note */}
-              <div style={{
-                background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '8px',
-                padding: '10px 12px', fontSize: '12px', color: '#0369A1', lineHeight: '1.4'
-              }}>
-                <span style={{ fontWeight: 600 }}>💡 Full Row Access:</span> The entire <code style={{ fontFamily: 'monospace', background: '#E0F2FE', padding: '1px 4px', borderRadius: '4px' }}>Row</code> is passed to the UDF method. The UDF reads any source column and updates values directly via <code style={{ fontFamily: 'monospace', background: '#E0F2FE', padding: '1px 4px', borderRadius: '4px' }}>row.set(...)</code>.
+              {/* Row Processing Information Note */}
+              <div
+                style={{
+                  background: COLORS.status.infoLight,
+                  border: `1px solid #C2DCF6`,
+                  borderRadius: BORDER_RADIUS.md,
+                  padding: `${SPACING.xs} ${SPACING.sm}`,
+                  fontSize: FONT.size.sm,
+                  color: COLORS.status.infoText,
+                  lineHeight: '1.45',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px',
+                }}
+              >
+                <span style={{ fontSize: '14px', flexShrink: 0, marginTop: '1px' }}>💡</span>
+                <div>
+                  <span style={{ fontWeight: FONT.weight.semibold }}>Full Row Context: </span>
+                  The entire <code style={{ fontFamily: 'monospace', background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(55,138,221,0.25)', padding: '1px 5px', borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs }}>Row</code> is passed to the UDF. The method can read any source column and directly modify values via <code style={{ fontFamily: 'monospace', background: 'rgba(255,255,221,0.8)', border: '1px solid rgba(55,138,221,0.25)', padding: '1px 5px', borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs }}>row.set(...)</code>.
+                </div>
               </div>
 
               {/* Failure Policy Selector */}
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#1A1A1A', marginBottom: '4px' }}>
+                <label
+                  id="failure-policy-label"
+                  style={{
+                    display: 'block',
+                    fontSize: FONT.size.xs,
+                    fontWeight: FONT.weight.semibold,
+                    color: COLORS.text.secondary,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: SPACING.xxs,
+                  }}
+                >
                   Failure Policy on Error
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {[
-                    { value: 'SKIP_ROW', label: 'Skip Row', desc: 'Drop failed row and continue migration' },
-                    { value: 'DEFAULT_VALUE', label: 'Default Value', desc: 'Use fallback value for target column' },
-                    { value: 'FAIL_CHUNK', label: 'Fail Chunk', desc: 'Fail current chunk and retry' },
-                    { value: 'STOP_PIPELINE', label: 'Stop Pipeline', desc: 'Abort entire migration immediately' },
-                  ].map(policy => (
-                    <div
-                      key={policy.value}
-                      onClick={() => setFailurePolicy(policy.value)}
-                      style={{
-                        border: failurePolicy === policy.value ? '2px solid #534AB7' : '1px solid #D4D4D0',
-                        background: failurePolicy === policy.value ? '#EEEDFE' : '#fff',
-                        borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <div style={{ fontSize: '11px', fontWeight: 600, color: failurePolicy === policy.value ? '#3C3489' : '#1A1A1A' }}>
-                        {policy.label}
+                <div
+                  role="radiogroup"
+                  aria-labelledby="failure-policy-label"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: SPACING.xs,
+                  }}
+                >
+                  {FAILURE_POLICIES.map(policy => {
+                    const isSelected = failurePolicy === policy.value;
+                    return (
+                      <div
+                        key={policy.value}
+                        role="radio"
+                        aria-checked={isSelected}
+                        tabIndex={0}
+                        onClick={() => setFailurePolicy(policy.value)}
+                        onKeyDown={e => {
+                          if (e.key === ' ' || e.key === 'Enter') {
+                            e.preventDefault();
+                            setFailurePolicy(policy.value);
+                          }
+                        }}
+                        style={{
+                          border: isSelected
+                            ? `1.5px solid ${COLORS.brand.primary}`
+                            : `1px solid ${COLORS.border.medium}`,
+                          background: isSelected ? COLORS.brand.primaryLight : COLORS.background.primary,
+                          borderRadius: BORDER_RADIUS.md,
+                          padding: `${SPACING.xs} ${SPACING.sm}`,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                        onMouseEnter={e => {
+                          if (!isSelected) {
+                            e.currentTarget.style.borderColor = COLORS.brand.primary;
+                            e.currentTarget.style.backgroundColor = COLORS.background.secondary;
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isSelected) {
+                            e.currentTarget.style.borderColor = COLORS.border.medium;
+                            e.currentTarget.style.backgroundColor = COLORS.background.primary;
+                          }
+                        }}
+                        onFocus={e => {
+                          e.currentTarget.style.boxShadow = `0 0 0 3px ${COLORS.brand.primaryLight}`;
+                          if (!isSelected) e.currentTarget.style.borderColor = COLORS.brand.primary;
+                        }}
+                        onBlur={e => {
+                          e.currentTarget.style.boxShadow = 'none';
+                          if (!isSelected) e.currentTarget.style.borderColor = COLORS.border.medium;
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: FONT.size.sm,
+                            fontWeight: isSelected ? FONT.weight.semibold : FONT.weight.medium,
+                            color: isSelected ? COLORS.brand.primaryDark : COLORS.text.primary,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              background: isSelected ? COLORS.brand.primary : COLORS.border.medium,
+                              flexShrink: 0,
+                              transition: 'background-color 0.15s ease',
+                            }}
+                          />
+                          <span>{policy.label}</span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: FONT.size.xs,
+                            color: COLORS.text.secondary,
+                            marginTop: SPACING.xxs,
+                            lineHeight: '1.35',
+                            paddingLeft: '14px',
+                          }}
+                        >
+                          {policy.desc}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '10px', color: '#6B6B6B', marginTop: '2px' }}>
-                        {policy.desc}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
+                {/* Fallback default value input when DEFAULT_VALUE policy is chosen */}
                 {failurePolicy === 'DEFAULT_VALUE' && (
-                  <div style={{ marginTop: '8px' }}>
+                  <div style={{ marginTop: SPACING.xs }}>
+                    <label
+                      htmlFor="udf-default-value-input"
+                      style={{
+                        display: 'block',
+                        fontSize: FONT.size.xs,
+                        fontWeight: FONT.weight.medium,
+                        color: COLORS.text.secondary,
+                        marginBottom: SPACING.xxs,
+                      }}
+                    >
+                      Fallback Default Value
+                    </label>
                     <input
+                      id="udf-default-value-input"
                       type="text"
-                      placeholder="Enter fallback default value (e.g. 0, N/A, null)"
+                      placeholder="e.g. 0, N/A, null"
                       value={defaultValue}
                       onChange={e => setDefaultValue(e.target.value)}
-                      style={{
-                        width: '100%', padding: '6px 10px', border: '1px solid #D4D4D0',
-                        borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box'
-                      }}
+                      onFocus={() => setFocusedField('defaultValue')}
+                      onBlur={() => setFocusedField(null)}
+                      style={getInputStyle('defaultValue')}
                     />
                   </div>
                 )}
@@ -237,21 +643,84 @@ const UdfPickerModal = ({
         </div>
 
         {/* Footer */}
-        <div style={{ ...FREC, gap: '8px', padding: '12px 20px', borderTop: '1px solid #E8E8E5', background: '#FAFAF9' }}>
+        <div
+          style={{
+            ...FREC,
+            gap: SPACING.xs,
+            padding: `${SPACING.md} ${SPACING.lg}`,
+            borderTop: `1px solid ${COLORS.border.light}`,
+            background: COLORS.background.secondary,
+            flexShrink: 0,
+          }}
+        >
           <button
+            type="button"
             onClick={onClose}
-            style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #E8E8E5', background: '#fff', fontSize: '12px', cursor: 'pointer', color: '#6B6B6B' }}
+            style={{
+              padding: `${SPACING.xs} ${SPACING.md}`,
+              borderRadius: BORDER_RADIUS.md,
+              border: `1px solid ${COLORS.border.medium}`,
+              background: COLORS.background.primary,
+              fontSize: FONT.size.sm,
+              fontWeight: FONT.weight.medium,
+              color: COLORS.text.secondary,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              height: '36px',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = COLORS.border.dark;
+              e.currentTarget.style.color = COLORS.text.primary;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = COLORS.border.medium;
+              e.currentTarget.style.color = COLORS.text.secondary;
+            }}
+            onFocus={e => {
+              e.currentTarget.style.boxShadow = `0 0 0 2px ${COLORS.border.light}`;
+            }}
+            onBlur={e => {
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           >
             Cancel
           </button>
+
           <button
+            type="button"
             onClick={handleApply}
             disabled={!selectedUdf || !selectedFunction}
             style={{
-              padding: '6px 16px', borderRadius: '6px', border: 'none',
-              background: (selectedUdf && selectedFunction) ? '#534AB7' : '#D4D4D0',
-              color: '#fff', fontSize: '12px', fontWeight: 500,
-              cursor: (selectedUdf && selectedFunction) ? 'pointer' : 'not-allowed'
+              padding: `${SPACING.xs} ${SPACING.lg}`,
+              borderRadius: BORDER_RADIUS.md,
+              border: 'none',
+              background: (selectedUdf && selectedFunction) ? COLORS.brand.primary : COLORS.border.medium,
+              color: COLORS.text.inverse,
+              fontSize: FONT.size.sm,
+              fontWeight: FONT.weight.medium,
+              cursor: (selectedUdf && selectedFunction) ? 'pointer' : 'not-allowed',
+              transition: 'background-color 0.15s ease, opacity 0.15s ease',
+              outline: 'none',
+              height: '36px',
+            }}
+            onMouseEnter={e => {
+              if (selectedUdf && selectedFunction) {
+                e.currentTarget.style.backgroundColor = COLORS.brand.primaryHover;
+              }
+            }}
+            onMouseLeave={e => {
+              if (selectedUdf && selectedFunction) {
+                e.currentTarget.style.backgroundColor = COLORS.brand.primary;
+              }
+            }}
+            onFocus={e => {
+              if (selectedUdf && selectedFunction) {
+                e.currentTarget.style.boxShadow = `0 0 0 3px ${COLORS.brand.primaryLight}`;
+              }
+            }}
+            onBlur={e => {
+              e.currentTarget.style.boxShadow = 'none';
             }}
           >
             Apply UDF
