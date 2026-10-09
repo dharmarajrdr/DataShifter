@@ -27,6 +27,10 @@ public final class UdfDtos {
         private Instant createdAt;
         private Instant updatedAt;
         private List<UdfFunctionResponse> functions;
+        @Builder.Default
+        private Long pipelineCount = 0L;
+        @Builder.Default
+        private Long columnCount = 0L;
     }
 
     @Getter

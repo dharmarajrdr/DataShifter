@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, FileCode2, Info, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, Columns, FileCode2, Info, ShieldCheck, Trash2, Upload, Workflow, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ApiGuard, Button, Chip, Loader, PageHeader } from '../components/common';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
@@ -29,7 +29,7 @@ const StatusChip = ({ status }) => {
     const Icon = meta.icon;
     return (
         <span style={{ ...FRSC, gap: '4px', padding: '4px 8px', borderRadius: BORDER_RADIUS.pill, background: meta.background, color: meta.color, fontSize: FONT.size.xs, fontWeight: FONT.weight.medium }}>
-            <Icon size={12} /> {meta.label}
+            <Icon size={12} />
         </span>
     );
 };
@@ -115,11 +115,23 @@ const FunctionRow = ({ fn }) => {
         <div style={{ ...FRBC, position: 'relative', padding: '4px 0', borderBottom: `1px solid ${COLORS.border.light}` }}>
             <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>{fn.functionName}</span>
             <button type="button" aria-label={`Details for ${fn.functionName}`} aria-describedby={showInfo ? `udf-function-${fn.id}` : undefined} onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)} onFocus={() => setShowInfo(true)} onBlur={() => setShowInfo(false)} style={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 0, borderRadius: BORDER_RADIUS.pill, background: showInfo ? COLORS.brand.primaryLight : 'transparent', color: COLORS.brand.primary, cursor: 'help' }}><Info size={12} /></button>
-            {showInfo && <div id={`udf-function-${fn.id}`} role="tooltip" style={{ position: 'absolute', zIndex: 20, right: 0, top: 'calc(100% - 2px)', width: 280, padding: SPACING.sm, background: COLORS.text.primary, color: COLORS.text.inverse, borderRadius: BORDER_RADIUS.md, boxShadow: SHADOWS.md, pointerEvents: 'none' }}>
-                <p style={{ fontSize: FONT.size.xs, fontFamily: 'monospace', lineHeight: 1.5, wordBreak: 'break-word' }}>{signature}</p>
-                {fn.description && <p style={{ fontSize: FONT.size.xs, color: '#D4D4D0', lineHeight: 1.4, marginTop: SPACING.xs }}>{fn.description}</p>}
+            {showInfo && <div id={`udf-function-${fn.id}`} role="tooltip" style={{ position: 'absolute', zIndex: 20, left: '105%', top: 'calc(100% - 35px)', width: 280, padding: SPACING.sm, background: COLORS.text.primary, color: COLORS.text.inverse, borderRadius: BORDER_RADIUS.md, boxShadow: SHADOWS.md, pointerEvents: 'none' }}>
+                {fn.description && <p style={{ fontSize: FONT.size.xs, color: '#D4D4D0', lineHeight: 1.4 }}>{fn.description}</p>}
             </div>}
         </div>
+    );
+};
+
+const UdfDescriptionInfo = ({ udf }) => {
+    const [showInfo, setShowInfo] = useState(false);
+    const description = udf.description?.trim();
+    if (!description || description === 'No description provided.') return null;
+    const tooltipId = `udf-description-${udf.id}`;
+    return (
+        <span style={{ position: 'relative', display: 'inline-flex', top: '7px' }}>
+            <button type="button" aria-label={`Description for ${udf.name}`} aria-describedby={showInfo ? tooltipId : undefined} onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)} onFocus={() => setShowInfo(true)} onBlur={() => setShowInfo(false)} style={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 0, borderRadius: BORDER_RADIUS.pill, background: showInfo ? COLORS.brand.primaryLight : 'transparent', color: COLORS.brand.primary, cursor: 'help' }}><Info size={12} /></button>
+            {showInfo && <span id={tooltipId} role="tooltip" style={{ position: 'absolute', zIndex: 20, left: '105%', top: 'calc(100% - 12px)', width: 260, padding: SPACING.sm, background: COLORS.text.primary, color: COLORS.text.inverse, borderRadius: BORDER_RADIUS.md, boxShadow: SHADOWS.md, fontSize: FONT.size.xs, lineHeight: 1.4, pointerEvents: 'none' }}>{description}</span>}
+        </span>
     );
 };
 
@@ -127,19 +139,47 @@ const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
     const [showFunctions, setShowFunctions] = useState(false);
     const functions = udf.functions || [];
     const ToggleIcon = showFunctions ? ChevronUp : ChevronDown;
+    const isReferenced = (Number(udf.pipelineCount) > 0) || (Number(udf.columnCount) > 0);
+    const deleteDisabled = deleting || isReferenced;
     return (
         <div style={{ background: COLORS.background.primary, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, boxShadow: SHADOWS.sm }}>
             <div style={{ ...FRBC, alignItems: 'flex-start', gap: SPACING.md }}>
                 <div style={{ ...FRSC, gap: SPACING.sm, minWidth: 0 }}>
                     <div style={{ width: 36, height: 36, borderRadius: BORDER_RADIUS.md, background: COLORS.brand.primaryLight, color: COLORS.brand.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Code2 size={18} /></div>
-                    <div style={{ minWidth: 0 }}><p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{udf.name}</p><p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>Version {udf.version || '1.0.0'} · Java</p></div>
-                </div>
-                <div style={{ ...FRSC, gap: SPACING.xs }}>
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ ...FRSC, gap: '2px' }}>
+                            <p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{udf.name}</p>
+                            <UdfDescriptionInfo udf={udf} />
+                        </div>
+                        <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>Version {udf.version || '1.0.0'} · Java</p>
+                    </div>
                     <StatusChip status={udf.status} />
-                    {canDelete && <button type="button" aria-label={`Delete ${udf.name}`} title="Delete UDF" onClick={() => onDelete(udf)} disabled={deleting} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, background: 'transparent', color: COLORS.status.errorDark, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.5 : 1 }}><Trash2 size={14} /></button>}
+                    {canDelete && (
+                        <button
+                            type="button"
+                            aria-label={`Delete ${udf.name}`}
+                            title={isReferenced ? `Cannot delete: referenced in ${udf.pipelineCount || 0} pipeline(s) and ${udf.columnCount || 0} column(s)` : (deleting ? 'Deleting...' : 'Delete UDF')}
+                            onClick={deleteDisabled ? undefined : () => onDelete(udf)}
+                            disabled={deleteDisabled}
+                            style={{
+                                width: 28,
+                                height: 28,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: `1px solid ${COLORS.border.light}`,
+                                borderRadius: BORDER_RADIUS.sm,
+                                background: 'transparent',
+                                color: isReferenced ? COLORS.text.tertiary : COLORS.status.errorDark,
+                                cursor: deleteDisabled ? 'not-allowed' : 'pointer',
+                                opacity: isReferenced ? 0.35 : (deleting ? 0.5 : 1)
+                            }}
+                        >
+                            <Trash2 size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
-            <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, lineHeight: 1.5, minHeight: '42px', margin: `${SPACING.md} 0` }}>{udf.description || 'No description provided.'}</p>
             <div style={{ borderTop: `1px solid ${COLORS.border.light}`, marginTop: SPACING.md }}>
                 <div onClick={() => setShowFunctions(!showFunctions)} style={{ ...FRBC, cursor: 'pointer', padding: `${SPACING.sm} 0 ${showFunctions ? SPACING.xs : 0}`, userSelect: 'none', color: COLORS.text.secondary }}>
                     <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium }}>{functions.length} callable function{functions.length !== 1 ? 's' : ''}</span>
@@ -151,7 +191,21 @@ const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
                     </div>
                 )}
             </div>
-            <div style={{ ...FRBC, borderTop: `1px solid ${COLORS.border.light}`, paddingTop: SPACING.sm, color: COLORS.text.tertiary, fontSize: FONT.size.xs, marginTop: showFunctions ? 0 : SPACING.sm }}><span>{formatBytes(udf.sizeBytes)}</span><span>{udf.updatedAt ? new Date(udf.updatedAt).toLocaleDateString() : 'Not published'}</span></div>
+            <div style={{ ...FRBC, borderTop: `1px solid ${COLORS.border.light}`, paddingTop: SPACING.sm, color: COLORS.text.tertiary, fontSize: FONT.size.xs, marginTop: showFunctions ? 0 : SPACING.sm }}>
+                <div style={{ ...FRSC, gap: SPACING.sm }}>
+                    <span>{formatBytes(udf.sizeBytes)}</span>
+                    <span style={{ color: COLORS.border.medium }}>·</span>
+                    <span title={`${udf.pipelineCount ?? 0} pipelines referencing`} style={{ ...FRSC, gap: '4px', color: COLORS.text.secondary }}>
+                        <Workflow size={13} color={COLORS.text.tertiary} />
+                        <span>{udf.pipelineCount ?? 0}</span>
+                    </span>
+                    <span title={`${udf.columnCount ?? 0} columns referencing`} style={{ ...FRSC, gap: '4px', color: COLORS.text.secondary }}>
+                        <Columns size={13} color={COLORS.text.tertiary} />
+                        <span>{udf.columnCount ?? 0}</span>
+                    </span>
+                </div>
+                <span>{udf.updatedAt ? new Date(udf.updatedAt).toLocaleDateString() : 'Not published'}</span>
+            </div>
         </div>
     );
 };
@@ -170,6 +224,7 @@ const UdfLibrary = () => {
     }, []);
 
     const handleDelete = async (udf) => {
+        if ((Number(udf.pipelineCount) > 0) || (Number(udf.columnCount) > 0)) return;
         if (!window.confirm(`Delete UDF "${udf.name}"? This cannot be undone.`)) return;
         setDeletingId(udf.id);
         setError(null);

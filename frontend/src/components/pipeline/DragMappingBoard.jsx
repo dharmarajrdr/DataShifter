@@ -69,28 +69,16 @@ const TargetConfigModal = ({ colName, sourceTables, onSelectSystem, onSelectUdf,
             Configure generation for <span style={{ color: '#534AB7', fontWeight: 600 }}>{colName}</span>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => setMode('system')}
+            <span
               style={{
                 flex: 1, padding: '8px 12px', border: 'none', background: 'transparent',
                 borderBottom: mode === 'system' ? '2px solid #534AB7' : '2px solid transparent',
                 color: mode === 'system' ? '#534AB7' : '#6B6B6B', fontWeight: mode === 'system' ? 600 : 400,
-                fontSize: '12px', cursor: 'pointer'
+                fontSize: '12px', cursor: 'pointer', te
               }}
             >
               ⚙ System Value
-            </button>
-            <button
-              onClick={() => setMode('udf')}
-              style={{
-                flex: 1, padding: '8px 12px', border: 'none', background: 'transparent',
-                borderBottom: mode === 'udf' ? '2px solid #534AB7' : '2px solid transparent',
-                color: mode === 'udf' ? '#534AB7' : '#6B6B6B', fontWeight: mode === 'udf' ? 600 : 400,
-                fontSize: '12px', cursor: 'pointer'
-              }}
-            >
-              ☕ Java UDF
-            </button>
+            </span>
           </div>
         </div>
 
