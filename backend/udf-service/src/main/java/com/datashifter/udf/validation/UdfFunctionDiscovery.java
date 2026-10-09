@@ -11,31 +11,63 @@ import org.objectweb.asm.Type;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.jar.JarEntry;
-import java.util.jar.JarInputStream;
+import java.util.jar.JarFile;
 
 @Component
 public class UdfFunctionDiscovery {
 
     private static final String UDF_DESCRIPTOR = Type.getDescriptor(DataShifterUdf.class);
+    private static final String INDEX_FILE_PATH = "META-INF/datashifter/udfs.list";
 
     public List<DiscoveredFunction> discover(MultipartFile file) {
         List<DiscoveredFunction> functions = new ArrayList<>();
-        try (JarInputStream jar = new JarInputStream(file.getInputStream())) {
-            JarEntry entry;
-            while ((entry = jar.getNextJarEntry()) != null) {
-                if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
-                    discoverClass(jar.readAllBytes(), functions);
+        File tempFile = null;
+        try {
+            tempFile = Files.createTempFile("udf-", ".jar").toFile();
+            file.transferTo(tempFile);
+            
+            try (JarFile jar = new JarFile(tempFile)) {
+                JarEntry listEntry = (JarEntry) jar.getEntry(INDEX_FILE_PATH);
+                if (listEntry == null) {
+                    throw new DatashifterException("JAR is missing UDF index (" + INDEX_FILE_PATH + "). Ensure it was compiled with the datashifter-udf-sdk Annotation Processor.");
+                }
+                
+                List<String> classNames;
+                try (InputStream in = jar.getInputStream(listEntry);
+                     BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+                    classNames = reader.lines().filter(l -> !l.isBlank()).toList();
+                }
+                
+                for (String className : classNames) {
+                    String classPath = className.replace('.', '/') + ".class";
+                    JarEntry classEntry = (JarEntry) jar.getEntry(classPath);
+                    if (classEntry == null) {
+                        throw new DatashifterException("Class " + className + " listed in index not found in JAR");
+                    }
+                    try (InputStream classIn = jar.getInputStream(classEntry)) {
+                        discoverClass(classIn.readAllBytes(), functions);
+                    }
                 }
             }
         } catch (IOException e) {
-            throw new DatashifterException("Could not inspect UDF classes", e);
+            throw new DatashifterException("Could not inspect UDF JAR", e);
+        } finally {
+            if (tempFile != null) {
+                tempFile.delete();
+            }
         }
+        
         if (functions.isEmpty()) {
-            throw new DatashifterException("No public methods annotated with @DataShifterUdf were found");
+            throw new DatashifterException("No public methods annotated with @DataShifterUdf were found in the indexed classes");
         }
         return functions;
     }
@@ -77,6 +109,11 @@ public class UdfFunctionDiscovery {
                                 Type methodType = Type.getMethodType(descriptor);
                                 List<String> parameterTypes = List.of(methodType.getArgumentTypes()).stream()
                                         .map(Type::getClassName).toList();
+                                        
+                                if (parameterTypes.size() != 1 || !parameterTypes.get(0).equals("com.datashifter.udf.sdk.Row")) {
+                                    throw new DatashifterException("Method " + name + " in " + className + " must take exactly one parameter of type com.datashifter.udf.sdk.Row");
+                                }
+                                        
                                 functions.add(new DiscoveredFunction(
                                         className, name, functionName, description, parameterTypes,
                                         methodType.getReturnType().getClassName(), (access & Opcodes.ACC_STATIC) != 0));
