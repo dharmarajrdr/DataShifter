@@ -12,12 +12,15 @@ import com.datashifter.udf.storage.UdfArtifactStorage;
 import com.datashifter.udf.validation.UdfArtifactValidator;
 import com.datashifter.udf.validation.UdfFunctionDiscovery;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.Arrays;
 
@@ -32,6 +35,7 @@ public class UdfRegistryService {
     private final UdfArtifactValidator validator;
     private final UdfFunctionDiscovery discovery;
     private final UdfArtifactStorage storage;
+    private final JdbcTemplate jdbcTemplate;
 
     @Transactional
     public UdfResponse upload(String name, String description, MultipartFile file) {
@@ -76,10 +80,46 @@ public class UdfRegistryService {
         }
     }
 
+    public record UdfReferenceCounts(long pipelineCount, long columnCount) {}
+
+    private Map<String, UdfReferenceCounts> fetchReferenceCounts() {
+        Map<String, UdfReferenceCounts> counts = new HashMap<>();
+        try {
+            String sql = """
+                SELECT 
+                    CASE 
+                        WHEN t.arguments::text ~ '^[0-9]+$' THEN (encode(lo_get(t.arguments::oid), 'escape')::jsonb ->> 'udfId')
+                        ELSE (t.arguments::text::jsonb ->> 'udfId')
+                    END AS udf_id,
+                    COUNT(DISTINCT pt.pipeline_id) AS pipeline_count,
+                    COUNT(DISTINCT cm.id) AS column_count
+                FROM transformations t
+                JOIN column_mappings cm ON t.column_mapping_id = cm.id
+                JOIN target_table_mappings ttm ON cm.target_table_mapping_id = ttm.id
+                JOIN pipeline_tables pt ON ttm.pipeline_table_id = pt.id
+                WHERE t.function_name = 'UDF' AND t.arguments IS NOT NULL
+                GROUP BY 1
+            """;
+            jdbcTemplate.query(sql, rs -> {
+                String udfId = rs.getString("udf_id");
+                if (udfId != null && !udfId.isBlank()) {
+                    counts.put(udfId, new UdfReferenceCounts(
+                            rs.getLong("pipeline_count"),
+                            rs.getLong("column_count")
+                    ));
+                }
+            });
+        } catch (Exception e) {
+            log.warn("Could not query UDF reference counts: {}", e.getMessage());
+        }
+        return counts;
+    }
+
     @Transactional(readOnly = true)
     public List<UdfResponse> getAll() {
+        Map<String, UdfReferenceCounts> refCounts = fetchReferenceCounts();
         return repository.findByOrganizationIdOrderByUpdatedAtDesc(requireContext(UserContext.getCurrentOrgId(), "organization"))
-                .stream().map(this::toResponse).toList();
+                .stream().map(entity -> toResponse(entity, refCounts.get(entity.getId()))).toList();
     }
 
     @Transactional
@@ -107,6 +147,10 @@ public class UdfRegistryService {
     }
 
     private UdfResponse toResponse(UdfDefinition entity) {
+        return toResponse(entity, null);
+    }
+
+    private UdfResponse toResponse(UdfDefinition entity, UdfReferenceCounts counts) {
         List<UdfFunctionResponse> functions = entity.getFunctions().stream().map(function -> UdfFunctionResponse.builder()
             .id(function.getId()).className(function.getClassName()).methodName(function.getMethodName())
             .functionName(function.getFunctionName()).description(function.getDescription())
@@ -116,7 +160,10 @@ public class UdfRegistryService {
                 .version(entity.getVersion()).status(entity.getStatus()).artifactName(entity.getArtifactName())
                 .artifactSha256(entity.getArtifactSha256()).sizeBytes(entity.getSizeBytes())
             .validationMessage(entity.getValidationMessage()).createdAt(entity.getCreatedAt()).updatedAt(entity.getUpdatedAt())
-            .functions(functions).build();
+            .functions(functions)
+            .pipelineCount(counts != null ? counts.pipelineCount() : 0L)
+            .columnCount(counts != null ? counts.columnCount() : 0L)
+            .build();
     }
 
     private String requireContext(String value, String label) {

@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, FileCode2, Info, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, Columns, FileCode2, Info, ShieldCheck, Trash2, Upload, Workflow, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ApiGuard, Button, Chip, Loader, PageHeader } from '../components/common';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
@@ -151,7 +151,21 @@ const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
                     </div>
                 )}
             </div>
-            <div style={{ ...FRBC, borderTop: `1px solid ${COLORS.border.light}`, paddingTop: SPACING.sm, color: COLORS.text.tertiary, fontSize: FONT.size.xs, marginTop: showFunctions ? 0 : SPACING.sm }}><span>{formatBytes(udf.sizeBytes)}</span><span>{udf.updatedAt ? new Date(udf.updatedAt).toLocaleDateString() : 'Not published'}</span></div>
+            <div style={{ ...FRBC, borderTop: `1px solid ${COLORS.border.light}`, paddingTop: SPACING.sm, color: COLORS.text.tertiary, fontSize: FONT.size.xs, marginTop: showFunctions ? 0 : SPACING.sm }}>
+                <div style={{ ...FRSC, gap: SPACING.sm }}>
+                    <span>{formatBytes(udf.sizeBytes)}</span>
+                    <span style={{ color: COLORS.border.medium }}>·</span>
+                    <span title={`${udf.pipelineCount ?? 0} pipelines referencing`} style={{ ...FRSC, gap: '4px', color: COLORS.text.secondary }}>
+                        <Workflow size={13} color={COLORS.text.tertiary} />
+                        <span>{udf.pipelineCount ?? 0}</span>
+                    </span>
+                    <span title={`${udf.columnCount ?? 0} columns referencing`} style={{ ...FRSC, gap: '4px', color: COLORS.text.secondary }}>
+                        <Columns size={13} color={COLORS.text.tertiary} />
+                        <span>{udf.columnCount ?? 0}</span>
+                    </span>
+                </div>
+                <span>{udf.updatedAt ? new Date(udf.updatedAt).toLocaleDateString() : 'Not published'}</span>
+            </div>
         </div>
     );
 };
