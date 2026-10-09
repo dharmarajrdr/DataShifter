@@ -10,6 +10,8 @@
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8080/api/v1';
 
+let permissionRefreshPromise = null;
+
 /** Toggle: true = mock data, false = real backend */
 export const USE_MOCK = false;
 
@@ -18,6 +20,32 @@ export const USE_MOCK = false;
  */
 function getAuthToken() {
   return localStorage.getItem('ds_access_token');
+}
+
+async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem('ds_refresh_token');
+  if (!refreshToken) return false;
+
+  if (!permissionRefreshPromise) {
+    permissionRefreshPromise = fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    })
+      .then(async response => {
+        const json = await response.json().catch(() => null);
+        if (!response.ok || !json?.data?.accessToken) return false;
+        localStorage.setItem('ds_access_token', json.data.accessToken);
+        if (json.data.refreshToken) localStorage.setItem('ds_refresh_token', json.data.refreshToken);
+        if (json.data.user) localStorage.setItem('ds_user', JSON.stringify(json.data.user));
+        window.dispatchEvent(new Event('ds-auth-updated'));
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => { permissionRefreshPromise = null; });
+  }
+
+  return permissionRefreshPromise;
 }
 
 /**
@@ -36,8 +64,9 @@ async function request(method, path, body = null, options = {}) {
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    const isMultipart = typeof FormData !== 'undefined' && body instanceof FormData;
     const headers = {
-      'Content-Type': 'application/json',
+      ...(isMultipart ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     };
 
@@ -56,7 +85,7 @@ async function request(method, path, body = null, options = {}) {
     };
 
     if (body !== null && method !== 'GET') {
-      fetchOptions.body = JSON.stringify(body);
+      fetchOptions.body = isMultipart ? body : JSON.stringify(body);
     }
 
     const response = await fetch(url, fetchOptions);
@@ -83,7 +112,12 @@ async function request(method, path, body = null, options = {}) {
 
     // Handle 403 — permission denied (parse the missing permission from response)
     if (response.status === 403) {
-      const json = await response.json().catch(() => ({}));
+      if (!options.permissionRetried && json?.info?.missingPermission) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          return request(method, path, body, { ...options, permissionRetried: true });
+        }
+      }
       throw new ApiError(
         json.message || 'Access denied',
         403,
@@ -105,7 +139,7 @@ async function request(method, path, body = null, options = {}) {
     if (error.name === 'AbortError') {
       throw new ApiError('Request timed out', 408);
     }
-    if(error.message == 'Failed to fetch') {
+    if (error.message == 'Failed to fetch') {
       throw new ApiError('Network error — is the backend running?', 500);
     }
     throw new ApiError(error.message, error.status || 500);
@@ -129,9 +163,10 @@ export class ApiError extends Error {
    ============================================================ */
 
 export const apiClient = {
-  get:    (path, options)       => request('GET', path, null, options),
-  post:   (path, body, options) => request('POST', path, body, options),
-  put:    (path, body, options) => request('PUT', path, body, options),
-  delete: (path, options)       => request('DELETE', path, null, options),
+  get: (path, options) => request('GET', path, null, options),
+  post: (path, body, options) => request('POST', path, body, options),
+  put: (path, body, options) => request('PUT', path, body, options),
+  delete: (path, options) => request('DELETE', path, null, options),
+  upload: (path, formData, options) => request('POST', path, formData, options),
   API_BASE
 };

@@ -16,6 +16,8 @@ import com.datashifter.execution.consumers.CommandRegistry;
 import com.datashifter.execution.contexts.ExecutionContext;
 import com.datashifter.execution.contexts.ExecutionContext.ResolvedColumnMapping;
 import com.datashifter.execution.contexts.ExecutionContext.TargetTableContext;
+import com.datashifter.execution.contexts.TransformationExecutionContext;
+import com.datashifter.execution.contexts.TransformationExecutionContextHolder;
 import com.datashifter.execution.repositories.ExecutionConnectionRepository;
 import com.datashifter.execution.repositories.ExecutionPipelineRepository;
 import com.datashifter.execution.services.interfaces.ExecutionService;
@@ -288,8 +290,19 @@ public class ExecutionServiceImpl implements ExecutionService {
                 }
 
                 long tw0 = System.currentTimeMillis();
-                ColumnMapperService.BatchMappingResult mappingResult =
-                        columnMapperService.mapBatch(filteredRecords, ttc.getColumnMappings());
+                ColumnMapperService.BatchMappingResult mappingResult;
+                try {
+                    TransformationExecutionContextHolder.set(TransformationExecutionContext.builder()
+                            .pipelineId(ctx.getPipelineId())
+                            .executionLogId(ctx.getExecutionLogId())
+                            .sourceTable(pt.getSourceTable())
+                            .targetTable(ttc.getTargetTable())
+                            .chunkNumber(chunkNumber)
+                            .build());
+                    mappingResult = columnMapperService.mapBatch(filteredRecords, ttc.getColumnMappings());
+                } finally {
+                    TransformationExecutionContextHolder.clear();
+                }
                 List<Map<String, Object>> targetRecords = mappingResult.getTargetRecords();
                 long tw1 = System.currentTimeMillis();
 

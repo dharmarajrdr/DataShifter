@@ -12,6 +12,11 @@ spring:
           predicates:
             - Path=/api/v1/connections/**
 
+        - id: udf-service
+          uri: http://udf-service:8088
+          predicates:
+            - Path=/api/v1/udfs/**
+
         # Monitor routes — MUST be before pipeline-service
         - id: monitor-service
           uri: http://monitor-service:8083

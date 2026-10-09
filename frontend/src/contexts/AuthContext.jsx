@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { authApi } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -104,15 +104,30 @@ export const AuthProvider = ({ children }) => {
     setUser(merged);
   }, [user]);
 
-  // Auto-refresh on mount: fetch user + org list from API
+  // Refresh the cached user on startup so role permission changes are reflected.
   useEffect(() => {
-    if (token && !user) {
-      authApi.me().then(res => setUser(res.data)).catch(() => clearAuth());
-    }
     if (token) {
+      authApi.me().then(res => {
+        localStorage.setItem(USER_KEY, JSON.stringify(res.data));
+        setUser(res.data);
+      }).catch(() => clearAuth());
       refreshOrganizations();
     }
-  }, [token, user, clearAuth, refreshOrganizations]);
+  }, [token, clearAuth, refreshOrganizations]);
+
+  useEffect(() => {
+    const handleAuthUpdated = () => {
+      try {
+        const storedUser = JSON.parse(localStorage.getItem(USER_KEY));
+        setToken(localStorage.getItem(TOKEN_KEY));
+        setUser(storedUser);
+      } catch {
+        clearAuth();
+      }
+    };
+    window.addEventListener('ds-auth-updated', handleAuthUpdated);
+    return () => window.removeEventListener('ds-auth-updated', handleAuthUpdated);
+  }, [clearAuth]);
 
   const value = {
     user,

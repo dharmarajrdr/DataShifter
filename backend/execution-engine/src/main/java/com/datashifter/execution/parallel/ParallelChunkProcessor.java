@@ -15,6 +15,8 @@ import com.datashifter.execution.contexts.ExecutionContext;
 import com.datashifter.execution.contexts.ExecutionContext.TargetTableContext;
 import com.datashifter.execution.services.implementations.ColumnMapperService;
 import com.datashifter.execution.strategies.filters.FilterChain;
+import com.datashifter.execution.contexts.TransformationExecutionContext;
+import com.datashifter.execution.contexts.TransformationExecutionContextHolder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -247,8 +249,19 @@ public class ParallelChunkProcessor {
             TargetTableContext ttc = ctx.getTargetTableContexts().get(ttm.getId());
             if (ttc == null) continue;
 
-            List<Map<String, Object>> targetRecords =
-                    columnMapperService.mapBatchSimple(filtered, ttc.getColumnMappings());
+            List<Map<String, Object>> targetRecords;
+            try {
+                TransformationExecutionContextHolder.set(TransformationExecutionContext.builder()
+                        .pipelineId(ctx.getPipelineId())
+                        .executionLogId(ctx.getExecutionLogId())
+                        .sourceTable(pt.getSourceTable())
+                        .targetTable(ttc.getTargetTable())
+                        .chunkNumber(task.getChunkNumber())
+                        .build());
+                targetRecords = columnMapperService.mapBatchSimple(filtered, ttc.getColumnMappings());
+            } finally {
+                TransformationExecutionContextHolder.clear();
+            }
 
             // STEP 5: BUFFER (thread-safe — Redis operations are atomic)
 

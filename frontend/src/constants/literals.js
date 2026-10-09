@@ -9,7 +9,8 @@ export const APP = {
 
 export const NAV = {
   pipelines: 'Pipelines',
-  connections: 'Connections'
+  connections: 'Connections',
+  udfs: 'UDF library'
 };
 
 export const PIPELINE = {

@@ -30,6 +30,10 @@ public class TransformerChain {
      * before passing to the transformer.
      */
     public Object applyWithContext(Object input, Map<String, Object> sourceRow) {
+        return applyWithContext(input, sourceRow, null);
+    }
+
+    public Object applyWithContext(Object input, Map<String, Object> sourceRow, String targetColumn) {
         Object result = input;
         for (TransformerStep step : steps) {
             String args = step.arguments();
@@ -39,7 +43,7 @@ public class TransformerChain {
                 args = resolveColumnReferences(args, sourceRow);
             }
 
-            result = step.transformer().transform(result, args);
+            result = step.transformer().transform(result, args, sourceRow, targetColumn);
         }
         return result;
     }

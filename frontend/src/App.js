@@ -1,28 +1,28 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import AuthLayout from './components/auth/AuthLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SubscriptionGuard from './components/auth/SubscriptionGuard';
-import AuthLayout from './components/auth/AuthLayout';
 import AppLayout from './components/layout/AppLayout';
+import { AuthProvider } from './contexts/AuthContext';
 import {
-  PipelineDashboard,
+  BillingPage,
   ColumnMappingBoard,
-  LiveMonitor,
-  PipelineWizard,
   ConnectionsManager,
+  DocsPage,
   ErrorLogViewer,
-  PipelineSettings,
-  UserProfile,
+  ForgotPasswordPage,
+  LiveMonitor,
   LoginPage,
-  SignupPage,
   OnboardPage,
   OrgSettingsPage,
-  RolesPage,
-  DocsPage,
-  BillingPage,
-  ForgotPasswordPage,
+  PipelineDashboard,
+  PipelineSettings,
+  PipelineWizard,
   ResetPasswordPage,
+  RolesPage,
+  SignupPage,
+  UdfLibrary,
+  UserProfile,
 } from './pages';
 
 const App = () => (
@@ -56,6 +56,7 @@ const App = () => (
           <Route path="/pipelines/:pipelineId/errors" element={<SubscriptionGuard><ErrorLogViewer /></SubscriptionGuard>} />
           <Route path="/pipelines/:pipelineId/settings" element={<SubscriptionGuard><PipelineSettings /></SubscriptionGuard>} />
           <Route path="/connections" element={<SubscriptionGuard><ConnectionsManager /></SubscriptionGuard>} />
+          <Route path="/udfs" element={<SubscriptionGuard><UdfLibrary /></SubscriptionGuard>} />
           <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
           <Route path="/settings/roles" element={<SubscriptionGuard><RolesPage /></SubscriptionGuard>} />
           <Route path="/profile" element={<UserProfile />} />

@@ -15,7 +15,7 @@ import { apiClient, USE_MOCK } from './apiClient';
    MOCK DATA — kept for offline development and demo mode
    ================================================================ */
 
-const mockResponse = (data, message = 'Success') => 
+const mockResponse = (data, message = 'Success') =>
   Promise.resolve({ message, data, info: null, status: 200 });
 
 export const MOCK_NAMESPACES = [
@@ -36,6 +36,30 @@ export const MOCK_CONNECTIONS = [
   { id: 'c-001', name: 'Oracle production', type: 'Oracle 19c', dbType: 'ORACLE', host: 'oracle-prod.company.com:1521', schema: 'PROD_SCHEMA', tableCount: 142, status: 'CONNECTED', lastTested: '2026-04-16T08:00:00Z', error: null },
   { id: 'c-002', name: 'Spanner US-East', type: 'Cloud Spanner', dbType: 'SPANNER', host: 'projects/myproj/instances/us-east1', schema: 'orders-db', tableCount: 89, status: 'CONNECTED', lastTested: '2026-04-16T08:00:00Z', error: null },
   { id: 'c-003', name: 'Oracle staging', type: 'Oracle 19c', dbType: 'ORACLE', host: 'oracle-stg.company.com:1521', schema: 'STG_SCHEMA', tableCount: 0, status: 'FAILED', lastTested: '2026-04-16T06:00:00Z', error: 'Connection refused: timeout after 30s.' },
+];
+
+export const MOCK_UDFS = [
+  {
+    id: 'udf-001',
+    name: 'customer-eligibility',
+    description: 'Sets eligibility based on customer age and account status.',
+    version: '1.0.0',
+    status: 'READY',
+    sizeBytes: 18432,
+    updatedAt: '2026-10-01T10:00:00Z',
+    functions: [
+      {
+        id: 'fn-001',
+        className: 'com.datashifter.udf.CustomerEligibility',
+        methodName: 'checkEligibility',
+        functionName: 'checkEligibility',
+        description: 'Transforms row: calculates eligibility flag based on age',
+        parameterTypes: ['Row'],
+        returnType: 'void',
+        staticMethod: false
+      }
+    ]
+  },
 ];
 
 export const MOCK_MONITOR = {
@@ -206,6 +230,33 @@ export const connectionApi = {
   getForeignKeys: (id, tableName) => USE_MOCK
     ? mockResponse([])
     : apiClient.get(`/connections/${id}/tables/${tableName}/foreign-keys`),
+};
+
+/* ----- JAVA UDFS (udf-service via gateway:8080) ----- */
+
+export const udfApi = {
+  getAll: () => USE_MOCK
+    ? mockResponse(MOCK_UDFS)
+    : apiClient.get('/udfs'),
+
+  upload: (file, metadata) => {
+    if (USE_MOCK) {
+      return mockResponse({ id: 'udf-' + Date.now(), ...metadata, version: '1.0.0', status: 'VALIDATING', sizeBytes: file.size, updatedAt: new Date().toISOString() }, 'UDF uploaded');
+    }
+    const form = new FormData();
+    form.append('file', file);
+    form.append('name', metadata.name);
+    form.append('description', metadata.description || '');
+    return apiClient.upload('/udfs', form, { timeout: 120000 });
+  },
+
+  delete: (id) => USE_MOCK
+    ? mockResponse(null)
+    : apiClient.delete(`/udfs/${id}`),
+
+  test: (id, payload) => USE_MOCK
+    ? mockResponse({ ...(payload?.inputData || {}), [payload?.methodName || 'result']: true })
+    : apiClient.post(`/udfs/${id}/test`, payload),
 };
 
 /* ----- MONITORING (monitor-service via gateway:8080) ----- */

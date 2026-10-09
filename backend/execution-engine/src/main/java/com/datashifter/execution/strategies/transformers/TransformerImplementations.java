@@ -1,14 +1,18 @@
 package com.datashifter.execution.strategies.transformers;
 
+import com.datashifter.common.exceptions.DatashifterException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 // =========================================================================
 // TEXT TRANSFORMERS
@@ -393,4 +397,40 @@ class RowNumberTransformer implements ColumnTransformer {
         return counter.incrementAndGet();
     }
     public String getFunctionName() { return "ROW_NUMBER"; }
+}
+
+/**
+ * UDF — executes an uploaded Java UDF with dynamic loading, timeout, and failure policies.
+ */
+@Component
+@RequiredArgsConstructor
+class UdfTransformer implements ColumnTransformer {
+
+    private final UdfExecutionManager udfExecutionManager;
+    private final Map<String, PreparedUdf> preparedCache = new ConcurrentHashMap<>();
+
+    @Override
+    public Object transform(Object input, String args) {
+        return transform(input, args, null, null);
+    }
+
+    @Override
+    public Object transform(Object input, String args, Map<String, Object> sourceRow) {
+        return transform(input, args, sourceRow, null);
+    }
+
+    @Override
+    public Object transform(Object input, String args, Map<String, Object> sourceRow, String targetColumn) {
+        if (args == null || args.isBlank()) {
+            return input;
+        }
+
+        PreparedUdf prepared = preparedCache.computeIfAbsent(args, udfExecutionManager::prepare);
+        return udfExecutionManager.executePrepared(prepared, input, sourceRow, targetColumn);
+    }
+
+    @Override
+    public String getFunctionName() {
+        return "UDF";
+    }
 }

@@ -19,6 +19,7 @@
     <description>Database migration platform — simplified, visual, scalable.</description>
 
     <modules>
+        <module>udf-sdk</module>
         <module>datashifter-common</module>
         <module>connector-service</module>
         <module>pipeline-service</module>
@@ -28,6 +29,7 @@
         <module>auth-service</module>
         <module>notification-service</module>
         <module>payment-service</module>
+        <module>udf-service</module>
     </modules>
 
     <properties>
