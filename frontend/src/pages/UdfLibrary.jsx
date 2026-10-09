@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, FileCode2, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, Code2, FileCode2, Info, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ApiGuard, Button, Chip, Loader, PageHeader } from '../components/common';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
@@ -108,8 +108,22 @@ const UploadModal = ({ onClose, onUploaded }) => {
     );
 };
 
+const FunctionRow = ({ fn }) => {
+    const [showInfo, setShowInfo] = useState(false);
+    const signature = `${fn.className}.${fn.methodName}(${(fn.parameterTypes || []).join(', ')}) : ${fn.returnType}`;
+    return (
+        <div style={{ ...FRBC, position: 'relative', padding: `${SPACING.xs} 0`, borderBottom: `1px solid ${COLORS.border.light}` }}>
+            <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: COLORS.text.primary }}>{fn.functionName}</span>
+            <button type="button" aria-label={`Details for ${fn.functionName}`} aria-describedby={showInfo ? `udf-function-${fn.id}` : undefined} onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)} onFocus={() => setShowInfo(true)} onBlur={() => setShowInfo(false)} style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 0, borderRadius: BORDER_RADIUS.pill, background: showInfo ? COLORS.brand.primaryLight : 'transparent', color: COLORS.brand.primary, cursor: 'help' }}><Info size={14} /></button>
+            {showInfo && <div id={`udf-function-${fn.id}`} role="tooltip" style={{ position: 'absolute', zIndex: 20, right: 0, top: 'calc(100% - 2px)', width: 280, padding: SPACING.sm, background: COLORS.text.primary, color: COLORS.text.inverse, borderRadius: BORDER_RADIUS.md, boxShadow: SHADOWS.md, pointerEvents: 'none' }}>
+                <p style={{ fontSize: FONT.size.xs, fontFamily: 'monospace', lineHeight: 1.5, wordBreak: 'break-word' }}>{signature}</p>
+                {fn.description && <p style={{ fontSize: FONT.size.xs, color: '#D4D4D0', lineHeight: 1.4, marginTop: SPACING.xs }}>{fn.description}</p>}
+            </div>}
+        </div>
+    );
+};
+
 const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
-    const [showFunctions, setShowFunctions] = useState(false);
     const functions = udf.functions || [];
     return (
         <div style={{ background: COLORS.background.primary, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, boxShadow: SHADOWS.sm }}>
@@ -124,19 +138,9 @@ const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
                 </div>
             </div>
             <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, lineHeight: 1.5, minHeight: '42px', margin: `${SPACING.md} 0` }}>{udf.description || 'No description provided.'}</p>
-            <button type="button" onClick={() => setShowFunctions(value => !value)} aria-expanded={showFunctions} style={{ ...FRBC, width: '100%', padding: `${SPACING.xs} 0`, border: 0, borderTop: `1px solid ${COLORS.border.light}`, background: 'transparent', color: COLORS.brand.primary, cursor: 'pointer', fontSize: FONT.size.xs }}>
-                <span>{functions.length} callable function{functions.length === 1 ? '' : 's'}</span>
-                {showFunctions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-            {showFunctions && <div style={{ marginTop: SPACING.xs, padding: SPACING.xs, background: COLORS.background.secondary, borderRadius: BORDER_RADIUS.sm }}>
-                {functions.length === 0 ? <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>No annotated public methods discovered.</p> : functions.map(fn => (
-                    <div key={fn.id || `${fn.className}.${fn.methodName}`} style={{ padding: `${SPACING.xs} 0`, borderBottom: `1px solid ${COLORS.border.light}` }}>
-                        <p style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: COLORS.text.primary }}>{fn.functionName}</p>
-                        <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px', wordBreak: 'break-word' }}>{fn.className}.{fn.methodName}({(fn.parameterTypes || []).join(', ')}) : {fn.returnType}</p>
-                        {fn.description && <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, marginTop: '2px' }}>{fn.description}</p>}
-                    </div>
-                ))}
-            </div>}
+            <div style={{ borderTop: `1px solid ${COLORS.border.light}`, marginTop: SPACING.md }}>
+                {functions.length === 0 ? <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, paddingTop: SPACING.xs }}>No annotated public methods discovered.</p> : functions.map(fn => <FunctionRow key={fn.id || `${fn.className}.${fn.methodName}`} fn={fn} />)}
+            </div>
             <div style={{ ...FRBC, borderTop: `1px solid ${COLORS.border.light}`, paddingTop: SPACING.sm, color: COLORS.text.tertiary, fontSize: FONT.size.xs }}><span>{formatBytes(udf.sizeBytes)}</span><span>{udf.updatedAt ? new Date(udf.updatedAt).toLocaleDateString() : 'Not published'}</span></div>
         </div>
     );
