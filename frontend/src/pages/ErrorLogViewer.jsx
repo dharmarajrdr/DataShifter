@@ -3,9 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC, FRWSC } from '../constants/layouts';
 import { ERRORS } from '../constants/literals';
-import { PageHeader, MetricCard, Button, Chip, ApiGuard, Loader } from '../components/common';
+import { PageHeader, MetricCard, Button, Chip, ApiGuard, Loader, ConfirmationModal, BarLoader } from '../components/common';
 import { errorApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { ForbiddenPage } from './ErrorPage';
 
 const ERROR_TYPE_COLORS = {
@@ -283,13 +284,21 @@ const ErrorLogViewer = () => {
   const uniqueTables = [...new Set(allErrors.map(e => e.sourceTable))];
   const uniqueTypes = [...new Set(allErrors.map(e => e.type))];
 
+  const [confirmClear, setConfirmClear] = useState(false);
+  const notification = useNotification();
+
   const handleClear = async () => {
-    if (!window.confirm('Clear all error logs for this pipeline? This cannot be undone.')) return;
     try {
       await errorApi.clear(pipelineId);
       setData(prev => prev ? { ...prev, errors: [], totalErrors: 0, errorTypes: [] } : prev);
       setPage(0);
-    } catch (e) { console.error('Failed to clear errors:', e); }
+      notification.success('Error logs cleared successfully');
+    } catch (e) {
+      console.error('Failed to clear errors:', e);
+      notification.error(e.message || 'Failed to clear error logs');
+    } finally {
+      setConfirmClear(false);
+    }
   };
 
   const goToPage = (p) => {
@@ -327,7 +336,19 @@ const ErrorLogViewer = () => {
   }
 
   return (
-    <ApiGuard error={error} loading={loading && !data} onRetry={fetchErrors} loadingComponent={<Loader variant="line" />}>
+    <ApiGuard
+      error={error}
+      loading={loading && !data}
+      onRetry={fetchErrors}
+      loadingComponent={
+        <div>
+          <BarLoader />
+          <div style={{ padding: '60px', textAlign: 'center', color: COLORS.text.secondary }}>
+            Loading error logs...
+          </div>
+        </div>
+      }
+    >
       {data && (
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
       <PageHeader
@@ -341,7 +362,7 @@ const ErrorLogViewer = () => {
               {totalErrors} error{totalErrors !== 1 ? 's' : ''}
             </span>
             {totalErrors > 0 && (
-              <Button variant="secondary" size="sm" onClick={handleClear}>Clear logs</Button>
+              <Button variant="secondary" size="sm" onClick={() => setConfirmClear(true)}>Clear logs</Button>
             )}
             <ExportDropdown errors={filteredErrors} pipelineName={data.pipelineName} />
           </div>
@@ -434,8 +455,21 @@ const ErrorLogViewer = () => {
           </div>
         </div>
       )}
-    </div>
+        </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmClear}
+        title="Clear Error Logs"
+        message="Are you sure you want to clear all error logs for this pipeline? This action cannot be undone."
+        color={COLORS.status.error}
+        onClose={() => setConfirmClear(false)}
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onClick: () => setConfirmClear(false) },
+          { label: 'Clear all errors', variant: 'danger', onClick: handleClear },
+        ]}
+      />
     </ApiGuard>
   );
 };

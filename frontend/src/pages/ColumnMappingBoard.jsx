@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ApiGuard, Button, Loader, PageHeader, StatusBadge } from '../components/common';
+import { ApiGuard, Button, Loader, PageHeader, StatusBadge, ConfirmationModal, BarLoader } from '../components/common';
 import { CloseIcon } from '../components/layout/Icons';
 import DragMappingBoard from '../components/pipeline/DragMappingBoard';
 import UdfPickerModal from '../components/pipeline/UdfPickerModal';
@@ -9,6 +9,7 @@ import { FRBC, FREC, FRSC, FRWSC } from '../constants/layouts';
 import { MAPPING as LIT } from '../constants/literals';
 import { mappingApi, pipelineApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { ForbiddenPage } from './ErrorPage';
 
 const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];
@@ -997,8 +998,11 @@ const ColumnMappingBoard = () => {
     setValidateDisabled(true);
     setValErrors([]);
   }, []);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const notification = useNotification();
+
   const handleAutoMap = useCallback(() => { const a = []; sourceTables.forEach(st => targetTables.forEach(tt => (st.columns || []).forEach(sc => { const m = (tt.columns || []).find(tc => tc.name.replace(/_/g, '').toLowerCase() === sc.name.replace(/_/g, '').toLowerCase()); if (m) { const sk = `${st.tableName}.${sc.name}`, tk = `${tt.tableName}.${m.name}`; if (!a.some(x => x.source === sk && x.target === tk)) a.push({ source: sk, target: tk, color: COLOR_KEYS[a.length % COLOR_KEYS.length], transforms: [] }); } }))); handleChange(a); }, [sourceTables, targetTables, handleChange]);
-  const handleClearAll = useCallback(() => { if (mappings.length && window.confirm('Clear all?')) handleChange([]); }, [mappings, handleChange]);
+  const handleClearAll = useCallback(() => { if (mappings.length) setConfirmClearAll(true); }, [mappings]);
   const handleMappingClick = useCallback((m, idx) => setTransformTarget({ mapping: m, idx }), []);
   const handleTransformApply = useCallback((idx, newT) => {
     setMappings(p => p.map((m, i) => i === idx ? { ...m, transforms: newT } : m));
@@ -1127,7 +1131,11 @@ const ColumnMappingBoard = () => {
       if (warnings.length === 0) {
         setValErrors([]);
       }
-    } catch (err) { setValErrors([err.message || 'Save failed']); } finally { setSaving(false); }
+      notification.success('Mappings saved successfully');
+    } catch (err) {
+      setValErrors([err.message || 'Save failed']);
+      notification.error(err.message || 'Failed to save mappings');
+    } finally { setSaving(false); }
   };
 
   const handleValidate = async () => {
@@ -1144,8 +1152,14 @@ const ColumnMappingBoard = () => {
       }));
       setValErrors(errors);
       setValidateDisabled(true);
+      if (errors.length === 0) {
+        notification.success('Pipeline mapping validated successfully');
+      } else {
+        notification.warning(`Validation completed with ${errors.length} issue(s)`);
+      }
     } catch (err) {
       setValErrors([err.message || 'Validation failed']);
+      notification.error(err.message || 'Validation failed');
       setValidateDisabled(true);
     } finally {
       setValidating(false);
@@ -1165,7 +1179,16 @@ const ColumnMappingBoard = () => {
   }
 
   return (
-    <ApiGuard error={error} loading={loading} loadingComponent={<Loader message="Loading mappings..." />}>
+    <ApiGuard
+      error={error}
+      loading={loading}
+      loadingComponent={
+        <div>
+          <BarLoader />
+          <Loader message="Loading mappings..." />
+        </div>
+      }
+    >
       {data && (
         <div>
           <PageHeader breadcrumbs={[{ label: data.pipelineName, onClick: () => navigate('/pipelines') }, { label: LIT.title }]}
@@ -1271,6 +1294,27 @@ const ColumnMappingBoard = () => {
           {filterTarget && <><Backdrop onClick={() => setFilterTarget(null)} /><FilterPanel sourceTable={filterTarget.tableName} sourceColumns={filterTarget.columns} existingFilters={filters[filterTarget.tableName]} onApply={handleFilterApply} onClose={() => setFilterTarget(null)} /></>}
         </div>
       )}
+
+      {/* Clear all confirmation modal */}
+      <ConfirmationModal
+        isOpen={confirmClearAll}
+        title="Clear All Mappings"
+        message="Are you sure you want to clear all column mappings? Any unsaved mappings will be removed."
+        color={COLORS.status.warning}
+        onClose={() => setConfirmClearAll(false)}
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onClick: () => setConfirmClearAll(false) },
+          {
+            label: 'Clear all',
+            variant: 'danger',
+            onClick: () => {
+              handleChange([]);
+              setConfirmClearAll(false);
+              notification.info('All mappings cleared');
+            },
+          },
+        ]}
+      />
     </ApiGuard>
   );
 };

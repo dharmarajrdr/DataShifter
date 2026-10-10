@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiGuard, Button, Loader, PageHeader, StatusBadge } from '../components/common';
+import { ApiGuard, Button, Loader, PageHeader, StatusBadge, ConfirmationModal, BarLoader, SkeletonLoader } from '../components/common';
 import ConnectionFormModal from '../components/connections/ConnectionFormModal';
 import SchemaDrawer from '../components/connections/SchemaDrawer';
 import { OracleIcon, PostgresIcon, SpannerIcon } from '../components/layout/Icons';
@@ -8,6 +8,7 @@ import { FRBS, FRSC } from '../constants/layouts';
 import { CONNECTION } from '../constants/literals';
 import { connectionApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { ForbiddenPage } from './ErrorPage';
 
 /* ================================================================
@@ -33,27 +34,13 @@ const DBIcon = ({ dbType }) => {
 };
 
 /* ================================================================
-   DELETE CONFIRM INLINE
-   ================================================================ */
-const DeleteConfirm = ({ onConfirm, onCancel }) => (
-  <div style={{
-    ...FRSC, gap: SPACING.xs, padding: `${SPACING.xs} ${SPACING.sm}`,
-    background: COLORS.status.errorLight, borderRadius: BORDER_RADIUS.md, marginTop: SPACING.xs,
-  }}>
-    <span style={{ fontSize: FONT.size.xs, color: COLORS.status.errorText }}>Delete this connection permanently?</span>
-    <Button variant="danger" size="sm" onClick={onConfirm}>Yes, delete</Button>
-    <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
-  </div>
-);
-
-/* ================================================================
    CONNECTION CARD
    ================================================================ */
 const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, canEdit, canDelete, canTest, canBrowse }) => {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteError, setDeleteError] = useState(null);
+  const notification = useNotification();
 
   const isReferenced = (conn.pipelineCount || 0) > 0;
 
@@ -67,6 +54,11 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, ca
     try {
       const res = await connectionApi.test(conn.id);
       setTestResult(res.data);
+      if (res.data?.success) {
+        notification.success(`Connection to "${conn.name}" tested successfully`);
+      } else {
+        notification.error(res.data?.message || 'Connection test failed');
+      }
       if (onUpdate) {
         onUpdate(conn.id, {
           status: res.data.success ? 'CONNECTED' : 'FAILED',
@@ -75,6 +67,7 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, ca
       }
     } catch (e) {
       setTestResult({ success: false, message: e.message });
+      notification.error(e.message || 'Connection test failed');
       if (onUpdate) {
         onUpdate(conn.id, { status: 'FAILED', error: e.message });
       }
@@ -85,13 +78,14 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, ca
 
   const handleDelete = async () => {
     if (!canDelete) return;
-    setDeleteError(null);
     try {
       await connectionApi.delete(conn.id);
+      notification.success(`Connection "${conn.name}" deleted successfully`);
       onDelete(conn.id);
     } catch (e) {
       console.error('Delete failed:', e);
-      setDeleteError(e.message || 'Failed to delete connection');
+      notification.error(e.message || 'Failed to delete connection');
+    } finally {
       setConfirmDelete(false);
     }
   };
@@ -196,10 +190,18 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, ca
         </Button>
       </div>
 
-      {/* Delete confirmation */}
-      {confirmDelete && !isReferenced && canDelete && (
-        <DeleteConfirm onConfirm={handleDelete} onCancel={() => setConfirmDelete(false)} />
-      )}
+      {/* Delete confirmation modal */}
+      <ConfirmationModal
+        isOpen={confirmDelete && !isReferenced && canDelete}
+        title="Delete Connection"
+        message={`Are you sure you want to delete connection "${conn.name}" permanently? This cannot be undone.`}
+        color={COLORS.status.error}
+        onClose={() => setConfirmDelete(false)}
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onClick: () => setConfirmDelete(false) },
+          { label: 'Yes, delete', variant: 'danger', onClick: handleDelete },
+        ]}
+      />
     </div>
   );
 };
@@ -248,14 +250,28 @@ const ConnectionsManager = () => {
     load();
   }, [canView]);
 
+  const notification = useNotification();
+
   const handleCreate = async (formData) => {
-    await connectionApi.create(formData);
-    loadConnections();
+    try {
+      await connectionApi.create(formData);
+      notification.success('Connection created successfully');
+      loadConnections();
+      closeForm();
+    } catch (e) {
+      notification.error(e.message || 'Failed to create connection');
+    }
   };
 
   const handleUpdate = async (formData) => {
-    await connectionApi.update(editingConn.id, formData);
-    loadConnections();
+    try {
+      await connectionApi.update(editingConn.id, formData);
+      notification.success('Connection updated successfully');
+      loadConnections();
+      closeForm();
+    } catch (e) {
+      notification.error(e.message || 'Failed to update connection');
+    }
   };
 
   const handleUpdateStatus = (connId, updates) => {
@@ -280,7 +296,18 @@ const ConnectionsManager = () => {
   }
 
   return (
-    <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>
+    <ApiGuard
+      error={error}
+      loading={loading}
+      loadingComponent={
+        <div>
+          <BarLoader />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: SPACING.md, marginTop: SPACING.lg }}>
+            <SkeletonLoader variant="card" count={3} />
+          </div>
+        </div>
+      }
+    >
       <div>
         <PageHeader
           title={CONNECTION.title}

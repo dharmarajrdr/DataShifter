@@ -7,6 +7,7 @@ import { PageHeader, Button, Chip, SortableList, Loader } from '../components/co
 import CreateNamespaceModal from '../components/pipeline/CreateNamespaceModal';
 import { namespaceApi, connectionApi, pipelineApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { ForbiddenPage } from './ErrorPage';
 
 const StepIndicator = ({ steps, currentStep }) => (
@@ -244,6 +245,8 @@ const PipelineWizard = () => {
   const handleNamespaceCreated = (ns) => { setNamespaces(p => [...p, ns]); setConfig(p => ({ ...p, namespaceId: ns.id })); };
   const handleNext = () => { const e = validateStep(step, config); if (Object.keys(e).length) { setErrors(e); return; } setErrors({}); setStep(step + 1); };
 
+  const notification = useNotification();
+
   const handleCreate = async () => {
     setCreating(true);
     try {
@@ -256,8 +259,12 @@ const PipelineWizard = () => {
         tables: config.selectedSourceTables.map((t, i) => ({ sourceTable: t, executionOrder: i })),
       };
       const res = await pipelineApi.create(payload);
+      notification.success(`Pipeline "${config.name.trim()}" created successfully!`);
       navigate(res.data?.id ? `/pipelines/${res.data.id}/mapping` : '/pipelines');
-    } catch (err) { setErrors({ create: err.message || 'Failed' }); } finally { setCreating(false); }
+    } catch (err) {
+      setErrors({ create: err.message || 'Failed' });
+      notification.error(err.message || 'Failed to create pipeline');
+    } finally { setCreating(false); }
   };
 
   const STEPS = [

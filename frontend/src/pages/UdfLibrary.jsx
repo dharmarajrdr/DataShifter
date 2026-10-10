@@ -1,9 +1,10 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, Columns, FileCode2, Info, ShieldCheck, Trash2, Upload, Workflow, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { ApiGuard, Button, Chip, Loader, PageHeader } from '../components/common';
+import { ApiGuard, Button, Chip, Loader, PageHeader, ConfirmationModal, BarLoader, SkeletonLoader } from '../components/common';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
 import { FRBC, FREC, FRSC } from '../constants/layouts';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { udfApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
@@ -213,11 +214,13 @@ const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
 
 const UdfLibrary = () => {
     const { hasPermission } = useAuth();
+    const notification = useNotification();
     const [udfs, setUdfs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [showUpload, setShowUpload] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+    const [udfToDelete, setUdfToDelete] = useState(null);
     const canView = hasPermission('udf:view');
     const canDelete = hasPermission('udf:delete');
 
@@ -229,16 +232,24 @@ const UdfLibrary = () => {
         udfApi.getAll().then(response => setUdfs(response.data || [])).catch(setError).finally(() => setLoading(false));
     }, [canView]);
 
-    const handleDelete = async (udf) => {
+    const handleDeleteRequest = (udf) => {
         if ((Number(udf.pipelineCount) > 0) || (Number(udf.columnCount) > 0)) return;
-        if (!window.confirm(`Delete UDF "${udf.name}"? This cannot be undone.`)) return;
+        setUdfToDelete(udf);
+    };
+
+    const confirmDeleteUdf = async () => {
+        if (!udfToDelete) return;
+        const udf = udfToDelete;
+        setUdfToDelete(null);
         setDeletingId(udf.id);
         setError(null);
         try {
             await udfApi.delete(udf.id);
             setUdfs(prev => prev.filter(item => item.id !== udf.id));
+            notification.success(`UDF "${udf.name}" deleted successfully`);
         } catch (err) {
             setError(err);
+            notification.error(err.message || 'Failed to delete UDF');
         } finally {
             setDeletingId(null);
         }
@@ -254,7 +265,18 @@ const UdfLibrary = () => {
     }
 
     return (
-        <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>
+        <ApiGuard
+            error={error}
+            loading={loading}
+            loadingComponent={
+                <div>
+                    <BarLoader />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SPACING.md, marginTop: SPACING.lg }}>
+                        <SkeletonLoader variant="card" count={3} />
+                    </div>
+                </div>
+            }
+        >
             <div>
                 <PageHeader title="UDF library" subtitle="Manage Java functions that can be used in your migration pipelines" actions={<Button onClick={() => setShowUpload(true)}><Upload size={14} style={{ verticalAlign: 'text-bottom', marginRight: '6px' }} /> Upload UDF</Button>} />
                 <div style={{ ...FRBC, padding: `${SPACING.sm} ${SPACING.md}`, background: COLORS.background.secondary, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, marginBottom: SPACING.lg }}>
@@ -268,8 +290,21 @@ const UdfLibrary = () => {
                         <p style={{ fontSize: FONT.size.sm, marginBottom: SPACING.md }}>Upload a Java function to reuse custom business rules across pipelines.</p>
                         <Button onClick={() => setShowUpload(true)}>Upload your first UDF</Button>
                     </div>
-                ) : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SPACING.md }}>{udfs.map(udf => <UdfCard key={udf.id} udf={udf} canDelete={canDelete} deleting={deletingId === udf.id} onDelete={handleDelete} />)}</div>}
-                {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUploaded={udf => setUdfs(prev => [udf, ...prev])} />}
+                ) : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SPACING.md }}>{udfs.map(udf => <UdfCard key={udf.id} udf={udf} canDelete={canDelete} deleting={deletingId === udf.id} onDelete={handleDeleteRequest} />)}</div>}
+                {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUploaded={udf => { setUdfs(prev => [udf, ...prev]); notification.success(`UDF "${udf.name}" uploaded successfully`); }} />}
+
+                {/* Delete Confirmation Modal */}
+                <ConfirmationModal
+                    isOpen={!!udfToDelete}
+                    title="Delete UDF"
+                    message={`Are you sure you want to delete UDF "${udfToDelete?.name}"? This cannot be undone.`}
+                    color={COLORS.status.error}
+                    onClose={() => setUdfToDelete(null)}
+                    actions={[
+                        { label: 'Cancel', variant: 'secondary', onClick: () => setUdfToDelete(null) },
+                        { label: 'Yes, delete', variant: 'danger', onClick: confirmDeleteUdf },
+                    ]}
+                />
             </div>
         </ApiGuard>
     );

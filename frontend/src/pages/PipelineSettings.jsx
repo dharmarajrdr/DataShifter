@@ -3,9 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC } from '../constants/layouts';
 import { SETTINGS } from '../constants/literals';
-import { PageHeader, Button, Toggle, Chip } from '../components/common';
+import { PageHeader, Button, Toggle, Chip, ConfirmationModal, BarLoader } from '../components/common';
 import { settingsApi, connectionApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { ForbiddenPage } from './ErrorPage';
 
 const SectionTitle = ({ title, subtitle }) => (
@@ -100,15 +101,17 @@ const PipelineSettings = () => {
 
   const updateTableWriteMode = (ttmId, mode) => { setTableOverrides(prev => ({ ...prev, [ttmId]: mode })); setHasChanges(true); };
 
+  const [pairToRemove, setPairToRemove] = useState(null);
+  const notification = useNotification();
   const isRunning = settings.status === 'RUNNING';
 
   const handleSave = async () => {
     if (isRunning) {
-      setSaveMsg('Pause the pipeline before updating settings');
-      setTimeout(() => setSaveMsg(null), 4000);
+      notification.warning('Pause the pipeline before updating settings');
       return;
     }
-    setSaving(true); setSaveMsg(null);
+    if (!hasChanges || saving) return;
+    setSaving(true);
     try {
       const payload = {
         name: settings.name, description: settings.description, chunkSize: settings.chunkSize,
@@ -120,10 +123,9 @@ const PipelineSettings = () => {
       };
       await settingsApi.save(pipelineId, payload);
       setHasChanges(false);
-      setSaveMsg('Settings saved');
-      setTimeout(() => setSaveMsg(null), 3000);
+      notification.success('Settings saved successfully');
     } catch (e) {
-      setSaveMsg('Save failed: ' + (e?.response?.data?.message || e.message || 'Unknown error'));
+      notification.error('Save failed: ' + (e?.response?.data?.message || e.message || 'Unknown error'));
     } finally { setSaving(false); }
   };
 
@@ -133,21 +135,23 @@ const PipelineSettings = () => {
     try {
       await settingsApi.addTablePair(pipelineId, newSourceTable, newTargetTable);
       setNewSourceTable(''); setNewTargetTable(''); setShowAddTable(false);
+      notification.success('Table pair added successfully');
       fetchSettings(); // Refresh
     } catch (e) {
-      setSaveMsg('Failed to add: ' + (e?.response?.data?.message || e.message));
-      setTimeout(() => setSaveMsg(null), 3000);
+      notification.error('Failed to add: ' + (e?.response?.data?.message || e.message));
     } finally { setAddingTable(false); }
   };
 
-  const handleRemoveTablePair = async (ptId, label) => {
-    if (!window.confirm(`Remove table pair "${label}"? Column mappings and transforms for this pair will be deleted.`)) return;
+  const confirmRemoveTablePair = async () => {
+    if (!pairToRemove) return;
+    const { ptId, label } = pairToRemove;
+    setPairToRemove(null);
     try {
       await settingsApi.removeTablePair(pipelineId, ptId);
+      notification.success(`Table pair "${label}" removed`);
       fetchSettings();
     } catch (e) {
-      setSaveMsg('Failed to remove: ' + (e?.response?.data?.message || e.message));
-      setTimeout(() => setSaveMsg(null), 3000);
+      notification.error('Failed to remove: ' + (e?.response?.data?.message || e.message));
     }
   };
 
@@ -206,7 +210,7 @@ const PipelineSettings = () => {
                       <td style={{ padding: `${SPACING.xs} ${SPACING.sm}`, fontWeight: FONT.weight.medium }}>{row.sourceTable}</td>
                       <td style={{ padding: `${SPACING.xs} ${SPACING.sm}`, fontWeight: FONT.weight.medium }}>{row.targetTable}</td>
                       <td style={{ padding: `${SPACING.xs} ${SPACING.sm}`, textAlign: 'right' }}>
-                        <span onClick={() => handleRemoveTablePair(row.ptId, `${row.sourceTable} → ${row.targetTable}`)}
+                        <span onClick={() => setPairToRemove({ ptId: row.ptId, label: `${row.sourceTable} → ${row.targetTable}` })}
                           style={{ fontSize: FONT.size.xs, color: '#A32D2D', cursor: 'pointer', fontWeight: 500 }}>Remove</span>
                       </td>
                     </tr>
@@ -399,6 +403,19 @@ const PipelineSettings = () => {
           )}
         </div>
       </div>
+
+      {/* Remove table pair confirmation modal */}
+      <ConfirmationModal
+        isOpen={!!pairToRemove}
+        title="Remove Table Pair"
+        message={`Are you sure you want to remove table pair "${pairToRemove?.label}"? Column mappings and transformations for this pair will be permanently deleted.`}
+        color={COLORS.status.error}
+        onClose={() => setPairToRemove(null)}
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onClick: () => setPairToRemove(null) },
+          { label: 'Yes, remove', variant: 'danger', onClick: confirmRemoveTablePair },
+        ]}
+      />
     </div>
   );
 };

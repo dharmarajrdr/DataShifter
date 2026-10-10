@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC } from '../constants/layouts';
-import { Button, Chip, ApiGuard, Loader } from '../components/common';
+import { Button, Chip, ApiGuard, Loader, BarLoader } from '../components/common';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { authApi } from '../services/authApi';
 import SettingsTabs from '../components/common/SettingsTabs';
 
@@ -98,6 +99,8 @@ const OrgSettingsPage = () => {
     }
   };
 
+  const notification = useNotification();
+
   const handleSave = async (e) => {
     if (e) e.preventDefault();
     if (!name.trim() || !canEditOrg || saving) return;
@@ -117,6 +120,7 @@ const OrgSettingsPage = () => {
       setName(updated.name);
       setLogoUrl(updated.logoUrl || '');
       setSaveSuccess(true);
+      notification.success('Organization details updated successfully');
 
       // Sync changes across context and sidebar
       if (updateUser) {
@@ -129,6 +133,7 @@ const OrgSettingsPage = () => {
       setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err) {
       setError(err.message || 'Failed to update organization details');
+      notification.error(err.message || 'Failed to update organization details');
     } finally {
       setSaving(false);
     }
@@ -143,7 +148,18 @@ const OrgSettingsPage = () => {
     : null;
 
   return (
-    <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>
+    <ApiGuard
+      error={error}
+      loading={loading}
+      loadingComponent={
+        <div>
+          <BarLoader />
+          <div style={{ maxWidth: '680px', paddingTop: SPACING.xl }}>
+            <Loader message="Loading organization settings..." />
+          </div>
+        </div>
+      }
+    >
       <div>
         <SettingsTabs
           title="Organization settings"

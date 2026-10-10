@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiGuard, Button, Chip, Loader } from '../components/common';
+import { ApiGuard, Button, Chip, Loader, BarLoader, SkeletonLoader } from '../components/common';
 import SettingsTabs from '../components/common/SettingsTabs';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
 import { FRBC, FRSC } from '../constants/layouts';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { authApi } from '../services/authApi';
 
 const inputStyle = {
@@ -114,6 +115,8 @@ const MembersPage = () => {
     load();
   }, [canManageInvites]);
 
+  const notification = useNotification();
+
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
     setInviting(true);
@@ -122,6 +125,7 @@ const MembersPage = () => {
     try {
       await authApi.sendInvite({ email: inviteEmail.trim(), roleId: inviteRoleId || undefined });
       setInviteSuccess(`Invitation sent to ${inviteEmail.trim()}`);
+      notification.success(`Invitation sent to ${inviteEmail.trim()}`);
       setInviteEmail('');
       setInviteRoleId('');
       const invRes = await authApi.getInvitations();
@@ -129,6 +133,7 @@ const MembersPage = () => {
       setTimeout(() => setInviteSuccess(null), 4000);
     } catch (err) {
       setError(err.message || 'Failed to send invitation');
+      notification.error(err.message || 'Failed to send invitation');
     } finally {
       setInviting(false);
     }
@@ -138,11 +143,13 @@ const MembersPage = () => {
     try {
       await authApi.handleInvitation(id, action);
       setInvitations((prev) => prev.filter((i) => i.id !== id));
+      notification.success(`Invitation ${action === 'ACCEPT' ? 'approved' : 'rejected'}`);
       if (action === 'ACCEPT') {
         fetchMembers(memberSearch, memberPage);
       }
     } catch (err) {
       setError(err.message || 'Failed to process invitation');
+      notification.error(err.message || 'Failed to process invitation');
     }
   };
 
@@ -154,13 +161,27 @@ const MembersPage = () => {
           m.id === userId ? { ...m, roleId: newRoleId, roleName: roles.find((r) => r.id === newRoleId)?.name } : m
         )
       );
+      notification.success('Member role updated successfully');
     } catch (err) {
       setError(err.message || 'Failed to update member role');
+      notification.error(err.message || 'Failed to update member role');
     }
   };
 
   return (
-    <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>
+    <ApiGuard
+      error={error}
+      loading={loading}
+      loadingComponent={
+        <div>
+          <BarLoader />
+          <div style={{ maxWidth: '680px', paddingTop: SPACING.xl }}>
+            <SkeletonLoader variant="rect" height="120px" count={1} style={{ marginBottom: SPACING.lg }} />
+            <SkeletonLoader variant="table-row" count={4} />
+          </div>
+        </div>
+      }
+    >
       <div>
         <SettingsTabs
           title="Organization settings"
