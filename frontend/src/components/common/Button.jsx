@@ -35,24 +35,26 @@ const SIZES = {
   lg: { padding: `${SPACING.xs} ${SPACING.lg}`, fontSize: FONT.size.md },
 };
 
-const Button = ({ children, variant = 'primary', size = 'md', style = {}, onClick, ...props }) => {
+const Button = ({ children, variant = 'primary', size = 'md', style = {}, onClick, disabled, ...props }) => {
   const v = VARIANTS[variant] || VARIANTS.primary;
   const s = SIZES[size] || SIZES.md;
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       style={{
         ...v,
         ...s,
         borderRadius: BORDER_RADIUS.md,
         fontWeight: FONT.weight.medium,
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.45 : 1,
         transition: 'opacity 0.15s ease',
         whiteSpace: 'nowrap',
         ...style,
       }}
-      onMouseEnter={e => e.target.style.opacity = '0.85'}
-      onMouseLeave={e => e.target.style.opacity = '1'}
+      onMouseEnter={e => { if (!disabled) e.target.style.opacity = '0.85'; }}
+      onMouseLeave={e => { if (!disabled) e.target.style.opacity = '1'; }}
       {...props}
     >
       {children}

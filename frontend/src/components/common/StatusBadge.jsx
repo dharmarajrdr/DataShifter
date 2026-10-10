@@ -5,8 +5,10 @@ const STATUS_MAP = {
   COMPLETED: { bg: COLORS.accent.purpleLight, color: COLORS.accent.purpleText },
   ERRORED: { bg: COLORS.status.errorLight, color: COLORS.status.errorText },
   PAUSED: { bg: COLORS.status.warningLight, color: COLORS.status.warningText },
-  DRAFT: { bg: COLORS.background.tertiary, color: COLORS.text.secondary },
-  VALIDATED: { bg: COLORS.status.infoLight, color: COLORS.status.infoText },
+  DRAFT: { bg: COLORS.background.tertiary, color: COLORS.text.secondary, label: 'Draft' },
+  NOT_VALIDATED: { bg: COLORS.background.tertiary, color: COLORS.text.secondary, label: 'Not Validated' },
+  VALIDATED: { bg: COLORS.status.infoLight, color: COLORS.status.infoText, label: 'Validated' },
+  INVALID: { bg: COLORS.status.errorLight, color: COLORS.status.errorText, label: 'Invalid' },
   CONNECTED: { bg: COLORS.status.successLight, color: COLORS.status.successText },
   FAILED: { bg: COLORS.status.errorLight, color: COLORS.status.errorText },
   TESTING: { bg: COLORS.status.warningLight, color: COLORS.status.warningText },
@@ -31,7 +33,7 @@ const StatusBadge = ({ status, label }) => {
       lineHeight: '15px',
       border: `1px solid ${scheme.color}`,
     }}>
-      {label || status}
+      {label || scheme.label || status}
     </span>
   );
 };

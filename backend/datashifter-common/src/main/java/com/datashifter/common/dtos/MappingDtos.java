@@ -2,6 +2,7 @@ package com.datashifter.common.dtos;
 
 import com.datashifter.common.enums.FilterOperator;
 import com.datashifter.common.enums.LogicalOperator;
+import com.datashifter.common.enums.PipelineStatus;
 import com.datashifter.common.enums.WriteMode;
 import com.datashifter.common.enums.TransformFunction;
 import lombok.*;
@@ -28,6 +29,8 @@ public class MappingDtos {
         private String sourceConnectionId;
         private String targetConnectionId;
         private WriteMode defaultWriteMode;
+        private PipelineStatus status;
+        private List<String> validationErrors;
 
         /** All table mappings in this pipeline */
         private List<TablePairMapping> tablePairs;

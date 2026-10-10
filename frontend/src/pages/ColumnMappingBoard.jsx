@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ApiGuard, Button, Loader, PageHeader } from '../components/common';
+import { ApiGuard, Button, Loader, PageHeader, StatusBadge } from '../components/common';
 import { CloseIcon } from '../components/layout/Icons';
 import DragMappingBoard from '../components/pipeline/DragMappingBoard';
 import UdfPickerModal from '../components/pipeline/UdfPickerModal';
 import { FONT, SPACING } from '../constants/design';
 import { FRBC, FREC, FRSC, FRWSC } from '../constants/layouts';
 import { MAPPING as LIT } from '../constants/literals';
-import { mappingApi } from '../services/api';
+import { mappingApi, pipelineApi } from '../services/api';
 
 const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];
 
@@ -921,6 +921,8 @@ const ColumnMappingBoard = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [valErrors, setValErrors] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [validateDisabled, setValidateDisabled] = useState(false);
   const [transformTarget, setTransformTarget] = useState(null);
   const [filterTarget, setFilterTarget] = useState(null); // { tableName, columns }
   const { pipelineId } = useParams();
@@ -934,6 +936,9 @@ const ColumnMappingBoard = () => {
       try {
         const res = await mappingApi.getByPipelineId(pipelineId);
         setData(res.data);
+        if (res.data?.validationErrors && res.data.validationErrors.length > 0) {
+          setValErrors(res.data.validationErrors);
+        }
         const ex = [];
         (res.data.tablePairs || []).forEach(p => {
           (p.mappings || []).forEach(m => {
@@ -977,12 +982,25 @@ const ColumnMappingBoard = () => {
     });
   }
 
-  const handleChange = useCallback(m => { setMappings(m); setHasChanges(true); setValErrors([]); }, []);
+  const handleChange = useCallback(m => {
+    setMappings(m);
+    setHasChanges(true);
+    setValidateDisabled(true);
+    setValErrors([]);
+  }, []);
   const handleAutoMap = useCallback(() => { const a = []; sourceTables.forEach(st => targetTables.forEach(tt => (st.columns || []).forEach(sc => { const m = (tt.columns || []).find(tc => tc.name.replace(/_/g, '').toLowerCase() === sc.name.replace(/_/g, '').toLowerCase()); if (m) { const sk = `${st.tableName}.${sc.name}`, tk = `${tt.tableName}.${m.name}`; if (!a.some(x => x.source === sk && x.target === tk)) a.push({ source: sk, target: tk, color: COLOR_KEYS[a.length % COLOR_KEYS.length], transforms: [] }); } }))); handleChange(a); }, [sourceTables, targetTables, handleChange]);
   const handleClearAll = useCallback(() => { if (mappings.length && window.confirm('Clear all?')) handleChange([]); }, [mappings, handleChange]);
   const handleMappingClick = useCallback((m, idx) => setTransformTarget({ mapping: m, idx }), []);
-  const handleTransformApply = useCallback((idx, newT) => { setMappings(p => p.map((m, i) => i === idx ? { ...m, transforms: newT } : m)); setHasChanges(true); }, []);
-  const handleFilterApply = useCallback((tableName, newFilters) => { setFilters(p => ({ ...p, [tableName]: newFilters })); setHasChanges(true); }, []);
+  const handleTransformApply = useCallback((idx, newT) => {
+    setMappings(p => p.map((m, i) => i === idx ? { ...m, transforms: newT } : m));
+    setHasChanges(true);
+    setValidateDisabled(true);
+  }, []);
+  const handleFilterApply = useCallback((tableName, newFilters) => {
+    setFilters(p => ({ ...p, [tableName]: newFilters }));
+    setHasChanges(true);
+    setValidateDisabled(true);
+  }, []);
 
   /** Add a target-only system mapping (e.g., CURRENT_TIMESTAMP for migrated_at) */
   const handleAddSystemValue = useCallback((targetTable, colName, fn, args) => {
@@ -992,6 +1010,7 @@ const ColumnMappingBoard = () => {
     const newMapping = { source: null, target: targetKey, color: 'purple', transforms: [{ fn, args: args || '' }], targetOnly: true };
     setMappings(p => [...p, newMapping]);
     setHasChanges(true);
+    setValidateDisabled(true);
   }, [mappings]);
 
   /** Add a target UDF mapping with pinned version and input column */
@@ -1007,86 +1026,121 @@ const ColumnMappingBoard = () => {
     };
     setMappings(p => [...p.filter(m => m.target !== targetKey), newMapping]);
     setHasChanges(true);
+    setValidateDisabled(true);
   }, [sourceTables]);
 
   const validate = useCallback(() => { const e = []; targetTables.forEach(tt => { const mp = new Set(mappings.filter(m => m.target.startsWith(tt.tableName + '.')).map(m => m.target.split('.')[1])); (tt.columns || []).forEach(c => { if (!c.nullable && !mp.has(c.name)) e.push(`${tt.tableName}: "${c.name}" is ${c.primaryKey ? 'PK' : 'NOT NULL'} — needs mapping`); }); }); return e; }, [targetTables, mappings]);
 
+  const buildMappingPayload = useCallback(() => {
+    // Group regular mappings by source::target table pair
+    const tm = {};
+    // Collect target-only mappings separately — grouped by target table
+    const toMappings = {};
+
+    mappings.forEach(m => {
+      if (m.targetOnly || !m.source) {
+        // Target-only mapping — group by target table
+        const [tt, tc] = m.target.split('.');
+        if (!toMappings[tt]) toMappings[tt] = [];
+        toMappings[tt].push({ sc: null, tc, transforms: m.transforms || [], defaultValue: m.defaultValue });
+      } else {
+        // Regular source→target mapping
+        const [st, sc] = m.source.split('.'), [tt, tc] = m.target.split('.');
+        const k = `${st}::${tt}`;
+        if (!tm[k]) tm[k] = { st, tt, cols: [] };
+        tm[k].cols.push({ sc, tc, transforms: m.transforms || [], defaultValue: m.defaultValue });
+      }
+    });
+
+    const en = {};
+    Object.values(tm).forEach(({ st, tt, cols }) => {
+      if (!en[st]) en[st] = { sourceTable: st, executionOrder: sourceTables.findIndex(s => s.tableName === st), targetMappings: [], filters: filters[st] || [] };
+      // Merge target-only mappings for this target table
+      const allCols = [...cols, ...(toMappings[tt] || [])];
+      delete toMappings[tt];
+      en[st].targetMappings.push({
+        targetTable: tt,
+        columnMappings: allCols.map((c, j) => ({
+          sourceColumn: c.sc || null,
+          targetColumn: c.tc,
+          mappingOrder: j,
+          defaultValue: c.defaultValue,
+          transformations: (c.transforms || []).map((t, k) => ({ functionName: t.fn, arguments: t.args, executionOrder: k }))
+        }))
+      });
+    });
+
+    // Handle target-only mappings for target tables that have no regular mappings
+    Object.entries(toMappings).forEach(([tt, cols]) => {
+      const firstSource = sourceTables[0]?.tableName;
+      if (!firstSource) return;
+      if (!en[firstSource]) en[firstSource] = { sourceTable: firstSource, executionOrder: 0, targetMappings: [], filters: filters[firstSource] || [] };
+      const existing = en[firstSource].targetMappings.find(tm => tm.targetTable === tt);
+      if (existing) {
+        existing.columnMappings.push(...cols.map((c, j) => ({
+          sourceColumn: null, targetColumn: c.tc, mappingOrder: existing.columnMappings.length + j,
+          defaultValue: c.defaultValue,
+          transformations: (c.transforms || []).map((t, k) => ({ functionName: t.fn, arguments: t.args, executionOrder: k }))
+        })));
+      } else {
+        en[firstSource].targetMappings.push({
+          targetTable: tt,
+          columnMappings: cols.map((c, j) => ({
+            sourceColumn: null, targetColumn: c.tc, mappingOrder: j, defaultValue: c.defaultValue,
+            transformations: (c.transforms || []).map((t, k) => ({ functionName: t.fn, arguments: t.args, executionOrder: k }))
+          }))
+        });
+      }
+    });
+
+    sourceTables.forEach((s, i) => { if (!en[s.tableName]) en[s.tableName] = { sourceTable: s.tableName, executionOrder: i, targetMappings: [], filters: filters[s.tableName] || [] }; });
+    return Object.values(en);
+  }, [mappings, filters, sourceTables]);
+
   const handleSave = async () => {
+    if (!hasChanges || saving) return;
     // Validate but don't block — show warnings, allow partial save
     const warnings = validate();
     if (warnings.length > 0) {
       setValErrors(warnings.map(w => '⚠ ' + w));
-      // Don't return — allow save to proceed with warnings
     }
     setSaving(true);
     try {
-      // Group regular mappings by source::target table pair
-      const tm = {};
-      // Collect target-only mappings separately — grouped by target table
-      const toMappings = {};
-
-      mappings.forEach(m => {
-        if (m.targetOnly || !m.source) {
-          // Target-only mapping — group by target table
-          const [tt, tc] = m.target.split('.');
-          if (!toMappings[tt]) toMappings[tt] = [];
-          toMappings[tt].push({ sc: null, tc, transforms: m.transforms || [], defaultValue: m.defaultValue });
-        } else {
-          // Regular source→target mapping
-          const [st, sc] = m.source.split('.'), [tt, tc] = m.target.split('.');
-          const k = `${st}::${tt}`;
-          if (!tm[k]) tm[k] = { st, tt, cols: [] };
-          tm[k].cols.push({ sc, tc, transforms: m.transforms || [], defaultValue: m.defaultValue });
-        }
-      });
-
-      const en = {};
-      Object.values(tm).forEach(({ st, tt, cols }) => {
-        if (!en[st]) en[st] = { sourceTable: st, executionOrder: sourceTables.findIndex(s => s.tableName === st), targetMappings: [], filters: filters[st] || [] };
-        // Merge target-only mappings for this target table
-        const allCols = [...cols, ...(toMappings[tt] || [])];
-        // Remove from toMappings so we don't add them again
-        delete toMappings[tt];
-        en[st].targetMappings.push({
-          targetTable: tt,
-          columnMappings: allCols.map((c, j) => ({
-            sourceColumn: c.sc || null,
-            targetColumn: c.tc,
-            mappingOrder: j,
-            defaultValue: c.defaultValue,
-            transformations: (c.transforms || []).map((t, k) => ({ functionName: t.fn, arguments: t.args, executionOrder: k }))
-          }))
-        });
-      });
-
-      // Handle target-only mappings for target tables that have no regular mappings
-      // Attach them to the first source table
-      Object.entries(toMappings).forEach(([tt, cols]) => {
-        const firstSource = sourceTables[0]?.tableName;
-        if (!firstSource) return;
-        if (!en[firstSource]) en[firstSource] = { sourceTable: firstSource, executionOrder: 0, targetMappings: [], filters: filters[firstSource] || [] };
-        const existing = en[firstSource].targetMappings.find(tm => tm.targetTable === tt);
-        if (existing) {
-          existing.columnMappings.push(...cols.map((c, j) => ({
-            sourceColumn: null, targetColumn: c.tc, mappingOrder: existing.columnMappings.length + j,
-            defaultValue: c.defaultValue,
-            transformations: (c.transforms || []).map((t, k) => ({ functionName: t.fn, arguments: t.args, executionOrder: k }))
-          })));
-        } else {
-          en[firstSource].targetMappings.push({
-            targetTable: tt,
-            columnMappings: cols.map((c, j) => ({
-              sourceColumn: null, targetColumn: c.tc, mappingOrder: j, defaultValue: c.defaultValue,
-              transformations: (c.transforms || []).map((t, k) => ({ functionName: t.fn, arguments: t.args, executionOrder: k }))
-            }))
-          });
-        }
-      });
-
-      sourceTables.forEach((s, i) => { if (!en[s.tableName]) en[s.tableName] = { sourceTable: s.tableName, executionOrder: i, targetMappings: [], filters: filters[s.tableName] || [] }; });
-      await mappingApi.save(pipelineId, Object.values(en));
-      setHasChanges(false); setValErrors([]);
+      const payload = buildMappingPayload();
+      const saveRes = await mappingApi.save(pipelineId, payload);
+      setHasChanges(false);
+      setValidateDisabled(false);
+      setData(prev => ({
+        ...prev,
+        status: saveRes.data?.status || 'NOT_VALIDATED',
+        validationErrors: []
+      }));
+      if (warnings.length === 0) {
+        setValErrors([]);
+      }
     } catch (err) { setValErrors([err.message || 'Save failed']); } finally { setSaving(false); }
+  };
+
+  const handleValidate = async () => {
+    if (hasChanges || validateDisabled || validating || saving) return;
+    setValidating(true);
+    try {
+      const res = await pipelineApi.performAction(pipelineId, 'VALIDATE');
+      const newStatus = res.data?.status || 'VALIDATED';
+      const errors = res.data?.validationErrors || [];
+      setData(prev => ({
+        ...prev,
+        status: newStatus,
+        validationErrors: errors,
+      }));
+      setValErrors(errors);
+      setValidateDisabled(true);
+    } catch (err) {
+      setValErrors([err.message || 'Validation failed']);
+      setValidateDisabled(true);
+    } finally {
+      setValidating(false);
+    }
   };
 
   const unmappedReq = targetTables.reduce((n, tt) => { const mp = new Set(mappings.filter(m => m.target.startsWith(tt.tableName + '.')).map(m => m.target.split('.')[1])); return n + (tt.columns || []).filter(c => !c.nullable && !mp.has(c.name)).length; }, 0);
@@ -1097,13 +1151,27 @@ const ColumnMappingBoard = () => {
       {data && (
         <div>
           <PageHeader breadcrumbs={[{ label: data.pipelineName, onClick: () => navigate('/pipelines') }, { label: LIT.title }]}
-            actions={<>
+            actions={<div style={{ ...FRSC, gap: SPACING.sm }}>
+              {data?.status === 'VALIDATED' && !hasChanges ? (
+                <StatusBadge status="VALIDATED" />
+              ) : (
+                <div style={{ ...FRSC, gap: SPACING.xs }}>
+                  <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving || validateDisabled || hasChanges}>
+                    {validating ? 'Validating...' : 'Validate'}
+                  </Button>
+                  {/* {data?.status === 'INVALID' && <StatusBadge status="INVALID" />} */}
+                </div>
+              )}
               <Button variant="secondary" size="md" onClick={handleAutoMap}>Auto-map</Button>
               {mappings.length > 0 && <Button variant="secondary" size="md" onClick={handleClearAll}>Clear all</Button>}
-              <Button size="md" onClick={handleSave} style={{ ...(hasChanges ? {} : { opacity: 0.5 }), ...(saving ? { opacity: 0.6 } : {}) }}>
+              <Button
+                size="md"
+                onClick={handleSave}
+                disabled={!hasChanges || saving}
+              >
                 {saving ? 'Saving...' : hasChanges ? 'Save *' : LIT.saveMapping}
               </Button>
-            </>} />
+            </div>} />
           <ValidationErrors errors={valErrors} onDismiss={() => setValErrors([])} />
           <div style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.xs, padding: `${SPACING.xs} ${SPACING.md}`, background: '#F7F7F5', borderRadius: '8px', fontSize: FONT.size.xs }}>
             <span style={{ color: '#6B6B6B' }}>{sourceTables.length} source → {targetTables.length} target</span>

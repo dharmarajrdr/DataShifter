@@ -27,6 +27,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -38,6 +39,8 @@ public class PipelineServiceImpl implements PipelineService {
     private final com.datashifter.pipeline.repositories.NamespaceRepository namespaceRepository;
     private final StringRedisTemplate redisTemplate;
     private final SubscriptionLimitChecker limitChecker;
+    private final MappingService mappingService;
+    private final ObjectMapper objectMapper;
 
     // =========================================================================
     // CREATE — builds PipelineTable + TargetTableMapping entries
@@ -147,7 +150,7 @@ public class PipelineServiceImpl implements PipelineService {
         if (req.getPreviewInflightRecords() != null) entity.setPreviewInflightRecords(req.getPreviewInflightRecords());
 
         // Per-table write mode overrides
-        if (req.getTableWriteModeOverrides() != null) {
+        if (req.getTableWriteModeOverrides() != null && !req.getTableWriteModeOverrides().isEmpty()) {
             for (var override : req.getTableWriteModeOverrides()) {
                 entity.getPipelineTables().stream()
                         .flatMap(pt -> pt.getTargetTableMappings().stream())
@@ -155,6 +158,8 @@ public class PipelineServiceImpl implements PipelineService {
                         .findFirst()
                         .ifPresent(ttm -> ttm.setWriteMode(override.getWriteMode()));
             }
+            entity.setStatus(PipelineStatus.NOT_VALIDATED);
+            entity.setValidationErrors(null);
         }
 
         return toFullResponse(repository.save(entity));
@@ -196,6 +201,8 @@ public class PipelineServiceImpl implements PipelineService {
 
         pt.getTargetTableMappings().add(ttm);
         pipeline.getPipelineTables().add(pt);
+        pipeline.setStatus(PipelineStatus.NOT_VALIDATED);
+        pipeline.setValidationErrors(null);
 
         log.info("Added table pair: {} → {} to pipeline {}", request.getSourceTable(), request.getTargetTable(), pipelineId);
         return toFullResponse(repository.save(pipeline));
@@ -216,6 +223,8 @@ public class PipelineServiceImpl implements PipelineService {
         for (PipelineTable pt : pipeline.getPipelineTables()) {
             pt.setExecutionOrder(order++);
         }
+        pipeline.setStatus(PipelineStatus.NOT_VALIDATED);
+        pipeline.setValidationErrors(null);
 
         log.info("Removed table pair {} from pipeline {}", pipelineTableId, pipelineId);
         return toFullResponse(repository.save(pipeline));
@@ -263,12 +272,31 @@ public class PipelineServiceImpl implements PipelineService {
 
         switch (action.getAction()) {
             case VALIDATE:
-                PipelineStateMachine.validateTransition(entity.getStatus(), PipelineStatus.VALIDATED);
-                entity.setStatus(PipelineStatus.VALIDATED);
+                List<String> valErrors = mappingService.validatePipeline(entity);
+                if (valErrors.isEmpty()) {
+                    PipelineStateMachine.validateTransition(entity.getStatus(), PipelineStatus.VALIDATED);
+                    entity.setStatus(PipelineStatus.VALIDATED);
+                    entity.setValidationErrors(null);
+                } else {
+                    PipelineStateMachine.validateTransition(entity.getStatus(), PipelineStatus.INVALID);
+                    entity.setStatus(PipelineStatus.INVALID);
+                    try {
+                        entity.setValidationErrors(objectMapper.writeValueAsString(valErrors));
+                    } catch (Exception ex) {
+                        entity.setValidationErrors(String.join("\n", valErrors));
+                    }
+                }
                 break;
 
             case START:
             case RESUME:
+                if (entity.getStatus() != PipelineStatus.VALIDATED
+                        && entity.getStatus() != PipelineStatus.PAUSED
+                        && entity.getStatus() != PipelineStatus.COMPLETED
+                        && entity.getStatus() != PipelineStatus.ERRORED) {
+                    throw new DatashifterException("Pipeline must be validated before it can be started.");
+                }
+
                 // Enforce parallel pipeline limit
                 String orgId2 = UserContext.getCurrentOrgId();
                 long runningCount = repository.findByOrgId(orgId2).stream()
@@ -381,6 +409,9 @@ public class PipelineServiceImpl implements PipelineService {
             }
         }
 
+        entity.setStatus(PipelineStatus.NOT_VALIDATED);
+        entity.setValidationErrors(null);
+
         return toFullResponse(repository.save(entity));
     }
 
@@ -467,6 +498,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .sourcePoolSize(e.getSourcePoolSize()).targetPoolSize(e.getTargetPoolSize())
                 .previewInflightRecords(e.getPreviewInflightRecords())
                 .tables(tableResponses)
+                .validationErrors(mappingService.parseValidationErrors(e.getValidationErrors()))
                 .createdAt(e.getCreatedAt()).updatedAt(e.getUpdatedAt())
                 .build();
     }
@@ -489,6 +521,7 @@ public class PipelineServiceImpl implements PipelineService {
         return PipelineSummaryResponse.builder()
                 .id(e.getId()).name(e.getName()).status(e.getStatus())
                 .progress(progress)
+                .validationErrors(mappingService.parseValidationErrors(e.getValidationErrors()))
                 .tableCount(e.getPipelineTables().size()).createdAt(e.getCreatedAt())
                 .namespaceId(e.getNamespace() != null ? e.getNamespace().getId() : null)
                 .namespaceName(e.getNamespace() != null ? e.getNamespace().getName() : null)

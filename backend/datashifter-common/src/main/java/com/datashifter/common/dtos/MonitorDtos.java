@@ -25,6 +25,7 @@ public class MonitorDtos {
         private boolean previewInflightRecords;
         private List<TableProgressResponse> tables;
         private List<Map<String, Object>> inflightRecords;
+        private List<String> validationErrors;
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
