@@ -50,7 +50,7 @@ const App = () => (
 
           {/* Everything below is gated by subscription status */}
           <Route path="/pipelines" element={<SubscriptionGuard><PipelineDashboard /></SubscriptionGuard>} />
-          <Route path="/pipelines/new" element={<SubscriptionGuard><PipelineWizard /></SubscriptionGuard>} />
+          <Route path="/pipelines/new" element={<SubscriptionGuard><ProtectedRoute permission="pipeline:create"><PipelineWizard /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/pipelines/:pipelineId/monitor" element={<SubscriptionGuard><LiveMonitor /></SubscriptionGuard>} />
           <Route path="/pipelines/:pipelineId/mapping" element={<SubscriptionGuard><ColumnMappingBoard /></SubscriptionGuard>} />
           <Route path="/pipelines/:pipelineId/errors" element={<SubscriptionGuard><ErrorLogViewer /></SubscriptionGuard>} />
@@ -58,7 +58,7 @@ const App = () => (
           <Route path="/connections" element={<SubscriptionGuard><ConnectionsManager /></SubscriptionGuard>} />
           <Route path="/udfs" element={<SubscriptionGuard><UdfLibrary /></SubscriptionGuard>} />
           <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
-          <Route path="/settings/roles" element={<SubscriptionGuard><RolesPage /></SubscriptionGuard>} />
+          <Route path="/settings/roles" element={<SubscriptionGuard><ProtectedRoute permission="org:manage_roles"><RolesPage /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/profile" element={<UserProfile />} />
         </Route>
 

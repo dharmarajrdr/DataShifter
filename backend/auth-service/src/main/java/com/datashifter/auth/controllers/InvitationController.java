@@ -3,6 +3,8 @@ package com.datashifter.auth.controllers;
 import com.datashifter.common.dtos.ApiResponse;
 import com.datashifter.common.dtos.AuthDtos.*;
 import com.datashifter.auth.services.InvitationService;
+import com.datashifter.common.enums.Permissions;
+import com.datashifter.common.security.RequiresPermission;
 import com.datashifter.common.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -21,11 +23,13 @@ public class InvitationController {
     private final JwtUtil jwtUtil;
 
     @GetMapping("/invitations")
+    @RequiresPermission(Permissions.ORG_MANAGE_INVITES)
     public ApiResponse<List<InvitationResponse>> getPending(HttpServletRequest request) {
         return ApiResponse.success(invitationService.getPending(extractOrgId(request)));
     }
 
     @PostMapping("/invitations")
+    @RequiresPermission(Permissions.ORG_MANAGE_INVITES)
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<InvitationResponse> sendInvite(HttpServletRequest request, @Valid @RequestBody InviteRequest body) {
         String orgId = extractOrgId(request);

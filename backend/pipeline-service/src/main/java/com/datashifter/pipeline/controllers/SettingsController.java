@@ -2,6 +2,8 @@ package com.datashifter.pipeline.controllers;
 
 import com.datashifter.common.dtos.ApiResponse;
 import com.datashifter.common.dtos.PipelineDtos.*;
+import com.datashifter.common.enums.Permissions;
+import com.datashifter.common.security.RequiresPermission;
 import com.datashifter.pipeline.services.interfaces.PipelineService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -20,11 +22,13 @@ public class SettingsController {
     private final PipelineService pipelineService;
 
     @GetMapping
+    @RequiresPermission(Permissions.PIPELINE_VIEW)
     public ApiResponse<PipelineResponse> getSettings(@PathVariable String pipelineId) {
         return ApiResponse.success(pipelineService.getById(pipelineId));
     }
 
     @PutMapping
+    @RequiresPermission(Permissions.PIPELINE_EDIT)
     public ApiResponse<PipelineResponse> updateSettings(
             @PathVariable String pipelineId,
             @RequestBody UpdatePipelineRequest request) {
@@ -32,6 +36,7 @@ public class SettingsController {
     }
 
     @PostMapping("/tables")
+    @RequiresPermission(Permissions.PIPELINE_EDIT)
     public ApiResponse<PipelineResponse> addTablePair(
             @PathVariable String pipelineId,
             @RequestBody AddTablePairRequest request) {
@@ -39,6 +44,7 @@ public class SettingsController {
     }
 
     @DeleteMapping("/tables/{pipelineTableId}")
+    @RequiresPermission(Permissions.PIPELINE_EDIT)
     public ApiResponse<PipelineResponse> removeTablePair(
             @PathVariable String pipelineId,
             @PathVariable String pipelineTableId) {

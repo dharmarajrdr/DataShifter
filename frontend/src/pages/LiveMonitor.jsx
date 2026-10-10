@@ -6,6 +6,7 @@ import { FCSE, FRBC, FRSC, FRWSC } from '../constants/layouts';
 import { MONITOR } from '../constants/literals';
 import { useEventSource } from '../hooks/useEventSource';
 import { monitorApi, pipelineApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'];
 
@@ -37,14 +38,23 @@ const variantStyles = {
   danger: { bg: '#FAECE7', color: '#A32D2D', hover: '#F5C6B8' },
 };
 
-const ActionBtn = ({ action, label, Icon, variant, loading, onClick }) => {
+const ActionBtn = ({ action, label, Icon, variant, loading, onClick, disabled, title }) => {
   const s = variantStyles[variant] || variantStyles.secondary;
   const busy = loading === action;
   return (
-    <button onClick={() => !busy && onClick(action)}
-      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '8px', border: 'none', background: s.bg, color: s.color, fontSize: '12px', fontWeight: 500, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}
-      onMouseEnter={e => { if (!busy) e.currentTarget.style.background = s.hover; }}
-      onMouseLeave={e => e.currentTarget.style.background = s.bg}>
+    <button
+      onClick={() => !busy && !disabled && onClick(action)}
+      disabled={disabled || busy}
+      title={title}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '8px', border: 'none',
+        background: s.bg, color: s.color, fontSize: '12px', fontWeight: 500,
+        cursor: disabled ? 'not-allowed' : (busy ? 'wait' : 'pointer'),
+        opacity: disabled ? 0.45 : (busy ? 0.6 : 1),
+        transition: 'opacity 0.15s ease'
+      }}
+      onMouseEnter={e => { if (!busy && !disabled) e.currentTarget.style.background = s.hover; }}
+      onMouseLeave={e => { if (!busy && !disabled) e.currentTarget.style.background = s.bg; }}>
       <Icon /><span>{busy ? `${label}...` : label}</span>
     </button>
   );
@@ -75,7 +85,31 @@ const LiveMonitor = () => {
     onError: (ev) => { setData(p => p ? { ...p, errorsSkipped: (p.errorsSkipped || 0) + 1 } : p); },
   });
 
+  const { hasPermission } = useAuth();
+  const canRun = hasPermission('pipeline:run');
+  const canPause = hasPermission('pipeline:pause');
+  const canStop = hasPermission('pipeline:stop');
+  const canEdit = hasPermission('pipeline:edit');
+
+  const getActionPermission = (act) => {
+    switch (act) {
+      case 'START':
+      case 'RESUME':
+        return { allowed: canRun, title: !canRun ? 'You do not have permission to run pipelines' : undefined };
+      case 'PAUSE':
+        return { allowed: canPause, title: !canPause ? 'You do not have permission to pause pipelines' : undefined };
+      case 'STOP':
+        return { allowed: canStop, title: !canStop ? 'You do not have permission to stop pipelines' : undefined };
+      case 'VALIDATE':
+        return { allowed: canEdit, title: !canEdit ? 'You do not have permission to edit pipelines' : undefined };
+      default:
+        return { allowed: true, title: undefined };
+    }
+  };
+
   const handleAction = async (action) => {
+    const perm = getActionPermission(action);
+    if (!perm.allowed) return;
     setActionLoading(action);
     try { await pipelineApi.performAction(pipelineId, action); fetchData(); }
     catch (e) { console.error(`Failed:`, e); } finally { setActionLoading(null); }
@@ -101,7 +135,19 @@ const LiveMonitor = () => {
               {data.status && data.status !== 'VALIDATED' && data.status !== 'NOT_VALIDATED' && data.status !== 'INVALID' && (
                 <StatusBadge status={data.status} />
               )}
-              {acts.map(a => <ActionBtn key={a.action} {...a} loading={actionLoading} onClick={handleAction} />)}
+              {acts.map(a => {
+                const perm = getActionPermission(a.action);
+                return (
+                  <ActionBtn
+                    key={a.action}
+                    {...a}
+                    loading={actionLoading}
+                    disabled={!perm.allowed}
+                    title={perm.title}
+                    onClick={handleAction}
+                  />
+                );
+              })}
             </div>
           </div>}
         />

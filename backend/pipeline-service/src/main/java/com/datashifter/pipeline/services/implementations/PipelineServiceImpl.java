@@ -9,6 +9,7 @@ import com.datashifter.common.events.PipelineEvents.*;
 import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.exceptions.ResourceNotFoundException;
 import com.datashifter.common.models.*;
+import com.datashifter.common.enums.Permissions;
 import com.datashifter.common.security.UserContext;
 import com.datashifter.common.services.SubscriptionLimitChecker;
 import com.datashifter.pipeline.repositories.PipelineRepository;
@@ -272,6 +273,7 @@ public class PipelineServiceImpl implements PipelineService {
 
         switch (action.getAction()) {
             case VALIDATE:
+                UserContext.assertPermission(Permissions.PIPELINE_EDIT);
                 List<String> valErrors = mappingService.validatePipeline(entity);
                 if (valErrors.isEmpty()) {
                     PipelineStateMachine.validateTransition(entity.getStatus(), PipelineStatus.VALIDATED);
@@ -290,6 +292,7 @@ public class PipelineServiceImpl implements PipelineService {
 
             case START:
             case RESUME:
+                UserContext.assertPermission(Permissions.PIPELINE_RUN);
                 if (entity.getStatus() != PipelineStatus.VALIDATED
                         && entity.getStatus() != PipelineStatus.PAUSED
                         && entity.getStatus() != PipelineStatus.COMPLETED
@@ -316,6 +319,7 @@ public class PipelineServiceImpl implements PipelineService {
                 break;
 
             case PAUSE:
+                UserContext.assertPermission(Permissions.PIPELINE_PAUSE);
                 PipelineStateMachine.validateTransition(entity.getStatus(), PipelineStatus.PAUSED);
                 entity.setStatus(PipelineStatus.PAUSED);  // Update DB immediately
                 repository.save(entity);
@@ -325,6 +329,7 @@ public class PipelineServiceImpl implements PipelineService {
                 break;
 
             case STOP:
+                UserContext.assertPermission(Permissions.PIPELINE_STOP);
                 entity.setStatus(PipelineStatus.ERRORED);  // Update DB immediately
                 repository.save(entity);
                 kafkaTemplate.send(KafkaTopics.PIPELINE_COMMANDS,

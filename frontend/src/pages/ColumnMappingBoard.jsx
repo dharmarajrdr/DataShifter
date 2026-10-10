@@ -8,6 +8,7 @@ import { FONT, SPACING } from '../constants/design';
 import { FRBC, FREC, FRSC, FRWSC } from '../constants/layouts';
 import { MAPPING as LIT } from '../constants/literals';
 import { mappingApi, pipelineApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];
 
@@ -927,6 +928,8 @@ const ColumnMappingBoard = () => {
   const [filterTarget, setFilterTarget] = useState(null); // { tableName, columns }
   const { pipelineId } = useParams();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('pipeline:edit');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -1122,7 +1125,7 @@ const ColumnMappingBoard = () => {
   };
 
   const handleValidate = async () => {
-    if (hasChanges || validateDisabled || validating || saving) return;
+    if (!canEdit || hasChanges || validateDisabled || validating || saving) return;
     setValidating(true);
     try {
       const res = await pipelineApi.performAction(pipelineId, 'VALIDATE');
@@ -1156,18 +1159,43 @@ const ColumnMappingBoard = () => {
                 <StatusBadge status="VALIDATED" />
               ) : (
                 <div style={{ ...FRSC, gap: SPACING.xs }}>
-                  <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving || validateDisabled || hasChanges}>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handleValidate}
+                    disabled={!canEdit || validating || saving || validateDisabled || hasChanges}
+                    title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
+                  >
                     {validating ? 'Validating...' : 'Validate'}
                   </Button>
                   {/* {data?.status === 'INVALID' && <StatusBadge status="INVALID" />} */}
                 </div>
               )}
-              <Button variant="secondary" size="md" onClick={handleAutoMap}>Auto-map</Button>
-              {mappings.length > 0 && <Button variant="secondary" size="md" onClick={handleClearAll}>Clear all</Button>}
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={handleAutoMap}
+                disabled={!canEdit}
+                title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
+              >
+                Auto-map
+              </Button>
+              {mappings.length > 0 && (
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={handleClearAll}
+                  disabled={!canEdit}
+                  title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
+                >
+                  Clear all
+                </Button>
+              )}
               <Button
                 size="md"
                 onClick={handleSave}
-                disabled={!hasChanges || saving}
+                disabled={!canEdit || !hasChanges || saving}
+                title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
               >
                 {saving ? 'Saving...' : hasChanges ? 'Save *' : LIT.saveMapping}
               </Button>

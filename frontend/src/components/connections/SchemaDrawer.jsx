@@ -10,12 +10,16 @@ const SchemaDrawer = ({ connectionId, connectionName, onClose }) => {
   const [expandedTable, setExpandedTable] = useState(null);
   const [columns, setColumns] = useState({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     connectionApi.listTables(connectionId).then(res => {
       setTables(res.data || []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err) => {
+      setError(err.message || 'Failed to load tables');
+      setLoading(false);
+    });
   }, [connectionId]);
 
   const toggleTable = async (tableName) => {
@@ -71,6 +75,8 @@ const SchemaDrawer = ({ connectionId, connectionName, onClose }) => {
       <div style={{ flex: 1, overflow: 'auto', padding: `${SPACING.xs} 0` }}>
         {loading ? (
           <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.text.secondary }}>Loading schema...</div>
+        ) : error ? (
+          <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.status.errorText }}>{error}</div>
         ) : tables.length === 0 ? (
           <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.text.tertiary }}>No tables found</div>
         ) : (

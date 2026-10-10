@@ -22,20 +22,25 @@ const OwnerAvatar = ({ name, initials, color, size = 24 }) => (
 /* ================================================================
    KEBAB MENU (three-dot) — renders dropdown on click
    ================================================================ */
-const KebabMenu = ({ pipeline, navigate, onDelete }) => {
+const KebabMenu = ({ pipeline, navigate, onDelete, canDelete }) => {
   const [open, setOpen] = useState(false);
 
   const items = [
     { label: 'Monitor', icon: '📊', onClick: () => navigate(`/pipelines/${pipeline.id}/monitor`) },
     { label: 'Column mapping', icon: '🔗', onClick: () => navigate(`/pipelines/${pipeline.id}/mapping`) },
     { label: 'Settings', icon: '⚙', onClick: () => navigate(`/pipelines/${pipeline.id}/settings`) },
-    { type: 'divider' },
-    { label: 'Delete', icon: '🗑', danger: true, onClick: () => {
-      if (window.confirm(`Delete pipeline "${pipeline.name}"? This cannot be undone.`)) {
-        onDelete(pipeline.id);
-      }
-    }},
   ];
+
+  if (canDelete) {
+    items.push({ type: 'divider' });
+    items.push({
+      label: 'Delete', icon: '🗑', danger: true, onClick: () => {
+        if (window.confirm(`Delete pipeline "${pipeline.name}"? This cannot be undone.`)) {
+          onDelete(pipeline.id);
+        }
+      }
+    });
+  }
 
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -89,7 +94,7 @@ const KebabMenu = ({ pipeline, navigate, onDelete }) => {
 /* ================================================================
    PIPELINE ROW — draggable, with kebab menu
    ================================================================ */
-const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete }) => {
+const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete, canDelete }) => {
   const getOwnerInitials = (name) => {
     if (!name) return '?';
     const parts = name.trim().split(' ');
@@ -123,7 +128,7 @@ const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete }) => {
             <ProgressBar progress={pipeline.progress} height="4px" showLabel={true} />
           </div>
         )}
-        <KebabMenu pipeline={pipeline} navigate={navigate} onDelete={onDelete} />
+        <KebabMenu pipeline={pipeline} navigate={navigate} onDelete={onDelete} canDelete={canDelete} />
       </div>
     </div>
   </div>
@@ -132,7 +137,7 @@ const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete }) => {
 /* ================================================================
    NAMESPACE GROUP
    ================================================================ */
-const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPipeline, dragOverNs, setDragOverNs, onDelete }) => {
+const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPipeline, dragOverNs, setDragOverNs, onDelete, canDelete }) => {
   const [collapsed, setCollapsed] = useState(false);
   const isDropTarget = dragOverNs === namespace.id;
   return (
@@ -156,7 +161,7 @@ const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPip
               Drop pipeline here
             </div>
           )}
-          {pipelines.map(p => <PipelineRow key={p.id} pipeline={p} navigate={navigate} onDragStart={onDragStart} onDelete={onDelete} />)}
+          {pipelines.map(p => <PipelineRow key={p.id} pipeline={p} navigate={navigate} onDragStart={onDragStart} onDelete={onDelete} canDelete={canDelete} />)}
         </div>
       )}
     </div>
@@ -175,7 +180,10 @@ const PipelineDashboard = () => {
   const [draggingPipelineId, setDraggingPipelineId] = useState(null);
   const [showCreateNs, setShowCreateNs] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canCreatePipeline = hasPermission('pipeline:create');
+  const canCreateNamespace = hasPermission('namespace:create');
+  const canDeletePipeline = hasPermission('pipeline:delete');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -218,13 +226,14 @@ const PipelineDashboard = () => {
   }, [pipelines]);
 
   const handleDelete = useCallback(async (id) => {
+    if (!canDeletePipeline) return;
     setPipelines(prev => prev.filter(p => p.id !== id));
     try { await pipelineApi.delete(id); } catch (e) {
       // Revert — re-fetch
       const res = await pipelineApi.getAll();
       setPipelines(res.data || []);
     }
-  }, []);
+  }, [canDeletePipeline]);
 
   const toggleNamespace = (nsId) => setSelectedNamespaces(prev => prev.includes(nsId) ? prev.filter(id => id !== nsId) : [...prev, nsId]);
   const counts = { total: pipelines.length, running: pipelines.filter(p => p.status === 'RUNNING').length, errored: pipelines.filter(p => p.status === 'ERRORED').length, completed: pipelines.filter(p => p.status === 'COMPLETED').length };
@@ -232,7 +241,19 @@ const PipelineDashboard = () => {
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>
       <div>
-        <PageHeader title={PIPELINE.title} subtitle={PIPELINE.subtitle} actions={<Button onClick={() => navigate('/pipelines/new')}>{PIPELINE.newPipeline}</Button>} />
+        <PageHeader
+          title={PIPELINE.title}
+          subtitle={PIPELINE.subtitle}
+          actions={
+            <Button
+              onClick={() => navigate('/pipelines/new')}
+              disabled={!canCreatePipeline}
+              title={!canCreatePipeline ? 'You do not have permission to create pipelines' : undefined}
+            >
+              {PIPELINE.newPipeline}
+            </Button>
+          }
+        />
         <div style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.lg }}>
           <MetricCard label="Total pipelines" value={counts.total} />
           <MetricCard label="Running" value={counts.running} color={COLORS.status.success} />
@@ -250,12 +271,14 @@ const PipelineDashboard = () => {
               const isSel = selectedNamespaces.includes(ns.id);
               return <span key={ns.id} onClick={() => toggleNamespace(ns.id)} style={{ fontSize: FONT.size.xs, padding: '3px 12px', borderRadius: BORDER_RADIUS.pill, cursor: 'pointer', fontWeight: isSel ? FONT.weight.medium : FONT.weight.regular, background: isSel ? ns.color + '20' : COLORS.background.secondary, color: isSel ? ns.color : COLORS.text.secondary, border: isSel ? `1.5px solid ${ns.color}` : `1px solid ${COLORS.border.light}` }}>{ns.name} ({ns.pipelineCount})</span>;
             })}
-            <span onClick={() => setShowCreateNs(true)} title="Create namespace"
-              style={{ fontSize: FONT.size.xs, padding: '3px 10px', borderRadius: BORDER_RADIUS.pill, cursor: 'pointer', fontWeight: FONT.weight.medium, background: COLORS.background.secondary, color: COLORS.brand.primary, border: `1px dashed ${COLORS.brand.primary}`, display: 'flex', alignItems: 'center', gap: '3px' }}
-              onMouseEnter={e => { e.currentTarget.style.background = COLORS.accent.purpleLight; }}
-              onMouseLeave={e => { e.currentTarget.style.background = COLORS.background.secondary; }}>
-              <span style={{ fontSize: '13px', lineHeight: 1 }}>+</span>
-            </span>
+            {canCreateNamespace && (
+              <span onClick={() => setShowCreateNs(true)} title="Create namespace"
+                style={{ fontSize: FONT.size.xs, padding: '3px 10px', borderRadius: BORDER_RADIUS.pill, cursor: 'pointer', fontWeight: FONT.weight.medium, background: COLORS.background.secondary, color: COLORS.brand.primary, border: `1px dashed ${COLORS.brand.primary}`, display: 'flex', alignItems: 'center', gap: '3px' }}
+                onMouseEnter={e => { e.currentTarget.style.background = COLORS.accent.purpleLight; }}
+                onMouseLeave={e => { e.currentTarget.style.background = COLORS.background.secondary; }}>
+                <span style={{ fontSize: '13px', lineHeight: 1 }}>+</span>
+              </span>
+            )}
             {selectedNamespaces.length > 0 && <span onClick={() => setSelectedNamespaces([])} style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, cursor: 'pointer', textDecoration: 'underline', marginLeft: '4px' }}>Clear</span>}
           </div>
         )}
@@ -264,7 +287,20 @@ const PipelineDashboard = () => {
             {search || selectedNamespaces.length > 0 ? 'No pipelines match your search' : 'No pipelines yet. Create your first pipeline to get started.'}
           </div>
         ) : (
-          groupedPipelines.map(g => <NamespaceGroup key={g.namespace.id} namespace={g.namespace} pipelines={g.pipelines} navigate={navigate} onDragStart={setDraggingPipelineId} onDropPipeline={handleDropPipeline} dragOverNs={dragOverNs} setDragOverNs={setDragOverNs} onDelete={handleDelete} />)
+          groupedPipelines.map(g => (
+            <NamespaceGroup
+              key={g.namespace.id}
+              namespace={g.namespace}
+              pipelines={g.pipelines}
+              navigate={navigate}
+              onDragStart={setDraggingPipelineId}
+              onDropPipeline={handleDropPipeline}
+              dragOverNs={dragOverNs}
+              setDragOverNs={setDragOverNs}
+              onDelete={handleDelete}
+              canDelete={canDeletePipeline}
+            />
+          ))
         )}
         {showCreateNs && <CreateNamespaceModal onClose={() => setShowCreateNs(false)} onCreated={(ns) => setNamespaces(prev => [...prev, ns])} />}
       </div>

@@ -7,6 +7,7 @@ import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
 import { FRBS, FRSC } from '../constants/layouts';
 import { CONNECTION } from '../constants/literals';
 import { connectionApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 /* ================================================================
    DB ICON
@@ -47,7 +48,7 @@ const DeleteConfirm = ({ onConfirm, onCancel }) => (
 /* ================================================================
    CONNECTION CARD
    ================================================================ */
-const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) => {
+const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, canEdit, canDelete, canTest, canBrowse }) => {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -56,6 +57,7 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
   const isReferenced = (conn.pipelineCount || 0) > 0;
 
   const handleTest = async () => {
+    if (!canTest) return;
     setTesting(true);
     setTestResult(null);
     if (onUpdate) {
@@ -81,6 +83,7 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
   };
 
   const handleDelete = async () => {
+    if (!canDelete) return;
     setDeleteError(null);
     try {
       await connectionApi.delete(conn.id);
@@ -146,18 +149,46 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
 
       {/* Actions */}
       <div style={{ ...FRSC, gap: '6px' }}>
-        <Button variant="secondary" size="sm" onClick={handleTest} style={testing ? { opacity: 0.6 } : {}}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleTest}
+          disabled={!canTest || testing}
+          title={!canTest ? 'You do not have permission to test connections' : undefined}
+          style={testing ? { opacity: 0.6 } : {}}
+        >
           {testing ? 'Testing...' : (conn.status === 'FAILED' ? CONNECTION.retry : CONNECTION.test)}
         </Button>
-        <Button variant="secondary" size="sm" onClick={() => onEdit(conn)}>{CONNECTION.edit}</Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => onEdit(conn)}
+          disabled={!canEdit}
+          title={!canEdit ? 'You do not have permission to edit connections' : undefined}
+        >
+          {CONNECTION.edit}
+        </Button>
         {conn.status === 'CONNECTED' && (
-          <Button variant="secondary" size="sm" onClick={() => onBrowse(conn)}>{CONNECTION.browseSchema}</Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onBrowse(conn)}
+            disabled={!canBrowse}
+            title={!canBrowse ? 'You do not have permission to browse schema' : undefined}
+          >
+            {CONNECTION.browseSchema}
+          </Button>
         )}
         <Button
           variant="danger"
           size="sm"
-          disabled={isReferenced}
-          title={isReferenced ? `Cannot delete: referenced by ${conn.referencedPipelines?.length ? conn.referencedPipelines.join(', ') : `${conn.pipelineCount} pipeline(s)`}` : undefined}
+          disabled={!canDelete || isReferenced}
+          title={!canDelete
+            ? 'You do not have permission to delete connections'
+            : (isReferenced
+              ? `Cannot delete: referenced by ${conn.referencedPipelines?.length ? conn.referencedPipelines.join(', ') : `${conn.pipelineCount} pipeline(s)`}`
+              : undefined)
+          }
           onClick={() => setConfirmDelete(true)}
         >
           {CONNECTION.delete}
@@ -165,7 +196,7 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
       </div>
 
       {/* Delete confirmation */}
-      {confirmDelete && !isReferenced && (
+      {confirmDelete && !isReferenced && canDelete && (
         <DeleteConfirm onConfirm={handleDelete} onCancel={() => setConfirmDelete(false)} />
       )}
     </div>
@@ -176,6 +207,13 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
    MAIN PAGE
    ================================================================ */
 const ConnectionsManager = () => {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('connection:create');
+  const canEdit = hasPermission('connection:edit');
+  const canDelete = hasPermission('connection:delete');
+  const canTest = hasPermission('connection:test');
+  const canBrowse = hasPermission('connection:browse_schema');
+
   const [connections, setConnections] = useState([]);
   const [showForm, setShowForm] = useState(false);     // true = new, connection object = edit
   const [editingConn, setEditingConn] = useState(null);
@@ -199,7 +237,7 @@ const ConnectionsManager = () => {
       } finally {
         setLoading(false);
       }
-    }
+    };
     load();
   }, [loadConnections]);
 
@@ -231,7 +269,15 @@ const ConnectionsManager = () => {
         <PageHeader
           title={CONNECTION.title}
           subtitle={CONNECTION.subtitle}
-          actions={<Button onClick={openNew}>{CONNECTION.newConnection}</Button>}
+          actions={
+            <Button
+              onClick={openNew}
+              disabled={!canCreate}
+              title={!canCreate ? 'You do not have permission to create connections' : undefined}
+            >
+              {CONNECTION.newConnection}
+            </Button>
+          }
         />
 
         {connections.length === 0 ? (
@@ -241,7 +287,13 @@ const ConnectionsManager = () => {
           }}>
             <p style={{ fontSize: FONT.size.lg, marginBottom: SPACING.xs }}>No connections yet</p>
             <p style={{ fontSize: FONT.size.md, marginBottom: SPACING.lg }}>Add your first database connection to get started.</p>
-            <Button onClick={openNew}>{CONNECTION.newConnection}</Button>
+            <Button
+              onClick={openNew}
+              disabled={!canCreate}
+              title={!canCreate ? 'You do not have permission to create connections' : undefined}
+            >
+              {CONNECTION.newConnection}
+            </Button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sm }}>
@@ -253,6 +305,10 @@ const ConnectionsManager = () => {
                 onDelete={handleDelete}
                 onUpdate={handleUpdateStatus}
                 onBrowse={setBrowsingConn}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                canTest={canTest}
+                canBrowse={canBrowse}
               />
             ))}
           </div>

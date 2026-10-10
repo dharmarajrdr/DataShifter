@@ -3,6 +3,8 @@ package com.datashifter.auth.controllers;
 import com.datashifter.common.dtos.ApiResponse;
 import com.datashifter.common.dtos.AuthDtos.*;
 import com.datashifter.auth.services.OrgService;
+import com.datashifter.common.enums.Permissions;
+import com.datashifter.common.security.RequiresPermission;
 import com.datashifter.common.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -35,11 +37,13 @@ public class OrgController {
     }
 
     @PutMapping("/org")
+    @RequiresPermission(anyOf = {Permissions.ORG_MANAGE_ROLES, Permissions.ORG_MANAGE_MEMBERS})
     public ApiResponse<OrgResponse> updateOrg(HttpServletRequest request, @RequestBody UpdateOrgRequest body) {
         return ApiResponse.success(orgService.updateOrg(extractOrgId(request), body), "Organization updated");
     }
 
     @GetMapping("/members")
+    @RequiresPermission(Permissions.ORG_MANAGE_MEMBERS)
     public ApiResponse<MembersPageResponse> getMembers(
             HttpServletRequest request,
             @RequestParam(defaultValue = "") String search,
@@ -52,12 +56,14 @@ public class OrgController {
     }
 
     @PutMapping("/members/{userId}")
+    @RequiresPermission(Permissions.ORG_MANAGE_MEMBERS)
     public ApiResponse<Void> updateMember(@PathVariable String userId, @RequestBody SetUserPermissionsRequest body) {
         orgService.updateMember(userId, body);
         return ApiResponse.success(null, "Member updated");
     }
 
     @DeleteMapping("/members/{userId}")
+    @RequiresPermission(Permissions.ORG_MANAGE_MEMBERS)
     public ApiResponse<Void> deactivateMember(@PathVariable String userId) {
         orgService.deactivateMember(userId);
         return ApiResponse.success(null, "Member deactivated");

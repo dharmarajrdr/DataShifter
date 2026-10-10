@@ -53,4 +53,20 @@ public class UserContext {
         Context ctx = CONTEXT.get();
         return ctx != null && ctx.getPermissions() != null && ctx.getPermissions().contains(permission);
     }
+
+    public static void assertPermission(String permission) {
+        if (!hasPermission(permission)) {
+            throw new org.springframework.security.access.AccessDeniedException("Access denied. Missing permission: " + permission);
+        }
+    }
+
+    public static void assertAnyPermission(String... permissions) {
+        Context ctx = CONTEXT.get();
+        if (ctx != null && ctx.getPermissions() != null) {
+            for (String p : permissions) {
+                if (ctx.getPermissions().contains(p)) return;
+            }
+        }
+        throw new org.springframework.security.access.AccessDeniedException("Access denied. Missing permission: " + (permissions.length > 0 ? permissions[0] : "unknown"));
+    }
 }
