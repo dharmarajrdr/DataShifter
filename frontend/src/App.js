@@ -3,7 +3,7 @@ import AuthLayout from './components/auth/AuthLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SubscriptionGuard from './components/auth/SubscriptionGuard';
 import AppLayout from './components/layout/AppLayout';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import {
   BillingPage,
   ColumnMappingBoard,
@@ -29,14 +29,6 @@ import {
   UserProfile,
 } from './pages';
 
-const DefaultLandingRedirect = () => {
-  const { hasPermission } = useAuth();
-  if (hasPermission('pipeline:view')) return <Navigate to="/pipelines" replace />;
-  if (hasPermission('connection:view')) return <Navigate to="/connections" replace />;
-  if (hasPermission('udf:view')) return <Navigate to="/udfs" replace />;
-  return <Navigate to="/settings/org" replace />;
-};
-
 const App = () => (
   <BrowserRouter>
     <AuthProvider>
@@ -55,7 +47,7 @@ const App = () => (
 
         {/* App pages — sidebar, protected */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route path="/" element={<DefaultLandingRedirect />} />
+          <Route path="/" element={<Navigate to="/pipelines" replace />} />
 
           {/* Billing — always accessible (owner check inside component) */}
           <Route path="/settings/billing" element={<BillingPage />} />
