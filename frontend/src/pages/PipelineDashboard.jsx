@@ -22,13 +22,19 @@ const OwnerAvatar = ({ name, initials, color, size = 24 }) => (
 /* ================================================================
    KEBAB MENU (three-dot) — renders dropdown on click
    ================================================================ */
-const KebabMenu = ({ pipeline, navigate, onDelete, canDelete }) => {
+const KebabMenu = ({ pipeline, navigate, onDelete, canDelete, canEditSettings }) => {
   const [open, setOpen] = useState(false);
 
   const items = [
     { label: 'Monitor', icon: '📊', onClick: () => navigate(`/pipelines/${pipeline.id}/monitor`) },
     { label: 'Column mapping', icon: '🔗', onClick: () => navigate(`/pipelines/${pipeline.id}/mapping`) },
-    { label: 'Settings', icon: '⚙', onClick: () => navigate(`/pipelines/${pipeline.id}/settings`) },
+    {
+      label: 'Settings',
+      icon: '⚙',
+      disabled: !canEditSettings,
+      tooltip: !canEditSettings ? 'You do not have permission to edit pipeline settings' : '',
+      onClick: () => navigate(`/pipelines/${pipeline.id}/settings`)
+    },
   ];
 
   if (canDelete) {
@@ -70,15 +76,25 @@ const KebabMenu = ({ pipeline, navigate, onDelete, canDelete }) => {
               if (item.type === 'divider') {
                 return <div key={`d-${i}`} style={{ height: '1px', background: COLORS.border.light, margin: '4px 0' }} />;
               }
+              const disabled = item.disabled;
               return (
                 <div key={item.label}
-                  onClick={(e) => { e.stopPropagation(); setOpen(false); item.onClick(); }}
-                  style={{
-                    ...FRSC, gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: FONT.size.xs,
-                    color: item.danger ? COLORS.status.errorDark : COLORS.text.primary,
+                  title={item.tooltip || ''}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (disabled) return;
+                    setOpen(false);
+                    item.onClick();
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = item.danger ? COLORS.status.errorLight : COLORS.background.secondary}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  style={{
+                    ...FRSC, gap: '8px', padding: '8px 12px',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    fontSize: FONT.size.xs,
+                    color: disabled ? COLORS.text.tertiary : (item.danger ? COLORS.status.errorDark : COLORS.text.primary),
+                    opacity: disabled ? 0.6 : 1,
+                  }}
+                  onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = item.danger ? COLORS.status.errorLight : COLORS.background.secondary; }}
+                  onMouseLeave={e => { if (!disabled) e.currentTarget.style.background = 'transparent'; }}>
                   <span style={{ fontSize: '12px', width: '18px', textAlign: 'center' }}>{item.icon}</span>
                   <span>{item.label}</span>
                 </div>
@@ -94,7 +110,7 @@ const KebabMenu = ({ pipeline, navigate, onDelete, canDelete }) => {
 /* ================================================================
    PIPELINE ROW — draggable, with kebab menu
    ================================================================ */
-const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete, canDelete }) => {
+const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete, canDelete, canEditSettings }) => {
   const getOwnerInitials = (name) => {
     if (!name) return '?';
     const parts = name.trim().split(' ');
@@ -128,7 +144,7 @@ const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete, canDelete }) =
             <ProgressBar progress={pipeline.progress} height="4px" showLabel={true} />
           </div>
         )}
-        <KebabMenu pipeline={pipeline} navigate={navigate} onDelete={onDelete} canDelete={canDelete} />
+        <KebabMenu pipeline={pipeline} navigate={navigate} onDelete={onDelete} canDelete={canDelete} canEditSettings={canEditSettings} />
       </div>
     </div>
   </div>
@@ -137,7 +153,7 @@ const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete, canDelete }) =
 /* ================================================================
    NAMESPACE GROUP
    ================================================================ */
-const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPipeline, dragOverNs, setDragOverNs, onDelete, canDelete }) => {
+const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPipeline, dragOverNs, setDragOverNs, onDelete, canDelete, canEditSettings }) => {
   const [collapsed, setCollapsed] = useState(false);
   const isDropTarget = dragOverNs === namespace.id;
   return (
@@ -161,7 +177,7 @@ const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPip
               Drop pipeline here
             </div>
           )}
-          {pipelines.map(p => <PipelineRow key={p.id} pipeline={p} navigate={navigate} onDragStart={onDragStart} onDelete={onDelete} canDelete={canDelete} />)}
+          {pipelines.map(p => <PipelineRow key={p.id} pipeline={p} navigate={navigate} onDragStart={onDragStart} onDelete={onDelete} canDelete={canDelete} canEditSettings={canEditSettings} />)}
         </div>
       )}
     </div>
@@ -184,6 +200,7 @@ const PipelineDashboard = () => {
   const canCreatePipeline = hasPermission('pipeline:create');
   const canCreateNamespace = hasPermission('namespace:create');
   const canDeletePipeline = hasPermission('pipeline:delete');
+  const canEditSettings = hasPermission('settings:edit');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -299,6 +316,7 @@ const PipelineDashboard = () => {
               setDragOverNs={setDragOverNs}
               onDelete={handleDelete}
               canDelete={canDeletePipeline}
+              canEditSettings={canEditSettings}
             />
           ))
         )}

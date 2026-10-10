@@ -90,6 +90,8 @@ const LiveMonitor = () => {
   const canPause = hasPermission('pipeline:pause');
   const canStop = hasPermission('pipeline:stop');
   const canEdit = hasPermission('pipeline:edit');
+  const canEditSettings = hasPermission('settings:edit');
+  const canViewErrors = hasPermission('monitor:view_errors');
 
   const getActionPermission = (act) => {
     switch (act) {
@@ -127,9 +129,25 @@ const LiveMonitor = () => {
           headerStyles={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACING.sm }}
           actions={<div style={{ ...FCSE }}>
             <div style={{ ...FRSC, gap: SPACING.sm }}>
-              <Button variant="secondary" size="sm" onClick={() => navigate(`/pipelines/${pipelineId}/errors`)}>Error logs</Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!canViewErrors}
+                title={!canViewErrors ? 'You do not have permission to view error logs' : ''}
+                onClick={() => navigate(`/pipelines/${pipelineId}/errors`)}
+              >
+                Error logs
+              </Button>
               <Button variant="secondary" size="sm" onClick={() => navigate(`/pipelines/${pipelineId}/mapping`)}>Column mapping</Button>
-              <Button variant="secondary" size="sm" onClick={() => navigate(`/pipelines/${pipelineId}/settings`)}>Settings</Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!canEditSettings}
+                title={!canEditSettings ? 'You do not have permission to edit pipeline settings' : ''}
+                onClick={() => navigate(`/pipelines/${pipelineId}/settings`)}
+              >
+                Settings
+              </Button>
             </div>
             <div style={{ ...FRSC, gap: SPACING.sm, marginTop: SPACING.lg }}>
               {data.status && data.status !== 'VALIDATED' && data.status !== 'NOT_VALIDATED' && data.status !== 'INVALID' && (

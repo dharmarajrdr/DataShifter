@@ -5,6 +5,7 @@ import { FRSC, FRBC } from '../constants/layouts';
 import { SETTINGS } from '../constants/literals';
 import { PageHeader, Button, Toggle, Chip } from '../components/common';
 import { settingsApi, connectionApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const SectionTitle = ({ title, subtitle }) => (
   <div style={{ marginBottom: SPACING.md }}>
@@ -26,6 +27,9 @@ const SettingRow = ({ label, description, children }) => (
 );
 
 const PipelineSettings = () => {
+  const { hasPermission } = useAuth();
+  const canEditSettings = hasPermission('settings:edit');
+  const [accessDenied, setAccessDenied] = useState(false);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState(null);
@@ -43,6 +47,7 @@ const PipelineSettings = () => {
   const [addingTable, setAddingTable] = useState(false);
 
   const fetchSettings = useCallback(() => {
+    if (!canEditSettings) return;
     settingsApi.getByPipelineId(pipelineId).then(res => {
       setSettings(res.data);
       const overrides = {};
@@ -60,10 +65,26 @@ const PipelineSettings = () => {
       if (res.data.targetConnectionId) {
         connectionApi.listTables(res.data.targetConnectionId).then(r => setTargetTables(r.data || [])).catch(() => {});
       }
+    }).catch(err => {
+      if (err?.response?.status === 403) {
+        setAccessDenied(true);
+      }
     });
-  }, [pipelineId]);
+  }, [pipelineId, canEditSettings]);
 
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
+
+  if (!canEditSettings || accessDenied) {
+    return (
+      <div style={{ padding: '60px', textAlign: 'center', color: COLORS.text.secondary }}>
+        <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, marginBottom: SPACING.xs, color: COLORS.text.primary }}>Access denied</p>
+        <p style={{ fontSize: FONT.size.sm }}>You don't have permission to edit pipeline settings.</p>
+        <div style={{ marginTop: SPACING.md }}>
+          <Button variant="secondary" onClick={() => navigate('/pipelines')}>Back to Pipelines</Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!settings) return null;
 

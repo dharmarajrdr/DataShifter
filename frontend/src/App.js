@@ -53,10 +53,10 @@ const App = () => (
           <Route path="/pipelines/new" element={<SubscriptionGuard><ProtectedRoute permission="pipeline:create"><PipelineWizard /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/pipelines/:pipelineId/monitor" element={<SubscriptionGuard><LiveMonitor /></SubscriptionGuard>} />
           <Route path="/pipelines/:pipelineId/mapping" element={<SubscriptionGuard><ColumnMappingBoard /></SubscriptionGuard>} />
-          <Route path="/pipelines/:pipelineId/errors" element={<SubscriptionGuard><ErrorLogViewer /></SubscriptionGuard>} />
-          <Route path="/pipelines/:pipelineId/settings" element={<SubscriptionGuard><PipelineSettings /></SubscriptionGuard>} />
+          <Route path="/pipelines/:pipelineId/errors" element={<SubscriptionGuard><ProtectedRoute permission="monitor:view_errors"><ErrorLogViewer /></ProtectedRoute></SubscriptionGuard>} />
+          <Route path="/pipelines/:pipelineId/settings" element={<SubscriptionGuard><ProtectedRoute permission="settings:edit"><PipelineSettings /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/connections" element={<SubscriptionGuard><ConnectionsManager /></SubscriptionGuard>} />
-          <Route path="/udfs" element={<SubscriptionGuard><UdfLibrary /></SubscriptionGuard>} />
+          <Route path="/udfs" element={<SubscriptionGuard><ProtectedRoute permission="udf:view"><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
           <Route path="/settings/roles" element={<SubscriptionGuard><ProtectedRoute permission="org:manage_roles"><RolesPage /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/profile" element={<UserProfile />} />
