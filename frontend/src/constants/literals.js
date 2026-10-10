@@ -149,6 +149,7 @@ export const SETTINGS = {
   },
   writeModes: {
     INSERT_ONLY: { label: 'Insert only', desc: 'Fail if PK exists' },
+    INSERT_IGNORE: { label: 'Insert only', desc: 'Ignore if PK exists' },
     UPSERT: { label: 'Upsert', desc: 'Insert or update' },
     UPDATE_ONLY: { label: 'Update only', desc: 'Skip if not found' },
   },

@@ -239,7 +239,7 @@ public class OracleConnector implements DatabaseConnector {
     private String buildWriteSql(String table, Set<String> columns, String writeMode, String pkColumn) {
         String colList = String.join(", ", columns);
         String placeholders = String.join(", ", Collections.nCopies(columns.size(), "?"));
-        if ("INSERT_ONLY".equals(writeMode)) {
+        if ("INSERT_ONLY".equals(writeMode) || "INSERT_IGNORE".equals(writeMode)) {
             return String.format("INSERT INTO %s (%s) VALUES (%s)", table, colList, placeholders);
         }
         if ("UPDATE_ONLY".equals(writeMode)) {

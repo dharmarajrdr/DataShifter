@@ -277,7 +277,7 @@ public class SpannerConnector implements DatabaseConnector {
     private Mutation buildMutation(String tableName, Set<String> columns,
                                     Map<String, Object> record, String writeMode, String pkColumn) {
         return switch (writeMode) {
-            case "INSERT_ONLY" -> buildInsertMutation(tableName, columns, record);
+            case "INSERT_ONLY", "INSERT_IGNORE" -> buildInsertMutation(tableName, columns, record);
             case "UPSERT"      -> buildUpsertMutation(tableName, columns, record);
             case "UPDATE_ONLY" -> buildUpdateMutation(tableName, columns, record);
             default -> throw new ConnectionException("Unknown write mode: " + writeMode);
