@@ -52,8 +52,10 @@ public class InvitationController {
 
     @PostMapping("/request-access")
     public ApiResponse<InvitationResponse> requestAccess(HttpServletRequest request, @Valid @RequestBody RequestAccessRequest body) {
-        String userId = extractUserId(request);
-        return ApiResponse.success(invitationService.requestAccess(userId, body), "Access request sent");
+        String token = request.getHeader("Authorization").substring(7);
+        String accountId = jwtUtil.getAccountId(token);
+        String email = jwtUtil.getEmail(token);
+        return ApiResponse.success(invitationService.requestAccess(accountId, email, body), "Access request sent");
     }
 
     private String extractOrgId(HttpServletRequest request) {

@@ -95,17 +95,16 @@ public class InvitationService {
     }
 
     @Transactional
-    public InvitationResponse requestAccess(String userId, RequestAccessRequest request) {
+    public InvitationResponse requestAccess(String accountId, String email, RequestAccessRequest request) {
         Organization org = orgRepository.findBySlug(request.getOrgSlug())
                 .orElseThrow(() -> new DatashifterException("Organization not found: " + request.getOrgSlug()));
 
-        AppUser user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-
-        String email = user.getAccount().getEmail();
-
-        if (userRepository.existsByAccount_IdAndOrganization_Id(user.getAccount().getId(), org.getId())) {
-            throw new DatashifterException("You are already a member of this organization");
+        if (accountId != null && !accountId.isBlank()) {
+            userRepository.findByAccount_IdAndOrganization_Id(accountId, org.getId()).ifPresent(user -> {
+                if (Boolean.TRUE.equals(user.getIsActive())) {
+                    throw new DatashifterException("You are already a member of this organization");
+                }
+            });
         }
 
         invitationRepository.findByEmailAndOrganization_IdAndStatus(email, org.getId(), "PENDING")
