@@ -28,10 +28,31 @@ public class PermissionInterceptor implements HandlerInterceptor {
 
         @SuppressWarnings("unchecked")
         Set<String> permissions = (Set<String>) request.getAttribute("permissions");
+        if (permissions == null && UserContext.getCurrent() != null) {
+            permissions = UserContext.getCurrent().getPermissions();
+        }
 
-        if (permissions == null || !permissions.contains(annotation.value())) {
-            sendForbidden(response, annotation.value());
-            return false;
+        if (!annotation.value().isEmpty()) {
+            if (permissions == null || !permissions.contains(annotation.value())) {
+                sendForbidden(response, annotation.value());
+                return false;
+            }
+        }
+
+        if (annotation.anyOf().length > 0) {
+            boolean matched = false;
+            if (permissions != null) {
+                for (String perm : annotation.anyOf()) {
+                    if (permissions.contains(perm)) {
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (!matched) {
+                sendForbidden(response, annotation.anyOf()[0]);
+                return false;
+            }
         }
 
         return true;

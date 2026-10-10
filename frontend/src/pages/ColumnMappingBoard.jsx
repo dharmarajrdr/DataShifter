@@ -8,6 +8,8 @@ import { FONT, SPACING } from '../constants/design';
 import { FRBC, FREC, FRSC, FRWSC } from '../constants/layouts';
 import { MAPPING as LIT } from '../constants/literals';
 import { mappingApi, pipelineApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { ForbiddenPage } from './ErrorPage';
 
 const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];
 
@@ -927,10 +929,17 @@ const ColumnMappingBoard = () => {
   const [filterTarget, setFilterTarget] = useState(null); // { tableName, columns }
   const { pipelineId } = useParams();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canViewPipeline = hasPermission('pipeline:view');
+  const canEdit = hasPermission('pipeline:edit');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!canViewPipeline) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       setLoading(true);
       try {
@@ -970,7 +979,7 @@ const ColumnMappingBoard = () => {
         setFilters(loadedFilters);
       } catch (err) { setError(err); } finally { setLoading(false); }
     })();
-  }, [pipelineId]);
+  }, [pipelineId, canViewPipeline]);
 
   useEffect(() => { const h = e => { if (hasChanges) { e.preventDefault(); e.returnValue = 'Unsaved mappings.'; return e.returnValue; } }; window.addEventListener('beforeunload', h); return () => window.removeEventListener('beforeunload', h); }, [hasChanges]);
 
@@ -1122,7 +1131,7 @@ const ColumnMappingBoard = () => {
   };
 
   const handleValidate = async () => {
-    if (hasChanges || validateDisabled || validating || saving) return;
+    if (!canEdit || hasChanges || validateDisabled || validating || saving) return;
     setValidating(true);
     try {
       const res = await pipelineApi.performAction(pipelineId, 'VALIDATE');
@@ -1146,6 +1155,15 @@ const ColumnMappingBoard = () => {
   const unmappedReq = targetTables.reduce((n, tt) => { const mp = new Set(mappings.filter(m => m.target.startsWith(tt.tableName + '.')).map(m => m.target.split('.')[1])); return n + (tt.columns || []).filter(c => !c.nullable && !mp.has(c.name)).length; }, 0);
   const totalFilters = Object.values(filters).flat().length;
 
+  if (!canViewPipeline) {
+    return (
+      <ForbiddenPage
+        missingPermission="pipeline:view"
+        message="You don't have permission to view pipelines."
+      />
+    );
+  }
+
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<Loader message="Loading mappings..." />}>
       {data && (
@@ -1156,18 +1174,43 @@ const ColumnMappingBoard = () => {
                 <StatusBadge status="VALIDATED" />
               ) : (
                 <div style={{ ...FRSC, gap: SPACING.xs }}>
-                  <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving || validateDisabled || hasChanges}>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handleValidate}
+                    disabled={!canEdit || validating || saving || validateDisabled || hasChanges}
+                    title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
+                  >
                     {validating ? 'Validating...' : 'Validate'}
                   </Button>
                   {/* {data?.status === 'INVALID' && <StatusBadge status="INVALID" />} */}
                 </div>
               )}
-              <Button variant="secondary" size="md" onClick={handleAutoMap}>Auto-map</Button>
-              {mappings.length > 0 && <Button variant="secondary" size="md" onClick={handleClearAll}>Clear all</Button>}
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={handleAutoMap}
+                disabled={!canEdit}
+                title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
+              >
+                Auto-map
+              </Button>
+              {mappings.length > 0 && (
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={handleClearAll}
+                  disabled={!canEdit}
+                  title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
+                >
+                  Clear all
+                </Button>
+              )}
               <Button
                 size="md"
                 onClick={handleSave}
-                disabled={!hasChanges || saving}
+                disabled={!canEdit || !hasChanges || saving}
+                title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
               >
                 {saving ? 'Saving...' : hasChanges ? 'Save *' : LIT.saveMapping}
               </Button>

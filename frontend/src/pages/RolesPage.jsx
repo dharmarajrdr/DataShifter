@@ -32,6 +32,7 @@ const PERMISSION_GROUPS = [
   },
   {
     label: 'Connections', permissions: [
+      { key: 'connection:view', label: 'View connections' },
       { key: 'connection:create', label: 'Create connections' },
       { key: 'connection:edit', label: 'Edit connections' },
       { key: 'connection:delete', label: 'Delete connections' },

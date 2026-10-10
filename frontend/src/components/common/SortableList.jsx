@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../../constants/design';
 import { FRSC } from '../../constants/layouts';
-import { Chip } from '../common';
+import Chip from './Chip';
 
 /**
  * SortableList — drag-to-reorder using native HTML5 DnD.

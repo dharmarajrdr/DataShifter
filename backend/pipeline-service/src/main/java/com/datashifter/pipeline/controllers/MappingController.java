@@ -7,6 +7,8 @@ import com.datashifter.pipeline.services.implementations.MappingService;
 import com.datashifter.pipeline.services.interfaces.PipelineService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.datashifter.common.enums.Permissions;
+import com.datashifter.common.security.RequiresPermission;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,6 +32,7 @@ public class MappingController {
      * from both source and target databases.
      */
     @GetMapping
+    @RequiresPermission(Permissions.PIPELINE_VIEW)
     public ApiResponse<MappingResponse> getMappings(@PathVariable String pipelineId) {
         return ApiResponse.success(mappingService.getMappings(pipelineId));
     }
@@ -38,6 +41,7 @@ public class MappingController {
      * Save column mappings for all tables.
      */
     @PutMapping
+    @RequiresPermission(Permissions.PIPELINE_EDIT)
     public ApiResponse<PipelineResponse> saveMappings(
             @PathVariable String pipelineId,
             @Valid @RequestBody List<PipelineTableRequest> tables) {

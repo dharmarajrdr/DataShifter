@@ -5,6 +5,8 @@ import { FRSC, FRBC } from '../constants/layouts';
 import { SETTINGS } from '../constants/literals';
 import { PageHeader, Button, Toggle, Chip } from '../components/common';
 import { settingsApi, connectionApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { ForbiddenPage } from './ErrorPage';
 
 const SectionTitle = ({ title, subtitle }) => (
   <div style={{ marginBottom: SPACING.md }}>
@@ -26,6 +28,10 @@ const SettingRow = ({ label, description, children }) => (
 );
 
 const PipelineSettings = () => {
+  const { hasPermission } = useAuth();
+  const canViewPipeline = hasPermission('pipeline:view');
+  const canEditSettings = hasPermission('settings:edit');
+  const [accessDenied, setAccessDenied] = useState(false);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState(null);
@@ -43,6 +49,7 @@ const PipelineSettings = () => {
   const [addingTable, setAddingTable] = useState(false);
 
   const fetchSettings = useCallback(() => {
+    if (!canViewPipeline || !canEditSettings) return;
     settingsApi.getByPipelineId(pipelineId).then(res => {
       setSettings(res.data);
       const overrides = {};
@@ -60,10 +67,32 @@ const PipelineSettings = () => {
       if (res.data.targetConnectionId) {
         connectionApi.listTables(res.data.targetConnectionId).then(r => setTargetTables(r.data || [])).catch(() => {});
       }
+    }).catch(err => {
+      if (err?.response?.status === 403) {
+        setAccessDenied(true);
+      }
     });
-  }, [pipelineId]);
+  }, [pipelineId, canViewPipeline, canEditSettings]);
 
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
+
+  if (!canViewPipeline) {
+    return (
+      <ForbiddenPage
+        missingPermission="pipeline:view"
+        message="You don't have permission to view pipelines."
+      />
+    );
+  }
+
+  if (!canEditSettings || accessDenied) {
+    return (
+      <ForbiddenPage
+        missingPermission="settings:edit"
+        message="You don't have permission to edit pipeline settings."
+      />
+    );
+  }
 
   if (!settings) return null;
 

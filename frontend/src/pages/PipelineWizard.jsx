@@ -6,6 +6,8 @@ import { WIZARD } from '../constants/literals';
 import { PageHeader, Button, Chip, SortableList, Loader } from '../components/common';
 import CreateNamespaceModal from '../components/pipeline/CreateNamespaceModal';
 import { namespaceApi, connectionApi, pipelineApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { ForbiddenPage } from './ErrorPage';
 
 const StepIndicator = ({ steps, currentStep }) => (
   <div style={{ ...FRSC, gap: 0, padding: `0 ${SPACING.xxl}`, marginBottom: SPACING.sm }}>
@@ -201,6 +203,9 @@ const validateStep = (step, config) => {
 };
 
 const PipelineWizard = () => {
+  const { hasPermission } = useAuth();
+  const canViewPipeline = hasPermission('pipeline:view');
+  const canCreatePipeline = hasPermission('pipeline:create');
   const [step, setStep] = useState(0);
   const [namespaces, setNamespaces] = useState([]);
   const [connections, setConnections] = useState([]);
@@ -215,9 +220,10 @@ const PipelineWizard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!canViewPipeline || !canCreatePipeline) return;
     namespaceApi.getAll().then(res => { const l = res.data || []; setNamespaces(l); const d = l.find(n => n.name === 'Default'); if (d) setConfig(p => ({ ...p, namespaceId: d.id })); });
     connectionApi.getAll().then(res => setConnections(res.data || []));
-  }, []);
+  }, [canViewPipeline, canCreatePipeline]);
 
   useEffect(() => {
     if (!config.source) { setSourceTables([]); return; }
@@ -261,6 +267,24 @@ const PipelineWizard = () => {
     <StepMapping />,
     <StepReview config={config} namespaces={namespaces} connections={connections} />,
   ];
+
+  if (!canViewPipeline) {
+    return (
+      <ForbiddenPage
+        missingPermission="pipeline:view"
+        message="You don't have permission to view pipelines."
+      />
+    );
+  }
+
+  if (!canCreatePipeline) {
+    return (
+      <ForbiddenPage
+        missingPermission="pipeline:create"
+        message="You don't have permission to create pipelines."
+      />
+    );
+  }
 
   return (
     <div>

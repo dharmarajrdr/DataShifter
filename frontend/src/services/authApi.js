@@ -19,7 +19,7 @@ const MOCK_USER = {
     'pipeline:create', 'pipeline:view', 'pipeline:edit', 'pipeline:delete',
     'pipeline:run', 'pipeline:pause', 'pipeline:stop',
     'namespace:create', 'namespace:edit', 'namespace:delete',
-    'connection:create', 'connection:edit', 'connection:delete',
+    'connection:create', 'connection:view', 'connection:edit', 'connection:delete',
     'connection:test', 'connection:browse_schema',
     'monitor:view', 'monitor:view_errors', 'settings:edit',
     'org:manage_members', 'org:manage_roles', 'org:manage_invites', 'org:view_audit',
@@ -80,6 +80,28 @@ export const authApi = {
     : apiClient.put(`/auth/invitations/${invId}`, { action }),
 
   // Org management
+  getOrg: () => USE_MOCK
+    ? mockResponse({
+        id: 'org-001',
+        name: 'PayPal',
+        slug: 'paypal',
+        logoUrl: '',
+        memberCount: 2,
+        createdAt: '2026-01-01T00:00:00Z',
+      })
+    : apiClient.get('/auth/org'),
+
+  updateOrg: (payload) => USE_MOCK
+    ? mockResponse({
+        id: 'org-001',
+        name: payload.name || 'PayPal',
+        slug: (payload.name || 'paypal').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        logoUrl: payload.logoUrl || '',
+        memberCount: 2,
+        createdAt: '2026-01-01T00:00:00Z',
+      })
+    : apiClient.put('/auth/org', payload),
+
   createOrg: (payload) => USE_MOCK
     ? mockResponse({ id: 'org-new', name: payload.name, slug: payload.name.toLowerCase().replace(/\s+/g, '-') })
     : apiClient.post('/auth/orgs', payload),

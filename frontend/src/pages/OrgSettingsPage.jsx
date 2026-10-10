@@ -1,349 +1,427 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC } from '../constants/layouts';
-import { PageHeader, Button, Chip, ApiGuard, Loader } from '../components/common';
+import { Button, Chip, ApiGuard, Loader } from '../components/common';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../services/authApi';
-
 import SettingsTabs from '../components/common/SettingsTabs';
 
 const inputStyle = {
-  width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border.light}`,
-  borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.md, boxSizing: 'border-box',
+  width: '100%',
+  padding: '9px 12px',
+  border: `1px solid ${COLORS.border.light}`,
+  borderRadius: BORDER_RADIUS.md,
+  fontSize: FONT.size.sm,
+  boxSizing: 'border-box',
+  background: '#fff',
+  outline: 'none',
+  transition: 'border-color 0.15s ease',
 };
 
-const Avatar = ({ initials, color, size = 32 }) => (
-  <div style={{
-    width: size, height: size, borderRadius: '50%', flexShrink: 0,
-    background: color || COLORS.brand.primary,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: Math.round(size * 0.4), fontWeight: 500, color: '#fff',
-  }}>{initials || '?'}</div>
-);
+const readOnlyInputStyle = {
+  ...inputStyle,
+  background: COLORS.background.secondary,
+  color: COLORS.text.secondary,
+  cursor: 'default',
+};
 
 const SectionTitle = ({ title, subtitle, action }) => (
   <div style={{ ...FRBC, marginBottom: SPACING.md }}>
     <div>
-      <p style={{ fontSize: FONT.size.base, fontWeight: FONT.weight.medium }}>{title}</p>
-      {subtitle && <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginTop: '2px' }}>{subtitle}</p>}
+      <p style={{ fontSize: FONT.size.base, fontWeight: FONT.weight.medium, margin: 0 }}>{title}</p>
+      {subtitle && <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginTop: '2px', marginBottom: 0 }}>{subtitle}</p>}
     </div>
     {action}
   </div>
 );
 
-const Divider = () => <div style={{ height: '1px', background: COLORS.border.light, margin: `${SPACING.xl} 0` }} />;
-
 const OrgSettingsPage = () => {
-  const { user, hasPermission } = useAuth();
-  const [members, setMembers] = useState([]);
-  const [totalMembers, setTotalMembers] = useState(0);
-  const [memberSearch, setMemberSearch] = useState('');
-  const [memberPage, setMemberPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [roles, setRoles] = useState([]);
-  const [invitations, setInvitations] = useState([]);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRoleId, setInviteRoleId] = useState('');
-  const [inviting, setInviting] = useState(false);
+  const { user, updateUser, refreshOrganizations, hasPermission } = useAuth();
+  const [org, setOrg] = useState(null);
+  const [name, setName] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
-
-  const canManageMembers = hasPermission('org:manage_members');
-  const canManageInvites = hasPermission('org:manage_invites');
-
   const [loading, setLoading] = useState(true);
 
-  // Fetch members with search + pagination
-  const fetchMembers = useCallback(async (search, page) => {
-    try {
-      const res = await authApi.getMembers(search, page, 9);
-      const data = res.data || {};
-      setMembers(data.members || []);
-      setTotalMembers(data.totalMembers || 0);
-      setTotalPages(data.totalPages || 0);
-    } catch (e) { /* ignore */ }
-  }, []);
+  const canEditOrg = hasPermission('org:manage_roles') || hasPermission('org:manage_members') || !!user?.orgOwner;
 
-  // Debounced search
+  // Load organization details from backend
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchMembers(memberSearch, 0);
-      setMemberPage(0);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [memberSearch, fetchMembers]);
-
-  // Page change
-  useEffect(() => {
-    fetchMembers(memberSearch, memberPage);
-  }, [memberPage, fetchMembers, memberSearch]);
-
-  // Initial load — roles + invitations
-  useEffect(() => {
-    const load = async () => {
+    let mounted = true;
+    const fetchOrg = async () => {
       setLoading(true);
       setError(null);
       try {
-        const rolesRes = await authApi.getRoles();
-        setRoles(rolesRes.data || []);
-        if (canManageInvites) {
-          const invRes = await authApi.getInvitations();
-          setInvitations(invRes.data || []);
+        const res = await authApi.getOrg();
+        const data = res.data || {};
+        if (mounted) {
+          setOrg(data);
+          setName(data.name || user?.orgName || '');
+          setLogoUrl(data.logoUrl || '');
         }
       } catch (err) {
-        setError(err);
+        if (mounted) {
+          setError(err);
+          // Fallback to user org info if getOrg is not supported yet
+          setName(user?.orgName || '');
+        }
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
-    load();
-  }, [canManageInvites]);
+    fetchOrg();
+    return () => {
+      mounted = false;
+    };
+  }, [user?.orgName]);
 
-  const handleInvite = async () => {
-    if (!inviteEmail.trim()) return;
-    setInviting(true);
+  const isChanged = org && (name.trim() !== (org.name || '') || (logoUrl.trim() || '') !== (org.logoUrl || ''));
+
+  const handleCopyOrgId = () => {
+    const orgId = org?.id || user?.orgId;
+    if (orgId && navigator.clipboard) {
+      navigator.clipboard.writeText(orgId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleCancel = () => {
+    if (org) {
+      setName(org.name || '');
+      setLogoUrl(org.logoUrl || '');
+      setError(null);
+      setSaveSuccess(false);
+    }
+  };
+
+  const handleSave = async (e) => {
+    if (e) e.preventDefault();
+    if (!name.trim() || !canEditOrg || saving) return;
+
+    setSaving(true);
     setError(null);
+    setSaveSuccess(false);
+
     try {
-      await authApi.sendInvite({ email: inviteEmail, roleId: inviteRoleId || undefined });
-      setInviteEmail('');
-      authApi.getInvitations().then(res => setInvitations(res.data || []));
+      const payload = {
+        name: name.trim(),
+        logoUrl: logoUrl.trim() || null,
+      };
+      const res = await authApi.updateOrg(payload);
+      const updated = res.data || { ...org, ...payload };
+      setOrg(updated);
+      setName(updated.name);
+      setLogoUrl(updated.logoUrl || '');
+      setSaveSuccess(true);
+
+      // Sync changes across context and sidebar
+      if (updateUser) {
+        updateUser({ orgName: updated.name });
+      }
+      if (refreshOrganizations) {
+        refreshOrganizations();
+      }
+
+      setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to update organization details');
     } finally {
-      setInviting(false);
+      setSaving(false);
     }
   };
 
-  const handleInvitationAction = async (id, action) => {
-    await authApi.handleInvitation(id, action);
-    setInvitations(prev => prev.filter(i => i.id !== id));
-    if (action === 'ACCEPT') {
-      fetchMembers(memberSearch, memberPage);
-    }
-  };
-
-  const handleRoleChange = async (userId, newRoleId) => {
-    await authApi.updateMember(userId, { roleId: newRoleId });
-    setMembers(prev => prev.map(m =>
-      m.id === userId ? { ...m, roleId: newRoleId, roleName: roles.find(r => r.id === newRoleId)?.name } : m
-    ));
-  };
+  const formattedDate = org?.createdAt
+    ? new Date(org.createdAt).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : null;
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>
       <div>
         <SettingsTabs
           title="Organization settings"
-          subtitle={user?.orgName || 'Your organization'}
+          subtitle={org?.name || user?.orgName || 'Your organization'}
         />
 
         <div style={{ maxWidth: '680px', paddingTop: SPACING.xl }}>
-
-          {/* Org info */}
-          <SectionTitle title="Organization" subtitle="Basic information about your org" />
-          <div style={{
-            padding: SPACING.lg, background: COLORS.background.primary,
-            border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.lg,
-          }}>
-            <div style={{ ...FRSC, gap: SPACING.md }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: BORDER_RADIUS.md,
-                background: COLORS.brand.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '20px', fontWeight: 500, color: COLORS.brand.primary,
-              }}>
-                {user?.orgName?.charAt(0)?.toUpperCase() || 'O'}
-              </div>
-              <div>
-                <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium }}>{user?.orgName}</p>
-                <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>
-                  {members.length} member{members.length !== 1 ? 's' : ''} · {roles.length} roles
-                </p>
+          {/* Header Preview Card */}
+          <div
+            style={{
+              padding: SPACING.lg,
+              background: COLORS.background.primary,
+              border: `1px solid ${COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.lg,
+              marginBottom: SPACING.xl,
+            }}
+          >
+            <div style={{ ...FRBC }}>
+              <div style={{ ...FRSC, gap: SPACING.md }}>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: BORDER_RADIUS.md,
+                    background: COLORS.brand.primaryLight,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '24px',
+                    fontWeight: 600,
+                    color: COLORS.brand.primary,
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                  }}
+                >
+                  {logoUrl.trim() ? (
+                    <img
+                      src={logoUrl.trim()}
+                      alt={name || 'Org'}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    (name || user?.orgName || 'O').charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div>
+                  <h2 style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, margin: 0 }}>
+                    {name || user?.orgName || 'Organization'}
+                  </h2>
+                  <div style={{ ...FRSC, gap: SPACING.xs, marginTop: '4px', flexWrap: 'wrap' }}>
+                    {org?.slug && <Chip label={`slug: ${org.slug}`} colorScheme="purple" />}
+                    {org?.memberCount !== undefined && (
+                      <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
+                        {org.memberCount} member{org.memberCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {formattedDate && (
+                      <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
+                        · Created {formattedDate}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <Divider />
+          {/* Edit Form Section */}
+          <SectionTitle
+            title="Organization details"
+            subtitle="Update your organization profile and public workspace settings"
+          />
 
-          <div style={{border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg, background: COLORS.background.primary}}>
-            {/* Members */}
-            <SectionTitle
-              title="Members"
-              subtitle={`${totalMembers} member${totalMembers !== 1 ? 's' : ''} in your organization`}
-            />
+          {!canEditOrg && (
+            <div
+              style={{
+                padding: `${SPACING.sm} ${SPACING.md}`,
+                background: COLORS.background.secondary,
+                border: `1px solid ${COLORS.border.light}`,
+                borderRadius: BORDER_RADIUS.md,
+                fontSize: FONT.size.xs,
+                color: COLORS.text.secondary,
+                marginBottom: SPACING.md,
+              }}
+            >
+              You have view-only access. Only administrators with role or member management permissions can update organization settings.
+            </div>
+          )}
 
-            {/* Search */}
-            <div style={{ marginBottom: SPACING.sm }}>
-              <input
-                value={memberSearch}
-                onChange={e => setMemberSearch(e.target.value)}
-                placeholder="Search members by name..."
+          {saveSuccess && (
+            <div
+              style={{
+                padding: `${SPACING.sm} ${SPACING.md}`,
+                background: '#E6F4EA',
+                border: '1px solid #34A853',
+                borderRadius: BORDER_RADIUS.md,
+                fontSize: FONT.size.sm,
+                color: '#137333',
+                marginBottom: SPACING.md,
+              }}
+            >
+              Organization details updated successfully.
+            </div>
+          )}
+
+          {error && typeof error === 'string' && (
+            <div
+              style={{
+                padding: `${SPACING.sm} ${SPACING.md}`,
+                background: '#FCE8E6',
+                border: `1px solid ${COLORS.status.errorDark}`,
+                borderRadius: BORDER_RADIUS.md,
+                fontSize: FONT.size.sm,
+                color: COLORS.status.errorDark,
+                marginBottom: SPACING.md,
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <form
+            onSubmit={handleSave}
+            style={{
+              border: `1px solid ${COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.lg,
+              padding: SPACING.lg,
+              background: COLORS.background.primary,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: SPACING.md,
+            }}
+          >
+            {/* Organization Name */}
+            <div>
+              <label
                 style={{
-                  width: '100%', padding: '9px 12px',
-                  border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md,
-                  fontSize: FONT.size.sm, boxSizing: 'border-box',
-                  background: COLORS.background.primary,
+                  display: 'block',
+                  fontSize: FONT.size.sm,
+                  fontWeight: FONT.weight.medium,
+                  marginBottom: '4px',
                 }}
+              >
+                Organization name <span style={{ color: COLORS.status.errorDark }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={!canEditOrg || saving}
+                placeholder="e.g. Acme Corp"
+                style={canEditOrg ? inputStyle : readOnlyInputStyle}
+                required
               />
+              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '4px', margin: 0 }}>
+                The name of your organization as displayed across all workspaces.
+              </p>
             </div>
 
-            <div style={{
-              overflow: 'hidden',
-            }}>
-              {members.length === 0 ? (
-                <div style={{ padding: SPACING.lg, textAlign: 'center', color: COLORS.text.tertiary, fontSize: FONT.size.sm }}>
-                  {memberSearch ? `No members matching "${memberSearch}"` : 'No members found'}
-                </div>
-              ) : (
-                members.map((member, i) => (
-                  <div key={member.id} style={{
-                    ...FRBC, padding: `${SPACING.sm} ${SPACING.md}`,
-                    borderTop: i > 0 ? `1px solid ${COLORS.border.light}` : 'none',
-                    background: COLORS.background.primary,
-                  }}>
-                    <div style={{ ...FRSC, gap: SPACING.sm }}>
-                      <Avatar initials={member.displayInitials} color={member.avatarColor} />
-                      <div>
-                        <p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, margin: 0 }}>
-                          {member.fullName}
-                          {member.id === user?.id && (
-                            <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, marginLeft: '6px' }}>(you)</span>
-                          )}
-                        </p>
-                        <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, margin: 0 }}>{member.email}</p>
-                      </div>
-                    </div>
-                    <div style={{ ...FRSC, gap: SPACING.xs }}>
-                      {canManageMembers && member.id !== user?.id ? (
-                        <select
-                          value={member.roleId || ''}
-                          onChange={e => handleRoleChange(member.id, e.target.value)}
-                          style={{
-                            padding: '4px 8px', border: `1px solid ${COLORS.border.light}`,
-                            borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs,
-                            background: COLORS.background.primary, cursor: 'pointer',
-                          }}
-                        >
-                          {roles.map(r => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <Chip label={member.roleName || 'No role'} colorScheme="purple" />
-                      )}
-                      {!member.active && (
-                        <span style={{ fontSize: FONT.size.xs, color: COLORS.status.errorDark }}>Disabled</span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ ...FRSC, justifyContent: 'center', gap: SPACING.xs, marginTop: SPACING.sm }}>
-              <button
-                disabled={memberPage === 0}
-                onClick={() => setMemberPage(p => p - 1)}
+            {/* Organization Slug */}
+            <div>
+              <label
                 style={{
-                  padding: '4px 10px', border: `1px solid ${COLORS.border.light}`,
-                  borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs,
-                  background: memberPage === 0 ? COLORS.background.secondary : '#fff',
-                  color: memberPage === 0 ? COLORS.text.tertiary : COLORS.text.primary,
-                  cursor: memberPage === 0 ? 'default' : 'pointer',
-                }}>Prev</button>
-              <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
-                Page {memberPage + 1} of {totalPages}
-              </span>
-              <button
-                disabled={memberPage >= totalPages - 1}
-                onClick={() => setMemberPage(p => p + 1)}
-                style={{
-                  padding: '4px 10px', border: `1px solid ${COLORS.border.light}`,
-                  borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs,
-                  background: memberPage >= totalPages - 1 ? COLORS.background.secondary : '#fff',
-                  color: memberPage >= totalPages - 1 ? COLORS.text.tertiary : COLORS.text.primary,
-                  cursor: memberPage >= totalPages - 1 ? 'default' : 'pointer',
-                }}>Next</button>
+                  display: 'block',
+                  fontSize: FONT.size.sm,
+                  fontWeight: FONT.weight.medium,
+                  marginBottom: '4px',
+                }}
+              >
+                Organization slug
+              </label>
+              <input
+                type="text"
+                value={org?.slug || ''}
+                readOnly
+                disabled
+                style={readOnlyInputStyle}
+              />
+              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '4px', margin: 0 }}>
+                Unique slug used for URLs and routing. Generated automatically upon creation.
+              </p>
             </div>
-          )}
 
-          {/* Invite */}
-          {canManageInvites && (
-            <>
-              <Divider />
-              <SectionTitle title="Invite members" subtitle="Send an invite link via email" />
-              <div style={{
-                padding: SPACING.md, background: COLORS.background.primary,
-                border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.lg,
-              }}>
-                <div style={{ ...FRSC, gap: SPACING.sm }}>
-                  <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                    style={{ ...inputStyle, flex: 1 }} placeholder="colleague@company.com" type="email" />
-                  <select
-                    value={inviteRoleId} onChange={e => setInviteRoleId(e.target.value)}
-                    style={{
-                      padding: '8px 10px', border: `1px solid ${COLORS.border.light}`,
-                      borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm, background: COLORS.background.primary,
-                    }}
-                  >
-                    <option value="">Select role</option>
-                    {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select>
-                  <Button onClick={handleInvite} style={inviting ? { opacity: 0.6 } : {}}>
-                    {inviting ? 'Sending...' : 'Send invite'}
-                  </Button>
-                </div>
-                {error && (
-                  <p style={{ fontSize: FONT.size.xs, color: COLORS.status.errorDark, marginTop: SPACING.xs }}>{error}</p>
-                )}
+            {/* Organization ID */}
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: FONT.size.sm,
+                  fontWeight: FONT.weight.medium,
+                  marginBottom: '4px',
+                }}
+              >
+                Organization ID
+              </label>
+              <div style={{ ...FRSC, gap: SPACING.xs }}>
+                <input
+                  type="text"
+                  value={org?.id || user?.orgId || ''}
+                  readOnly
+                  disabled
+                  style={{
+                    ...readOnlyInputStyle,
+                    fontFamily: 'monospace',
+                    fontSize: FONT.size.xs,
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleCopyOrgId}
+                  style={{ minWidth: '70px' }}
+                >
+                  {copied ? 'Copied!' : 'Copy'}
+                </Button>
               </div>
-            </>
-          )}
+              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '4px', margin: 0 }}>
+                Unique system UUID for your organization, used for API calls and integrations.
+              </p>
+            </div>
 
-          {/* Pending invitations / access requests */}
-          {canManageInvites && invitations.length > 0 && (
-            <>
-              <Divider />
-              <SectionTitle title="Pending" subtitle="Invitations and access requests awaiting action" />
-              <div style={{
-                border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden',
-              }}>
-                {invitations.map((inv, i) => (
-                  <div key={inv.id} style={{
-                    ...FRBC, padding: `${SPACING.sm} ${SPACING.md}`,
-                    borderTop: i > 0 ? `1px solid ${COLORS.border.light}` : 'none',
-                    background: COLORS.background.primary,
-                  }}>
-                    <div>
-                      <p style={{ fontSize: FONT.size.md, marginBottom: '10px'}}>
-                        {inv.email}
-                        <Chip label={inv.inviteType === 'REQUEST' ? 'Request' : 'Invited'}
-                          colorScheme={inv.inviteType === 'REQUEST' ? 'warning' : 'teal'}
-                          style={{ marginLeft: '8px' }} />
-                      </p>
-                      <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, margin: 0, marginTop: '2px' }}>
-                        {inv.roleName && `Role: ${inv.roleName} · `}
-                        {inv.invitedByName && `Invited by ${inv.invitedByName} · `}
-                        {inv.createdAt && new Date(inv.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {inv.inviteType === 'REQUEST' && (
-                      <div style={{ ...FRSC, gap: '6px' }}>
-                        <Button size="sm" onClick={() => handleInvitationAction(inv.id, 'ACCEPT')}>Approve</Button>
-                        <Button variant="danger" size="sm" onClick={() => handleInvitationAction(inv.id, 'REJECT')}>Reject</Button>
-                      </div>
-                    )}
-                    {inv.inviteType === 'INVITE' && (
-                      <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>Pending</span>
-                    )}
-                  </div>
-                ))}
+            {/* Logo URL */}
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: FONT.size.sm,
+                  fontWeight: FONT.weight.medium,
+                  marginBottom: '4px',
+                }}
+              >
+                Logo URL (optional)
+              </label>
+              <input
+                type="url"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                disabled={!canEditOrg || saving}
+                placeholder="https://example.com/logo.png"
+                style={canEditOrg ? inputStyle : readOnlyInputStyle}
+              />
+              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '4px', margin: 0 }}>
+                Publicly accessible URL to your organization logo image (PNG, SVG, or JPEG).
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            {canEditOrg && (
+              <div
+                style={{
+                  ...FRSC,
+                  justifyContent: 'flex-end',
+                  gap: SPACING.sm,
+                  paddingTop: SPACING.sm,
+                  borderTop: `1px solid ${COLORS.border.light}`,
+                }}
+              >
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!isChanged || saving}
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={!isChanged || !name.trim() || saving}
+                >
+                  {saving ? 'Saving...' : 'Save changes'}
+                </Button>
               </div>
-            </>
-          )}
+            )}
+          </form>
         </div>
       </div>
     </ApiGuard>

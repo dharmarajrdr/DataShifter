@@ -15,7 +15,11 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
 import com.datashifter.common.security.JwtAuthFilter;
+import com.datashifter.common.security.PermissionInterceptor;
 import com.datashifter.common.utils.JwtUtil;
 
 import lombok.RequiredArgsConstructor;
@@ -23,9 +27,19 @@ import lombok.RequiredArgsConstructor;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
-public class SecurityConfig {
+public class SecurityConfig implements WebMvcConfigurer {
 
     private final JwtUtil jwtUtil;
+
+    @Bean
+    public PermissionInterceptor permissionInterceptor() {
+        return new PermissionInterceptor();
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(permissionInterceptor());
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {

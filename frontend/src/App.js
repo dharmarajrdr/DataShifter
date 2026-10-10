@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import AuthLayout from './components/auth/AuthLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SubscriptionGuard from './components/auth/SubscriptionGuard';
@@ -13,9 +13,13 @@ import {
   ForgotPasswordPage,
   LiveMonitor,
   LoginPage,
+  MembersPage,
   OnboardPage,
   OrgSettingsPage,
   PipelineDashboard,
+  ForbiddenPage,
+  NotFoundPage,
+  ServerErrorPage,
   PipelineSettings,
   PipelineWizard,
   ResetPasswordPage,
@@ -49,21 +53,38 @@ const App = () => (
           <Route path="/settings/billing" element={<BillingPage />} />
 
           {/* Everything below is gated by subscription status */}
-          <Route path="/pipelines" element={<SubscriptionGuard><PipelineDashboard /></SubscriptionGuard>} />
-          <Route path="/pipelines/new" element={<SubscriptionGuard><PipelineWizard /></SubscriptionGuard>} />
-          <Route path="/pipelines/:pipelineId/monitor" element={<SubscriptionGuard><LiveMonitor /></SubscriptionGuard>} />
-          <Route path="/pipelines/:pipelineId/mapping" element={<SubscriptionGuard><ColumnMappingBoard /></SubscriptionGuard>} />
-          <Route path="/pipelines/:pipelineId/errors" element={<SubscriptionGuard><ErrorLogViewer /></SubscriptionGuard>} />
-          <Route path="/pipelines/:pipelineId/settings" element={<SubscriptionGuard><PipelineSettings /></SubscriptionGuard>} />
-          <Route path="/connections" element={<SubscriptionGuard><ConnectionsManager /></SubscriptionGuard>} />
-          <Route path="/udfs" element={<SubscriptionGuard><UdfLibrary /></SubscriptionGuard>} />
+          <Route
+            path="/pipelines"
+            element={
+              <SubscriptionGuard>
+                <ProtectedRoute permission="pipeline:view">
+                  <Outlet />
+                </ProtectedRoute>
+              </SubscriptionGuard>
+            }
+          >
+            <Route index element={<PipelineDashboard />} />
+            <Route path="new" element={<ProtectedRoute permission="pipeline:create"><PipelineWizard /></ProtectedRoute>} />
+            <Route path=":pipelineId/monitor" element={<ProtectedRoute permission="monitor:view"><LiveMonitor /></ProtectedRoute>} />
+            <Route path=":pipelineId/mapping" element={<ColumnMappingBoard />} />
+            <Route path=":pipelineId/errors" element={<ProtectedRoute permission="monitor:view_errors"><ErrorLogViewer /></ProtectedRoute>} />
+            <Route path=":pipelineId/settings" element={<ProtectedRoute permission="settings:edit"><PipelineSettings /></ProtectedRoute>} />
+          </Route>
+          <Route path="/connections" element={<SubscriptionGuard><ProtectedRoute permission="connection:view"><ConnectionsManager /></ProtectedRoute></SubscriptionGuard>} />
+          <Route path="/udfs" element={<SubscriptionGuard><ProtectedRoute permission="udf:view"><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
-          <Route path="/settings/roles" element={<SubscriptionGuard><RolesPage /></SubscriptionGuard>} />
+          <Route path="/settings/members" element={<SubscriptionGuard><ProtectedRoute anyOf={['org:manage_members', 'org:manage_invites']}><MembersPage /></ProtectedRoute></SubscriptionGuard>} />
+          <Route path="/settings/roles" element={<SubscriptionGuard><ProtectedRoute permission="org:manage_roles"><RolesPage /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/profile" element={<UserProfile />} />
-        </Route>
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/pipelines" replace />} />
+          {/* Dedicated error pages */}
+          <Route path="/403" element={<ForbiddenPage />} />
+          <Route path="/404" element={<NotFoundPage />} />
+          <Route path="/500" element={<ServerErrorPage />} />
+
+          {/* Catch-all */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </Routes>
     </AuthProvider>
   </BrowserRouter>

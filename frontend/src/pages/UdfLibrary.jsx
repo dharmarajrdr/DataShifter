@@ -5,6 +5,7 @@ import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/desi
 import { FRBC, FREC, FRSC } from '../constants/layouts';
 import { useAuth } from '../contexts/AuthContext';
 import { udfApi } from '../services/api';
+import { ForbiddenPage } from './ErrorPage';
 
 const inputStyle = {
     width: '100%', padding: `${SPACING.xs} 10px`, border: `1px solid ${COLORS.border.light}`,
@@ -217,11 +218,16 @@ const UdfLibrary = () => {
     const [error, setError] = useState(null);
     const [showUpload, setShowUpload] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+    const canView = hasPermission('udf:view');
     const canDelete = hasPermission('udf:delete');
 
     useEffect(() => {
+        if (!canView) {
+            setLoading(false);
+            return;
+        }
         udfApi.getAll().then(response => setUdfs(response.data || [])).catch(setError).finally(() => setLoading(false));
-    }, []);
+    }, [canView]);
 
     const handleDelete = async (udf) => {
         if ((Number(udf.pipelineCount) > 0) || (Number(udf.columnCount) > 0)) return;
@@ -237,6 +243,15 @@ const UdfLibrary = () => {
             setDeletingId(null);
         }
     };
+
+    if (!canView) {
+        return (
+            <ForbiddenPage
+                missingPermission="udf:view"
+                message="You don't have permission to view UDFs."
+            />
+        );
+    }
 
     return (
         <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>

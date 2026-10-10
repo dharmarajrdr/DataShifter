@@ -316,7 +316,7 @@ Hybrid RBAC: `effective permissions = role permissions + user grants - user revo
 |-------|-------------|
 | Pipelines | `pipeline:create`, `pipeline:view`, `pipeline:edit`, `pipeline:delete`, `pipeline:run`, `pipeline:pause`, `pipeline:stop` |
 | Namespaces | `namespace:create`, `namespace:edit`, `namespace:delete` |
-| Connections | `connection:create`, `connection:edit`, `connection:delete`, `connection:test`, `connection:browse_schema` |
+| Connections | `connection:create`, `connection:view`, `connection:edit`, `connection:delete`, `connection:test`, `connection:browse_schema` |
 | Monitoring | `monitor:view`, `monitor:view_errors` |
 | Settings | `settings:edit` |
 | Organization | `org:manage_members`, `org:manage_roles`, `org:manage_invites`, `org:view_audit` |

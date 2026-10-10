@@ -33,6 +33,7 @@ public final class Permissions {
 
         // --- Connection ---
         public static final String CONNECTION_CREATE = "connection:create";
+        public static final String CONNECTION_VIEW = "connection:view";
         public static final String CONNECTION_EDIT = "connection:edit";
         public static final String CONNECTION_DELETE = "connection:delete";
         public static final String CONNECTION_TEST = "connection:test";
@@ -61,7 +62,7 @@ public final class Permissions {
                         PIPELINE_CREATE, PIPELINE_VIEW, PIPELINE_EDIT, PIPELINE_DELETE,
                         PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP,
                         NAMESPACE_CREATE, NAMESPACE_EDIT, NAMESPACE_DELETE,
-                        CONNECTION_CREATE, CONNECTION_EDIT, CONNECTION_DELETE,
+                        CONNECTION_CREATE, CONNECTION_VIEW, CONNECTION_EDIT, CONNECTION_DELETE,
                         CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
                         MONITOR_VIEW, MONITOR_VIEW_ERRORS,
                         SETTINGS_EDIT,
@@ -73,12 +74,12 @@ public final class Permissions {
                         PIPELINE_CREATE, PIPELINE_VIEW, PIPELINE_EDIT,
                         PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP,
                         NAMESPACE_CREATE, NAMESPACE_EDIT,
-                        CONNECTION_CREATE, CONNECTION_EDIT, CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
+                        CONNECTION_CREATE, CONNECTION_VIEW, CONNECTION_EDIT, CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
                         MONITOR_VIEW, MONITOR_VIEW_ERRORS,
                         SETTINGS_EDIT,
                         UDF_CREATE, UDF_VIEW);
 
         /** Default Viewer permissions */
         public static final List<String> VIEWER = List.of(
-                        PIPELINE_VIEW, MONITOR_VIEW, MONITOR_VIEW_ERRORS, CONNECTION_BROWSE_SCHEMA, UDF_VIEW);
+                        PIPELINE_VIEW, MONITOR_VIEW, MONITOR_VIEW_ERRORS, CONNECTION_VIEW, CONNECTION_BROWSE_SCHEMA, UDF_VIEW);
 }

@@ -2,7 +2,9 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
-const ProtectedRoute = ({ children, permission }) => {
+import { ForbiddenPage } from '../../pages/ErrorPage';
+
+const ProtectedRoute = ({ children, permission, anyOf }) => {
   const { isAuthenticated, hasOrg, hasPermission } = useAuth();
   const location = useLocation();
 
@@ -14,12 +16,30 @@ const ProtectedRoute = ({ children, permission }) => {
     return <Navigate to="/onboard" replace />;
   }
 
+  const getHomePath = () => {
+    if (hasPermission('pipeline:view')) return '/pipelines';
+    if (hasPermission('connection:view')) return '/connections';
+    if (hasPermission('udf:view')) return '/udfs';
+    return '/settings/org';
+  };
+
   if (permission && !hasPermission(permission)) {
     return (
-      <div style={{ padding: '60px', textAlign: 'center', color: '#6B6B6B' }}>
-        <p style={{ fontSize: '18px', fontWeight: 500, marginBottom: '8px' }}>Access denied</p>
-        <p style={{ fontSize: '14px' }}>You don't have permission to access this page.</p>
-      </div>
+      <ForbiddenPage
+        missingPermission={permission}
+        message="You don't have permission to access this page."
+        homePath={getHomePath()}
+      />
+    );
+  }
+
+  if (anyOf && anyOf.length > 0 && !anyOf.some(p => hasPermission(p))) {
+    return (
+      <ForbiddenPage
+        missingPermission={anyOf.join(' or ')}
+        message="You don't have permission to access this page."
+        homePath={getHomePath()}
+      />
     );
   }
 

@@ -123,9 +123,15 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<ApiResponse<?>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        String msg = ex.getMessage() != null ? ex.getMessage() : "Access denied";
+        java.util.Map<String, Object> info = null;
+        if (msg.contains("Missing permission: ")) {
+            String missing = msg.substring(msg.indexOf("Missing permission: ") + "Missing permission: ".length()).trim();
+            info = java.util.Map.of("missingPermission", missing);
+        }
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error("Access denied", 403));
+                .body(ApiResponse.error(msg, 403, info));
     }
 
     /**
