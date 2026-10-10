@@ -86,9 +86,15 @@ public class ConnectionPoolManager {
     // =========================================================================
 
     private HikariDataSource createPool(ConnectionConfig config, int maxPoolSize) {
-        String url = String.format(
-                "jdbc:postgresql://%s:%d/%s?reWriteBatchedInserts=true&ApplicationName=DataShifter",
-                config.getHost(), config.getPort(), config.getDatabaseName());
+        String url;
+        if (config.getDbType() == com.datashifter.common.enums.DatabaseType.ORACLE) {
+            url = String.format("jdbc:oracle:thin:@%s:%d/%s",
+                    config.getHost(), config.getPort() != null ? config.getPort() : 1521, config.getDatabaseName());
+        } else {
+            url = String.format(
+                    "jdbc:postgresql://%s:%d/%s?reWriteBatchedInserts=true&ApplicationName=DataShifter",
+                    config.getHost(), config.getPort(), config.getDatabaseName());
+        }
 
         HikariConfig hc = new HikariConfig();
         hc.setJdbcUrl(url);
@@ -104,14 +110,19 @@ public class ConnectionPoolManager {
         hc.setConnectionTimeout(10_000); // 10s to get a connection from pool
 
         // Performance settings
-        hc.addDataSourceProperty("prepStmtCacheSize", "250");
-        hc.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-        hc.addDataSourceProperty("cachePrepStmts", "true");
-        hc.addDataSourceProperty("useServerPrepStmts", "true");
+        if (config.getDbType() == com.datashifter.common.enums.DatabaseType.POSTGRESQL) {
+            hc.addDataSourceProperty("prepStmtCacheSize", "250");
+            hc.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+            hc.addDataSourceProperty("cachePrepStmts", "true");
+            hc.addDataSourceProperty("useServerPrepStmts", "true");
+        } else if (config.getDbType() == com.datashifter.common.enums.DatabaseType.ORACLE) {
+            hc.addDataSourceProperty("oracle.jdbc.implicitStatementCacheSize", "50");
+            hc.addDataSourceProperty("oracle.jdbc.defaultExecuteBatch", "1000");
+        }
 
-        log.info("Created connection pool [{}] for {}:{}/{} (max={}, idle={})",
+        log.info("Created connection pool [{}] for {}:{}/{} ({}, max={}, idle={})",
                 hc.getPoolName(), config.getHost(), config.getPort(), config.getDatabaseName(),
-                hc.getMaximumPoolSize(), hc.getMinimumIdle());
+                config.getDbType(), hc.getMaximumPoolSize(), hc.getMinimumIdle());
 
         return new HikariDataSource(hc);
     }

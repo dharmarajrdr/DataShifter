@@ -3,14 +3,21 @@ package com.datashifter.connector.spi.adapters.oracle;
 import com.datashifter.common.dtos.ConnectionDtos.*;
 import com.datashifter.common.enums.DatabaseType;
 import com.datashifter.common.exceptions.ConnectionException;
+import com.datashifter.connector.spi.adapters.postgres.ConnectionPoolManager;
 import com.datashifter.connector.spi.interfaces.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.sql.*;
 import java.util.*;
 
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class OracleConnector implements DatabaseConnector {
+
+    private final ConnectionPoolManager poolManager;
 
     @Override
     public DatabaseType getSupportedType() {
@@ -20,7 +27,8 @@ public class OracleConnector implements DatabaseConnector {
     @Override
     public long testConnection(ConnectionConfig config) {
         long start = System.currentTimeMillis();
-        try (java.sql.Connection conn = getJdbcConnection(config)) {
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
+        try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize)) {
             conn.createStatement().execute("SELECT 1 FROM DUAL");
         } catch (Exception e) {
             throw new ConnectionException("Oracle connection failed: " + e.getMessage(), e);
@@ -32,7 +40,8 @@ public class OracleConnector implements DatabaseConnector {
     public List<String> listTables(ConnectionConfig config) {
         List<String> tables = new ArrayList<>();
         String sql = "SELECT table_name FROM all_tables WHERE owner = ? ORDER BY table_name";
-        try (java.sql.Connection conn = getJdbcConnection(config);
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
+        try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, config.getSchemaName().toUpperCase());
             ResultSet rs = ps.executeQuery();
@@ -71,7 +80,8 @@ public class OracleConnector implements DatabaseConnector {
             WHERE c.owner = ? AND c.table_name = ?
             ORDER BY c.column_id
             """;
-        try (java.sql.Connection conn = getJdbcConnection(config);
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
+        try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             String schema = config.getSchemaName().toUpperCase();
             String table = tableName.toUpperCase();
@@ -104,7 +114,8 @@ public class OracleConnector implements DatabaseConnector {
             JOIN all_cons_columns b ON c_pk.constraint_name = b.constraint_name AND c_pk.owner = b.owner
             WHERE c.constraint_type = 'R' AND a.owner = ? AND a.table_name = ?
             """;
-        try (java.sql.Connection conn = getJdbcConnection(config);
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
+        try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, config.getSchemaName().toUpperCase());
             ps.setString(2, tableName.toUpperCase());
@@ -126,7 +137,8 @@ public class OracleConnector implements DatabaseConnector {
     @Override
     public long getEstimatedRowCount(ConnectionConfig config, String tableName) {
         String sql = "SELECT num_rows FROM all_tables WHERE owner = ? AND table_name = ?";
-        try (java.sql.Connection conn = getJdbcConnection(config);
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
+        try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, config.getSchemaName().toUpperCase());
             ps.setString(2, tableName.toUpperCase());
@@ -146,7 +158,8 @@ public class OracleConnector implements DatabaseConnector {
             WHERE cons.constraint_type = 'P' AND cons.owner = ? AND cons.table_name = ?
             ORDER BY cols.position FETCH FIRST 1 ROW ONLY
             """;
-        try (java.sql.Connection conn = getJdbcConnection(config);
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
+        try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, config.getSchemaName().toUpperCase());
             ps.setString(2, tableName.toUpperCase());
@@ -161,20 +174,29 @@ public class OracleConnector implements DatabaseConnector {
     @Override
     public List<Map<String, Object>> readChunk(ConnectionConfig config, String tableName,
                                                 String pkColumn, String lastPkValue, int chunkSize) {
-        List<Map<String, Object>> records = new ArrayList<>();
+        List<Map<String, Object>> records = new ArrayList<>(chunkSize);
         String sql = lastPkValue == null
                 ? String.format("SELECT * FROM %s.%s ORDER BY %s FETCH FIRST %d ROWS ONLY",
                     config.getSchemaName(), tableName, pkColumn, chunkSize)
                 : String.format("SELECT * FROM %s.%s WHERE %s > ? ORDER BY %s FETCH FIRST %d ROWS ONLY",
                     config.getSchemaName(), tableName, pkColumn, pkColumn, chunkSize);
-        try (java.sql.Connection conn = getJdbcConnection(config);
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
+        try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            if (lastPkValue != null) ps.setString(1, lastPkValue);
+            ps.setFetchSize(Math.min(chunkSize, 5000));
+            if (lastPkValue != null) {
+                try {
+                    ps.setLong(1, Long.parseLong(lastPkValue));
+                } catch (NumberFormatException e) {
+                    ps.setString(1, lastPkValue);
+                }
+            }
             ResultSet rs = ps.executeQuery();
             ResultSetMetaData meta = rs.getMetaData();
+            int colCount = meta.getColumnCount();
             while (rs.next()) {
-                Map<String, Object> row = new LinkedHashMap<>();
-                for (int i = 1; i <= meta.getColumnCount(); i++) {
+                Map<String, Object> row = new LinkedHashMap<>(colCount);
+                for (int i = 1; i <= colCount; i++) {
                     row.put(meta.getColumnName(i), rs.getObject(i));
                 }
                 records.add(row);
@@ -189,64 +211,107 @@ public class OracleConnector implements DatabaseConnector {
     public WriteResult writeBatch(ConnectionConfig config, String tableName,
                                    List<Map<String, Object>> records, String writeMode,
                                    String pkColumn) {
-        if (records.isEmpty()) return WriteResult.builder().build();
-        int success = 0;
-        List<WriteResult.FailedRecord> failures = new ArrayList<>();
-        String fullTable = config.getSchemaName() + "." + tableName;
+        if (records == null || records.isEmpty()) {
+            return WriteResult.builder().totalRecords(0).successCount(0).failureCount(0).build();
+        }
 
-        try (java.sql.Connection conn = getJdbcConnection(config)) {
+        String fullTable = config.getSchemaName() + "." + tableName;
+        Set<String> columnSet = records.get(0).keySet();
+        List<String> columns = new ArrayList<>(columnSet);
+        String sql = buildWriteSql(fullTable, columns, writeMode, pkColumn);
+
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
+        List<WriteResult.FailedRecord> failedRecords = new ArrayList<>();
+        int successCount = 0;
+
+        try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             conn.setAutoCommit(false);
-            Set<String> columnSet = records.get(0).keySet();
-            List<String> columns = new ArrayList<>(columnSet);
-            String sql = buildWriteSql(fullTable, columns, writeMode, pkColumn);
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                for (Map<String, Object> record : records) {
-                    try {
-                        int idx = 1;
-                        if ("UPSERT".equals(writeMode)) {
-                            // 1. SELECT ? AS col1, ? AS col2 ... FROM DUAL
-                            for (String col : columns) {
-                                ps.setObject(idx++, record.get(col));
-                            }
-                            // 2. WHEN MATCHED THEN UPDATE SET t.col = s.col (no parameters needed)
-                            // 3. WHEN NOT MATCHED THEN INSERT (...) VALUES (...) (no parameters needed)
-                        } else if ("UPDATE_ONLY".equals(writeMode)) {
-                            for (String col : columns) {
-                                if (!col.equalsIgnoreCase(pkColumn)) ps.setObject(idx++, record.get(col));
-                            }
-                            ps.setObject(idx++, record.get(pkColumn));
-                        } else {
-                            // INSERT_ONLY or INSERT_IGNORE
-                            for (String col : columns) {
-                                ps.setObject(idx++, record.get(col));
-                            }
-                        }
-                        ps.executeUpdate();
-                        success++;
-                    } catch (Exception e) {
-                        failures.add(WriteResult.FailedRecord.builder()
-                                .record(record).errorMessage(e.getMessage()).errorType("WRITE_ERROR").build());
+
+            for (Map<String, Object> record : records) {
+                int idx = 1;
+                if ("UPSERT".equals(writeMode)) {
+                    for (String col : columns) {
+                        ps.setObject(idx++, record.get(col));
+                    }
+                } else if ("UPDATE_ONLY".equals(writeMode)) {
+                    for (String col : columns) {
+                        if (!col.equalsIgnoreCase(pkColumn)) ps.setObject(idx++, record.get(col));
+                    }
+                    ps.setObject(idx++, record.get(pkColumn));
+                } else {
+                    for (String col : columns) {
+                        ps.setObject(idx++, record.get(col));
                     }
                 }
+                ps.addBatch();
+            }
+
+            try {
+                int[] results = ps.executeBatch();
                 conn.commit();
+                successCount = records.size();
+
+                for (int i = 0; i < results.length; i++) {
+                    if (results[i] == Statement.EXECUTE_FAILED) {
+                        successCount--;
+                        failedRecords.add(WriteResult.FailedRecord.builder()
+                                .record(records.get(i))
+                                .errorMessage("Row " + i + " failed in batch")
+                                .errorType("BATCH_ITEM_FAILED")
+                                .build());
+                    }
+                }
+            } catch (BatchUpdateException bue) {
+                try { conn.commit(); } catch (SQLException commitEx) {
+                    try { conn.rollback(); } catch (SQLException ignored) {}
+                }
+
+                int[] updateCounts = bue.getUpdateCounts();
+                if (updateCounts != null) {
+                    for (int i = 0; i < updateCounts.length; i++) {
+                        if (updateCounts[i] == Statement.EXECUTE_FAILED) {
+                            failedRecords.add(WriteResult.FailedRecord.builder()
+                                    .record(i < records.size() ? records.get(i) : Map.of())
+                                    .errorMessage(bue.getMessage())
+                                    .errorType("BATCH_WRITE_FAILED")
+                                    .build());
+                        } else {
+                            successCount++;
+                        }
+                    }
+                }
+
+                if (successCount == 0 && failedRecords.isEmpty()) {
+                    for (Map<String, Object> record : records) {
+                        failedRecords.add(WriteResult.FailedRecord.builder()
+                                .record(record)
+                                .errorMessage(bue.getMessage())
+                                .errorType("BATCH_WRITE_FAILED")
+                                .build());
+                    }
+                }
             } catch (Exception e) {
                 conn.rollback();
                 throw e;
             }
         } catch (Exception e) {
-            throw new ConnectionException("Batch write failed: " + e.getMessage(), e);
+            log.error("Oracle batch write failed: {}", e.getMessage());
+            for (Map<String, Object> record : records) {
+                failedRecords.add(WriteResult.FailedRecord.builder()
+                        .record(record)
+                        .errorMessage(e.getMessage())
+                        .errorType("WRITE_FAILED")
+                        .build());
+            }
         }
+
         return WriteResult.builder()
-                .totalRecords(records.size()).successCount(success)
-                .failureCount(failures.size()).failedRecords(failures).build();
-    }
-
-    /* --- Private helpers --- */
-
-    private java.sql.Connection getJdbcConnection(ConnectionConfig config) throws SQLException {
-        String url = String.format("jdbc:oracle:thin:@%s:%d/%s",
-                config.getHost(), config.getPort() != null ? config.getPort() : 1521, config.getDatabaseName());
-        return DriverManager.getConnection(url, config.getUsername(), config.getPassword());
+                .totalRecords(records.size())
+                .successCount(successCount)
+                .failureCount(failedRecords.size())
+                .failedRecords(failedRecords)
+                .build();
     }
 
     private String buildWriteSql(String table, List<String> columns, String writeMode, String pkColumn) {
