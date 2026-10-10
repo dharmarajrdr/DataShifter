@@ -178,15 +178,15 @@ public class ColumnMappingResolver {
                     ". At least one source→target mapping or system value is required.");
         }
 
-        // Check PK column is mapped (required for UPSERT and UPDATE_ONLY — not INSERT_ONLY)
-        if (!"INSERT_ONLY".equals(ttc.getWriteMode()) && ttc.getPrimaryKeyColumn() != null) {
+        // Check PK column is mapped (required for UPSERT and UPDATE_ONLY — not INSERT_ONLY or INSERT_IGNORE)
+        if (!"INSERT_ONLY".equals(ttc.getWriteMode()) && !"INSERT_IGNORE".equals(ttc.getWriteMode()) && ttc.getPrimaryKeyColumn() != null) {
             boolean pkMapped = ttc.getColumnMappings().stream()
                     .anyMatch(m -> (m.isMapped() || m.isTargetOnly()) &&
                               m.getTargetColumn().equalsIgnoreCase(ttc.getPrimaryKeyColumn()));
             if (!pkMapped) {
                 throw new DatashifterException(String.format(
                         "Write mode %s requires PK column '%s' to be mapped on table '%s'. " +
-                        "Either map a source column to '%s', or switch to INSERT_ONLY mode.",
+                        "Either map a source column to '%s', or switch to INSERT_ONLY / INSERT_IGNORE mode.",
                         ttc.getWriteMode(), ttc.getPrimaryKeyColumn(), ttc.getTargetTable(), ttc.getPrimaryKeyColumn()));
             }
         }

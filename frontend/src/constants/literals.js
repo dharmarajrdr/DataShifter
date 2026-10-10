@@ -141,14 +141,15 @@ export const SETTINGS = {
     logSourceRowDesc: 'Store the full source row data for every failed record',
   },
   perTable: {
-    title: 'Per-table write mode overrides',
-    subtitle: 'Override the default write mode for specific target tables',
+    title: 'Table write modes',
+    subtitle: 'Configure the write mode for each target table',
     targetTable: 'Target table',
     writeMode: 'Write mode',
-    override: 'Override',
+    override: 'Write mode',
   },
   writeModes: {
     INSERT_ONLY: { label: 'Insert only', desc: 'Fail if PK exists' },
+    INSERT_IGNORE: { label: 'Insert only', desc: 'Ignore if PK exists' },
     UPSERT: { label: 'Upsert', desc: 'Insert or update' },
     UPDATE_ONLY: { label: 'Update only', desc: 'Skip if not found' },
   },

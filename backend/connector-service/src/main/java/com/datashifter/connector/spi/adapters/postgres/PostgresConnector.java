@@ -266,6 +266,11 @@ public class PostgresConnector implements DatabaseConnector {
             case "INSERT_ONLY":
                 sql = buildInsertSql(qualifiedTable, columns);
                 break;
+            case "INSERT_IGNORE":
+                sql = (primaryKeyColumn != null && !primaryKeyColumn.isBlank())
+                        ? buildInsertIgnoreSql(qualifiedTable, columns, primaryKeyColumn)
+                        : buildInsertSql(qualifiedTable, columns);
+                break;
             case "UPSERT":
                 sql = buildUpsertSql(qualifiedTable, columns, primaryKeyColumn);
                 break;
@@ -394,6 +399,13 @@ public class PostgresConnector implements DatabaseConnector {
         String cols = String.join(", ", columns);
         String placeholders = columns.stream().map(c -> "?").collect(Collectors.joining(", "));
         return "INSERT INTO " + table + " (" + cols + ") VALUES (" + placeholders + ")";
+    }
+
+    private String buildInsertIgnoreSql(String table, List<String> columns, String pkColumn) {
+        String cols = String.join(", ", columns);
+        String placeholders = columns.stream().map(c -> "?").collect(Collectors.joining(", "));
+        return "INSERT INTO " + table + " (" + cols + ") VALUES (" + placeholders + ") " +
+               "ON CONFLICT (" + pkColumn + ") DO NOTHING";
     }
 
     private String buildUpsertSql(String table, List<String> columns, String pkColumn) {

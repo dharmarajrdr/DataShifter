@@ -25,25 +25,6 @@ const SettingRow = ({ label, description, children }) => (
   </div>
 );
 
-const WriteModeSelector = ({ selected, onChange }) => {
-  const modes = ['INSERT_ONLY', 'UPSERT', 'UPDATE_ONLY'];
-  return (
-    <div style={{ ...FRSC, gap: '6px' }}>
-      {modes.map(mode => {
-        const isActive = selected === mode;
-        const info = SETTINGS.writeModes[mode];
-        return (
-          <div key={mode} onClick={() => onChange(mode)}
-            style={{ flex: 1, padding: '10px', textAlign: 'center', cursor: 'pointer', border: isActive ? `2px solid ${COLORS.brand.primary}` : `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, background: isActive ? COLORS.accent.purpleLight : COLORS.background.primary }}>
-            <p style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: isActive ? COLORS.accent.purpleText : COLORS.text.primary }}>{info.label}</p>
-            <p style={{ fontSize: '10px', marginTop: '2px', color: isActive ? COLORS.brand.primary : COLORS.text.tertiary }}>{info.desc}</p>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
 const PipelineSettings = () => {
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -67,7 +48,7 @@ const PipelineSettings = () => {
       const overrides = {};
       (res.data.tables || []).forEach(pt => {
         (pt.targetMappings || []).forEach(ttm => {
-          overrides[ttm.id] = ttm.writeMode || res.data.defaultWriteMode || 'UPSERT';
+          overrides[ttm.id] = ttm.writeMode || 'UPSERT';
         });
       });
       setTableOverrides(overrides);
@@ -102,7 +83,7 @@ const PipelineSettings = () => {
     try {
       const payload = {
         name: settings.name, description: settings.description, chunkSize: settings.chunkSize,
-        defaultWriteMode: settings.defaultWriteMode, ignoreExceptions: settings.ignoreExceptions,
+        defaultWriteMode: settings.defaultWriteMode || 'UPSERT', ignoreExceptions: settings.ignoreExceptions,
         maxErrorThreshold: settings.maxErrorThreshold, logSourceRow: settings.logSourceRow,
         sourcePoolSize: settings.sourcePoolSize, targetPoolSize: settings.targetPoolSize,
         previewInflightRecords: settings.previewInflightRecords,
@@ -145,7 +126,7 @@ const PipelineSettings = () => {
   const allTargetMappings = [];
   (settings.tables || []).forEach(pt => {
     (pt.targetMappings || []).forEach(ttm => {
-      allTargetMappings.push({ ttmId: ttm.id, ptId: pt.id, sourceTable: pt.sourceTable, targetTable: ttm.targetTable, currentMode: tableOverrides[ttm.id] || settings.defaultWriteMode || 'UPSERT' });
+      allTargetMappings.push({ ttmId: ttm.id, ptId: pt.id, sourceTable: pt.sourceTable, targetTable: ttm.targetTable, currentMode: tableOverrides[ttm.id] || ttm.writeMode || 'UPSERT' });
     });
   });
 
@@ -264,10 +245,6 @@ const PipelineSettings = () => {
             </div>
             <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, marginTop: SPACING.xxs }}>{SETTINGS.processing.chunkHint}</p>
           </div>
-          <div style={{ marginBottom: SPACING.md }}>
-            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: SPACING.xs }}>{SETTINGS.processing.defaultWriteMode}</label>
-            <WriteModeSelector selected={settings.defaultWriteMode} onChange={v => update('defaultWriteMode', v)} />
-          </div>
 
           <Divider />
 
@@ -350,12 +327,40 @@ const PipelineSettings = () => {
                         <span style={{ fontWeight: FONT.weight.medium }}>{row.targetTable}</span>
                       </td>
                       <td style={{ padding: `${SPACING.xs} ${SPACING.sm}` }}>
-                        <select value={row.currentMode} onChange={e => updateTableWriteMode(row.ttmId, e.target.value)}
-                          style={{ padding: '4px 8px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs, background: '#fff' }}>
-                          <option value="INSERT_ONLY">INSERT_ONLY</option>
-                          <option value="UPSERT">UPSERT</option>
-                          <option value="UPDATE_ONLY">UPDATE_ONLY</option>
-                        </select>
+                        <div style={{ ...FRSC, gap: SPACING.xs, flexWrap: 'wrap' }}>
+                          <select
+                            value={(row.currentMode === 'INSERT_ONLY' || row.currentMode === 'INSERT_IGNORE') ? 'INSERT' : row.currentMode}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === 'INSERT') {
+                                updateTableWriteMode(row.ttmId, 'INSERT_IGNORE');
+                              } else {
+                                updateTableWriteMode(row.ttmId, val);
+                              }
+                            }}
+                            style={{ padding: '4px 8px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs, background: '#fff' }}
+                          >
+                            <option value="INSERT">Insert only</option>
+                            <option value="UPSERT">Upsert</option>
+                            <option value="UPDATE_ONLY">Update only</option>
+                          </select>
+
+                          {(row.currentMode === 'INSERT_ONLY' || row.currentMode === 'INSERT_IGNORE') && (
+                            <div style={{ ...FRSC, gap: '4px' }}>
+                              <label style={{ fontSize: '11px', color: COLORS.text.secondary, whiteSpace: 'nowrap' }}>
+                                If PK exists:
+                              </label>
+                              <select
+                                value={row.currentMode === 'INSERT_ONLY' ? 'Fail' : 'Ignore'}
+                                onChange={e => updateTableWriteMode(row.ttmId, e.target.value === 'Fail' ? 'INSERT_ONLY' : 'INSERT_IGNORE')}
+                                style={{ padding: '4px 8px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs, background: '#fff' }}
+                              >
+                                <option value="Ignore">Ignore</option>
+                                <option value="Fail">Fail</option>
+                              </select>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

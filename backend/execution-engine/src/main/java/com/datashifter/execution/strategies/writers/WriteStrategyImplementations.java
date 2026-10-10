@@ -49,6 +49,52 @@ class InsertOnlyStrategy implements WriteStrategy {
 }
 
 /**
+ * INSERT_IGNORE — inserts records. Ignores/skips records on PK or unique key conflicts.
+ *
+ * Use when:
+ *   - Loading into a target table that may already contain some records
+ *   - Duplicate PKs should be silently ignored (not treated as errors)
+ */
+@Component
+@Slf4j
+class InsertIgnoreStrategy implements WriteStrategy {
+
+    @Override
+    public WriteMode getMode() {
+        return WriteMode.INSERT_IGNORE;
+    }
+
+    @Override
+    public WriteResult write(DatabaseConnector connector, ConnectionConfig config,
+                              String targetTable, List<Map<String, Object>> records,
+                              String pkColumn) {
+        log.debug("INSERT_IGNORE: writing {} records to {}", records.size(), targetTable);
+        WriteResult result = connector.writeBatch(config, targetTable, records, "INSERT_IGNORE", pkColumn);
+
+        // Filter out duplicate key errors — for INSERT_IGNORE, duplicates are treated as skipped / ignored
+        List<WriteResult.FailedRecord> realFailures = result.getFailedRecords().stream()
+                .filter(f -> {
+                    String msg = f.getErrorMessage() != null ? f.getErrorMessage().toUpperCase() : "";
+                    boolean isDuplicate = msg.contains("UNIQUE") || msg.contains("DUPLICATE") || msg.contains("PRIMARY")
+                            || msg.contains("ORA-00001") || msg.contains("ALREADY_EXISTS");
+                    if (isDuplicate) {
+                        log.trace("INSERT_IGNORE: ignored duplicate record on PK/unique key in target {}", targetTable);
+                    }
+                    return !isDuplicate;
+                })
+                .collect(Collectors.toList());
+
+        int ignoredDuplicates = result.getFailedRecords().size() - realFailures.size();
+        return WriteResult.builder()
+                .totalRecords(result.getTotalRecords())
+                .successCount(result.getSuccessCount() + ignoredDuplicates)
+                .failureCount(realFailures.size())
+                .failedRecords(realFailures)
+                .build();
+    }
+}
+
+/**
  * UPSERT — inserts if PK doesn't exist, updates if it does.
  *
  * Use when:
