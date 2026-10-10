@@ -3,6 +3,7 @@ export { default as ColumnMappingBoard } from './ColumnMappingBoard';
 export { default as ConnectionsManager } from './ConnectionsManager';
 export { default as DocsPage } from './DocsPage';
 export { default as ErrorLogViewer } from './ErrorLogViewer';
+export { default as ErrorPage, ForbiddenPage, NotFoundPage, ServerErrorPage } from './ErrorPage';
 export { default as ForgotPasswordPage } from './ForgotPasswordPage';
 export { default as LiveMonitor } from './LiveMonitor';
 export { default as LoginPage } from './LoginPage';

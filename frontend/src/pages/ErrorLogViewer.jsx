@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC, FRWSC } from '../constants/layouts';
 import { ERRORS } from '../constants/literals';
-import { PageHeader, MetricCard, Button, Chip } from '../components/common';
+import { PageHeader, MetricCard, Button, Chip, ApiGuard, Loader } from '../components/common';
 import { errorApi } from '../services/api';
 
 const ERROR_TYPE_COLORS = {
@@ -222,6 +222,8 @@ const ExportDropdown = ({ errors, pipelineName }) => {
    ================================================================ */
 const ErrorLogViewer = () => {
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [filterTable, setFilterTable] = useState('all');
   const [filterType, setFilterType] = useState('all');
@@ -231,6 +233,7 @@ const ErrorLogViewer = () => {
   const navigate = useNavigate();
 
   const fetchErrors = useCallback(() => {
+    setLoading(true);
     errorApi.getByPipelineId(pipelineId, page, pageSize).then(res => {
       const raw = res.data;
       // Map API field names to frontend field names
@@ -247,15 +250,18 @@ const ErrorLogViewer = () => {
       }));
       const mappedTypes = (raw.errorsByType || []).map(et => ({ type: et.type, count: et.count }));
       setData({ ...raw, errors: mappedErrors, errorTypes: mappedTypes });
+      setError(null);
+    }).catch(err => {
+      setError(err);
+    }).finally(() => {
+      setLoading(false);
     });
   }, [pipelineId, page, pageSize]);
 
   useEffect(() => { fetchErrors(); }, [fetchErrors]);
 
-  if (!data) return null;
-
-  const allErrors = data.errors || [];
-  const totalErrors = data.totalErrors || 0;
+  const allErrors = data?.errors || [];
+  const totalErrors = data?.totalErrors || 0;
   const totalPages = Math.max(1, Math.ceil(totalErrors / pageSize));
 
   const filteredErrors = allErrors.filter(e => {
@@ -294,7 +300,9 @@ const ErrorLogViewer = () => {
   const endRow = Math.min((page + 1) * pageSize, totalErrors);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
+    <ApiGuard error={error} loading={loading && !data} onRetry={fetchErrors} loadingComponent={<Loader variant="line" />}>
+      {data && (
+        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
       <PageHeader
         breadcrumbs={[
           { label: data.pipelineName, onClick: () => navigate(`/pipelines/${pipelineId}/monitor`) },
@@ -400,6 +408,8 @@ const ErrorLogViewer = () => {
         </div>
       )}
     </div>
+      )}
+    </ApiGuard>
   );
 };
 

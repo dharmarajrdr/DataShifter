@@ -1,4 +1,5 @@
-import ErrorState from './ErrorState';
+import React from 'react';
+import { ForbiddenPage, NotFoundPage, ServerErrorPage } from '../../pages/ErrorPage';
 
 /**
  * Wraps page content with automatic error/loading handling.
@@ -15,11 +16,53 @@ import ErrorState from './ErrorState';
  *   );
  */
 const ApiGuard = ({ error, loading, onRetry, loadingComponent, children }) => {
-  if (error?.status === 403) return <ErrorState type="permission-denied" description={error.message} />;
-  if (error?.status === 0)   return <ErrorState type="network-error" onRetry={onRetry} />;
-  if (error?.status >= 500)  return <ErrorState type="server-down" onRetry={onRetry} />;
-  if (error)                 return <ErrorState type="generic" description={error.message} onRetry={onRetry} />;
-  if (loading)               return loadingComponent || null;
+  if (error) {
+    const status = Number(error.status || error?.response?.status) || 0;
+    const message = error.message || error?.response?.data?.message;
+    const missingPermission = error.info?.missingPermission || error?.response?.data?.info?.missingPermission;
+    const details = error.details || error?.response?.data?.details;
+
+    if (status === 403) {
+      return (
+        <ForbiddenPage
+          message={message}
+          missingPermission={missingPermission}
+          details={details}
+        />
+      );
+    }
+
+    if (status === 404) {
+      return (
+        <NotFoundPage
+          message={message}
+          onRetry={onRetry}
+          details={details}
+        />
+      );
+    }
+
+    if (status >= 500 || status === 0) {
+      return (
+        <ServerErrorPage
+          message={message}
+          onRetry={onRetry}
+          details={details}
+        />
+      );
+    }
+
+    return (
+      <ServerErrorPage
+        title="Something went wrong"
+        message={message}
+        onRetry={onRetry}
+        details={details}
+      />
+    );
+  }
+
+  if (loading) return loadingComponent || null;
   return <>{children}</>;
 };
 

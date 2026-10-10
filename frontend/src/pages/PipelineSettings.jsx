@@ -6,6 +6,7 @@ import { SETTINGS } from '../constants/literals';
 import { PageHeader, Button, Toggle, Chip } from '../components/common';
 import { settingsApi, connectionApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { ForbiddenPage } from './ErrorPage';
 
 const SectionTitle = ({ title, subtitle }) => (
   <div style={{ marginBottom: SPACING.md }}>
@@ -76,13 +77,10 @@ const PipelineSettings = () => {
 
   if (!canEditSettings || accessDenied) {
     return (
-      <div style={{ padding: '60px', textAlign: 'center', color: COLORS.text.secondary }}>
-        <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, marginBottom: SPACING.xs, color: COLORS.text.primary }}>Access denied</p>
-        <p style={{ fontSize: FONT.size.sm }}>You don't have permission to edit pipeline settings.</p>
-        <div style={{ marginTop: SPACING.md }}>
-          <Button variant="secondary" onClick={() => navigate('/pipelines')}>Back to Pipelines</Button>
-        </div>
-      </div>
+      <ForbiddenPage
+        missingPermission="settings:edit"
+        message="You don't have permission to edit pipeline settings."
+      />
     );
   }
 

@@ -4,6 +4,7 @@ import { FRSC, FRBC } from '../../constants/layouts';
 import { Button } from '../common';
 import { CloseIcon } from '../layout/Icons';
 import { connectionApi } from '../../services/api';
+import { ErrorPage } from '../../pages/ErrorPage';
 
 const SchemaDrawer = ({ connectionId, connectionName, onClose }) => {
   const [tables, setTables] = useState([]);
@@ -11,6 +12,7 @@ const SchemaDrawer = ({ connectionId, connectionName, onClose }) => {
   const [columns, setColumns] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [errorStatus, setErrorStatus] = useState(null);
 
   useEffect(() => {
     connectionApi.listTables(connectionId).then(res => {
@@ -18,6 +20,7 @@ const SchemaDrawer = ({ connectionId, connectionName, onClose }) => {
       setLoading(false);
     }).catch((err) => {
       setError(err.message || 'Failed to load tables');
+      setErrorStatus(err.status || err?.response?.status || 500);
       setLoading(false);
     });
   }, [connectionId]);
@@ -76,7 +79,14 @@ const SchemaDrawer = ({ connectionId, connectionName, onClose }) => {
         {loading ? (
           <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.text.secondary }}>Loading schema...</div>
         ) : error ? (
-          <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.status.errorText }}>{error}</div>
+          <ErrorPage
+            status={errorStatus || 500}
+            compact
+            message={error}
+            missingPermission={errorStatus === 403 ? 'connection:browse_schema' : undefined}
+            showBack={false}
+            showHome={false}
+          />
         ) : tables.length === 0 ? (
           <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.text.tertiary }}>No tables found</div>
         ) : (

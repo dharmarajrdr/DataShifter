@@ -7,5 +7,6 @@ export { default as Toggle } from './Toggle';
 export { default as Chip } from './Chip';
 export { default as SortableList } from './SortableList';
 export { default as ErrorState } from './ErrorState';
+export { default as ErrorPage, ForbiddenPage, NotFoundPage, ServerErrorPage } from '../../pages/ErrorPage';
 export { default as ApiGuard } from './ApiGuard';
 export { default as Loader } from './Loader';

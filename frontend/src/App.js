@@ -16,6 +16,9 @@ import {
   OnboardPage,
   OrgSettingsPage,
   PipelineDashboard,
+  ForbiddenPage,
+  NotFoundPage,
+  ServerErrorPage,
   PipelineSettings,
   PipelineWizard,
   ResetPasswordPage,
@@ -60,10 +63,15 @@ const App = () => (
           <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
           <Route path="/settings/roles" element={<SubscriptionGuard><ProtectedRoute permission="org:manage_roles"><RolesPage /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/profile" element={<UserProfile />} />
-        </Route>
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/pipelines" replace />} />
+          {/* Dedicated error pages */}
+          <Route path="/403" element={<ForbiddenPage />} />
+          <Route path="/404" element={<NotFoundPage />} />
+          <Route path="/500" element={<ServerErrorPage />} />
+
+          {/* Catch-all */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </Routes>
     </AuthProvider>
   </BrowserRouter>
