@@ -48,7 +48,7 @@ const PipelineSettings = () => {
       const overrides = {};
       (res.data.tables || []).forEach(pt => {
         (pt.targetMappings || []).forEach(ttm => {
-          overrides[ttm.id] = ttm.writeMode || res.data.defaultWriteMode || 'UPSERT';
+          overrides[ttm.id] = ttm.writeMode || 'UPSERT';
         });
       });
       setTableOverrides(overrides);
@@ -83,7 +83,7 @@ const PipelineSettings = () => {
     try {
       const payload = {
         name: settings.name, description: settings.description, chunkSize: settings.chunkSize,
-        defaultWriteMode: settings.defaultWriteMode, ignoreExceptions: settings.ignoreExceptions,
+        defaultWriteMode: settings.defaultWriteMode || 'UPSERT', ignoreExceptions: settings.ignoreExceptions,
         maxErrorThreshold: settings.maxErrorThreshold, logSourceRow: settings.logSourceRow,
         sourcePoolSize: settings.sourcePoolSize, targetPoolSize: settings.targetPoolSize,
         previewInflightRecords: settings.previewInflightRecords,
@@ -126,7 +126,7 @@ const PipelineSettings = () => {
   const allTargetMappings = [];
   (settings.tables || []).forEach(pt => {
     (pt.targetMappings || []).forEach(ttm => {
-      allTargetMappings.push({ ttmId: ttm.id, ptId: pt.id, sourceTable: pt.sourceTable, targetTable: ttm.targetTable, currentMode: tableOverrides[ttm.id] || settings.defaultWriteMode || 'UPSERT' });
+      allTargetMappings.push({ ttmId: ttm.id, ptId: pt.id, sourceTable: pt.sourceTable, targetTable: ttm.targetTable, currentMode: tableOverrides[ttm.id] || ttm.writeMode || 'UPSERT' });
     });
   });
 
@@ -244,10 +244,6 @@ const PipelineSettings = () => {
               <span style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, fontFamily: 'monospace', minWidth: '70px', textAlign: 'right' }}>{settings.chunkSize.toLocaleString()}</span>
             </div>
             <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, marginTop: SPACING.xxs }}>{SETTINGS.processing.chunkHint}</p>
-          </div>
-          <div style={{ marginBottom: SPACING.md }}>
-            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: SPACING.xs }}>{SETTINGS.processing.defaultWriteMode}</label>
-            <WriteModeSelector selected={settings.defaultWriteMode} onChange={v => update('defaultWriteMode', v)} />
           </div>
 
           <Divider />
