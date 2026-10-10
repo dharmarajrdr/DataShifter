@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC, FRWSC, FCSC } from '../constants/layouts';
+import { ApiGuard, Button, Chip, Loader, MetricCard, PageHeader, ProgressBar, StatusBadge } from '../components/common';
+import { FONT, SPACING } from '../constants/design';
+import { FCSE, FRBC, FRSC, FRWSC } from '../constants/layouts';
 import { MONITOR } from '../constants/literals';
-import { PageHeader, MetricCard, StatusBadge, ProgressBar, Button, Chip, ApiGuard, Loader } from '../components/common';
-import { monitorApi, pipelineApi } from '../services/api';
 import { useEventSource } from '../hooks/useEventSource';
+import { monitorApi, pipelineApi } from '../services/api';
 
 const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'];
 
-const PlayIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3.5 2l8 5-8 5V2z" fill="currentColor"/></svg>;
-const PauseIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="3" y="2" width="3" height="10" rx=".8" fill="currentColor"/><rect x="8" y="2" width="3" height="10" rx=".8" fill="currentColor"/></svg>;
-const StopIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2.5" y="2.5" width="9" height="9" rx="1.5" fill="currentColor"/></svg>;
-const CheckIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const RefreshIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 2.5v3.5h3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.8 6C3.4 3.8 5.3 2.2 7.5 2.2c2.8 0 5 2.2 5 5s-2.2 5-5 5c-1.8 0-3.3-.9-4.2-2.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>;
+const PlayIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3.5 2l8 5-8 5V2z" fill="currentColor" /></svg>;
+const PauseIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="3" y="2" width="3" height="10" rx=".8" fill="currentColor" /><rect x="8" y="2" width="3" height="10" rx=".8" fill="currentColor" /></svg>;
+const StopIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2.5" y="2.5" width="9" height="9" rx="1.5" fill="currentColor" /></svg>;
+const CheckIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+const RefreshIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 2.5v3.5h3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /><path d="M2.8 6C3.4 3.8 5.3 2.2 7.5 2.2c2.8 0 5 2.2 5 5s-2.2 5-5 5c-1.8 0-3.3-.9-4.2-2.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>;
 
 const getActions = (status) => {
   switch (status) {
@@ -60,9 +60,9 @@ const LiveMonitor = () => {
   const [error, setError] = useState(null);
 
   const fetchData = useCallback(async (showLoading = true) => {
-      if (showLoading) setLoading(true);
-      try { const r = await monitorApi.getByPipelineId(pipelineId); setData(r.data); }
-      catch (e) { setError(e); } finally { if (showLoading) setLoading(false); }
+    if (showLoading) setLoading(true);
+    try { const r = await monitorApi.getByPipelineId(pipelineId); setData(r.data); }
+    catch (e) { setError(e); } finally { if (showLoading) setLoading(false); }
   }, [pipelineId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -91,14 +91,14 @@ const LiveMonitor = () => {
         <PageHeader
           breadcrumbs={[{ label: data.pipelineName || 'Pipeline', onClick: () => navigate('/pipelines') }, { label: MONITOR.title }]}
           headerStyles={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACING.sm }}
-          actions={<div style={{ ...FCSC }}>
+          actions={<div style={{ ...FCSE }}>
             <div style={{ ...FRSC, gap: SPACING.sm }}>
               <Button variant="secondary" size="sm" onClick={() => navigate(`/pipelines/${pipelineId}/errors`)}>Error logs</Button>
               <Button variant="secondary" size="sm" onClick={() => navigate(`/pipelines/${pipelineId}/mapping`)}>Column mapping</Button>
               <Button variant="secondary" size="sm" onClick={() => navigate(`/pipelines/${pipelineId}/settings`)}>Settings</Button>
             </div>
             <div style={{ ...FRSC, gap: SPACING.sm, marginTop: SPACING.lg }}>
-              {data.status && data.status !== 'VALIDATED' && data.status !== 'NOT_VALIDATED' && (
+              {data.status && data.status !== 'VALIDATED' && data.status !== 'NOT_VALIDATED' && data.status !== 'INVALID' && (
                 <StatusBadge status={data.status} />
               )}
               {acts.map(a => <ActionBtn key={a.action} {...a} loading={actionLoading} onClick={handleAction} />)}
@@ -125,7 +125,7 @@ const LiveMonitor = () => {
           </div>
         )}
 
-        {data.status === 'NOT_VALIDATED' && (
+        {/* {data.status === 'NOT_VALIDATED' && (
           <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: '8px', padding: `${SPACING.sm} ${SPACING.md}`, marginBottom: SPACING.md }}>
             <div style={{ ...FRBC }}>
               <span style={{ fontSize: FONT.size.sm, fontWeight: 500, color: '#854F0B' }}>
@@ -136,16 +136,16 @@ const LiveMonitor = () => {
               </Button>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Connection bar */}
         <div style={{ ...FRBC, marginBottom: SPACING.md, padding: `${SPACING.xs} ${SPACING.md}`, background: '#F7F7F5', borderRadius: '8px' }}>
           <div style={{ ...FRSC, gap: SPACING.sm }}>
             <span style={{ fontSize: '12px', color: '#6B6B6B' }}>Live:</span>
             {connected ? <div style={{ ...FRSC, gap: '6px' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0F6E56', animation: 'pulse 2s infinite' }} /><span style={{ fontSize: '12px', color: '#0F6E56', fontWeight: 500 }}>Connected</span></div>
-            : exhausted ? <div style={{ ...FRSC, gap: '6px' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#A32D2D' }} /><span style={{ fontSize: '12px', color: '#A32D2D' }}>Disconnected</span><Button variant="secondary" size="sm" onClick={retry} style={{ fontSize: '11px', padding: '2px 8px' }}>Retry</Button></div>
-            : sseEnabled ? <div style={{ ...FRSC, gap: '6px' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#854F0B', animation: 'pulse 1.5s infinite' }} /><span style={{ fontSize: '12px', color: '#854F0B' }}>{reconnectCount > 0 ? `Reconnecting (${reconnectCount}/5)...` : 'Connecting...'}</span></div>
-            : <span style={{ fontSize: '12px', color: '#9B9B9B' }}>Inactive</span>}
+              : exhausted ? <div style={{ ...FRSC, gap: '6px' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#A32D2D' }} /><span style={{ fontSize: '12px', color: '#A32D2D' }}>Disconnected</span><Button variant="secondary" size="sm" onClick={retry} style={{ fontSize: '11px', padding: '2px 8px' }}>Retry</Button></div>
+                : sseEnabled ? <div style={{ ...FRSC, gap: '6px' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#854F0B', animation: 'pulse 1.5s infinite' }} /><span style={{ fontSize: '12px', color: '#854F0B' }}>{reconnectCount > 0 ? `Reconnecting (${reconnectCount}/5)...` : 'Connecting...'}</span></div>
+                  : <span style={{ fontSize: '12px', color: '#9B9B9B' }}>Inactive</span>}
           </div>
           <div style={{ ...FRSC, gap: SPACING.xs }}>
             {updateCount > 0 && <span style={{ fontSize: '11px', color: '#9B9B9B' }}>{updateCount} updates</span>}

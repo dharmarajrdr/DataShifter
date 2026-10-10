@@ -1148,7 +1148,7 @@ const ColumnMappingBoard = () => {
                   <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving}>
                     {validating ? 'Validating...' : 'Validate'}
                   </Button>
-                  {data?.status === 'INVALID' && <StatusBadge status="INVALID" />}
+                  {/* {data?.status === 'INVALID' && <StatusBadge status="INVALID" />} */}
                 </div>
               )}
               <Button variant="secondary" size="md" onClick={handleAutoMap}>Auto-map</Button>

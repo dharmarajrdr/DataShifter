@@ -53,6 +53,13 @@ export const FCSC = {
   alignItems: 'center',
 };
 
+export const FCSE = {
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'flex-start',
+  alignItems: 'flex-end',
+};
+
 export const FCSS = {
   display: 'flex',
   flexDirection: 'column',
