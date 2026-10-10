@@ -1082,6 +1082,7 @@ const ColumnMappingBoard = () => {
   }, [mappings, filters, sourceTables]);
 
   const handleSave = async () => {
+    if (!hasChanges || saving) return;
     // Validate but don't block — show warnings, allow partial save
     const warnings = validate();
     if (warnings.length > 0) {
@@ -1153,7 +1154,11 @@ const ColumnMappingBoard = () => {
               )}
               <Button variant="secondary" size="md" onClick={handleAutoMap}>Auto-map</Button>
               {mappings.length > 0 && <Button variant="secondary" size="md" onClick={handleClearAll}>Clear all</Button>}
-              <Button size="md" onClick={handleSave} style={{ ...(hasChanges ? {} : { opacity: 0.5 }), ...(saving ? { opacity: 0.6 } : {}) }}>
+              <Button
+                size="md"
+                onClick={handleSave}
+                disabled={!hasChanges || saving}
+              >
                 {saving ? 'Saving...' : hasChanges ? 'Save *' : LIT.saveMapping}
               </Button>
             </div>} />
