@@ -89,6 +89,8 @@ public class PipelineDtos {
         private String name;
         private String namespaceId;
         private String namespaceName;
+        private String sourceConnectionId;
+        private String targetConnectionId;
         private String sourceName;
         private String targetName;
         private PipelineStatus status;

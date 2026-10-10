@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC, FRBS } from '../constants/layouts';
-import { CONNECTION } from '../constants/literals';
-import { PageHeader, StatusBadge, Button, ApiGuard, Loader } from '../components/common';
-import { OracleIcon, PostgresIcon, SpannerIcon } from '../components/layout/Icons';
+import { useCallback, useEffect, useState } from 'react';
+import { ApiGuard, Button, Loader, PageHeader, StatusBadge } from '../components/common';
 import ConnectionFormModal from '../components/connections/ConnectionFormModal';
 import SchemaDrawer from '../components/connections/SchemaDrawer';
+import { OracleIcon, PostgresIcon, SpannerIcon } from '../components/layout/Icons';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { FRBS, FRSC } from '../constants/layouts';
+import { CONNECTION } from '../constants/literals';
 import { connectionApi } from '../services/api';
 
 /* ================================================================
@@ -51,6 +51,9 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  const isReferenced = (conn.pipelineCount || 0) > 0;
 
   const handleTest = async () => {
     setTesting(true);
@@ -62,9 +65,9 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
       const res = await connectionApi.test(conn.id);
       setTestResult(res.data);
       if (onUpdate) {
-        onUpdate(conn.id, { 
+        onUpdate(conn.id, {
           status: res.data.success ? 'CONNECTED' : 'FAILED',
-          error: res.data.success ? null : res.data.message 
+          error: res.data.success ? null : res.data.message
         });
       }
     } catch (e) {
@@ -78,11 +81,14 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
   };
 
   const handleDelete = async () => {
+    setDeleteError(null);
     try {
       await connectionApi.delete(conn.id);
       onDelete(conn.id);
     } catch (e) {
       console.error('Delete failed:', e);
+      setDeleteError(e.message || 'Failed to delete connection');
+      setConfirmDelete(false);
     }
   };
 
@@ -105,21 +111,22 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
 
       {/* Details */}
       <div style={{ ...FRSC, gap: SPACING.md, fontSize: FONT.size.xs, color: COLORS.text.secondary, marginBottom: SPACING.sm }}>
-        <span>Type: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.type}</span></span>
-        <span>Schema: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.schema}</span></span>
-        {conn.tableCount > 0 && (
-          <span>Tables: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.tableCount}</span></span>
+        <span>Type: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.dbType}</span></span>
+        <span>Schema: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.schemaName}</span></span>
+        <span>Tables: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.tableCount || '0'}</span></span>
+        {isReferenced && (
+          <span>Pipelines: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }} title={conn.referencedPipelines?.join(', ')}>{conn.pipelineCount}</span></span>
         )}
       </div>
 
       {/* Error */}
-      {conn.error && (
+      {(conn.error || deleteError) && (
         <div style={{
           background: COLORS.status.errorLight, borderRadius: BORDER_RADIUS.md,
           padding: `${SPACING.xs} 10px`, fontSize: FONT.size.xs, color: COLORS.status.errorText,
           marginBottom: SPACING.sm,
         }}>
-          {conn.error} Last tested {conn.lastTested ? new Date(conn.lastTested).toLocaleString() : 'never'}.
+          {deleteError || `${conn.error} Last tested ${conn.lastTested ? new Date(conn.lastTested).toLocaleString() : 'never'}.`}
         </div>
       )}
 
@@ -146,11 +153,19 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
         {conn.status === 'CONNECTED' && (
           <Button variant="secondary" size="sm" onClick={() => onBrowse(conn)}>{CONNECTION.browseSchema}</Button>
         )}
-        <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>{CONNECTION.delete}</Button>
+        <Button
+          variant="danger"
+          size="sm"
+          disabled={isReferenced}
+          title={isReferenced ? `Cannot delete: referenced by ${conn.referencedPipelines?.length ? conn.referencedPipelines.join(', ') : `${conn.pipelineCount} pipeline(s)`}` : undefined}
+          onClick={() => setConfirmDelete(true)}
+        >
+          {CONNECTION.delete}
+        </Button>
       </div>
 
       {/* Delete confirmation */}
-      {confirmDelete && (
+      {confirmDelete && !isReferenced && (
         <DeleteConfirm onConfirm={handleDelete} onCancel={() => setConfirmDelete(false)} />
       )}
     </div>
@@ -231,13 +246,13 @@ const ConnectionsManager = () => {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sm }}>
             {connections.map(conn => (
-              <ConnectionCard 
-                key={conn.id} 
-                conn={conn} 
-                onEdit={openEdit} 
-                onDelete={handleDelete} 
+              <ConnectionCard
+                key={conn.id}
+                conn={conn}
+                onEdit={openEdit}
+                onDelete={handleDelete}
                 onUpdate={handleUpdateStatus}
-                onBrowse={setBrowsingConn} 
+                onBrowse={setBrowsingConn}
               />
             ))}
           </div>

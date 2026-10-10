@@ -33,9 +33,9 @@ export const MOCK_PIPELINES = [
 ];
 
 export const MOCK_CONNECTIONS = [
-  { id: 'c-001', name: 'Oracle production', type: 'Oracle 19c', dbType: 'ORACLE', host: 'oracle-prod.company.com:1521', schema: 'PROD_SCHEMA', tableCount: 142, status: 'CONNECTED', lastTested: '2026-04-16T08:00:00Z', error: null },
-  { id: 'c-002', name: 'Spanner US-East', type: 'Cloud Spanner', dbType: 'SPANNER', host: 'projects/myproj/instances/us-east1', schema: 'orders-db', tableCount: 89, status: 'CONNECTED', lastTested: '2026-04-16T08:00:00Z', error: null },
-  { id: 'c-003', name: 'Oracle staging', type: 'Oracle 19c', dbType: 'ORACLE', host: 'oracle-stg.company.com:1521', schema: 'STG_SCHEMA', tableCount: 0, status: 'FAILED', lastTested: '2026-04-16T06:00:00Z', error: 'Connection refused: timeout after 30s.' },
+  { id: 'c-001', name: 'Oracle production', type: 'Oracle 19c', dbType: 'ORACLE', host: 'oracle-prod.company.com:1521', schema: 'PROD_SCHEMA', tableCount: 142, status: 'CONNECTED', lastTested: '2026-04-16T08:00:00Z', error: null, pipelineCount: 3, referencedPipelines: ['Orders migration', 'Inventory transfer', 'Customer 360 load'] },
+  { id: 'c-002', name: 'Spanner US-East', type: 'Cloud Spanner', dbType: 'SPANNER', host: 'projects/myproj/instances/us-east1', schema: 'orders-db', tableCount: 89, status: 'CONNECTED', lastTested: '2026-04-16T08:00:00Z', error: null, pipelineCount: 3, referencedPipelines: ['Orders migration', 'Inventory transfer', 'Customer 360 load'] },
+  { id: 'c-003', name: 'Oracle staging', type: 'Oracle 19c', dbType: 'ORACLE', host: 'oracle-stg.company.com:1521', schema: 'STG_SCHEMA', tableCount: 0, status: 'FAILED', lastTested: '2026-04-16T06:00:00Z', error: 'Connection refused: timeout after 30s.', pipelineCount: 1, referencedPipelines: ['User profiles sync'] },
 ];
 
 export const MOCK_UDFS = [
@@ -211,9 +211,16 @@ export const connectionApi = {
     ? mockResponse({ ...MOCK_CONNECTIONS.find(c => c.id === id), ...payload })
     : apiClient.put(`/connections/${id}`, payload),
 
-  delete: (id) => USE_MOCK
-    ? mockResponse(null)
-    : apiClient.delete(`/connections/${id}`),
+  delete: (id) => {
+    if (USE_MOCK) {
+      const conn = MOCK_CONNECTIONS.find(c => c.id === id);
+      if (conn && conn.pipelineCount > 0) {
+        return Promise.reject(new Error(`Cannot delete connection '${conn.name}': referenced by ${conn.pipelineCount} pipeline(s).`));
+      }
+      return mockResponse(null);
+    }
+    return apiClient.delete(`/connections/${id}`);
+  },
 
   test: (id) => USE_MOCK
     ? mockResponse({ success: true, message: 'Connected successfully', tableCount: 142, latencyMs: 45 })

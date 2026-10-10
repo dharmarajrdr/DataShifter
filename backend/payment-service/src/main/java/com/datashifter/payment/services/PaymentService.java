@@ -14,7 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -207,7 +208,60 @@ public class PaymentService {
                 .currency(p.getCurrency()).maxPipelines(p.getMaxPipelines()).maxConnections(p.getMaxConnections())
                 .maxRowsPerMonth(p.getMaxRowsPerMonth()).maxMembers(p.getMaxMembers())
                 .parallelPipelines(p.getParallelPipelines()).supportLevel(p.getSupportLevel())
-                .featured(p.getIsFeatured()).displayOrder(p.getDisplayOrder()).build();
+                .featured(p.getIsFeatured()).displayOrder(p.getDisplayOrder())
+                .features(generateFeatures(p))
+                .build();
+    }
+
+    public static List<String> generateFeatures(Plan p) {
+        List<String> list = new ArrayList<>();
+        if (p.getMaxPipelines() != null) {
+            list.add(p.getMaxPipelines() == -1 ? "Unlimited pipelines" :
+                    p.getMaxPipelines() + (p.getMaxPipelines() == 1 ? " pipeline" : " pipelines"));
+        }
+        if (p.getMaxConnections() != null) {
+            list.add(p.getMaxConnections() == -1 ? "Unlimited connections" :
+                    p.getMaxConnections() + (p.getMaxConnections() == 1 ? " connection" : " connections"));
+        }
+        if (p.getMaxRowsPerMonth() != null) {
+            list.add(p.getMaxRowsPerMonth() == -1 ? "Unlimited rows" :
+                    formatRows(p.getMaxRowsPerMonth()) + " rows/month");
+        }
+        if (p.getMaxMembers() != null) {
+            list.add(p.getMaxMembers() == -1 ? "Unlimited members" :
+                    p.getMaxMembers() + (p.getMaxMembers() == 1 ? " member" : " members"));
+        }
+        if (p.getParallelPipelines() != null) {
+            if (p.getParallelPipelines() == -1) {
+                list.add("Unlimited parallel runs");
+            } else if (p.getParallelPipelines() > 1) {
+                list.add(p.getParallelPipelines() + " parallel runs");
+            }
+        }
+        if (p.getSupportLevel() != null && !p.getSupportLevel().isBlank()) {
+            list.add(formatSupportLevel(p.getSupportLevel()));
+        }
+        return list;
+    }
+
+    private static String formatRows(long rows) {
+        if (rows >= 1_000_000_000L) return (rows / 1_000_000_000L) + "B";
+        if (rows >= 1_000_000L) return (rows / 1_000_000L) + "M";
+        if (rows >= 1_000L) return (rows / 1_000L) + "K";
+        return String.valueOf(rows);
+    }
+
+    private static String formatSupportLevel(String level) {
+        return switch (level.toUpperCase()) {
+            case "COMMUNITY" -> "Community support";
+            case "EMAIL" -> "Email support";
+            case "PRIORITY" -> "Priority support";
+            case "DEDICATED" -> "Dedicated support";
+            case "DEDICATED_24X7", "DEDICATED_24x7" -> "24/7 dedicated support";
+            default -> Arrays.stream(level.split("_"))
+                    .map(w -> w.substring(0, 1).toUpperCase() + w.substring(1).toLowerCase())
+                    .collect(Collectors.joining(" ")) + " support";
+        };
     }
 
     private SubscriptionResponse toSubscriptionResponse(Subscription s) {

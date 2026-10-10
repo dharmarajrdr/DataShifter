@@ -520,6 +520,8 @@ public class PipelineServiceImpl implements PipelineService {
 
         return PipelineSummaryResponse.builder()
                 .id(e.getId()).name(e.getName()).status(e.getStatus())
+                .sourceConnectionId(e.getSourceConnectionId())
+                .targetConnectionId(e.getTargetConnectionId())
                 .progress(progress)
                 .validationErrors(mappingService.parseValidationErrors(e.getValidationErrors()))
                 .tableCount(e.getPipelineTables().size()).createdAt(e.getCreatedAt())

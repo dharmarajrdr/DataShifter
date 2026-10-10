@@ -26,12 +26,54 @@ const STATUS_COLORS = {
   EXPIRED: { bg: COLORS.status.errorLight, text: COLORS.status.errorText },
 };
 
-const PLAN_FEATURES = {
-  Free: ['2 pipelines', '2 connections', '50K rows/month', '2 members', 'Community support'],
-  Starter: ['10 pipelines', '10 connections', '5M rows/month', '5 members', '2 parallel runs', 'Email support'],
-  Pro: ['50 pipelines', '50 connections', '100M rows/month', '20 members', '5 parallel runs', 'Priority support'],
-  Business: ['200 pipelines', '200 connections', '1B rows/month', '50 members', '10 parallel runs', 'Dedicated support'],
-  Enterprise: ['Unlimited pipelines', 'Unlimited connections', 'Unlimited rows', 'Unlimited members', 'Unlimited parallel runs', '24/7 dedicated support'],
+const formatRows = (rows) => {
+  if (rows === -1 || rows === null || rows === undefined) return 'Unlimited rows';
+  if (rows >= 1_000_000_000) return `${rows / 1_000_000_000}B rows/month`;
+  if (rows >= 1_000_000) return `${rows / 1_000_000}M rows/month`;
+  if (rows >= 1_000) return `${rows / 1_000}K rows/month`;
+  return `${rows} rows/month`;
+};
+
+const formatSupportLevel = (level) => {
+  if (!level) return null;
+  switch (level.toUpperCase()) {
+    case 'COMMUNITY': return 'Community support';
+    case 'EMAIL': return 'Email support';
+    case 'PRIORITY': return 'Priority support';
+    case 'DEDICATED': return 'Dedicated support';
+    case 'DEDICATED_24X7':
+    case 'DEDICATED_24x7': return '24/7 dedicated support';
+    default:
+      return `${level.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())} support`;
+  }
+};
+
+const getPlanFeatures = (plan) => {
+  if (plan.features && Array.isArray(plan.features) && plan.features.length > 0) {
+    return plan.features;
+  }
+  const f = [];
+  if (plan.maxPipelines !== undefined && plan.maxPipelines !== null) {
+    f.push(plan.maxPipelines === -1 ? 'Unlimited pipelines' : `${plan.maxPipelines} pipeline${plan.maxPipelines === 1 ? '' : 's'}`);
+  }
+  if (plan.maxConnections !== undefined && plan.maxConnections !== null) {
+    f.push(plan.maxConnections === -1 ? 'Unlimited connections' : `${plan.maxConnections} connection${plan.maxConnections === 1 ? '' : 's'}`);
+  }
+  if (plan.maxRowsPerMonth !== undefined && plan.maxRowsPerMonth !== null) {
+    f.push(formatRows(plan.maxRowsPerMonth));
+  }
+  if (plan.maxMembers !== undefined && plan.maxMembers !== null) {
+    f.push(plan.maxMembers === -1 ? 'Unlimited members' : `${plan.maxMembers} member${plan.maxMembers === 1 ? '' : 's'}`);
+  }
+  if (plan.parallelPipelines !== undefined && plan.parallelPipelines !== null) {
+    if (plan.parallelPipelines === -1) f.push('Unlimited parallel runs');
+    else if (plan.parallelPipelines > 1) f.push(`${plan.parallelPipelines} parallel runs`);
+  }
+  if (plan.supportLevel) {
+    const s = formatSupportLevel(plan.supportLevel);
+    if (s) f.push(s);
+  }
+  return f;
 };
 
 /* ================================================================
@@ -40,7 +82,7 @@ const PLAN_FEATURES = {
 const PlanCard = ({ plan, cycle, currentPlanId, onSelect, selecting }) => {
   const isCurrent = plan.id === currentPlanId;
   const price = cycle === 'MONTHLY' ? plan.priceMonthly : cycle === 'HALF_YEARLY' ? plan.priceHalfYearly : plan.priceYearly;
-  const features = PLAN_FEATURES[plan.name] || [];
+  const features = getPlanFeatures(plan);
 
   return (
     <div style={{

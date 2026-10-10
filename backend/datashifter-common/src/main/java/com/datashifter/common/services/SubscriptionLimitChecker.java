@@ -3,6 +3,7 @@ package com.datashifter.common.services;
 import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.models.Plan;
 import com.datashifter.common.models.Subscription;
+import com.datashifter.common.repositories.CommonPlanRepository;
 import com.datashifter.common.repositories.CommonSubscriptionRepository;
 import lombok.Builder;
 import lombok.Getter;
@@ -35,12 +36,23 @@ import java.util.Optional;
 public class SubscriptionLimitChecker {
 
     private final CommonSubscriptionRepository subscriptionRepository;
+    private final CommonPlanRepository planRepository;
 
     @Transactional(readOnly = true)
     public PlanLimits getLimits(String orgId) {
         Optional<Subscription> sub = subscriptionRepository.findActiveWithPlan(orgId);
         if (sub.isEmpty()) {
-            return PlanLimits.FREE_TIER;
+            return planRepository.findFreePlan()
+                    .map(plan -> PlanLimits.builder()
+                            .planName(plan.getName())
+                            .maxPipelines(plan.getMaxPipelines() != null ? plan.getMaxPipelines() : -1)
+                            .maxConnections(plan.getMaxConnections() != null ? plan.getMaxConnections() : -1)
+                            .maxRowsPerMonth(plan.getMaxRowsPerMonth() != null ? plan.getMaxRowsPerMonth() : -1L)
+                            .maxMembers(plan.getMaxMembers() != null ? plan.getMaxMembers() : -1)
+                            .parallelPipelines(plan.getParallelPipelines() != null ? plan.getParallelPipelines() : -1)
+                            .active(false)
+                            .build())
+                    .orElse(PlanLimits.FREE_TIER);
         }
         Plan plan = sub.get().getPlan();
         return PlanLimits.builder()
@@ -126,7 +138,7 @@ public class SubscriptionLimitChecker {
         public static final PlanLimits FREE_TIER = PlanLimits.builder()
                 .planName("Free")
                 .maxPipelines(2)
-                .maxConnections(2)
+                .maxConnections(4)
                 .maxRowsPerMonth(50_000L)
                 .maxMembers(2)
                 .parallelPipelines(1)

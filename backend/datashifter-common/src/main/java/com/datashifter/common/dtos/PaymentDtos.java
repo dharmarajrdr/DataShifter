@@ -30,6 +30,7 @@ public class PaymentDtos {
         private String supportLevel;
         private boolean featured;
         private int displayOrder;
+        private List<String> features;
     }
 
     // ================================================================
