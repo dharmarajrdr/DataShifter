@@ -7,6 +7,7 @@ import { MONITOR } from '../constants/literals';
 import { useEventSource } from '../hooks/useEventSource';
 import { monitorApi, pipelineApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { ForbiddenPage } from './ErrorPage';
 
 const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'];
 
@@ -63,6 +64,9 @@ const ActionBtn = ({ action, label, Icon, variant, loading, onClick, disabled, t
 const LiveMonitor = () => {
   const { pipelineId } = useParams();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canViewPipeline = hasPermission('pipeline:view');
+  const canViewMonitor = hasPermission('monitor:view');
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -70,10 +74,14 @@ const LiveMonitor = () => {
   const [error, setError] = useState(null);
 
   const fetchData = useCallback(async (showLoading = true) => {
+    if (!canViewPipeline || !canViewMonitor) {
+      if (showLoading) setLoading(false);
+      return;
+    }
     if (showLoading) setLoading(true);
     try { const r = await monitorApi.getByPipelineId(pipelineId); setData(r.data); }
     catch (e) { setError(e); } finally { if (showLoading) setLoading(false); }
-  }, [pipelineId]);
+  }, [pipelineId, canViewPipeline, canViewMonitor]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -85,7 +93,6 @@ const LiveMonitor = () => {
     onError: (ev) => { setData(p => p ? { ...p, errorsSkipped: (p.errorsSkipped || 0) + 1 } : p); },
   });
 
-  const { hasPermission } = useAuth();
   const canRun = hasPermission('pipeline:run');
   const canPause = hasPermission('pipeline:pause');
   const canStop = hasPermission('pipeline:stop');
@@ -120,6 +127,24 @@ const LiveMonitor = () => {
   const tColor = (s) => s === 'COMPLETED' ? 'purple' : s === 'RUNNING' ? 'teal' : 'default';
   const iCols = data.inflightRecords?.length > 0 ? Object.keys(data.inflightRecords[0]) : [];
   const acts = getActions(data.status);
+
+  if (!canViewPipeline) {
+    return (
+      <ForbiddenPage
+        missingPermission="pipeline:view"
+        message="You don't have permission to view pipelines."
+      />
+    );
+  }
+
+  if (!canViewMonitor) {
+    return (
+      <ForbiddenPage
+        missingPermission="monitor:view"
+        message="You don't have permission to view pipeline monitor."
+      />
+    );
+  }
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>

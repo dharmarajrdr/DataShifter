@@ -29,6 +29,7 @@ const SettingRow = ({ label, description, children }) => (
 
 const PipelineSettings = () => {
   const { hasPermission } = useAuth();
+  const canViewPipeline = hasPermission('pipeline:view');
   const canEditSettings = hasPermission('settings:edit');
   const [accessDenied, setAccessDenied] = useState(false);
   const [settings, setSettings] = useState(null);
@@ -48,7 +49,7 @@ const PipelineSettings = () => {
   const [addingTable, setAddingTable] = useState(false);
 
   const fetchSettings = useCallback(() => {
-    if (!canEditSettings) return;
+    if (!canViewPipeline || !canEditSettings) return;
     settingsApi.getByPipelineId(pipelineId).then(res => {
       setSettings(res.data);
       const overrides = {};
@@ -71,9 +72,18 @@ const PipelineSettings = () => {
         setAccessDenied(true);
       }
     });
-  }, [pipelineId, canEditSettings]);
+  }, [pipelineId, canViewPipeline, canEditSettings]);
 
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
+
+  if (!canViewPipeline) {
+    return (
+      <ForbiddenPage
+        missingPermission="pipeline:view"
+        message="You don't have permission to view pipelines."
+      />
+    );
+  }
 
   if (!canEditSettings || accessDenied) {
     return (

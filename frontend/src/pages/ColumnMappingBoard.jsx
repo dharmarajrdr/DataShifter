@@ -9,6 +9,7 @@ import { FRBC, FREC, FRSC, FRWSC } from '../constants/layouts';
 import { MAPPING as LIT } from '../constants/literals';
 import { mappingApi, pipelineApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { ForbiddenPage } from './ErrorPage';
 
 const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];
 
@@ -929,11 +930,16 @@ const ColumnMappingBoard = () => {
   const { pipelineId } = useParams();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
+  const canViewPipeline = hasPermission('pipeline:view');
   const canEdit = hasPermission('pipeline:edit');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!canViewPipeline) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       setLoading(true);
       try {
@@ -973,7 +979,7 @@ const ColumnMappingBoard = () => {
         setFilters(loadedFilters);
       } catch (err) { setError(err); } finally { setLoading(false); }
     })();
-  }, [pipelineId]);
+  }, [pipelineId, canViewPipeline]);
 
   useEffect(() => { const h = e => { if (hasChanges) { e.preventDefault(); e.returnValue = 'Unsaved mappings.'; return e.returnValue; } }; window.addEventListener('beforeunload', h); return () => window.removeEventListener('beforeunload', h); }, [hasChanges]);
 
@@ -1148,6 +1154,15 @@ const ColumnMappingBoard = () => {
 
   const unmappedReq = targetTables.reduce((n, tt) => { const mp = new Set(mappings.filter(m => m.target.startsWith(tt.tableName + '.')).map(m => m.target.split('.')[1])); return n + (tt.columns || []).filter(c => !c.nullable && !mp.has(c.name)).length; }, 0);
   const totalFilters = Object.values(filters).flat().length;
+
+  if (!canViewPipeline) {
+    return (
+      <ForbiddenPage
+        missingPermission="pipeline:view"
+        message="You don't have permission to view pipelines."
+      />
+    );
+  }
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<Loader message="Loading mappings..." />}>
