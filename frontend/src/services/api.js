@@ -189,6 +189,18 @@ export const pipelineApi = {
   performAction: (id, action) => USE_MOCK
     ? mockResponse({ ...MOCK_PIPELINES.find(p => p.id === id), status: action === 'START' ? 'RUNNING' : action === 'PAUSE' ? 'PAUSED' : 'ERRORED' })
     : apiClient.post(`/pipelines/${id}/actions`, { action }),
+
+  export: (id) => USE_MOCK
+    ? mockResponse({ version: 1, pipeline: { name: 'Mock Export', sourceConnectionName: 'Oracle prod', targetConnectionName: 'Spanner US' } })
+    : apiClient.get(`/pipelines/${id}/export`),
+
+  import: (payload) => USE_MOCK
+    ? mockResponse({ success: true, pipelineId: 'p-new-' + Date.now(), pipelineName: payload?.pipeline?.name || 'Imported Pipeline', createdConnectionNames: [], existingConnectionNames: [], tablesCount: 1, columnMappingsCount: 1, transformationsCount: 0, warnings: [], errors: [] })
+    : apiClient.post('/pipelines/import', payload),
+
+  rollback: (payload) => USE_MOCK
+    ? mockResponse({ success: true, message: 'Rolled back mock import' })
+    : apiClient.post('/pipelines/rollback', payload),
 };
 
 /* ----- CONNECTIONS (connector-service via gateway:8080) ----- */

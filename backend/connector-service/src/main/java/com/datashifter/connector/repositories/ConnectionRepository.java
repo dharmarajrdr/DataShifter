@@ -17,4 +17,7 @@ public interface ConnectionRepository extends JpaRepository<Connection, String> 
 
     @Query("SELECT c FROM Connection c WHERE c.createdBy.organization.id = :orgId")
     List<Connection> findByOrgId(@Param("orgId") String orgId);
+
+    @Query("SELECT c FROM Connection c WHERE c.name = :name AND c.createdBy.organization.id = :orgId")
+    java.util.Optional<Connection> findByNameAndOrgId(@Param("name") String name, @Param("orgId") String orgId);
 }

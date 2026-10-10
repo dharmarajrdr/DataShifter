@@ -7,6 +7,7 @@ import { MONITOR } from '../constants/literals';
 import { useEventSource } from '../hooks/useEventSource';
 import { monitorApi, pipelineApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { ForbiddenPage } from './ErrorPage';
 
 const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'];
@@ -65,13 +66,43 @@ const LiveMonitor = () => {
   const { pipelineId } = useParams();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
+  const notification = useNotification();
   const canViewPipeline = hasPermission('pipeline:view');
   const canViewMonitor = hasPermission('monitor:view');
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
   const [updateCount, setUpdateCount] = useState(0);
   const [error, setError] = useState(null);
+
+  const handleExportPipeline = async () => {
+    if (data?.status !== 'VALIDATED') {
+      notification.warning('Pipeline must be in VALIDATED state before it can be exported.');
+      return;
+    }
+    setExportLoading(true);
+    try {
+      const res = await pipelineApi.export(pipelineId);
+      const exportData = res.data;
+      const jsonStr = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const sanitizedName = (data.pipelineName || 'pipeline').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      link.download = `${sanitizedName}-config.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      notification.success('Pipeline exported successfully');
+    } catch (err) {
+      notification.error(err.message || 'Failed to export pipeline');
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   const fetchData = useCallback(async (showLoading = true) => {
     if (!canViewPipeline || !canViewMonitor) {
@@ -191,6 +222,15 @@ const LiveMonitor = () => {
                   />
                 );
               })}
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={data.status !== 'VALIDATED' || exportLoading}
+                title={data.status !== 'VALIDATED' ? 'Export is available only after pipeline is validated' : 'Export pipeline configuration as JSON'}
+                onClick={handleExportPipeline}
+              >
+                {exportLoading ? 'Exporting...' : 'Export Pipeline'}
+              </Button>
             </div>
           </div>}
         />

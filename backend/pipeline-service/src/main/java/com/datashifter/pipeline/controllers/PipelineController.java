@@ -62,4 +62,22 @@ public class PipelineController {
                                                         @Valid @RequestBody PipelineActionRequest action) {
         return ApiResponse.success(pipelineService.performAction(id, action));
     }
+
+    @GetMapping("/{id}/export")
+    @RequiresPermission(Permissions.PIPELINE_VIEW)
+    public ApiResponse<PipelineExportDto> exportPipeline(@PathVariable String id) {
+        return ApiResponse.success(pipelineService.exportPipeline(id), "Pipeline configuration exported");
+    }
+
+    @PostMapping("/import")
+    @RequiresPermission(Permissions.PIPELINE_CREATE)
+    public ApiResponse<PipelineImportResultDto> importPipeline(@RequestBody PipelineExportDto exportDto) {
+        return ApiResponse.success(pipelineService.importPipeline(exportDto), "Pipeline imported");
+    }
+
+    @PostMapping("/rollback")
+    @RequiresPermission(Permissions.PIPELINE_CREATE)
+    public ApiResponse<PipelineRollbackResultDto> rollbackImport(@RequestBody PipelineRollbackRequest rollbackRequest) {
+        return ApiResponse.success(pipelineService.rollbackImport(rollbackRequest), "Import session rolled back");
+    }
 }

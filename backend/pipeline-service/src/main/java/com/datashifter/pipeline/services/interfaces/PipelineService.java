@@ -26,4 +26,13 @@ public interface PipelineService {
 
     /** Remove a table pair from a pipeline */
     PipelineResponse removeTablePair(String pipelineId, String pipelineTableId);
+
+    /** Export a pipeline configuration as JSON DTO (excluding sensitive credentials/IDs) */
+    PipelineExportDto exportPipeline(String id);
+
+    /** Import a pipeline configuration from JSON DTO */
+    PipelineImportResultDto importPipeline(PipelineExportDto exportDto);
+
+    /** Rollback newly created entities from an import session */
+    PipelineRollbackResultDto rollbackImport(PipelineRollbackRequest rollbackRequest);
 }
