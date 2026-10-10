@@ -922,6 +922,7 @@ const ColumnMappingBoard = () => {
   const [valErrors, setValErrors] = useState([]);
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [validateDisabled, setValidateDisabled] = useState(false);
   const [transformTarget, setTransformTarget] = useState(null);
   const [filterTarget, setFilterTarget] = useState(null); // { tableName, columns }
   const { pipelineId } = useParams();
@@ -1093,6 +1094,7 @@ const ColumnMappingBoard = () => {
       const payload = buildMappingPayload();
       const saveRes = await mappingApi.save(pipelineId, payload);
       setHasChanges(false);
+      setValidateDisabled(false);
       setData(prev => ({
         ...prev,
         status: saveRes.data?.status || 'NOT_VALIDATED',
@@ -1105,6 +1107,7 @@ const ColumnMappingBoard = () => {
   };
 
   const handleValidate = async () => {
+    if (validateDisabled || validating || saving) return;
     setValidating(true);
     try {
       if (hasChanges) {
@@ -1126,8 +1129,10 @@ const ColumnMappingBoard = () => {
         validationErrors: errors,
       }));
       setValErrors(errors);
+      setValidateDisabled(true);
     } catch (err) {
       setValErrors([err.message || 'Validation failed']);
+      setValidateDisabled(true);
     } finally {
       setValidating(false);
     }
@@ -1146,7 +1151,7 @@ const ColumnMappingBoard = () => {
                 <StatusBadge status="VALIDATED" />
               ) : (
                 <div style={{ ...FRSC, gap: SPACING.xs }}>
-                  <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving}>
+                  <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving || validateDisabled}>
                     {validating ? 'Validating...' : 'Validate'}
                   </Button>
                   {/* {data?.status === 'INVALID' && <StatusBadge status="INVALID" />} */}
