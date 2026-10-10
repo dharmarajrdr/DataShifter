@@ -44,7 +44,10 @@ public class Pipeline extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private PipelineStatus status = PipelineStatus.DRAFT;
+    private PipelineStatus status = PipelineStatus.NOT_VALIDATED;
+
+    @Column(name = "validation_errors", columnDefinition = "TEXT")
+    private String validationErrors;
 
     @Column(name = "chunk_size", nullable = false)
     @Builder.Default

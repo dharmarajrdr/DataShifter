@@ -11,6 +11,8 @@ import com.datashifter.monitor.repositories.ExecutionLogRepository;
 import com.datashifter.monitor.repositories.PipelineRepository;
 import com.datashifter.monitor.services.interfaces.MonitorService;
 import lombok.RequiredArgsConstructor;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -29,6 +31,7 @@ public class MonitorServiceImpl implements MonitorService {
     private final ErrorLogRepository errorLogRepo;
     private final StringRedisTemplate redisTemplate;
     private final PipelineRepository pipelineRepo;
+    private final ObjectMapper objectMapper;
 
     @Override
     public LiveMonitorResponse getLiveMonitor(String pipelineId) {
@@ -54,6 +57,7 @@ public class MonitorServiceImpl implements MonitorService {
                 .overallProgress(getDoubleFromMap(stats, "overallProgress"))
                 .previewInflightRecords(pipeline.getPreviewInflightRecords() != null ? pipeline.getPreviewInflightRecords() : true)
                 .inflightRecords(List.of())
+                .validationErrors(parseValidationErrors(pipeline.getValidationErrors()))
                 .build();
     }
 
@@ -138,5 +142,14 @@ public class MonitorServiceImpl implements MonitorService {
         Object v = map.get(key);
         if (v == null) return 0.0;
         try { return Double.parseDouble(v.toString()); } catch (NumberFormatException e) { return 0.0; }
+    }
+
+    private List<String> parseValidationErrors(String json) {
+        if (json == null || json.isBlank()) return Collections.emptyList();
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return List.of(json);
+        }
     }
 }

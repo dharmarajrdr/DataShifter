@@ -7,7 +7,7 @@ import { PageHeader, MetricCard, StatusBadge, ProgressBar, Button, Chip, ApiGuar
 import { monitorApi, pipelineApi } from '../services/api';
 import { useEventSource } from '../hooks/useEventSource';
 
-const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT'];
+const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'];
 
 const PlayIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3.5 2l8 5-8 5V2z" fill="currentColor"/></svg>;
 const PauseIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="3" y="2" width="3" height="10" rx=".8" fill="currentColor"/><rect x="8" y="2" width="3" height="10" rx=".8" fill="currentColor"/></svg>;
@@ -17,7 +17,10 @@ const RefreshIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="
 
 const getActions = (status) => {
   switch (status) {
-    case 'DRAFT': return [{ action: 'VALIDATE', label: 'Validate', Icon: CheckIcon, variant: 'primary' }];
+    case 'DRAFT':
+    case 'NOT_VALIDATED':
+    case 'INVALID':
+      return [{ action: 'VALIDATE', label: 'Validate', Icon: CheckIcon, variant: 'primary' }];
     case 'VALIDATED': return [{ action: 'START', label: 'Start', Icon: PlayIcon, variant: 'primary' }];
     case 'RUNNING': return [{ action: 'PAUSE', label: 'Pause', Icon: PauseIcon, variant: 'warning' }, { action: 'STOP', label: 'Stop', Icon: StopIcon, variant: 'danger' }];
     case 'PAUSED': return [{ action: 'RESUME', label: 'Resume', Icon: PlayIcon, variant: 'primary' }, { action: 'STOP', label: 'Stop', Icon: StopIcon, variant: 'danger' }];
@@ -100,6 +103,38 @@ const LiveMonitor = () => {
             </div>
           </div>}
         />
+
+        {/* Validation issues banner */}
+        {data.status === 'INVALID' && (
+          <div style={{ background: '#FAECE7', border: '1px solid #D85A30', borderRadius: '8px', padding: `${SPACING.sm} ${SPACING.md}`, marginBottom: SPACING.md }}>
+            <div style={{ ...FRBC, marginBottom: '6px' }}>
+              <span style={{ fontSize: FONT.size.sm, fontWeight: 500, color: '#712B13' }}>
+                Pipeline has validation issues — resolve them before starting
+              </span>
+              <Button variant="secondary" size="sm" onClick={() => navigate(`/pipelines/${pipelineId}/mapping`)}>
+                Edit column mappings
+              </Button>
+            </div>
+            {(data.validationErrors || []).map((err, i) => (
+              <div key={i} style={{ fontSize: FONT.size.xs, color: '#712B13', padding: '2px 0' }}>
+                • {err}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {data.status === 'NOT_VALIDATED' && (
+          <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: '8px', padding: `${SPACING.sm} ${SPACING.md}`, marginBottom: SPACING.md }}>
+            <div style={{ ...FRBC }}>
+              <span style={{ fontSize: FONT.size.sm, fontWeight: 500, color: '#854F0B' }}>
+                Pipeline mappings were modified and not yet validated. Validate the pipeline before starting.
+              </span>
+              <Button variant="secondary" size="sm" onClick={() => handleAction('VALIDATE')} disabled={actionLoading === 'VALIDATE'}>
+                {actionLoading === 'VALIDATE' ? 'Validating...' : 'Validate now'}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Connection bar */}
         <div style={{ ...FRBC, marginBottom: SPACING.md, padding: `${SPACING.xs} ${SPACING.md}`, background: '#F7F7F5', borderRadius: '8px' }}>

@@ -33,7 +33,9 @@ export const PIPELINE = {
   },
   statuses: {
     DRAFT: 'Draft',
+    NOT_VALIDATED: 'Not Validated',
     VALIDATED: 'Validated',
+    INVALID: 'Invalid',
     RUNNING: 'Running',
     PAUSED: 'Paused',
     COMPLETED: 'Completed',

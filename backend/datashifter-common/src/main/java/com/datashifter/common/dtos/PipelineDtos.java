@@ -78,6 +78,7 @@ public class PipelineDtos {
         private Integer targetPoolSize;
         private Boolean previewInflightRecords;
         private List<PipelineTableResponse> tables;
+        private List<String> validationErrors;
         private Instant createdAt;
         private Instant updatedAt;
     }
@@ -91,6 +92,7 @@ public class PipelineDtos {
         private String sourceName;
         private String targetName;
         private PipelineStatus status;
+        private List<String> validationErrors;
         private int tableCount;
         private double progress;
         private long rowsProcessed;
