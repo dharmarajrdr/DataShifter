@@ -7,6 +7,7 @@ export { default as ErrorPage, ForbiddenPage, NotFoundPage, ServerErrorPage } fr
 export { default as ForgotPasswordPage } from './ForgotPasswordPage';
 export { default as LiveMonitor } from './LiveMonitor';
 export { default as LoginPage } from './LoginPage';
+export { default as MembersPage } from './MembersPage';
 export { default as MonitoringLanding } from './MonitoringLanding';
 export { default as OnboardPage } from './OnboardPage';
 export { default as OrgSettingsPage } from './OrgSettingsPage';

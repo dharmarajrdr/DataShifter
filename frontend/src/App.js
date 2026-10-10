@@ -13,6 +13,7 @@ import {
   ForgotPasswordPage,
   LiveMonitor,
   LoginPage,
+  MembersPage,
   OnboardPage,
   OrgSettingsPage,
   PipelineDashboard,
@@ -61,6 +62,7 @@ const App = () => (
           <Route path="/connections" element={<SubscriptionGuard><ConnectionsManager /></SubscriptionGuard>} />
           <Route path="/udfs" element={<SubscriptionGuard><ProtectedRoute permission="udf:view"><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
+          <Route path="/settings/members" element={<SubscriptionGuard><ProtectedRoute anyOf={['org:manage_members', 'org:manage_invites']}><MembersPage /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/settings/roles" element={<SubscriptionGuard><ProtectedRoute permission="org:manage_roles"><RolesPage /></ProtectedRoute></SubscriptionGuard>} />
           <Route path="/profile" element={<UserProfile />} />
 

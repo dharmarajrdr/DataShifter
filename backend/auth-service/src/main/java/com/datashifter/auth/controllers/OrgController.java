@@ -43,7 +43,7 @@ public class OrgController {
     }
 
     @GetMapping("/members")
-    @RequiresPermission(Permissions.ORG_MANAGE_MEMBERS)
+    @RequiresPermission(anyOf = {Permissions.ORG_MANAGE_MEMBERS, Permissions.ORG_MANAGE_INVITES})
     public ApiResponse<MembersPageResponse> getMembers(
             HttpServletRequest request,
             @RequestParam(defaultValue = "") String search,

@@ -78,8 +78,12 @@ public class OrgService {
     public OrgResponse updateOrg(String orgId, UpdateOrgRequest request) {
         Organization org = orgRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", orgId));
-        if (request.getName() != null) org.setName(request.getName());
-        if (request.getLogoUrl() != null) org.setLogoUrl(request.getLogoUrl());
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            org.setName(request.getName().trim());
+        }
+        if (request.getLogoUrl() != null) {
+            org.setLogoUrl(request.getLogoUrl().trim().isEmpty() ? null : request.getLogoUrl().trim());
+        }
         orgRepository.save(org);
         return getOrg(orgId);
     }

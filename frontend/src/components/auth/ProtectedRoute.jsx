@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 import { ForbiddenPage } from '../../pages/ErrorPage';
 
-const ProtectedRoute = ({ children, permission }) => {
+const ProtectedRoute = ({ children, permission, anyOf }) => {
   const { isAuthenticated, hasOrg, hasPermission } = useAuth();
   const location = useLocation();
 
@@ -20,6 +20,15 @@ const ProtectedRoute = ({ children, permission }) => {
     return (
       <ForbiddenPage
         missingPermission={permission}
+        message="You don't have permission to access this page."
+      />
+    );
+  }
+
+  if (anyOf && anyOf.length > 0 && !anyOf.some(p => hasPermission(p))) {
+    return (
+      <ForbiddenPage
+        missingPermission={anyOf.join(' or ')}
         message="You don't have permission to access this page."
       />
     );
