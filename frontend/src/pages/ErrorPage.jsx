@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
-import { Button } from '../components/common';
+import Button from '../components/common/Button';
 
 /* ================================================================
    SVG ILLUSTRATIONS

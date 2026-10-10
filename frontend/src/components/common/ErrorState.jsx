@@ -1,9 +1,5 @@
 import React from 'react';
-import ErrorPage, {
-  ForbiddenPage,
-  NotFoundPage,
-  ServerErrorPage,
-} from '../../pages/ErrorPage';
+import ErrorPage from '../../pages/ErrorPage';
 
 const TYPE_TO_STATUS = {
   'permission-denied': 403,
@@ -43,5 +39,4 @@ const ErrorState = ({
   );
 };
 
-export { ForbiddenPage, NotFoundPage, ServerErrorPage };
 export default ErrorState;
