@@ -49,6 +49,9 @@ const PipelineSettings = () => {
   const [newTargetTable, setNewTargetTable] = useState('');
   const [addingTable, setAddingTable] = useState(false);
 
+  const [pairToRemove, setPairToRemove] = useState(null);
+  const notification = useNotification();
+
   const fetchSettings = useCallback(() => {
     if (!canViewPipeline || !canEditSettings) return;
     settingsApi.getByPipelineId(pipelineId).then(res => {
@@ -101,8 +104,6 @@ const PipelineSettings = () => {
 
   const updateTableWriteMode = (ttmId, mode) => { setTableOverrides(prev => ({ ...prev, [ttmId]: mode })); setHasChanges(true); };
 
-  const [pairToRemove, setPairToRemove] = useState(null);
-  const notification = useNotification();
   const isRunning = settings.status === 'RUNNING';
 
   const handleSave = async () => {
