@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.sql.Timestamp;
@@ -186,6 +188,101 @@ class ToDateTransformer implements ColumnTransformer {
         }
     }
     public String getFunctionName() { return "TO_DATE"; }
+}
+
+// =========================================================================
+// MATH / NUMERIC TRANSFORMERS
+// =========================================================================
+
+final class MathHelper {
+    private MathHelper() {}
+
+    static BigDecimal toBigDecimal(Object input) {
+        if (input == null) return null;
+        if (input instanceof BigDecimal bd) return bd;
+        String s = input.toString().trim();
+        if (s.isEmpty()) return null;
+        try {
+            return new BigDecimal(s);
+        } catch (NumberFormatException e) {
+            throw new DatashifterException("Cannot perform numeric operation on non-numeric value: " + input);
+        }
+    }
+}
+
+@Component
+class RoundTransformer implements ColumnTransformer {
+    public Object transform(Object input, String args) {
+        if (input == null) return null;
+        BigDecimal bd = MathHelper.toBigDecimal(input);
+        if (bd == null) return null;
+        int scale = 0;
+        if (args != null && !args.isBlank()) {
+            try { scale = Integer.parseInt(args.replace("'", "").trim()); } catch (NumberFormatException ignored) {}
+        }
+        BigDecimal rounded = bd.setScale(scale, RoundingMode.HALF_UP);
+        if (scale <= 0) {
+            return rounded.longValue();
+        }
+        return rounded.doubleValue();
+    }
+    public String getFunctionName() { return "ROUND"; }
+}
+
+@Component
+class CeilTransformer implements ColumnTransformer {
+    public Object transform(Object input, String args) {
+        if (input == null) return null;
+        BigDecimal bd = MathHelper.toBigDecimal(input);
+        if (bd == null) return null;
+        return (long) Math.ceil(bd.doubleValue());
+    }
+    public String getFunctionName() { return "CEIL"; }
+}
+
+@Component
+class FloorTransformer implements ColumnTransformer {
+    public Object transform(Object input, String args) {
+        if (input == null) return null;
+        BigDecimal bd = MathHelper.toBigDecimal(input);
+        if (bd == null) return null;
+        return (long) Math.floor(bd.doubleValue());
+    }
+    public String getFunctionName() { return "FLOOR"; }
+}
+
+@Component
+class AbsTransformer implements ColumnTransformer {
+    public Object transform(Object input, String args) {
+        if (input == null) return null;
+        BigDecimal bd = MathHelper.toBigDecimal(input);
+        if (bd == null) return null;
+        BigDecimal absVal = bd.abs();
+        if (absVal.scale() <= 0) {
+            return absVal.longValue();
+        }
+        return absVal.doubleValue();
+    }
+    public String getFunctionName() { return "ABS"; }
+}
+
+@Component
+class TruncTransformer implements ColumnTransformer {
+    public Object transform(Object input, String args) {
+        if (input == null) return null;
+        BigDecimal bd = MathHelper.toBigDecimal(input);
+        if (bd == null) return null;
+        int scale = 0;
+        if (args != null && !args.isBlank()) {
+            try { scale = Integer.parseInt(args.replace("'", "").trim()); } catch (NumberFormatException ignored) {}
+        }
+        BigDecimal truncated = bd.setScale(scale, RoundingMode.DOWN);
+        if (scale <= 0) {
+            return truncated.longValue();
+        }
+        return truncated.doubleValue();
+    }
+    public String getFunctionName() { return "TRUNC"; }
 }
 
 // =========================================================================
