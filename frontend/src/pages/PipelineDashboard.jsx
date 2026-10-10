@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC } from '../constants/layouts';
 import { PIPELINE } from '../constants/literals';
-import { PageHeader, MetricCard, StatusBadge, ProgressBar, Button, Loader } from '../components/common';
+import { PageHeader, MetricCard, StatusBadge, ProgressBar, Button, Loader, ConfirmationModal, BarLoader, SkeletonLoader } from '../components/common';
 import CreateNamespaceModal from '../components/pipeline/CreateNamespaceModal';
 import { pipelineApi, namespaceApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import ApiGuard from '../components/common/ApiGuard';
 import { ForbiddenPage } from './ErrorPage';
 
@@ -42,9 +43,7 @@ const KebabMenu = ({ pipeline, navigate, onDelete, canDelete, canEditSettings })
     items.push({ type: 'divider' });
     items.push({
       label: 'Delete', icon: '🗑', danger: true, onClick: () => {
-        if (window.confirm(`Delete pipeline "${pipeline.name}"? This cannot be undone.`)) {
-          onDelete(pipeline.id);
-        }
+        onDelete(pipeline);
       }
     });
   }
@@ -196,7 +195,9 @@ const PipelineDashboard = () => {
   const [dragOverNs, setDragOverNs] = useState(null);
   const [draggingPipelineId, setDraggingPipelineId] = useState(null);
   const [showCreateNs, setShowCreateNs] = useState(false);
+  const [pipelineToDelete, setPipelineToDelete] = useState(null);
   const navigate = useNavigate();
+  const notification = useNotification();
   const { user, hasPermission } = useAuth();
   const canViewPipeline = hasPermission('pipeline:view');
   const canCreatePipeline = hasPermission('pipeline:create');
@@ -242,21 +243,35 @@ const PipelineDashboard = () => {
     const pipeline = pipelines.find(p => p.id === pipelineId);
     if (!pipeline || pipeline.namespaceId === namespaceId) return;
     setPipelines(prev => prev.map(p => p.id === pipelineId ? { ...p, namespaceId, namespaceName } : p));
-    try { await namespaceApi.movePipeline(pipelineId, namespaceId); } catch (e) {
+    try {
+      await namespaceApi.movePipeline(pipelineId, namespaceId);
+      notification.success(`Moved "${pipeline.name}" to ${namespaceName}`);
+    } catch (e) {
       setPipelines(prev => prev.map(p => p.id === pipelineId ? { ...p, namespaceId: pipeline.namespaceId, namespaceName: pipeline.namespaceName } : p));
+      notification.error(e.message || 'Failed to move pipeline');
     }
     setDraggingPipelineId(null);
-  }, [pipelines]);
+  }, [pipelines, notification]);
 
-  const handleDelete = useCallback(async (id) => {
-    if (!canDeletePipeline) return;
+  const confirmDeletePipeline = useCallback(async () => {
+    if (!pipelineToDelete || !canDeletePipeline) return;
+    const { id, name } = pipelineToDelete;
     setPipelines(prev => prev.filter(p => p.id !== id));
-    try { await pipelineApi.delete(id); } catch (e) {
+    setPipelineToDelete(null);
+    try {
+      await pipelineApi.delete(id);
+      notification.success(`Pipeline "${name}" deleted`);
+    } catch (e) {
       // Revert — re-fetch
       const res = await pipelineApi.getAll();
       setPipelines(res.data || []);
+      notification.error(e.message || 'Failed to delete pipeline');
     }
-  }, [canDeletePipeline]);
+  }, [pipelineToDelete, canDeletePipeline, notification]);
+
+  const handleDeleteRequest = useCallback((pipeline) => {
+    setPipelineToDelete(pipeline);
+  }, []);
 
   const toggleNamespace = (nsId) => setSelectedNamespaces(prev => prev.includes(nsId) ? prev.filter(id => id !== nsId) : [...prev, nsId]);
   const counts = { total: pipelines.length, running: pipelines.filter(p => p.status === 'RUNNING').length, errored: pipelines.filter(p => p.status === 'ERRORED').length, completed: pipelines.filter(p => p.status === 'COMPLETED').length };
@@ -271,7 +286,18 @@ const PipelineDashboard = () => {
   }
 
   return (
-    <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>
+    <ApiGuard
+      error={error}
+      loading={loading}
+      loadingComponent={
+        <div>
+          <BarLoader />
+          <div style={{ marginTop: SPACING.lg }}>
+            <SkeletonLoader variant="table-row" count={5} style={{ marginBottom: SPACING.sm }} />
+          </div>
+        </div>
+      }
+    >
       <div>
         <PageHeader
           title={PIPELINE.title}
@@ -329,13 +355,26 @@ const PipelineDashboard = () => {
               onDropPipeline={handleDropPipeline}
               dragOverNs={dragOverNs}
               setDragOverNs={setDragOverNs}
-              onDelete={handleDelete}
+              onDelete={handleDeleteRequest}
               canDelete={canDeletePipeline}
               canEditSettings={canEditSettings}
             />
           ))
         )}
         {showCreateNs && <CreateNamespaceModal onClose={() => setShowCreateNs(false)} onCreated={(ns) => setNamespaces(prev => [...prev, ns])} />}
+
+        {/* Delete pipeline confirmation modal */}
+        <ConfirmationModal
+          isOpen={!!pipelineToDelete}
+          title="Delete Pipeline"
+          message={`Are you sure you want to delete pipeline "${pipelineToDelete?.name}"? This cannot be undone.`}
+          color={COLORS.status.error}
+          onClose={() => setPipelineToDelete(null)}
+          actions={[
+            { label: 'Cancel', variant: 'secondary', onClick: () => setPipelineToDelete(null) },
+            { label: 'Yes, delete', variant: 'danger', onClick: confirmDeletePipeline },
+          ]}
+        />
       </div>
     </ApiGuard>
   );

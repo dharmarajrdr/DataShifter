@@ -4,6 +4,22 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* Global Positioning & Layout Variables */
+  --notification-position-top: 20px;
+  --notification-position-right: 20px;
+  --notification-position-bottom: 20px;
+  --notification-position-left: 20px;
+  --notification-max-width: 420px;
+  --notification-z-index: 9999;
+
+  --modal-z-index: 9000;
+  --modal-backdrop-bg: rgba(0, 0, 0, 0.45);
+
+  --loader-z-index: 8000;
+  --loader-top-bar-height: 3px;
+}
+
 body {
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 14px;

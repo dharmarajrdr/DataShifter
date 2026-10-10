@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Chip } from '../components/common';
+import { Button, Chip, ConfirmationModal } from '../components/common';
 import SettingsTabs from '../components/common/SettingsTabs';
 import { CloseIcon } from '../components/layout/Icons';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
 import { FRBC, FRSC, FRWSC } from '../constants/layouts';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { authApi } from '../services/authApi';
 
 /* ================================================================
@@ -118,17 +119,19 @@ const RoleEditorModal = ({ role, onClose, onSave }) => {
     }} onClick={onClose}>
       <div style={{
         background: COLORS.background.primary, borderRadius: BORDER_RADIUS.lg,
-        width: '560px', maxHeight: '85vh', overflow: 'auto', border: `1px solid ${COLORS.border.light}`,
+        width: '560px', maxHeight: '85vh', border: `1px solid ${COLORS.border.light}`,
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }} onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div style={{ ...FRBC, padding: `${SPACING.md} ${SPACING.lg}`, borderBottom: `1px solid ${COLORS.border.light}` }}>
-          <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium }}>
+        {/* Fixed Header */}
+        <div style={{ ...FRBC, padding: `${SPACING.md} ${SPACING.lg}`, borderBottom: `1px solid ${COLORS.border.light}`, flexShrink: 0 }}>
+          <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, margin: 0 }}>
             {isEdit ? `Edit role: ${role.name}` : 'Create new role'}
           </p>
-          <span onClick={onClose} style={{ cursor: 'pointer' }}><CloseIcon /></span>
+          <span onClick={onClose} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}><CloseIcon /></span>
         </div>
 
-        <div style={{ padding: SPACING.lg }}>
+        {/* Scrollable Body */}
+        <div style={{ padding: SPACING.lg, overflowY: 'auto', flex: 1 }}>
           {/* Name */}
           <div style={{ marginBottom: SPACING.md }}>
             <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>Role name</label>
@@ -201,13 +204,14 @@ const RoleEditorModal = ({ role, onClose, onSave }) => {
               {error}
             </div>
           )}
+        </div>
 
-          <div style={{ ...FRBC, paddingTop: SPACING.sm, borderTop: `1px solid ${COLORS.border.light}` }}>
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSave} style={saving ? { opacity: 0.6 } : {}}>
-              {saving ? 'Saving...' : (isEdit ? 'Update role' : 'Create role')}
-            </Button>
-          </div>
+        {/* Fixed Footer */}
+        <div style={{ ...FRBC, padding: `${SPACING.md} ${SPACING.lg}`, borderTop: `1px solid ${COLORS.border.light}`, background: COLORS.background.primary, flexShrink: 0 }}>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} style={saving ? { opacity: 0.6 } : {}}>
+            {saving ? 'Saving...' : (isEdit ? 'Update role' : 'Create role')}
+          </Button>
         </div>
       </div>
     </div>
@@ -227,25 +231,46 @@ const RolesPage = () => {
 
   const canManage = hasPermission('org:manage_roles');
 
+  const [roleToDelete, setRoleToDelete] = useState(null);
+  const notification = useNotification();
+
   useEffect(() => {
     authApi.getRoles().then(res => setRoles(res.data || []));
     authApi.getMembers('', 0, 1000).then(res => setMembers(res.data?.members || []));
   }, []);
 
   const handleCreateRole = async (payload) => {
-    const res = await authApi.createRole(payload);
-    setRoles(prev => [...prev, res.data]);
+    try {
+      const res = await authApi.createRole(payload);
+      setRoles(prev => [...prev, res.data]);
+      notification.success(`Role "${payload.name}" created successfully`);
+    } catch (e) {
+      notification.error(e.message || 'Failed to create role');
+    }
   };
 
   const handleUpdateRole = async (payload) => {
-    await authApi.updateRole(editingRole.id, payload);
-    setRoles(prev => prev.map(r => r.id === editingRole.id ? { ...r, ...payload } : r));
+    try {
+      await authApi.updateRole(editingRole.id, payload);
+      setRoles(prev => prev.map(r => r.id === editingRole.id ? { ...r, ...payload } : r));
+      notification.success(`Role "${payload.name || editingRole.name}" updated successfully`);
+    } catch (e) {
+      notification.error(e.message || 'Failed to update role');
+    }
   };
 
-  const handleDeleteRole = async (roleId) => {
-    if (!window.confirm('Delete this role? Members will lose their permissions.')) return;
-    await authApi.deleteRole(roleId);
-    setRoles(prev => prev.filter(r => r.id !== roleId));
+  const confirmDeleteRole = async () => {
+    if (!roleToDelete) return;
+    const roleId = roleToDelete.id;
+    const roleName = roleToDelete.name;
+    setRoleToDelete(null);
+    try {
+      await authApi.deleteRole(roleId);
+      setRoles(prev => prev.filter(r => r.id !== roleId));
+      notification.success(`Role "${roleName}" deleted`);
+    } catch (e) {
+      notification.error(e.message || 'Failed to delete role');
+    }
   };
 
   const getMembersForRole = (roleId) => members.filter(m => m.roleId === roleId);
@@ -342,7 +367,7 @@ const RolesPage = () => {
                     <div style={{ ...FRSC, gap: SPACING.xs }}>
                       <Button variant="secondary" size="sm" onClick={() => setEditingRole(role)}>Edit permissions</Button>
                       {!role.system && (
-                        <Button variant="danger" size="sm" onClick={() => handleDeleteRole(role.id)}>Delete role</Button>
+                        <Button variant="danger" size="sm" onClick={() => setRoleToDelete(role)}>Delete role</Button>
                       )}
                     </div>
                   )}
@@ -370,6 +395,19 @@ const RolesPage = () => {
           onSave={editingRole.id ? handleUpdateRole : handleCreateRole}
         />
       )}
+
+      {/* Delete role confirmation modal */}
+      <ConfirmationModal
+        isOpen={!!roleToDelete}
+        title="Delete Role"
+        message={`Are you sure you want to delete role "${roleToDelete?.name}"? Members assigned to this role will lose their associated permissions.`}
+        color={COLORS.status.error}
+        onClose={() => setRoleToDelete(null)}
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onClick: () => setRoleToDelete(null) },
+          { label: 'Yes, delete', variant: 'danger', onClick: confirmDeleteRole },
+        ]}
+      />
     </div>
   );
 };
