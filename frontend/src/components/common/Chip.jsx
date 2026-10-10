@@ -1,5 +1,4 @@
-import React from 'react';
-import { COLORS, FONT, BORDER_RADIUS, SPACING } from '../../constants/design';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../../constants/design';
 
 const COLOR_MAP = {
   purple: { bg: COLORS.accent.purpleLight, color: COLORS.accent.purpleText, border: '#AFA9EC' },
@@ -17,7 +16,7 @@ const Chip = ({ label, colorScheme = 'default', bordered = false, onClick, style
     <span
       onClick={onClick}
       style={{
-        background: scheme.bg,
+        // background: scheme.bg,
         color: scheme.color,
         fontSize: FONT.size.xs,
         padding: `${SPACING.xxs} ${SPACING.sm}`,
@@ -26,6 +25,7 @@ const Chip = ({ label, colorScheme = 'default', bordered = false, onClick, style
         border: bordered ? `1px solid ${scheme.border}` : 'none',
         cursor: onClick ? 'pointer' : 'default',
         whiteSpace: 'nowrap',
+        fontWeight: FONT.weight.semibold,
         ...customStyle,
       }}
     >

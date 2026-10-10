@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC } from '../constants/layouts';
-import { Button, Chip, ApiGuard, Loader } from '../components/common';
+import { useCallback, useEffect, useState } from 'react';
+import { ApiGuard, Button, Chip, Loader } from '../components/common';
+import SettingsTabs from '../components/common/SettingsTabs';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { FRBC, FRSC } from '../constants/layouts';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../services/authApi';
-import SettingsTabs from '../components/common/SettingsTabs';
 
 const inputStyle = {
   width: '100%',
@@ -168,6 +168,123 @@ const MembersPage = () => {
         />
 
         <div style={{ maxWidth: '680px', paddingTop: SPACING.xl }}>
+
+
+          {/* Invite Section */}
+          {canManageInvites && (
+            <>
+              <SectionTitle title="Invite members" subtitle="Send an invite link via email" />
+              <div
+                style={{
+                  padding: SPACING.md,
+                  background: COLORS.background.primary,
+                  border: `1px solid ${COLORS.border.light}`,
+                  borderRadius: BORDER_RADIUS.lg,
+                  marginBottom: SPACING.xl,
+                }}
+              >
+                <div style={{ ...FRSC, gap: SPACING.sm }}>
+                  <input
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    style={{ ...inputStyle, flex: 1 }}
+                    placeholder="colleague@company.com"
+                    type="email"
+                  />
+                  <select
+                    value={inviteRoleId}
+                    onChange={(e) => setInviteRoleId(e.target.value)}
+                    style={{
+                      padding: '8px 10px',
+                      border: `1px solid ${COLORS.border.light}`,
+                      borderRadius: BORDER_RADIUS.md,
+                      fontSize: FONT.size.sm,
+                      background: COLORS.background.primary,
+                    }}
+                  >
+                    <option value="">Select role</option>
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
+                    {inviting ? 'Sending...' : 'Send invite'}
+                  </Button>
+                </div>
+                {inviteSuccess && (
+                  <p style={{ fontSize: FONT.size.xs, color: COLORS.status.successDark, marginTop: SPACING.xs, margin: 0 }}>
+                    {inviteSuccess}
+                  </p>
+                )}
+                {error && typeof error === 'string' && (
+                  <p style={{ fontSize: FONT.size.xs, color: COLORS.status.errorDark, marginTop: SPACING.xs, margin: 0 }}>
+                    {error}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Pending invitations / access requests */}
+          {canManageInvites && invitations.length > 0 && (
+            <>
+              <SectionTitle title="Pending" subtitle="Invitations and access requests awaiting action" />
+              <div
+                style={{
+                  border: `1px solid ${COLORS.border.light}`,
+                  borderRadius: BORDER_RADIUS.lg,
+                  overflow: 'hidden',
+                }}
+              >
+                {invitations.map((inv, i) => (
+                  <div
+                    key={inv.id}
+                    style={{
+                      ...FRBC,
+                      padding: `${SPACING.sm} ${SPACING.md}`,
+                      borderTop: i > 0 ? `1px solid ${COLORS.border.light}` : 'none',
+                      background: COLORS.background.primary,
+                    }}
+                  >
+                    <div>
+                      <p style={{ fontSize: FONT.size.md, marginBottom: '6px', margin: 0 }}>
+                        <Chip
+                          label={inv.inviteType === 'REQUEST' ? 'Request' : 'Invited'}
+                          colorScheme={inv.inviteType === 'REQUEST' ? 'warning' : 'teal'}
+                          style={{ padding: '0px', paddingRight: '7px' }}
+                        />
+                        {inv.email}
+                        <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginLeft: '6px' }}>
+                          {inv.roleName && ` [${inv.roleName}]`}
+                        </span>
+                      </p>
+                      <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, margin: 0, marginTop: '5px' }}>
+                        {inv.invitedByName && `by ${inv.invitedByName} · `}
+                        {inv.createdAt && new Date(inv.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {inv.inviteType === 'REQUEST' && (
+                      <div style={{ ...FRSC, gap: '6px' }}>
+                        <Button size="sm" onClick={() => handleInvitationAction(inv.id, 'ACCEPT')}>
+                          Approve
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={() => handleInvitationAction(inv.id, 'REJECT')}>
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                    {inv.inviteType === 'INVITE' && (
+                      <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>Pending</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Divider />
+            </>
+          )}
+
           {/* Members List */}
           <div
             style={{
@@ -300,118 +417,6 @@ const MembersPage = () => {
             </div>
           )}
 
-          {/* Invite Section */}
-          {canManageInvites && (
-            <>
-              <Divider />
-              <SectionTitle title="Invite members" subtitle="Send an invite link via email" />
-              <div
-                style={{
-                  padding: SPACING.md,
-                  background: COLORS.background.primary,
-                  border: `1px solid ${COLORS.border.light}`,
-                  borderRadius: BORDER_RADIUS.lg,
-                }}
-              >
-                <div style={{ ...FRSC, gap: SPACING.sm }}>
-                  <input
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    style={{ ...inputStyle, flex: 1 }}
-                    placeholder="colleague@company.com"
-                    type="email"
-                  />
-                  <select
-                    value={inviteRoleId}
-                    onChange={(e) => setInviteRoleId(e.target.value)}
-                    style={{
-                      padding: '8px 10px',
-                      border: `1px solid ${COLORS.border.light}`,
-                      borderRadius: BORDER_RADIUS.md,
-                      fontSize: FONT.size.sm,
-                      background: COLORS.background.primary,
-                    }}
-                  >
-                    <option value="">Select role</option>
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
-                    {inviting ? 'Sending...' : 'Send invite'}
-                  </Button>
-                </div>
-                {inviteSuccess && (
-                  <p style={{ fontSize: FONT.size.xs, color: COLORS.status.successDark, marginTop: SPACING.xs, margin: 0 }}>
-                    {inviteSuccess}
-                  </p>
-                )}
-                {error && typeof error === 'string' && (
-                  <p style={{ fontSize: FONT.size.xs, color: COLORS.status.errorDark, marginTop: SPACING.xs, margin: 0 }}>
-                    {error}
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Pending invitations / access requests */}
-          {canManageInvites && invitations.length > 0 && (
-            <>
-              <Divider />
-              <SectionTitle title="Pending" subtitle="Invitations and access requests awaiting action" />
-              <div
-                style={{
-                  border: `1px solid ${COLORS.border.light}`,
-                  borderRadius: BORDER_RADIUS.lg,
-                  overflow: 'hidden',
-                }}
-              >
-                {invitations.map((inv, i) => (
-                  <div
-                    key={inv.id}
-                    style={{
-                      ...FRBC,
-                      padding: `${SPACING.sm} ${SPACING.md}`,
-                      borderTop: i > 0 ? `1px solid ${COLORS.border.light}` : 'none',
-                      background: COLORS.background.primary,
-                    }}
-                  >
-                    <div>
-                      <p style={{ fontSize: FONT.size.md, marginBottom: '6px', margin: 0 }}>
-                        {inv.email}
-                        <Chip
-                          label={inv.inviteType === 'REQUEST' ? 'Request' : 'Invited'}
-                          colorScheme={inv.inviteType === 'REQUEST' ? 'warning' : 'teal'}
-                          style={{ marginLeft: '8px' }}
-                        />
-                      </p>
-                      <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, margin: 0, marginTop: '2px' }}>
-                        {inv.roleName && `Role: ${inv.roleName} · `}
-                        {inv.invitedByName && `Invited by ${inv.invitedByName} · `}
-                        {inv.createdAt && new Date(inv.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {inv.inviteType === 'REQUEST' && (
-                      <div style={{ ...FRSC, gap: '6px' }}>
-                        <Button size="sm" onClick={() => handleInvitationAction(inv.id, 'ACCEPT')}>
-                          Approve
-                        </Button>
-                        <Button variant="danger" size="sm" onClick={() => handleInvitationAction(inv.id, 'REJECT')}>
-                          Reject
-                        </Button>
-                      </div>
-                    )}
-                    {inv.inviteType === 'INVITE' && (
-                      <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>Pending</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
         </div>
       </div>
     </ApiGuard>
