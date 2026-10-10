@@ -982,12 +982,25 @@ const ColumnMappingBoard = () => {
     });
   }
 
-  const handleChange = useCallback(m => { setMappings(m); setHasChanges(true); setValErrors([]); }, []);
+  const handleChange = useCallback(m => {
+    setMappings(m);
+    setHasChanges(true);
+    setValidateDisabled(true);
+    setValErrors([]);
+  }, []);
   const handleAutoMap = useCallback(() => { const a = []; sourceTables.forEach(st => targetTables.forEach(tt => (st.columns || []).forEach(sc => { const m = (tt.columns || []).find(tc => tc.name.replace(/_/g, '').toLowerCase() === sc.name.replace(/_/g, '').toLowerCase()); if (m) { const sk = `${st.tableName}.${sc.name}`, tk = `${tt.tableName}.${m.name}`; if (!a.some(x => x.source === sk && x.target === tk)) a.push({ source: sk, target: tk, color: COLOR_KEYS[a.length % COLOR_KEYS.length], transforms: [] }); } }))); handleChange(a); }, [sourceTables, targetTables, handleChange]);
   const handleClearAll = useCallback(() => { if (mappings.length && window.confirm('Clear all?')) handleChange([]); }, [mappings, handleChange]);
   const handleMappingClick = useCallback((m, idx) => setTransformTarget({ mapping: m, idx }), []);
-  const handleTransformApply = useCallback((idx, newT) => { setMappings(p => p.map((m, i) => i === idx ? { ...m, transforms: newT } : m)); setHasChanges(true); }, []);
-  const handleFilterApply = useCallback((tableName, newFilters) => { setFilters(p => ({ ...p, [tableName]: newFilters })); setHasChanges(true); }, []);
+  const handleTransformApply = useCallback((idx, newT) => {
+    setMappings(p => p.map((m, i) => i === idx ? { ...m, transforms: newT } : m));
+    setHasChanges(true);
+    setValidateDisabled(true);
+  }, []);
+  const handleFilterApply = useCallback((tableName, newFilters) => {
+    setFilters(p => ({ ...p, [tableName]: newFilters }));
+    setHasChanges(true);
+    setValidateDisabled(true);
+  }, []);
 
   /** Add a target-only system mapping (e.g., CURRENT_TIMESTAMP for migrated_at) */
   const handleAddSystemValue = useCallback((targetTable, colName, fn, args) => {
@@ -997,6 +1010,7 @@ const ColumnMappingBoard = () => {
     const newMapping = { source: null, target: targetKey, color: 'purple', transforms: [{ fn, args: args || '' }], targetOnly: true };
     setMappings(p => [...p, newMapping]);
     setHasChanges(true);
+    setValidateDisabled(true);
   }, [mappings]);
 
   /** Add a target UDF mapping with pinned version and input column */
@@ -1012,6 +1026,7 @@ const ColumnMappingBoard = () => {
     };
     setMappings(p => [...p.filter(m => m.target !== targetKey), newMapping]);
     setHasChanges(true);
+    setValidateDisabled(true);
   }, [sourceTables]);
 
   const validate = useCallback(() => { const e = []; targetTables.forEach(tt => { const mp = new Set(mappings.filter(m => m.target.startsWith(tt.tableName + '.')).map(m => m.target.split('.')[1])); (tt.columns || []).forEach(c => { if (!c.nullable && !mp.has(c.name)) e.push(`${tt.tableName}: "${c.name}" is ${c.primaryKey ? 'PK' : 'NOT NULL'} — needs mapping`); }); }); return e; }, [targetTables, mappings]);
@@ -1107,19 +1122,9 @@ const ColumnMappingBoard = () => {
   };
 
   const handleValidate = async () => {
-    if (validateDisabled || validating || saving) return;
+    if (hasChanges || validateDisabled || validating || saving) return;
     setValidating(true);
     try {
-      if (hasChanges) {
-        const payload = buildMappingPayload();
-        const saveRes = await mappingApi.save(pipelineId, payload);
-        setHasChanges(false);
-        setData(prev => ({
-          ...prev,
-          status: saveRes.data?.status || 'NOT_VALIDATED',
-          validationErrors: []
-        }));
-      }
       const res = await pipelineApi.performAction(pipelineId, 'VALIDATE');
       const newStatus = res.data?.status || 'VALIDATED';
       const errors = res.data?.validationErrors || [];
@@ -1147,11 +1152,11 @@ const ColumnMappingBoard = () => {
         <div>
           <PageHeader breadcrumbs={[{ label: data.pipelineName, onClick: () => navigate('/pipelines') }, { label: LIT.title }]}
             actions={<div style={{ ...FRSC, gap: SPACING.sm }}>
-              {data?.status === 'VALIDATED' ? (
+              {data?.status === 'VALIDATED' && !hasChanges ? (
                 <StatusBadge status="VALIDATED" />
               ) : (
                 <div style={{ ...FRSC, gap: SPACING.xs }}>
-                  <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving || validateDisabled}>
+                  <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving || validateDisabled || hasChanges}>
                     {validating ? 'Validating...' : 'Validate'}
                   </Button>
                   {/* {data?.status === 'INVALID' && <StatusBadge status="INVALID" />} */}
