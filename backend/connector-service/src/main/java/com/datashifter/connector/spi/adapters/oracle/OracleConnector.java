@@ -196,16 +196,29 @@ public class OracleConnector implements DatabaseConnector {
 
         try (java.sql.Connection conn = getJdbcConnection(config)) {
             conn.setAutoCommit(false);
-            Set<String> columns = records.get(0).keySet();
+            Set<String> columnSet = records.get(0).keySet();
+            List<String> columns = new ArrayList<>(columnSet);
             String sql = buildWriteSql(fullTable, columns, writeMode, pkColumn);
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 for (Map<String, Object> record : records) {
                     try {
                         int idx = 1;
-                        for (String col : columns) ps.setObject(idx++, record.get(col));
                         if ("UPSERT".equals(writeMode)) {
+                            // 1. SELECT ? AS col1, ? AS col2 ... FROM DUAL
+                            for (String col : columns) {
+                                ps.setObject(idx++, record.get(col));
+                            }
+                            // 2. WHEN MATCHED THEN UPDATE SET t.col = s.col (no parameters needed)
+                            // 3. WHEN NOT MATCHED THEN INSERT (...) VALUES (...) (no parameters needed)
+                        } else if ("UPDATE_ONLY".equals(writeMode)) {
                             for (String col : columns) {
                                 if (!col.equalsIgnoreCase(pkColumn)) ps.setObject(idx++, record.get(col));
+                            }
+                            ps.setObject(idx++, record.get(pkColumn));
+                        } else {
+                            // INSERT_ONLY or INSERT_IGNORE
+                            for (String col : columns) {
+                                ps.setObject(idx++, record.get(col));
                             }
                         }
                         ps.executeUpdate();
@@ -236,7 +249,7 @@ public class OracleConnector implements DatabaseConnector {
         return DriverManager.getConnection(url, config.getUsername(), config.getPassword());
     }
 
-    private String buildWriteSql(String table, Set<String> columns, String writeMode, String pkColumn) {
+    private String buildWriteSql(String table, List<String> columns, String writeMode, String pkColumn) {
         String colList = String.join(", ", columns);
         String placeholders = String.join(", ", Collections.nCopies(columns.size(), "?"));
         if ("INSERT_ONLY".equals(writeMode) || "INSERT_IGNORE".equals(writeMode)) {
@@ -250,16 +263,24 @@ public class OracleConnector implements DatabaseConnector {
             return String.format("UPDATE %s SET %s WHERE %s = ?", table, String.join(", ", setClauses), pkColumn);
         }
         // UPSERT — Oracle MERGE
+        List<String> selectClauses = new ArrayList<>();
+        for (String col : columns) {
+            selectClauses.add("? AS " + col);
+        }
         List<String> updateClauses = new ArrayList<>();
         for (String col : columns) {
-            if (!col.equalsIgnoreCase(pkColumn)) updateClauses.add("t." + col + " = ?");
+            if (!col.equalsIgnoreCase(pkColumn)) updateClauses.add("t." + col + " = s." + col);
+        }
+        List<String> sColList = new ArrayList<>();
+        for (String col : columns) {
+            sColList.add("s." + col);
         }
         return String.format(
             "MERGE INTO %s t USING (SELECT %s FROM DUAL) s ON (t.%s = s.%s) " +
-            "WHEN MATCHED THEN UPDATE SET %s " +
+            (updateClauses.isEmpty() ? "" : "WHEN MATCHED THEN UPDATE SET " + String.join(", ", updateClauses) + " ") +
             "WHEN NOT MATCHED THEN INSERT (%s) VALUES (%s)",
-            table, placeholders, pkColumn, pkColumn,
-            String.join(", ", updateClauses), colList, placeholders
+            table, String.join(", ", selectClauses), pkColumn, pkColumn,
+            colList, String.join(", ", sColList)
         );
     }
 }
