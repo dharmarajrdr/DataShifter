@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC } from '../constants/layouts';
-import { Button, Chip, ApiGuard, Loader, BarLoader } from '../components/common';
+import { useEffect, useState } from 'react';
+import { ApiGuard, BarLoader, Button, Chip, Loader } from '../components/common';
+import SettingsTabs from '../components/common/SettingsTabs';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { FRBC, FRSC } from '../constants/layouts';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { authApi } from '../services/authApi';
-import SettingsTabs from '../components/common/SettingsTabs';
 
 const inputStyle = {
   width: '100%',
@@ -141,10 +141,10 @@ const OrgSettingsPage = () => {
 
   const formattedDate = org?.createdAt
     ? new Date(org.createdAt).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
     : null;
 
   return (
@@ -236,53 +236,6 @@ const OrgSettingsPage = () => {
             subtitle="Update your organization profile and public workspace settings"
           />
 
-          {!canEditOrg && (
-            <div
-              style={{
-                padding: `${SPACING.sm} ${SPACING.md}`,
-                background: COLORS.background.secondary,
-                border: `1px solid ${COLORS.border.light}`,
-                borderRadius: BORDER_RADIUS.md,
-                fontSize: FONT.size.xs,
-                color: COLORS.text.secondary,
-                marginBottom: SPACING.md,
-              }}
-            >
-              You have view-only access. Only administrators with role or member management permissions can update organization settings.
-            </div>
-          )}
-
-          {saveSuccess && (
-            <div
-              style={{
-                padding: `${SPACING.sm} ${SPACING.md}`,
-                background: '#E6F4EA',
-                border: '1px solid #34A853',
-                borderRadius: BORDER_RADIUS.md,
-                fontSize: FONT.size.sm,
-                color: '#137333',
-                marginBottom: SPACING.md,
-              }}
-            >
-              Organization details updated successfully.
-            </div>
-          )}
-
-          {error && typeof error === 'string' && (
-            <div
-              style={{
-                padding: `${SPACING.sm} ${SPACING.md}`,
-                background: '#FCE8E6',
-                border: `1px solid ${COLORS.status.errorDark}`,
-                borderRadius: BORDER_RADIUS.md,
-                fontSize: FONT.size.sm,
-                color: COLORS.status.errorDark,
-                marginBottom: SPACING.md,
-              }}
-            >
-              {error}
-            </div>
-          )}
 
           <form
             onSubmit={handleSave}
@@ -306,7 +259,7 @@ const OrgSettingsPage = () => {
                   marginBottom: '4px',
                 }}
               >
-                Organization name <span style={{ color: COLORS.status.errorDark }}>*</span>
+                Name <span style={{ color: COLORS.status.errorDark }}>*</span>
               </label>
               <input
                 type="text"
@@ -317,9 +270,6 @@ const OrgSettingsPage = () => {
                 style={canEditOrg ? inputStyle : readOnlyInputStyle}
                 required
               />
-              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '4px', margin: 0 }}>
-                The name of your organization as displayed across all workspaces.
-              </p>
             </div>
 
             {/* Organization Slug */}
@@ -332,7 +282,7 @@ const OrgSettingsPage = () => {
                   marginBottom: '4px',
                 }}
               >
-                Organization slug
+                Slug
               </label>
               <input
                 type="text"
@@ -341,9 +291,6 @@ const OrgSettingsPage = () => {
                 disabled
                 style={readOnlyInputStyle}
               />
-              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '4px', margin: 0 }}>
-                Unique slug used for URLs and routing. Generated automatically upon creation.
-              </p>
             </div>
 
             {/* Organization ID */}
@@ -356,7 +303,7 @@ const OrgSettingsPage = () => {
                   marginBottom: '4px',
                 }}
               >
-                Organization ID
+                ID
               </label>
               <div style={{ ...FRSC, gap: SPACING.xs }}>
                 <input
@@ -380,9 +327,6 @@ const OrgSettingsPage = () => {
                   {copied ? 'Copied!' : 'Copy'}
                 </Button>
               </div>
-              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '4px', margin: 0 }}>
-                Unique system UUID for your organization, used for API calls and integrations.
-              </p>
             </div>
 
             {/* Logo URL */}
@@ -405,9 +349,6 @@ const OrgSettingsPage = () => {
                 placeholder="https://example.com/logo.png"
                 style={canEditOrg ? inputStyle : readOnlyInputStyle}
               />
-              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '4px', margin: 0 }}>
-                Publicly accessible URL to your organization logo image (PNG, SVG, or JPEG).
-              </p>
             </div>
 
             {/* Action Buttons */}
