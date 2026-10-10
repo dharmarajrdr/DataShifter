@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC, FRBS } from '../constants/layouts';
-import { CONNECTION } from '../constants/literals';
-import { PageHeader, StatusBadge, Button, ApiGuard, Loader } from '../components/common';
-import { OracleIcon, PostgresIcon, SpannerIcon } from '../components/layout/Icons';
+import { useCallback, useEffect, useState } from 'react';
+import { ApiGuard, Button, Loader, PageHeader, StatusBadge } from '../components/common';
 import ConnectionFormModal from '../components/connections/ConnectionFormModal';
 import SchemaDrawer from '../components/connections/SchemaDrawer';
+import { OracleIcon, PostgresIcon, SpannerIcon } from '../components/layout/Icons';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { FRBS, FRSC } from '../constants/layouts';
+import { CONNECTION } from '../constants/literals';
 import { connectionApi } from '../services/api';
 
 /* ================================================================
@@ -62,9 +62,9 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
       const res = await connectionApi.test(conn.id);
       setTestResult(res.data);
       if (onUpdate) {
-        onUpdate(conn.id, { 
+        onUpdate(conn.id, {
           status: res.data.success ? 'CONNECTED' : 'FAILED',
-          error: res.data.success ? null : res.data.message 
+          error: res.data.success ? null : res.data.message
         });
       }
     } catch (e) {
@@ -105,11 +105,9 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse }) 
 
       {/* Details */}
       <div style={{ ...FRSC, gap: SPACING.md, fontSize: FONT.size.xs, color: COLORS.text.secondary, marginBottom: SPACING.sm }}>
-        <span>Type: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.type}</span></span>
-        <span>Schema: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.schema}</span></span>
-        {conn.tableCount > 0 && (
-          <span>Tables: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.tableCount}</span></span>
-        )}
+        <span>Type: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.dbType}</span></span>
+        <span>Schema: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.schemaName}</span></span>
+        <span>Tables: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.tableCount || '0'}</span></span>
       </div>
 
       {/* Error */}
@@ -231,13 +229,13 @@ const ConnectionsManager = () => {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sm }}>
             {connections.map(conn => (
-              <ConnectionCard 
-                key={conn.id} 
-                conn={conn} 
-                onEdit={openEdit} 
-                onDelete={handleDelete} 
+              <ConnectionCard
+                key={conn.id}
+                conn={conn}
+                onEdit={openEdit}
+                onDelete={handleDelete}
                 onUpdate={handleUpdateStatus}
-                onBrowse={setBrowsingConn} 
+                onBrowse={setBrowsingConn}
               />
             ))}
           </div>
