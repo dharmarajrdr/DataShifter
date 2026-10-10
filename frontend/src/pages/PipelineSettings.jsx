@@ -25,66 +25,6 @@ const SettingRow = ({ label, description, children }) => (
   </div>
 );
 
-const WriteModeSelector = ({ selected, onChange }) => {
-  const isInsert = selected === 'INSERT_ONLY' || selected === 'INSERT_IGNORE';
-  const modes = [
-    { key: 'INSERT', label: 'Insert only', desc: selected === 'INSERT_ONLY' ? 'Fail if PK exists' : 'Ignore if PK exists', active: isInsert },
-    { key: 'UPSERT', label: 'Upsert', desc: 'Insert or update', active: selected === 'UPSERT' },
-    { key: 'UPDATE_ONLY', label: 'Update only', desc: 'Skip if not found', active: selected === 'UPDATE_ONLY' },
-  ];
-
-  const handleCardClick = (modeKey) => {
-    if (modeKey === 'INSERT') {
-      if (!isInsert) {
-        // Default option should be Ignore
-        onChange('INSERT_IGNORE');
-      }
-    } else {
-      onChange(modeKey);
-    }
-  };
-
-  return (
-    <div>
-      <div style={{ ...FRSC, gap: '6px' }}>
-        {modes.map(mode => {
-          const isActive = mode.active;
-          return (
-            <div key={mode.key} onClick={() => handleCardClick(mode.key)}
-              style={{ flex: 1, padding: '10px', textAlign: 'center', cursor: 'pointer', border: isActive ? `2px solid ${COLORS.brand.primary}` : `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, background: isActive ? COLORS.accent.purpleLight : COLORS.background.primary }}>
-              <p style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: isActive ? COLORS.accent.purpleText : COLORS.text.primary }}>{mode.label}</p>
-              <p style={{ fontSize: '10px', marginTop: '2px', color: isActive ? COLORS.brand.primary : COLORS.text.tertiary }}>{mode.desc}</p>
-            </div>
-          );
-        })}
-      </div>
-
-      {isInsert && (
-        <div style={{ ...FRSC, gap: SPACING.sm, marginTop: SPACING.xs, padding: `${SPACING.xs} ${SPACING.sm}`, background: COLORS.background.secondary, borderRadius: BORDER_RADIUS.md, border: `1px solid ${COLORS.border.light}` }}>
-          <label style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>
-            If PK exists
-          </label>
-          <select
-            value={selected === 'INSERT_ONLY' ? 'Fail' : 'Ignore'}
-            onChange={e => onChange(e.target.value === 'Fail' ? 'INSERT_ONLY' : 'INSERT_IGNORE')}
-            style={{
-              padding: '4px 8px',
-              fontSize: FONT.size.xs,
-              borderRadius: BORDER_RADIUS.sm,
-              border: `1px solid ${COLORS.border.light}`,
-              background: '#fff',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="Ignore">Ignore</option>
-            <option value="Fail">Fail</option>
-          </select>
-        </div>
-      )}
-    </div>
-  );
-};
-
 const PipelineSettings = () => {
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
