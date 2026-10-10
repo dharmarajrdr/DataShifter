@@ -9,6 +9,7 @@ const STATUS_MAP = {
   NOT_VALIDATED: { bg: COLORS.background.tertiary, color: COLORS.text.secondary, label: 'Not Validated' },
   VALIDATED: { bg: COLORS.status.infoLight, color: COLORS.status.infoText, label: 'Validated' },
   INVALID: { bg: COLORS.status.errorLight, color: COLORS.status.errorText, label: 'Invalid' },
+  CREATED: { bg: COLORS.background.tertiary, color: COLORS.text.secondary, label: 'Created' },
   CONNECTED: { bg: COLORS.status.successLight, color: COLORS.status.successText },
   FAILED: { bg: COLORS.status.errorLight, color: COLORS.status.errorText },
   TESTING: { bg: COLORS.status.warningLight, color: COLORS.status.warningText },

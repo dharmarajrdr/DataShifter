@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { COLORS, FONT, BORDER_RADIUS, SPACING, SHADOWS } from '../../constants/design';
+import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../../constants/design';
 
 /**
  * Variant styles mapping
@@ -94,7 +94,7 @@ const POSITIONS = {
  * @param {React.ReactNode} message - Notification message
  * @param {Function} [onDismiss] - Callback when dismissed
  * @param {number} [duration=4000] - Auto-dismiss timeout in ms. 0 to disable auto-dismiss.
- * @param {string} [position='top-right'] - Screen placement ('top-right'|'top-left'|'top-center'|'bottom-right'|'bottom-left'|'bottom-center')
+ * @param {string} [position='bottom-right'] - Screen placement ('top-right'|'top-left'|'top-center'|'bottom-right'|'bottom-left'|'bottom-center')
  * @param {boolean} [showDismiss=true] - Whether to show close button
  */
 const PopupNotification = ({
@@ -103,7 +103,7 @@ const PopupNotification = ({
   message,
   onDismiss,
   duration = 4000,
-  position = 'top-right',
+  position = 'bottom-right',
   showDismiss = true,
 }) => {
   const [visible, setVisible] = useState(true);
@@ -121,7 +121,7 @@ const PopupNotification = ({
   if (!visible) return null;
 
   const styleConfig = NOTIFICATION_VARIANTS[type] || NOTIFICATION_VARIANTS.info;
-  const positionStyle = POSITIONS[position] || POSITIONS['top-right'];
+  const positionStyle = POSITIONS[position] || POSITIONS['bottom-right'];
 
   return (
     <div

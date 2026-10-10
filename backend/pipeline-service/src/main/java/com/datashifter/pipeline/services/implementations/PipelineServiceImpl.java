@@ -735,7 +735,7 @@ public class PipelineServiceImpl implements PipelineService {
                         .username(connDto.getUsername() != null ? connDto.getUsername() : "user")
                         .encryptedPassword(com.datashifter.common.utils.EncryptionUtil.encrypt(""))
                         .extraProperties(connDto.getExtraProperties())
-                        .status(com.datashifter.common.enums.ConnectionStatus.TESTING)
+                        .status(com.datashifter.common.enums.ConnectionStatus.CREATED)
                         .build();
 
                 newConn = connectionRepository.save(newConn);

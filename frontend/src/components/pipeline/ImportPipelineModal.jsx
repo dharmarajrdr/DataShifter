@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
-import { COLORS, FONT, BORDER_RADIUS, SPACING, SHADOWS } from '../../constants/design';
-import { FRSC, FRBC } from '../../constants/layouts';
-import { Button, ConfirmationModal, SpinnerLoader, ProgressBar } from '../common';
-import { pipelineApi } from '../../services/api';
+import { useRef, useState } from 'react';
+import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../../constants/design';
+import { FRSC } from '../../constants/layouts';
 import { useNotification } from '../../contexts/NotificationContext';
+import { pipelineApi } from '../../services/api';
+import { Button, ConfirmationModal, ProgressBar, SpinnerLoader } from '../common';
 
 export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
   const [file, setFile] = useState(null);
@@ -114,6 +114,7 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
       setStage('summary');
       if (onImportSuccess) onImportSuccess(resData);
       notification.success(`Pipeline "${resData.pipelineName}" imported successfully`);
+      handleClose();
     } catch (err) {
       setImportResult({
         success: false,

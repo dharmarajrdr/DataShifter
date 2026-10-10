@@ -53,6 +53,7 @@ export const CONNECTION = {
   retry: 'Retry',
   browseSchema: 'Browse schema',
   statuses: {
+    CREATED: 'Created',
     CONNECTED: 'Connected',
     FAILED: 'Failed',
     TESTING: 'Testing...',

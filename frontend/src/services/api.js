@@ -216,7 +216,7 @@ export const connectionApi = {
     : apiClient.get(`/connections/${id}`),
 
   create: (payload) => USE_MOCK
-    ? mockResponse({ ...payload, id: 'c-new-' + Date.now(), status: 'TESTING' })
+    ? mockResponse({ ...payload, id: 'c-new-' + Date.now(), status: 'CREATED' })
     : apiClient.post('/connections', payload),
 
   update: (id, payload) => USE_MOCK

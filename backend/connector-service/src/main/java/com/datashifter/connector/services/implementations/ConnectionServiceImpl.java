@@ -59,7 +59,7 @@ public class ConnectionServiceImpl implements ConnectionService {
                 .username(request.getUsername())
                 .encryptedPassword(EncryptionUtil.encrypt(request.getPassword()))
                 .extraProperties(request.getExtraProperties())
-                .status(ConnectionStatus.TESTING)
+                .status(ConnectionStatus.CREATED)
                 .build();
         entity = repository.save(entity);
         return toResponse(entity, 0, Collections.emptyList());
