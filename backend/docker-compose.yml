@@ -74,6 +74,7 @@ services:
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
 
   connector-service:
     build:
@@ -101,6 +102,7 @@ services:
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
 
   pipeline-service:
     build:
@@ -128,6 +130,7 @@ services:
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
 
   monitor-service:
     build:
@@ -155,6 +158,7 @@ services:
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
 
   execution-engine:
     build:
@@ -183,7 +187,7 @@ services:
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
       DS_UDF_STORAGE_ROOT: /var/lib/datashifter/udfs
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m"
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m"
     volumes:
       - udfdata:/var/lib/datashifter/udfs
 
@@ -213,6 +217,7 @@ services:
       DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
       DS_JWT_ACCESS_EXPIRY: 3600000
       DS_JWT_REFRESH_EXPIRY: 86400000
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
 
   auth-service:
     build:
@@ -244,6 +249,7 @@ services:
       DS_SMTP_PORT: ${DS_SMTP_PORT:-25}
       DS_SMTP_USERNAME: ${DS_SMTP_USERNAME:-}
       DS_SMTP_PASSWORD: ${DS_SMTP_PASSWORD:-}
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
 
   payment-service:
     build:
@@ -273,6 +279,7 @@ services:
       DS_JWT_REFRESH_EXPIRY: 86400000
       DS_RAZORPAY_KEY_ID: mock_razorpay_key_id
       DS_RAZORPAY_KEY_SECRET: mock_razorpay_key_secret
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
 
   udf-service:
     build:
@@ -295,6 +302,7 @@ services:
       DS_JWT_REFRESH_EXPIRY: 86400000
       DS_UDF_STORAGE_ROOT: /var/lib/datashifter/udfs
       DS_UDF_MAX_FILE_SIZE_BYTES: 26214400
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
     volumes:
       - udfdata:/var/lib/datashifter/udfs
 

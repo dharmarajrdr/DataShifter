@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiGuard, Button, Loader, PageHeader, StatusBadge, ConfirmationModal, BarLoader, SkeletonLoader } from '../components/common';
 import ConnectionFormModal from '../components/connections/ConnectionFormModal';
 import SchemaDrawer from '../components/connections/SchemaDrawer';
@@ -43,9 +43,21 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, ca
   const notification = useNotification();
 
   const isReferenced = (conn.pipelineCount || 0) > 0;
+  const testTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (testTimerRef.current) {
+        clearTimeout(testTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleTest = async () => {
     if (!canTest) return;
+    if (testTimerRef.current) {
+      clearTimeout(testTimerRef.current);
+    }
     setTesting(true);
     setTestResult(null);
     if (onUpdate) {
@@ -54,6 +66,10 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, ca
     try {
       const res = await connectionApi.test(conn.id);
       setTestResult(res.data);
+      if (testTimerRef.current) clearTimeout(testTimerRef.current);
+      testTimerRef.current = setTimeout(() => {
+        setTestResult(null);
+      }, 3000);
       if (res.data?.success) {
         notification.success(`Connection to "${conn.name}" tested successfully`);
       } else {
@@ -67,6 +83,10 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, ca
       }
     } catch (e) {
       setTestResult({ success: false, message: e.message });
+      if (testTimerRef.current) clearTimeout(testTimerRef.current);
+      testTimerRef.current = setTimeout(() => {
+        setTestResult(null);
+      }, 3000);
       notification.error(e.message || 'Connection test failed');
       if (onUpdate) {
         onUpdate(conn.id, { status: 'FAILED', error: e.message });

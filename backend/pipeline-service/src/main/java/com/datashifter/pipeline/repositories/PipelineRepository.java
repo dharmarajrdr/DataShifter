@@ -17,4 +17,7 @@ public interface PipelineRepository extends JpaRepository<Pipeline, String> {
 
     @Query("SELECT p FROM Pipeline p WHERE p.createdBy.organization.id = :orgId")
     List<Pipeline> findByOrgId(@Param("orgId") String orgId);
+
+    @Query("SELECT p FROM Pipeline p WHERE p.name = :name AND p.createdBy.organization.id = :orgId")
+    java.util.Optional<Pipeline> findByNameAndOrgId(@Param("name") String name, @Param("orgId") String orgId);
 }

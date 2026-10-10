@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ApiGuard, Button, Loader, PageHeader, StatusBadge, ConfirmationModal, BarLoader } from '../components/common';
+import { ApiGuard, BarLoader, Button, ConfirmationModal, Loader, PageHeader, StatusBadge } from '../components/common';
 import { CloseIcon } from '../components/layout/Icons';
 import DragMappingBoard from '../components/pipeline/DragMappingBoard';
 import UdfPickerModal from '../components/pipeline/UdfPickerModal';
-import { FONT, SPACING } from '../constants/design';
+import { COLORS, FONT, SPACING } from '../constants/design';
 import { FRBC, FREC, FRSC, FRWSC } from '../constants/layouts';
 import { MAPPING as LIT } from '../constants/literals';
-import { mappingApi, pipelineApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { mappingApi, pipelineApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 const COLOR_KEYS = ['purple', 'teal', 'coral', 'pink', 'blue'];

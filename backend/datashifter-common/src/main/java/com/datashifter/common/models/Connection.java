@@ -54,7 +54,7 @@ public class Connection extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private ConnectionStatus status = ConnectionStatus.TESTING;
+    private ConnectionStatus status = ConnectionStatus.CREATED;
 
     @Column(name = "table_count")
     @Builder.Default

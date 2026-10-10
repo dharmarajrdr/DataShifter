@@ -1,14 +1,15 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC } from '../constants/layouts';
-import { PIPELINE } from '../constants/literals';
-import { PageHeader, MetricCard, StatusBadge, ProgressBar, Button, Loader, ConfirmationModal, BarLoader, SkeletonLoader } from '../components/common';
+import { BarLoader, Button, ConfirmationModal, MetricCard, PageHeader, ProgressBar, SkeletonLoader, StatusBadge } from '../components/common';
+import ApiGuard from '../components/common/ApiGuard';
 import CreateNamespaceModal from '../components/pipeline/CreateNamespaceModal';
-import { pipelineApi, namespaceApi } from '../services/api';
+import ImportPipelineModal from '../components/pipeline/ImportPipelineModal';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { FRBC, FRSC } from '../constants/layouts';
+import { PIPELINE } from '../constants/literals';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import ApiGuard from '../components/common/ApiGuard';
+import { namespaceApi, pipelineApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 /* ================================================================
@@ -95,7 +96,6 @@ const KebabMenu = ({ pipeline, navigate, onDelete, canDelete, canEditSettings })
                   }}
                   onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = item.danger ? COLORS.status.errorLight : COLORS.background.secondary; }}
                   onMouseLeave={e => { if (!disabled) e.currentTarget.style.background = 'transparent'; }}>
-                  <span style={{ fontSize: '12px', width: '18px', textAlign: 'center' }}>{item.icon}</span>
                   <span>{item.label}</span>
                 </div>
               );
@@ -195,6 +195,7 @@ const PipelineDashboard = () => {
   const [dragOverNs, setDragOverNs] = useState(null);
   const [draggingPipelineId, setDraggingPipelineId] = useState(null);
   const [showCreateNs, setShowCreateNs] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [pipelineToDelete, setPipelineToDelete] = useState(null);
   const navigate = useNavigate();
   const notification = useNotification();
@@ -207,20 +208,22 @@ const PipelineDashboard = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAllData = useCallback(async () => {
     if (!canViewPipeline) {
       setLoading(false);
       return;
     }
-    (async () => {
-      setLoading(true);
-      try {
-        const [pRes, nRes] = await Promise.all([pipelineApi.getAll(), namespaceApi.getAll()]);
-        setPipelines(pRes.data || []);
-        setNamespaces(nRes.data || []);
-      } catch (e) { setError(e); } finally { setLoading(false); }
-    })();
-  }, [user?.orgId, canViewPipeline]);
+    setLoading(true);
+    try {
+      const [pRes, nRes] = await Promise.all([pipelineApi.getAll(), namespaceApi.getAll()]);
+      setPipelines(pRes.data || []);
+      setNamespaces(nRes.data || []);
+    } catch (e) { setError(e); } finally { setLoading(false); }
+  }, [canViewPipeline]);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [user?.orgId, fetchAllData]);
 
   const filteredPipelines = useMemo(() => {
     let r = pipelines;
@@ -303,13 +306,23 @@ const PipelineDashboard = () => {
           title={PIPELINE.title}
           subtitle={PIPELINE.subtitle}
           actions={
-            <Button
-              onClick={() => navigate('/pipelines/new')}
-              disabled={!canCreatePipeline}
-              title={!canCreatePipeline ? 'You do not have permission to create pipelines' : undefined}
-            >
-              {PIPELINE.newPipeline}
-            </Button>
+            <div style={{ ...FRSC, gap: SPACING.sm }}>
+              <Button
+                variant="secondary"
+                onClick={() => setShowImportModal(true)}
+                disabled={!canCreatePipeline}
+                title={!canCreatePipeline ? 'You do not have permission to import pipelines' : undefined}
+              >
+                Import Pipeline
+              </Button>
+              <Button
+                onClick={() => navigate('/pipelines/new')}
+                disabled={!canCreatePipeline}
+                title={!canCreatePipeline ? 'You do not have permission to create pipelines' : undefined}
+              >
+                {PIPELINE.newPipeline}
+              </Button>
+            </div>
           }
         />
         <div style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.lg }}>
@@ -362,6 +375,14 @@ const PipelineDashboard = () => {
           ))
         )}
         {showCreateNs && <CreateNamespaceModal onClose={() => setShowCreateNs(false)} onCreated={(ns) => setNamespaces(prev => [...prev, ns])} />}
+
+        {showImportModal && (
+          <ImportPipelineModal
+            isOpen={showImportModal}
+            onClose={() => setShowImportModal(false)}
+            onImportSuccess={() => fetchAllData()}
+          />
+        )}
 
         {/* Delete pipeline confirmation modal */}
         <ConfirmationModal

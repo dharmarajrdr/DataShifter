@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import PopupNotification from '../components/common/PopupNotification';
 
 const NotificationContext = createContext(null);
@@ -11,7 +11,7 @@ export const NotificationProvider = ({ children }) => {
   }, []);
 
   const notify = useCallback(
-    ({ type = 'info', title, message, duration = 4000, position = 'top-right' }) => {
+    ({ type = 'info', title, message, duration = 4000, position = 'bottom-right' }) => {
       const id = Date.now() + Math.random().toString(36).substring(2, 9);
       const newNotification = { id, type, title, message, duration, position };
       setNotifications((prev) => [...prev, newNotification]);
@@ -53,7 +53,7 @@ export const NotificationProvider = ({ children }) => {
             key={n.id}
             style={{
               position: 'fixed',
-              top: `calc(var(--notification-position-top, 20px) + ${offset}px)`,
+              bottom: `calc(var(--notification-position-bottom, 20px) + ${offset}px)`,
               right: 'var(--notification-position-right, 20px)',
               zIndex: 'var(--notification-z-index, 9999)',
               maxWidth: 'var(--notification-max-width, 420px)',
@@ -65,7 +65,7 @@ export const NotificationProvider = ({ children }) => {
               title={n.title}
               message={n.message}
               duration={n.duration}
-              position="top-right"
+              position={n.position}
               onDismiss={() => dismiss(n.id)}
             />
           </div>
@@ -81,7 +81,7 @@ const fallbackNotification = {
   error: () => '',
   info: () => '',
   warning: () => '',
-  dismiss: () => {},
+  dismiss: () => { },
 };
 
 export const useNotification = () => {

@@ -162,5 +162,30 @@ class PipelineControllerSecurityTest {
                 .andExpect(jsonPath("$.status").value(403))
                 .andExpect(jsonPath("$.info.missingPermission").value(Permissions.PIPELINE_VIEW));
     }
+
+    @Test
+    @DisplayName("User with PIPELINE_VIEW can export pipeline")
+    void userWithViewCanExport() throws Exception {
+        when(pipelineService.exportPipeline(pipelineId))
+                .thenReturn(PipelineExportDto.builder().version(1).build());
+
+        mockMvc.perform(get("/api/v1/pipelines/{id}/export", pipelineId)
+                        .requestAttr("permissions", Set.of(Permissions.PIPELINE_VIEW)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(1));
+    }
+
+    @Test
+    @DisplayName("User without PIPELINE_CREATE cannot import pipeline (HTTP 403)")
+    void userWithoutCreateCannotImport() throws Exception {
+        PipelineExportDto dto = PipelineExportDto.builder().version(1).build();
+
+        mockMvc.perform(post("/api/v1/pipelines/import")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto))
+                        .requestAttr("permissions", Set.of(Permissions.PIPELINE_VIEW)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.info.missingPermission").value(Permissions.PIPELINE_CREATE));
+    }
 }
 

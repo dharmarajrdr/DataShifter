@@ -219,4 +219,115 @@ public class PipelineDtos {
     public enum PipelineAction {
         START, PAUSE, RESUME, STOP, VALIDATE
     }
+
+    /* ---------- Pipeline Export & Import ---------- */
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class PipelineExportDto {
+        private Integer version;
+        private PipelineConfigDto pipeline;
+        private List<ConnectionConfigDto> connections;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class ConnectionConfigDto {
+        private String name;
+        private DatabaseType dbType;
+        private String dbVersion;
+        private String host;
+        private Integer port;
+        private String databaseName;
+        private String schemaName;
+        private String username;
+        private String extraProperties;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class PipelineConfigDto {
+        private String name;
+        private String description;
+        private String sourceConnectionName;
+        private String targetConnectionName;
+        private Integer chunkSize;
+        private WriteMode defaultWriteMode;
+        private Boolean ignoreExceptions;
+        private Integer maxErrorThreshold;
+        private Boolean logSourceRow;
+        private Integer sourcePoolSize;
+        private Integer targetPoolSize;
+        private Boolean previewInflightRecords;
+        private List<PipelineTableConfigDto> tables;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class PipelineTableConfigDto {
+        private String sourceTable;
+        private Integer executionOrder;
+        private TableMappingType mappingType;
+        private List<TargetTableMappingConfigDto> targetMappings;
+        private List<FilterConfigDto> filters;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class TargetTableMappingConfigDto {
+        private String targetTable;
+        private WriteMode writeMode;
+        private List<ColumnMappingConfigDto> columnMappings;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class ColumnMappingConfigDto {
+        private String sourceColumn;
+        private String sourceType;
+        private String targetColumn;
+        private String targetType;
+        private Integer mappingOrder;
+        private String defaultValue;
+        private List<TransformationConfigDto> transformations;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class TransformationConfigDto {
+        private TransformFunction functionName;
+        private String arguments;
+        private Integer executionOrder;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class FilterConfigDto {
+        private String columnName;
+        private FilterOperator operator;
+        private String value;
+        private LogicalOperator logicalOperator;
+        private Integer filterOrder;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class PipelineImportResultDto {
+        private boolean success;
+        private String pipelineId;
+        private String pipelineName;
+        private List<String> createdConnectionNames;
+        private List<String> existingConnectionNames;
+        private List<String> createdConnectionIds;
+        private int tablesCount;
+        private int columnMappingsCount;
+        private int transformationsCount;
+        private List<String> warnings;
+        private List<String> errors;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class PipelineRollbackRequest {
+        private String pipelineId;
+        private List<String> createdConnectionIds;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class PipelineRollbackResultDto {
+        private boolean success;
+        private String message;
+        private List<String> deletedConnectionIds;
+        private String deletedPipelineId;
+    }
 }
