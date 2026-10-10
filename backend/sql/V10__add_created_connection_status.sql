@@ -9,3 +9,4 @@ ALTER TABLE connections ADD CONSTRAINT connections_status_check CHECK (
         'TESTING'::character varying
     ]::text[])
 );
+

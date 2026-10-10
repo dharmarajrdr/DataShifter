@@ -1,15 +1,15 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC } from '../constants/layouts';
-import { PIPELINE } from '../constants/literals';
-import { PageHeader, MetricCard, StatusBadge, ProgressBar, Button, Loader, ConfirmationModal, BarLoader, SkeletonLoader } from '../components/common';
+import { BarLoader, Button, ConfirmationModal, MetricCard, PageHeader, ProgressBar, SkeletonLoader, StatusBadge } from '../components/common';
+import ApiGuard from '../components/common/ApiGuard';
 import CreateNamespaceModal from '../components/pipeline/CreateNamespaceModal';
 import ImportPipelineModal from '../components/pipeline/ImportPipelineModal';
-import { pipelineApi, namespaceApi } from '../services/api';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { FRBC, FRSC } from '../constants/layouts';
+import { PIPELINE } from '../constants/literals';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import ApiGuard from '../components/common/ApiGuard';
+import { namespaceApi, pipelineApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 /* ================================================================
@@ -96,7 +96,6 @@ const KebabMenu = ({ pipeline, navigate, onDelete, canDelete, canEditSettings })
                   }}
                   onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = item.danger ? COLORS.status.errorLight : COLORS.background.secondary; }}
                   onMouseLeave={e => { if (!disabled) e.currentTarget.style.background = 'transparent'; }}>
-                  <span style={{ fontSize: '12px', width: '18px', textAlign: 'center' }}>{item.icon}</span>
                   <span>{item.label}</span>
                 </div>
               );

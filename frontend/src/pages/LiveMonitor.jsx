@@ -151,8 +151,32 @@ const LiveMonitor = () => {
     const perm = getActionPermission(action);
     if (!perm.allowed) return;
     setActionLoading(action);
-    try { await pipelineApi.performAction(pipelineId, action); fetchData(); }
-    catch (e) { console.error(`Failed:`, e); } finally { setActionLoading(null); }
+    try {
+      const res = await pipelineApi.performAction(pipelineId, action);
+      if (action === 'VALIDATE') {
+        const newStatus = res.data?.status;
+        const errs = res.data?.validationErrors || [];
+        if (newStatus === 'VALIDATED' && errs.length === 0) {
+          notification.success('Pipeline validated successfully');
+        } else if (newStatus === 'INVALID' || errs.length > 0) {
+          notification.warning(`Pipeline validation failed with ${errs.length} issue(s)`);
+        } else {
+          notification.success('Pipeline validated successfully');
+        }
+      } else if (action === 'START' || action === 'RESUME') {
+        notification.success('Pipeline started successfully');
+      } else if (action === 'PAUSE') {
+        notification.info('Pipeline paused');
+      } else if (action === 'STOP') {
+        notification.warning('Pipeline stopped');
+      }
+      fetchData();
+    } catch (e) {
+      console.error(`Failed:`, e);
+      notification.error(e.message || `Failed to perform action ${action}`);
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const tColor = (s) => s === 'COMPLETED' ? 'purple' : s === 'RUNNING' ? 'teal' : 'default';
