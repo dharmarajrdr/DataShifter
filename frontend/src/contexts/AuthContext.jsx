@@ -107,13 +107,18 @@ export const AuthProvider = ({ children }) => {
   // Refresh the cached user on startup so role permission changes are reflected.
   useEffect(() => {
     if (token) {
+      // Account-only tokens have no AppUser id until an invite is accepted or an org is created.
+      if (!user?.id) {
+        refreshOrganizations();
+        return;
+      }
       authApi.me().then(res => {
         localStorage.setItem(USER_KEY, JSON.stringify(res.data));
         setUser(res.data);
       }).catch(() => clearAuth());
       refreshOrganizations();
     }
-  }, [token, clearAuth, refreshOrganizations]);
+  }, [token, user?.id, clearAuth, refreshOrganizations]);
 
   useEffect(() => {
     const handleAuthUpdated = () => {

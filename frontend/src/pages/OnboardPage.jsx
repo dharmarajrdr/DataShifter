@@ -19,7 +19,7 @@ const OnboardPage = () => {
   const [success, setSuccess] = useState(null);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [pendingRequest, setPendingRequest] = useState(null);
-  const { user, logout, refreshToken } = useAuth();
+  const { user, token, logout, refreshToken } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,7 +31,7 @@ const OnboardPage = () => {
         setPendingRequest(invites.find(i => i.inviteType === 'REQUEST' && i.status === 'PENDING') || null);
       } catch { /* ignore */ }
     })();
-  }, []);
+  }, [token]);
 
   const handleAcceptInvite = async (inviteId) => {
     setLoading(true); setError(null);
