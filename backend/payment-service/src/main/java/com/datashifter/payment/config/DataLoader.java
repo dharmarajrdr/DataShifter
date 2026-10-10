@@ -26,7 +26,7 @@ public class DataLoader implements CommandLineRunner {
         planRepository.save(Plan.builder()
                 .name("Free").description("Get started with basic migrations")
                 .priceMonthly(0L).priceHalfYearly(0L).priceYearly(0L).currency("INR")
-                .maxPipelines(2).maxConnections(2).maxRowsPerMonth(50_000L)
+                .maxPipelines(2).maxConnections(4).maxRowsPerMonth(50_000L)
                 .maxMembers(2).parallelPipelines(1).supportLevel("COMMUNITY")
                 .displayOrder(0).isActive(true).isFeatured(false).build());
 
