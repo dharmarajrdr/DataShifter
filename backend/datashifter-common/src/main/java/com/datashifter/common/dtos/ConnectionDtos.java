@@ -57,6 +57,9 @@ public class ConnectionDtos {
         private Instant lastTestedAt;
         private String lastError;
         private Instant createdAt;
+        @Builder.Default
+        private Integer pipelineCount = 0;
+        private List<String> referencedPipelines;
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

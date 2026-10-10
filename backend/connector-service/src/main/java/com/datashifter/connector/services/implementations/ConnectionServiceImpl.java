@@ -6,6 +6,7 @@ import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.exceptions.ResourceNotFoundException;
 import com.datashifter.common.models.AppUser;
 import com.datashifter.common.models.Connection;
+import com.datashifter.common.repositories.CommonPipelineRepository;
 import com.datashifter.common.security.UserContext;
 import com.datashifter.common.services.SubscriptionLimitChecker;
 import com.datashifter.common.utils.EncryptionUtil;
@@ -20,7 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +36,7 @@ public class ConnectionServiceImpl implements ConnectionService {
     private final ConnectorFactory connectorFactory;
     private final EntityManager entityManager;
     private final SubscriptionLimitChecker limitChecker;
+    private final CommonPipelineRepository pipelineRepository;
 
     @Override
     @Transactional
@@ -56,7 +62,7 @@ public class ConnectionServiceImpl implements ConnectionService {
                 .status(ConnectionStatus.TESTING)
                 .build();
         entity = repository.save(entity);
-        return toResponse(entity);
+        return toResponse(entity, 0, Collections.emptyList());
     }
 
     @Override
@@ -71,26 +77,62 @@ public class ConnectionServiceImpl implements ConnectionService {
         if (request.getUsername() != null) entity.setUsername(request.getUsername());
         if (request.getPassword() != null) entity.setEncryptedPassword(EncryptionUtil.encrypt(request.getPassword()));
         entity = repository.save(entity);
-        return toResponse(entity);
+        List<String> pipelines = pipelineRepository.findPipelineNamesByConnectionId(id);
+        return toResponse(entity, pipelines.size(), pipelines);
     }
 
     @Override
     @Transactional(readOnly = true)
     public ConnectionResponse getById(String id) {
-        return toResponse(findEntity(id));
+        Connection entity = findEntity(id);
+        List<String> pipelines = pipelineRepository.findPipelineNamesByConnectionId(id);
+        return toResponse(entity, pipelines.size(), pipelines);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ConnectionResponse> getAll() {
         String orgId = UserContext.getCurrentOrgId();
-        return repository.findByOrgId(orgId).stream().map(this::toResponse).collect(Collectors.toList());
+        List<Connection> connections = repository.findByOrgId(orgId);
+        if (connections.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<String, List<String>> pipelineRefs = new HashMap<>();
+        List<Object[]> rows = pipelineRepository.findAllPipelineConnectionUsage();
+        for (Object[] row : rows) {
+            String sourceId = (String) row[0];
+            String targetId = (String) row[1];
+            String pipelineName = (String) row[2];
+            if (sourceId != null) {
+                pipelineRefs.computeIfAbsent(sourceId, k -> new ArrayList<>()).add(pipelineName);
+            }
+            if (targetId != null) {
+                pipelineRefs.computeIfAbsent(targetId, k -> new ArrayList<>()).add(pipelineName);
+            }
+        }
+
+        return connections.stream()
+                .map(c -> {
+                    List<String> pipelines = pipelineRefs.getOrDefault(c.getId(), Collections.emptyList());
+                    return toResponse(c, pipelines.size(), pipelines);
+                })
+                .collect(Collectors.toList());
     }
 
     @Override
     @Transactional
     public void delete(String id) {
-        findEntity(id);
+        Connection entity = findEntity(id);
+        List<String> pipelineNames = pipelineRepository.findPipelineNamesByConnectionId(id);
+        if (!pipelineNames.isEmpty()) {
+            throw new DatashifterException(String.format(
+                    "Cannot delete connection '%s'. It is referenced by %d pipeline(s): %s. Please delete or reassign those pipelines first.",
+                    entity.getName(),
+                    pipelineNames.size(),
+                    String.join(", ", pipelineNames)
+            ));
+        }
         repository.deleteById(id);
     }
 
@@ -170,12 +212,19 @@ public class ConnectionServiceImpl implements ConnectionService {
                 .build();
     }
 
-    private ConnectionResponse toResponse(Connection e) {
+    private ConnectionResponse toResponse(Connection e, int pipelineCount, List<String> referencedPipelines) {
         return ConnectionResponse.builder()
                 .id(e.getId()).name(e.getName()).dbType(e.getDbType()).dbVersion(e.getDbVersion())
                 .host(e.getHost()).port(e.getPort()).databaseName(e.getDatabaseName())
                 .schemaName(e.getSchemaName()).status(e.getStatus()).tableCount(e.getTableCount())
                 .lastTestedAt(e.getLastTestedAt()).lastError(e.getLastError()).createdAt(e.getCreatedAt())
+                .pipelineCount(pipelineCount)
+                .referencedPipelines(referencedPipelines)
                 .build();
+    }
+
+    private ConnectionResponse toResponse(Connection e) {
+        List<String> pipelines = pipelineRepository.findPipelineNamesByConnectionId(e.getId());
+        return toResponse(e, pipelines.size(), pipelines);
     }
 }
