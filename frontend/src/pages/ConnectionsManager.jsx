@@ -118,13 +118,13 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, ca
       </div>
 
       {/* Error */}
-      {(conn.error || deleteError) && (
+      {conn.error && (
         <div style={{
           background: COLORS.status.errorLight, borderRadius: BORDER_RADIUS.md,
           padding: `${SPACING.xs} 10px`, fontSize: FONT.size.xs, color: COLORS.status.errorText,
           marginBottom: SPACING.sm,
         }}>
-          {deleteError || `${conn.error} Last tested ${conn.lastTested ? new Date(conn.lastTested).toLocaleString() : 'never'}.`}
+          {conn.error} Last tested {conn.lastTested ? new Date(conn.lastTested).toLocaleString() : 'never'}.
         </div>
       )}
 

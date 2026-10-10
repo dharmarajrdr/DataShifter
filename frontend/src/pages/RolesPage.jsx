@@ -119,17 +119,19 @@ const RoleEditorModal = ({ role, onClose, onSave }) => {
     }} onClick={onClose}>
       <div style={{
         background: COLORS.background.primary, borderRadius: BORDER_RADIUS.lg,
-        width: '560px', maxHeight: '85vh', overflow: 'auto', border: `1px solid ${COLORS.border.light}`,
+        width: '560px', maxHeight: '85vh', border: `1px solid ${COLORS.border.light}`,
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }} onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div style={{ ...FRBC, padding: `${SPACING.md} ${SPACING.lg}`, borderBottom: `1px solid ${COLORS.border.light}` }}>
-          <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium }}>
+        {/* Fixed Header */}
+        <div style={{ ...FRBC, padding: `${SPACING.md} ${SPACING.lg}`, borderBottom: `1px solid ${COLORS.border.light}`, flexShrink: 0 }}>
+          <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, margin: 0 }}>
             {isEdit ? `Edit role: ${role.name}` : 'Create new role'}
           </p>
-          <span onClick={onClose} style={{ cursor: 'pointer' }}><CloseIcon /></span>
+          <span onClick={onClose} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}><CloseIcon /></span>
         </div>
 
-        <div style={{ padding: SPACING.lg }}>
+        {/* Scrollable Body */}
+        <div style={{ padding: SPACING.lg, overflowY: 'auto', flex: 1 }}>
           {/* Name */}
           <div style={{ marginBottom: SPACING.md }}>
             <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>Role name</label>
@@ -202,13 +204,14 @@ const RoleEditorModal = ({ role, onClose, onSave }) => {
               {error}
             </div>
           )}
+        </div>
 
-          <div style={{ ...FRBC, paddingTop: SPACING.sm, borderTop: `1px solid ${COLORS.border.light}` }}>
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSave} style={saving ? { opacity: 0.6 } : {}}>
-              {saving ? 'Saving...' : (isEdit ? 'Update role' : 'Create role')}
-            </Button>
-          </div>
+        {/* Fixed Footer */}
+        <div style={{ ...FRBC, padding: `${SPACING.md} ${SPACING.lg}`, borderTop: `1px solid ${COLORS.border.light}`, background: COLORS.background.primary, flexShrink: 0 }}>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} style={saving ? { opacity: 0.6 } : {}}>
+            {saving ? 'Saving...' : (isEdit ? 'Update role' : 'Create role')}
+          </Button>
         </div>
       </div>
     </div>
