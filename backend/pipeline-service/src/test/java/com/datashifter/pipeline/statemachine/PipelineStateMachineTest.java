@@ -29,6 +29,8 @@ class PipelineStateMachineTest {
 
     @Test
     void testValidatedTransitions() {
+        assertTrue(PipelineStateMachine.canTransition(PipelineStatus.VALIDATED, PipelineStatus.VALIDATED));
+        assertDoesNotThrow(() -> PipelineStateMachine.validateTransition(PipelineStatus.VALIDATED, PipelineStatus.VALIDATED));
         assertTrue(PipelineStateMachine.canTransition(PipelineStatus.VALIDATED, PipelineStatus.RUNNING));
         assertTrue(PipelineStateMachine.canTransition(PipelineStatus.VALIDATED, PipelineStatus.NOT_VALIDATED));
         assertTrue(PipelineStateMachine.canTransition(PipelineStatus.VALIDATED, PipelineStatus.INVALID));

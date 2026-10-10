@@ -1141,14 +1141,20 @@ const ColumnMappingBoard = () => {
         <div>
           <PageHeader breadcrumbs={[{ label: data.pipelineName, onClick: () => navigate('/pipelines') }, { label: LIT.title }]}
             actions={<div style={{ ...FRSC, gap: SPACING.sm }}>
-              <StatusBadge status={data?.status || 'NOT_VALIDATED'} />
+              {data?.status === 'VALIDATED' ? (
+                <StatusBadge status="VALIDATED" />
+              ) : (
+                <div style={{ ...FRSC, gap: SPACING.xs }}>
+                  <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving}>
+                    {validating ? 'Validating...' : 'Validate'}
+                  </Button>
+                  {data?.status === 'INVALID' && <StatusBadge status="INVALID" />}
+                </div>
+              )}
               <Button variant="secondary" size="md" onClick={handleAutoMap}>Auto-map</Button>
               {mappings.length > 0 && <Button variant="secondary" size="md" onClick={handleClearAll}>Clear all</Button>}
               <Button size="md" onClick={handleSave} style={{ ...(hasChanges ? {} : { opacity: 0.5 }), ...(saving ? { opacity: 0.6 } : {}) }}>
                 {saving ? 'Saving...' : hasChanges ? 'Save *' : LIT.saveMapping}
-              </Button>
-              <Button variant="primary" size="md" onClick={handleValidate} disabled={validating || saving}>
-                {validating ? 'Validating...' : 'Validate'}
               </Button>
             </div>} />
           <ValidationErrors errors={valErrors} onDismiss={() => setValErrors([])} />

@@ -98,7 +98,9 @@ const LiveMonitor = () => {
               <Button variant="secondary" size="sm" onClick={() => navigate(`/pipelines/${pipelineId}/settings`)}>Settings</Button>
             </div>
             <div style={{ ...FRSC, gap: SPACING.sm, marginTop: SPACING.lg }}>
-              <StatusBadge status={data.status} />
+              {data.status && data.status !== 'VALIDATED' && data.status !== 'NOT_VALIDATED' && (
+                <StatusBadge status={data.status} />
+              )}
               {acts.map(a => <ActionBtn key={a.action} {...a} loading={actionLoading} onClick={handleAction} />)}
             </div>
           </div>}
