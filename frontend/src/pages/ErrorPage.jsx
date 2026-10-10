@@ -141,7 +141,7 @@ export const ErrorPage = ({
   onRetry,
   showHome = true,
   showBack = true,
-  homePath = '/pipelines',
+  homePath = '/',
   actions,
   compact = false,
 }) => {

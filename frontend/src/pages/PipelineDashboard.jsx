@@ -8,6 +8,7 @@ import CreateNamespaceModal from '../components/pipeline/CreateNamespaceModal';
 import { pipelineApi, namespaceApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ApiGuard from '../components/common/ApiGuard';
+import { ForbiddenPage } from './ErrorPage';
 
 /* ================================================================
    OWNER AVATAR
@@ -197,6 +198,7 @@ const PipelineDashboard = () => {
   const [showCreateNs, setShowCreateNs] = useState(false);
   const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
+  const canViewPipeline = hasPermission('pipeline:view');
   const canCreatePipeline = hasPermission('pipeline:create');
   const canCreateNamespace = hasPermission('namespace:create');
   const canDeletePipeline = hasPermission('pipeline:delete');
@@ -205,6 +207,10 @@ const PipelineDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!canViewPipeline) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       setLoading(true);
       try {
@@ -213,7 +219,7 @@ const PipelineDashboard = () => {
         setNamespaces(nRes.data || []);
       } catch (e) { setError(e); } finally { setLoading(false); }
     })();
-  }, [user?.orgId]);
+  }, [user?.orgId, canViewPipeline]);
 
   const filteredPipelines = useMemo(() => {
     let r = pipelines;
@@ -254,6 +260,15 @@ const PipelineDashboard = () => {
 
   const toggleNamespace = (nsId) => setSelectedNamespaces(prev => prev.includes(nsId) ? prev.filter(id => id !== nsId) : [...prev, nsId]);
   const counts = { total: pipelines.length, running: pipelines.filter(p => p.status === 'RUNNING').length, errored: pipelines.filter(p => p.status === 'ERRORED').length, completed: pipelines.filter(p => p.status === 'COMPLETED').length };
+
+  if (!canViewPipeline) {
+    return (
+      <ForbiddenPage
+        missingPermission="pipeline:view"
+        message="You don't have permission to view pipelines."
+      />
+    );
+  }
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>

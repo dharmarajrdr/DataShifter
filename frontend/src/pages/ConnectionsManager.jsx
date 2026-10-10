@@ -8,6 +8,7 @@ import { FRBS, FRSC } from '../constants/layouts';
 import { CONNECTION } from '../constants/literals';
 import { connectionApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { ForbiddenPage } from './ErrorPage';
 
 /* ================================================================
    DB ICON
@@ -208,6 +209,7 @@ const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, ca
    ================================================================ */
 const ConnectionsManager = () => {
   const { hasPermission } = useAuth();
+  const canView = hasPermission('connection:view');
   const canCreate = hasPermission('connection:create');
   const canEdit = hasPermission('connection:edit');
   const canDelete = hasPermission('connection:delete');
@@ -220,13 +222,18 @@ const ConnectionsManager = () => {
   const [browsingConn, setBrowsingConn] = useState(null);
 
   const loadConnections = useCallback(() => {
+    if (!canView) return;
     connectionApi.getAll().then(res => setConnections(res.data || []));
-  }, []);
+  }, [canView]);
 
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
     const load = async () => {
       setLoading(true);
       try {
@@ -239,7 +246,7 @@ const ConnectionsManager = () => {
       }
     };
     load();
-  }, [loadConnections]);
+  }, [canView]);
 
   const handleCreate = async (formData) => {
     await connectionApi.create(formData);
@@ -262,6 +269,15 @@ const ConnectionsManager = () => {
   const openEdit = (conn) => { setEditingConn(conn); setShowForm(true); };
   const openNew = () => { setEditingConn(null); setShowForm(true); };
   const closeForm = () => { setShowForm(false); setEditingConn(null); };
+
+  if (!canView) {
+    return (
+      <ForbiddenPage
+        missingPermission="connection:view"
+        message="You don't have permission to view connections."
+      />
+    );
+  }
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<Loader variant="line" />}>

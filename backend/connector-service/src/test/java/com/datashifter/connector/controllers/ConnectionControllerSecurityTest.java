@@ -218,6 +218,16 @@ class ConnectionControllerSecurityTest {
         }
 
         @Test
+        @DisplayName("User without CONNECTION_VIEW cannot view connections list (HTTP 403)")
+        void userWithoutConnectionViewCannotList() throws Exception {
+            mockMvc.perform(get("/api/v1/connections")
+                            .requestAttr("permissions", Set.of(Permissions.CONNECTION_TEST, Permissions.CONNECTION_BROWSE_SCHEMA)))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.status").value(403))
+                    .andExpect(jsonPath("$.info.missingPermission").value(Permissions.CONNECTION_VIEW));
+        }
+
+        @Test
         @DisplayName("Viewer CANNOT test connection (HTTP 403)")
         void viewerCannotTest() throws Exception {
             mockMvc.perform(post("/api/v1/connections/{id}/test", connId)

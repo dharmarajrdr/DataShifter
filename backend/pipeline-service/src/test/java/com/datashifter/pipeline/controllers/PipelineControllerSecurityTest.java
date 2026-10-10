@@ -152,4 +152,15 @@ class PipelineControllerSecurityTest {
                         .requestAttr("permissions", Set.of(Permissions.PIPELINE_RUN)))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("User without PIPELINE_VIEW CANNOT list pipelines (HTTP 403)")
+    void userWithoutViewCannotListPipelines() throws Exception {
+        mockMvc.perform(get("/api/v1/pipelines")
+                        .requestAttr("permissions", Set.of(Permissions.PIPELINE_CREATE, Permissions.PIPELINE_EDIT)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.info.missingPermission").value(Permissions.PIPELINE_VIEW));
+    }
 }
+

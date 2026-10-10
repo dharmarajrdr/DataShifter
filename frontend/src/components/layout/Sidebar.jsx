@@ -9,16 +9,16 @@ import { authApi } from '../../services/authApi';
 import { ConnectionIcon, LogoIcon, PipelineIcon, SettingsIcon } from './Icons';
 
 const NAV_ITEMS = [
-  { label: NAV.pipelines, path: '/pipelines', icon: PipelineIcon },
-  { label: NAV.connections, path: '/connections', icon: ConnectionIcon },
-  { label: NAV.udfs, path: '/udfs', icon: Code2 },
+  { label: NAV.pipelines, path: '/pipelines', icon: PipelineIcon, permission: 'pipeline:view' },
+  { label: NAV.connections, path: '/connections', icon: ConnectionIcon, permission: 'connection:view' },
+  { label: NAV.udfs, path: '/udfs', icon: Code2, permission: 'udf:view' },
   { label: 'Settings', path: '/settings', icon: SettingsIcon },
 ];
 
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, updateUser, organizations, switchOrg, refreshOrganizations } = useAuth();
+  const { user, updateUser, organizations, switchOrg, refreshOrganizations, hasPermission } = useAuth();
   const [invitations, setInvitations] = useState([]);
   const [showNotif, setShowNotif] = useState(false);
   const [showOrgSwitch, setShowOrgSwitch] = useState(false);
@@ -28,6 +28,13 @@ const Sidebar = () => {
   const orgRef = useRef(null);
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
+
+  const getHomePath = () => {
+    if (hasPermission('pipeline:view')) return '/pipelines';
+    if (hasPermission('connection:view')) return '/connections';
+    if (hasPermission('udf:view')) return '/udfs';
+    return '/settings/org';
+  };
 
   // Fetch pending invitations on mount
   useEffect(() => {
@@ -49,7 +56,7 @@ const Sidebar = () => {
     try {
       await switchOrg(orgId);
       setShowOrgSwitch(false);
-      navigate('/pipelines');
+      navigate(getHomePath());
     } catch (e) { console.error('Org switch failed:', e); }
     finally { setSwitchingOrg(false); }
   };
@@ -67,6 +74,8 @@ const Sidebar = () => {
     finally { setResponding(null); }
   };
 
+  const visibleNavItems = NAV_ITEMS.filter(item => !item.permission || hasPermission(item.permission));
+
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
@@ -79,7 +88,7 @@ const Sidebar = () => {
     }}>
       {/* Logo */}
       <div style={{ ...FRSC, gap: SPACING.xs, padding: `0 ${SPACING.md}`, marginBottom: SPACING.xl, cursor: 'pointer' }}
-        onClick={() => navigate('/pipelines')}>
+        onClick={() => navigate(getHomePath())}>
         <LogoIcon />
         <span style={{ fontWeight: FONT.weight.semibold, fontSize: FONT.size.lg, color: COLORS.text.primary }}>
           {APP.name}
@@ -88,7 +97,7 @@ const Sidebar = () => {
 
       {/* Main Nav */}
       <div style={{ ...FCSS, gap: '2px', padding: `0 ${SPACING.xs}`, alignItems: 'stretch' }}>
-        {NAV_ITEMS.map(item => {
+        {visibleNavItems.map(item => {
           const active = isActive(item.path);
           const Icon = item.icon;
           return (

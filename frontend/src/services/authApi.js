@@ -19,7 +19,7 @@ const MOCK_USER = {
     'pipeline:create', 'pipeline:view', 'pipeline:edit', 'pipeline:delete',
     'pipeline:run', 'pipeline:pause', 'pipeline:stop',
     'namespace:create', 'namespace:edit', 'namespace:delete',
-    'connection:create', 'connection:edit', 'connection:delete',
+    'connection:create', 'connection:view', 'connection:edit', 'connection:delete',
     'connection:test', 'connection:browse_schema',
     'monitor:view', 'monitor:view_errors', 'settings:edit',
     'org:manage_members', 'org:manage_roles', 'org:manage_invites', 'org:view_audit',

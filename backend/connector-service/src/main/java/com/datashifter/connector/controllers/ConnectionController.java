@@ -37,12 +37,9 @@ public class ConnectionController {
 
     @GetMapping("/{id}")
     @RequiresPermission(anyOf = {
-        Permissions.CONNECTION_CREATE,
+        Permissions.CONNECTION_VIEW,
         Permissions.CONNECTION_EDIT,
-        Permissions.CONNECTION_DELETE,
-        Permissions.CONNECTION_TEST,
-        Permissions.CONNECTION_BROWSE_SCHEMA,
-        Permissions.PIPELINE_VIEW,
+        Permissions.CONNECTION_CREATE,
         Permissions.PIPELINE_CREATE,
         Permissions.PIPELINE_EDIT
     })
@@ -52,12 +49,7 @@ public class ConnectionController {
 
     @GetMapping
     @RequiresPermission(anyOf = {
-        Permissions.CONNECTION_CREATE,
-        Permissions.CONNECTION_EDIT,
-        Permissions.CONNECTION_DELETE,
-        Permissions.CONNECTION_TEST,
-        Permissions.CONNECTION_BROWSE_SCHEMA,
-        Permissions.PIPELINE_VIEW,
+        Permissions.CONNECTION_VIEW,
         Permissions.PIPELINE_CREATE,
         Permissions.PIPELINE_EDIT
     })

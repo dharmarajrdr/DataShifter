@@ -16,11 +16,19 @@ const ProtectedRoute = ({ children, permission, anyOf }) => {
     return <Navigate to="/onboard" replace />;
   }
 
+  const getHomePath = () => {
+    if (hasPermission('pipeline:view')) return '/pipelines';
+    if (hasPermission('connection:view')) return '/connections';
+    if (hasPermission('udf:view')) return '/udfs';
+    return '/settings/org';
+  };
+
   if (permission && !hasPermission(permission)) {
     return (
       <ForbiddenPage
         missingPermission={permission}
         message="You don't have permission to access this page."
+        homePath={getHomePath()}
       />
     );
   }
@@ -30,6 +38,7 @@ const ProtectedRoute = ({ children, permission, anyOf }) => {
       <ForbiddenPage
         missingPermission={anyOf.join(' or ')}
         message="You don't have permission to access this page."
+        homePath={getHomePath()}
       />
     );
   }
