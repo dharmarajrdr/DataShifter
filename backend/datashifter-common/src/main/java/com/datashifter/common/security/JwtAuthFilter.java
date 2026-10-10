@@ -11,6 +11,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.datashifter.common.utils.JwtUtil;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,9 +21,15 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final StringRedisTemplate redisTemplate;
 
     public JwtAuthFilter(JwtUtil jwtUtil) {
+        this(jwtUtil, null);
+    }
+
+    public JwtAuthFilter(JwtUtil jwtUtil, StringRedisTemplate redisTemplate) {
         this.jwtUtil = jwtUtil;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -45,6 +53,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     String email = jwtUtil.getEmail(token);
                     String role = jwtUtil.getRole(token);
                     Set<String> permissions = jwtUtil.getPermissions(token);
+
+                    if (userId != null && redisTemplate != null) {
+                        try {
+                            if (Boolean.TRUE.equals(redisTemplate.hasKey("auth:revoked:user:" + userId))) {
+                                sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "TOKEN_EXPIRED",
+                                        "User membership has been revoked");
+                                return;
+                            }
+                        } catch (Exception ex) {
+                            // Redis check failure shouldn't crash if redis is temporarily unreachable
+                        }
+                    }
 
                     String principal = userId != null ? userId : accountId;
                     var authorities = permissions.stream().map(SimpleGrantedAuthority::new)

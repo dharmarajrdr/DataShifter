@@ -43,6 +43,7 @@ public class InvitationService {
     private final RoleRepository roleRepository;
     private final EntityManager entityManager;
     private final SubscriptionLimitChecker limitChecker;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @Transactional(readOnly = true)
     public List<InvitationResponse> getPending(String orgId) {
@@ -161,6 +162,11 @@ public class InvitationService {
                     existingUser.setIsActive(true);
                     existingUser.setRole(role);
                     userRepository.save(existingUser);
+                    try {
+                        redisTemplate.delete("auth:revoked:user:" + existingUser.getId());
+                    } catch (Exception e) {
+                        log.warn("Failed to delete revocation key in Redis for user {}: {}", existingUser.getId(), e.getMessage());
+                    }
                     log.info("User {} re-activated in org {} via invitation", account.getEmail(), org.getName());
                 } else {
                     // Create new User record for this account in this org

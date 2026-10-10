@@ -23,6 +23,7 @@ public class OrgService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final AuthService authService;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     /**
      * Create a new org for an existing account (Path 3 onboarding).
@@ -172,6 +173,14 @@ public class OrgService {
         // Soft delete / deactivate user in the organization
         user.setIsActive(false);
         userRepository.save(user);
+
+        // Revoke active sessions immediately
+        try {
+            redisTemplate.opsForValue().set("auth:revoked:user:" + userId, "true", java.time.Duration.ofHours(24));
+        } catch (Exception e) {
+            log.warn("Failed to set revocation key in Redis for user {}: {}", userId, e.getMessage());
+        }
+
         log.info("Member removed/deactivated: {} by {}", user.getAccount().getEmail(), callerUserId);
     }
 
@@ -181,6 +190,14 @@ public class OrgService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         user.setIsActive(false);
         userRepository.save(user);
+
+        // Revoke active sessions immediately
+        try {
+            redisTemplate.opsForValue().set("auth:revoked:user:" + userId, "true", java.time.Duration.ofHours(24));
+        } catch (Exception e) {
+            log.warn("Failed to set revocation key in Redis for user {}: {}", userId, e.getMessage());
+        }
+
         log.info("Member deactivated: {}", user.getAccount().getEmail());
     }
 

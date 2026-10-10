@@ -52,7 +52,8 @@ public class AuthController {
     public ApiResponse<UserResponse> me(HttpServletRequest request) {
         String token = extractToken(request);
         String userId = jwtUtil.getUserId(token);
-        return ApiResponse.success(authService.getCurrentUser(userId));
+        String accountId = jwtUtil.getAccountId(token);
+        return ApiResponse.success(authService.getCurrentUser(userId, accountId));
     }
 
     @PutMapping("/me")
