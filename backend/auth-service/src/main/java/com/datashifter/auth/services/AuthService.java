@@ -31,6 +31,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
 
     // =========================================================================
@@ -96,8 +97,9 @@ public class AuthService {
         accountRepository.save(account);
 
         List<AppUser> memberships = userRepository.findByAccount_Id(account.getId());
+        List<AppUser> activeMemberships = memberships.stream().filter(AppUser::getIsActive).toList();
 
-        if (memberships.isEmpty()) {
+        if (activeMemberships.isEmpty()) {
             return TokenResponse.builder()
                     .accessToken(jwtUtil.generateAccessToken(null, account.getId(), account.getEmail(), null, null, Set.of()))
                     .refreshToken(jwtUtil.generateRefreshToken(account.getId()))
@@ -109,7 +111,7 @@ public class AuthService {
         }
 
         // Auto-select first active membership
-        AppUser activeUser = memberships.stream().filter(AppUser::getIsActive).findFirst().orElse(memberships.get(0));
+        AppUser activeUser = activeMemberships.get(0);
         activeUser.setLastLoginAt(Instant.now());
         userRepository.save(activeUser);
 
@@ -159,7 +161,8 @@ public class AuthService {
                 .orElseThrow(() -> new DatashifterException("Account not found"));
 
         List<AppUser> memberships = userRepository.findByAccount_Id(accountId);
-        if (memberships.isEmpty()) {
+        List<AppUser> activeMemberships = memberships.stream().filter(AppUser::getIsActive).toList();
+        if (activeMemberships.isEmpty()) {
             return TokenResponse.builder()
                     .accessToken(jwtUtil.generateAccessToken(null, account.getId(), account.getEmail(), null, null, Set.of()))
                     .refreshToken(jwtUtil.generateRefreshToken(account.getId()))
@@ -170,7 +173,7 @@ public class AuthService {
                     .build();
         }
 
-        AppUser activeUser = memberships.stream().filter(AppUser::getIsActive).findFirst().orElse(memberships.get(0));
+        AppUser activeUser = activeMemberships.get(0);
         return generateTokenResponse(account, activeUser);
     }
 
@@ -179,9 +182,25 @@ public class AuthService {
     // =========================================================================
 
     @Transactional(readOnly = true)
-    public UserResponse getCurrentUser(String userId) {
+    public UserResponse getCurrentUser(String userId, String accountId) {
+        if (userId == null || userId.isBlank()) {
+            if (accountId != null && !accountId.isBlank()) {
+                Account account = accountRepository.findById(accountId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Account", accountId));
+                return UserResponse.builder()
+                        .accountId(account.getId())
+                        .email(account.getEmail())
+                        .active(false)
+                        .emailVerified(account.getEmailVerified())
+                        .build();
+            }
+            throw new ResourceNotFoundException("User", "null");
+        }
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw new DatashifterException("Your membership in this organization has been deactivated");
+        }
         return toUserResponse(user);
     }
 
@@ -348,16 +367,29 @@ public class AuthService {
                 ? roleRepository.findById(invite.getRoleId()).orElse(null)
                 : roleRepository.findByOrgIdAndName(org.getId(), "Viewer").orElse(null);
 
-        AppUser user = AppUser.builder()
-                .account(account)
-                .organization(org)
-                .role(role)
-                .fullName(request.getFullName())
-                .displayInitials(computeInitials(request.getFullName()))
-                .avatarColor(randomAvatarColor())
-                .isActive(true)
-                .build();
+        AppUser user = userRepository.findByAccount_IdAndOrganization_Id(account.getId(), org.getId())
+                .map(existing -> {
+                    existing.setIsActive(true);
+                    existing.setRole(role);
+                    existing.setFullName(request.getFullName());
+                    existing.setDisplayInitials(computeInitials(request.getFullName()));
+                    return existing;
+                })
+                .orElseGet(() -> AppUser.builder()
+                        .account(account)
+                        .organization(org)
+                        .role(role)
+                        .fullName(request.getFullName())
+                        .displayInitials(computeInitials(request.getFullName()))
+                        .avatarColor(randomAvatarColor())
+                        .isActive(true)
+                        .build());
         userRepository.save(user);
+        try {
+            redisTemplate.delete("auth:revoked:user:" + user.getId());
+        } catch (Exception e) {
+            log.warn("Failed to delete revocation key in Redis for user {}: {}", user.getId(), e.getMessage());
+        }
 
         invite.setStatus("ACCEPTED");
         invitationRepository.save(invite);

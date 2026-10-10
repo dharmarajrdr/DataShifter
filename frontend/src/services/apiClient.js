@@ -97,17 +97,16 @@ async function request(method, path, body = null, options = {}) {
 
     const json = await response.json();
 
-    // Handle 401 — token expired
-    if (response.status === 401 && json?.status === 'TOKEN_EXPIRED') {
-      // Could trigger token refresh here in the future
-      // For now, redirect to login
+    // Handle 401 — token expired or revoked
+    if (response.status === 401) {
       localStorage.removeItem('ds_access_token');
       localStorage.removeItem('ds_refresh_token');
       localStorage.removeItem('ds_user');
+      window.dispatchEvent(new Event('ds-auth-updated'));
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
-      throw new ApiError('Session expired. Please log in again.', 401);
+      throw new ApiError(json?.message || 'Session expired or revoked. Please log in again.', 401);
     }
 
     // Handle 403 — permission denied (parse the missing permission from response)

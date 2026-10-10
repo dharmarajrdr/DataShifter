@@ -23,6 +23,7 @@ public class OrgService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final AuthService authService;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     /**
      * Create a new org for an existing account (Path 3 onboarding).
@@ -67,7 +68,7 @@ public class OrgService {
     public OrgResponse getOrg(String orgId) {
         Organization org = orgRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", orgId));
-        long memberCount = userRepository.countByOrganization_Id(orgId);
+        long memberCount = userRepository.countByOrganization_IdAndIsActiveTrue(orgId);
         return OrgResponse.builder()
                 .id(org.getId()).name(org.getName()).slug(org.getSlug())
                 .logoUrl(org.getLogoUrl()).memberCount((int) memberCount)
@@ -90,7 +91,7 @@ public class OrgService {
 
     @Transactional(readOnly = true)
     public List<UserResponse> getMembers(String orgId) {
-        return userRepository.findByOrganization_Id(orgId).stream()
+        return userRepository.findByOrganization_IdAndIsActiveTrue(orgId).stream()
                 .map(this::toUserResponse)
                 .toList();
     }
@@ -160,11 +161,43 @@ public class OrgService {
     }
 
     @Transactional
+    public void removeMember(String orgId, String callerUserId, String userId) {
+        if (userId.equals(callerUserId)) {
+            throw new IllegalArgumentException("You cannot remove yourself from the organization");
+        }
+        AppUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        if (!user.getOrganization().getId().equals(orgId)) {
+            throw new ResourceNotFoundException("User", userId);
+        }
+        // Soft delete / deactivate user in the organization
+        user.setIsActive(false);
+        userRepository.save(user);
+
+        // Revoke active sessions immediately
+        try {
+            redisTemplate.opsForValue().set("auth:revoked:user:" + userId, "true", java.time.Duration.ofHours(24));
+        } catch (Exception e) {
+            log.warn("Failed to set revocation key in Redis for user {}: {}", userId, e.getMessage());
+        }
+
+        log.info("Member removed/deactivated: {} by {}", user.getAccount().getEmail(), callerUserId);
+    }
+
+    @Transactional
     public void deactivateMember(String userId) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         user.setIsActive(false);
         userRepository.save(user);
+
+        // Revoke active sessions immediately
+        try {
+            redisTemplate.opsForValue().set("auth:revoked:user:" + userId, "true", java.time.Duration.ofHours(24));
+        } catch (Exception e) {
+            log.warn("Failed to set revocation key in Redis for user {}: {}", userId, e.getMessage());
+        }
+
         log.info("Member deactivated: {}", user.getAccount().getEmail());
     }
 

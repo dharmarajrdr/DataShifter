@@ -30,6 +30,8 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig implements WebMvcConfigurer {
 
     private final JwtUtil jwtUtil;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @Bean
     public PermissionInterceptor permissionInterceptor() {
@@ -48,7 +50,7 @@ public class SecurityConfig implements WebMvcConfigurer {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        JwtAuthFilter jwtAuthFilter = new JwtAuthFilter(jwtUtil);
+        JwtAuthFilter jwtAuthFilter = new JwtAuthFilter(jwtUtil, redisTemplate);
 
         http
                 .csrf(csrf -> csrf.disable())

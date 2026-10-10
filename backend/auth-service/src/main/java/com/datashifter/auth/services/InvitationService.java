@@ -1,22 +1,35 @@
 package com.datashifter.auth.services;
 
-import com.datashifter.auth.repositories.*;
-import com.datashifter.common.dtos.AuthDtos.*;
-import com.datashifter.common.exceptions.DatashifterException;
-import com.datashifter.common.exceptions.ResourceNotFoundException;
-import com.datashifter.common.models.*;
-import com.datashifter.common.services.SubscriptionLimitChecker;
-import jakarta.persistence.EntityManager;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.datashifter.auth.repositories.AccountRepository;
+import com.datashifter.auth.repositories.InvitationRepository;
+import com.datashifter.auth.repositories.OrgRepository;
+import com.datashifter.auth.repositories.RoleRepository;
+import com.datashifter.auth.repositories.UserRepository;
+import com.datashifter.common.dtos.AuthDtos.InvitationResponse;
+import com.datashifter.common.dtos.AuthDtos.InviteRequest;
+import com.datashifter.common.dtos.AuthDtos.RequestAccessRequest;
+import com.datashifter.common.exceptions.DatashifterException;
+import com.datashifter.common.exceptions.ResourceNotFoundException;
+import com.datashifter.common.models.Account;
+import com.datashifter.common.models.AppUser;
+import com.datashifter.common.models.Invitation;
+import com.datashifter.common.models.Organization;
+import com.datashifter.common.models.Role;
+import com.datashifter.common.services.SubscriptionLimitChecker;
+
+import jakarta.persistence.EntityManager;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +43,7 @@ public class InvitationService {
     private final RoleRepository roleRepository;
     private final EntityManager entityManager;
     private final SubscriptionLimitChecker limitChecker;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @Transactional(readOnly = true)
     public List<InvitationResponse> getPending(String orgId) {
@@ -40,18 +54,22 @@ public class InvitationService {
     @Transactional
     public InvitationResponse sendInvite(String orgId, String invitedByUserId, InviteRequest request) {
         // Enforce member limit
-        long currentMembers = userRepository.countByOrganization_Id(orgId);
+        long currentMembers = userRepository.countByOrganization_IdAndIsActiveTrue(orgId);
         limitChecker.assertCanAddMember(orgId, currentMembers);
 
-        // Check if already a member via account
+        // Check if already an active member via account
         accountRepository.findByEmail(request.getEmail()).ifPresent(account -> {
-            if (userRepository.existsByAccount_IdAndOrganization_Id(account.getId(), orgId)) {
-                throw new DatashifterException("User is already a member: " + request.getEmail());
-            }
+            userRepository.findByAccount_IdAndOrganization_Id(account.getId(), orgId).ifPresent(user -> {
+                if (Boolean.TRUE.equals(user.getIsActive())) {
+                    throw new DatashifterException("User is already a member: " + request.getEmail());
+                }
+            });
         });
 
         invitationRepository.findByEmailAndOrganization_IdAndStatus(request.getEmail(), orgId, "PENDING")
-                .ifPresent(existing -> { throw new DatashifterException("Pending invite already exists for " + request.getEmail()); });
+                .ifPresent(existing -> {
+                    throw new DatashifterException("Pending invite already exists for " + request.getEmail());
+                });
 
         String roleId = request.getRoleId();
         if (roleId != null && !roleRepository.existsById(roleId)) {
@@ -77,21 +95,22 @@ public class InvitationService {
     }
 
     @Transactional
-    public InvitationResponse requestAccess(String userId, RequestAccessRequest request) {
+    public InvitationResponse requestAccess(String accountId, String email, RequestAccessRequest request) {
         Organization org = orgRepository.findBySlug(request.getOrgSlug())
                 .orElseThrow(() -> new DatashifterException("Organization not found: " + request.getOrgSlug()));
 
-        AppUser user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-
-        String email = user.getAccount().getEmail();
-
-        if (userRepository.existsByAccount_IdAndOrganization_Id(user.getAccount().getId(), org.getId())) {
-            throw new DatashifterException("You are already a member of this organization");
+        if (accountId != null && !accountId.isBlank()) {
+            userRepository.findByAccount_IdAndOrganization_Id(accountId, org.getId()).ifPresent(user -> {
+                if (Boolean.TRUE.equals(user.getIsActive())) {
+                    throw new DatashifterException("You are already a member of this organization");
+                }
+            });
         }
 
         invitationRepository.findByEmailAndOrganization_IdAndStatus(email, org.getId(), "PENDING")
-                .ifPresent(existing -> { throw new DatashifterException("You already have a pending request"); });
+                .ifPresent(existing -> {
+                    throw new DatashifterException("You already have a pending request");
+                });
 
         Invitation req = Invitation.builder()
                 .organization(org)
@@ -125,28 +144,43 @@ public class InvitationService {
             Account account = accountRepository.findByEmail(invitation.getEmail()).orElse(null);
 
             if (account != null) {
-                if (userRepository.existsByAccount_IdAndOrganization_Id(account.getId(), org.getId())) {
-                    throw new DatashifterException("Already a member of this organization");
-                }
-
                 Role role = invitation.getRoleId() != null
-                        ? roleRepository.findById(invitation.getRoleId()).orElse(null) : null;
+                        ? roleRepository.findById(invitation.getRoleId()).orElse(null)
+                        : null;
                 if (role == null) {
                     role = roleRepository.findByOrgIdAndName(org.getId(), "Viewer").orElse(null);
                 }
 
-                // Create new User record for this account in this org
-                AppUser newUser = AppUser.builder()
-                        .account(account)
-                        .organization(org)
-                        .role(role)
-                        .fullName(account.getEmail().split("@")[0]) // default name from email
-                        .displayInitials(computeInitials(account.getEmail().split("@")[0]))
-                        .avatarColor(randomAvatarColor())
-                        .isActive(true)
-                        .build();
-                userRepository.save(newUser);
-                log.info("User {} joined org {} via invitation", account.getEmail(), org.getName());
+                Optional<AppUser> existingUserOpt = userRepository.findByAccount_IdAndOrganization_Id(account.getId(),
+                        org.getId());
+                if (existingUserOpt.isPresent()) {
+                    AppUser existingUser = existingUserOpt.get();
+                    if (Boolean.TRUE.equals(existingUser.getIsActive())) {
+                        throw new DatashifterException("Already a member of this organization");
+                    }
+                    existingUser.setIsActive(true);
+                    existingUser.setRole(role);
+                    userRepository.save(existingUser);
+                    try {
+                        redisTemplate.delete("auth:revoked:user:" + existingUser.getId());
+                    } catch (Exception e) {
+                        log.warn("Failed to delete revocation key in Redis for user {}: {}", existingUser.getId(), e.getMessage());
+                    }
+                    log.info("User {} re-activated in org {} via invitation", account.getEmail(), org.getName());
+                } else {
+                    // Create new User record for this account in this org
+                    AppUser newUser = AppUser.builder()
+                            .account(account)
+                            .organization(org)
+                            .role(role)
+                            .fullName(account.getEmail().split("@")[0]) // default name from email
+                            .displayInitials(computeInitials(account.getEmail().split("@")[0]))
+                            .avatarColor(randomAvatarColor())
+                            .isActive(true)
+                            .build();
+                    userRepository.save(newUser);
+                    log.info("User {} joined org {} via invitation", account.getEmail(), org.getName());
+                }
             }
 
             invitation.setStatus("ACCEPTED");
@@ -162,9 +196,11 @@ public class InvitationService {
 
     private InvitationResponse toResponse(Invitation inv) {
         String roleName = inv.getRoleId() != null
-                ? roleRepository.findById(inv.getRoleId()).map(Role::getName).orElse(null) : null;
+                ? roleRepository.findById(inv.getRoleId()).map(Role::getName).orElse(null)
+                : null;
         String invitedByName = inv.getInvitedBy() != null
-                ? userRepository.findById(inv.getInvitedBy()).map(AppUser::getFullName).orElse(null) : null;
+                ? userRepository.findById(inv.getInvitedBy()).map(AppUser::getFullName).orElse(null)
+                : null;
         return InvitationResponse.builder()
                 .orgName(inv.getOrganization().getName())
                 .id(inv.getId()).email(inv.getEmail()).roleName(roleName)
@@ -174,14 +210,16 @@ public class InvitationService {
     }
 
     private String computeInitials(String name) {
-        if (name == null || name.isBlank()) return "?";
+        if (name == null || name.isBlank())
+            return "?";
         String[] parts = name.trim().split("\\s+");
-        if (parts.length == 1) return parts[0].substring(0, Math.min(2, parts[0].length())).toUpperCase();
+        if (parts.length == 1)
+            return parts[0].substring(0, Math.min(2, parts[0].length())).toUpperCase();
         return (parts[0].charAt(0) + "" + parts[parts.length - 1].charAt(0)).toUpperCase();
     }
 
     private String randomAvatarColor() {
-        String[] colors = {"#534AB7", "#1D9E75", "#D85A30", "#D4537E", "#378ADD", "#639922", "#BA7517"};
+        String[] colors = { "#534AB7", "#1D9E75", "#D85A30", "#D4537E", "#378ADD", "#639922", "#BA7517" };
         return colors[new Random().nextInt(colors.length)];
     }
 }

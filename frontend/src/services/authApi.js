@@ -159,6 +159,10 @@ export const authApi = {
     ? mockResponse(null)
     : apiClient.put(`/auth/members/${userId}`, payload),
 
+  removeMember: (userId) => USE_MOCK
+    ? mockResponse(null)
+    : apiClient.delete(`/auth/members/${userId}`),
+
   getMyInvitations: () => USE_MOCK
     ? mockResponse([])
     : apiClient.get('/auth/my-invitations'),

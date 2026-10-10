@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiGuard, Button, Chip, Loader, BarLoader, SkeletonLoader } from '../components/common';
+import { ApiGuard, BarLoader, Button, Chip, ConfirmationModal, SkeletonLoader } from '../components/common';
 import SettingsTabs from '../components/common/SettingsTabs';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
 import { FRBC, FRSC } from '../constants/layouts';
@@ -153,6 +153,9 @@ const MembersPage = () => {
     }
   };
 
+  const [memberToRemove, setMemberToRemove] = useState(null);
+  const [removingMember, setRemovingMember] = useState(false);
+
   const handleRoleChange = async (userId, newRoleId) => {
     try {
       await authApi.updateMember(userId, { roleId: newRoleId });
@@ -165,6 +168,22 @@ const MembersPage = () => {
     } catch (err) {
       setError(err.message || 'Failed to update member role');
       notification.error(err.message || 'Failed to update member role');
+    }
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!memberToRemove || !canManageMembers) return;
+    setRemovingMember(true);
+    try {
+      await authApi.removeMember(memberToRemove.id);
+      notification.success(`Removed ${memberToRemove.fullName || memberToRemove.email} from organization`);
+      setMemberToRemove(null);
+      fetchMembers(memberSearch, memberPage);
+    } catch (err) {
+      setError(err.message || 'Failed to remove member');
+      notification.error(err.message || 'Failed to remove member');
+    } finally {
+      setRemovingMember(false);
     }
   };
 
@@ -368,29 +387,36 @@ const MembersPage = () => {
                     </div>
                     <div style={{ ...FRSC, gap: SPACING.xs }}>
                       {canManageMembers && member.id !== user?.id ? (
-                        <select
-                          value={member.roleId || ''}
-                          onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                          style={{
-                            padding: '4px 8px',
-                            border: `1px solid ${COLORS.border.light}`,
-                            borderRadius: BORDER_RADIUS.sm,
-                            fontSize: FONT.size.xs,
-                            background: COLORS.background.primary,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {roles.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </select>
+                        <>
+                          <select
+                            value={member.roleId || ''}
+                            onChange={(e) => handleRoleChange(member.id, e.target.value)}
+                            style={{
+                              padding: '4px 8px',
+                              border: `1px solid ${COLORS.border.light}`,
+                              borderRadius: BORDER_RADIUS.sm,
+                              fontSize: FONT.size.xs,
+                              background: COLORS.background.primary,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {roles.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.name}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => setMemberToRemove(member)}
+                            title="Remove user from organization"
+                          >
+                            Remove
+                          </Button>
+                        </>
                       ) : (
                         <Chip label={member.roleName || 'No role'} colorScheme="purple" />
-                      )}
-                      {!member.active && (
-                        <span style={{ fontSize: FONT.size.xs, color: COLORS.status.errorDark }}>Disabled</span>
                       )}
                     </div>
                   </div>
@@ -438,6 +464,28 @@ const MembersPage = () => {
             </div>
           )}
 
+          {/* Remove Member Confirmation Modal */}
+          <ConfirmationModal
+            isOpen={!!memberToRemove}
+            title="Remove Member"
+            message={`Are you sure you want to remove ${memberToRemove?.fullName || memberToRemove?.email} from the organization?`}
+            color={COLORS.status.error}
+            onClose={() => setMemberToRemove(null)}
+            actions={[
+              {
+                label: 'Cancel',
+                variant: 'secondary',
+                onClick: () => setMemberToRemove(null),
+              },
+              {
+                label: 'Yes, remove',
+                variant: 'danger',
+                onClick: confirmRemoveMember,
+                loading: removingMember,
+                disabled: removingMember,
+              },
+            ]}
+          />
         </div>
       </div>
     </ApiGuard>

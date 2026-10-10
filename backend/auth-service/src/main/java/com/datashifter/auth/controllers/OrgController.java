@@ -64,9 +64,12 @@ public class OrgController {
 
     @DeleteMapping("/members/{userId}")
     @RequiresPermission(Permissions.ORG_MANAGE_MEMBERS)
-    public ApiResponse<Void> deactivateMember(@PathVariable String userId) {
-        orgService.deactivateMember(userId);
-        return ApiResponse.success(null, "Member deactivated");
+    public ApiResponse<Void> removeMember(HttpServletRequest request, @PathVariable String userId) {
+        String token = request.getHeader("Authorization").substring(7);
+        String orgId = jwtUtil.getOrgId(token);
+        String callerUserId = jwtUtil.getUserId(token);
+        orgService.removeMember(orgId, callerUserId, userId);
+        return ApiResponse.success(null, "Member removed");
     }
 
     private String extractOrgId(HttpServletRequest request) {
