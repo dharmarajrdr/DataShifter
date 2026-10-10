@@ -17,13 +17,14 @@ public interface UserRepository extends JpaRepository<AppUser, String> {
     boolean existsByAccount_IdAndOrganization_Id(String accountId, String orgId);
     Optional<AppUser> findByAccount_Email(String email);
     boolean existsByAccount_Email(String email);
-    List<AppUser> findByOrganization_Id(String orgId);
-    long countByOrganization_Id(String orgId);
+    List<AppUser> findByOrganization_IdAndIsActiveTrue(String orgId);
+    long countByOrganization_IdAndIsActiveTrue(String orgId);
     List<AppUser> findByRole_Id(String roleId);
 
     @org.springframework.data.jpa.repository.Query("""
         SELECT u FROM AppUser u
         WHERE u.organization.id = :orgId
+          AND u.isActive = true
           AND LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
         ORDER BY u.fullName ASC
     """)

@@ -348,15 +348,23 @@ public class AuthService {
                 ? roleRepository.findById(invite.getRoleId()).orElse(null)
                 : roleRepository.findByOrgIdAndName(org.getId(), "Viewer").orElse(null);
 
-        AppUser user = AppUser.builder()
-                .account(account)
-                .organization(org)
-                .role(role)
-                .fullName(request.getFullName())
-                .displayInitials(computeInitials(request.getFullName()))
-                .avatarColor(randomAvatarColor())
-                .isActive(true)
-                .build();
+        AppUser user = userRepository.findByAccount_IdAndOrganization_Id(account.getId(), org.getId())
+                .map(existing -> {
+                    existing.setIsActive(true);
+                    existing.setRole(role);
+                    existing.setFullName(request.getFullName());
+                    existing.setDisplayInitials(computeInitials(request.getFullName()));
+                    return existing;
+                })
+                .orElseGet(() -> AppUser.builder()
+                        .account(account)
+                        .organization(org)
+                        .role(role)
+                        .fullName(request.getFullName())
+                        .displayInitials(computeInitials(request.getFullName()))
+                        .avatarColor(randomAvatarColor())
+                        .isActive(true)
+                        .build());
         userRepository.save(user);
 
         invite.setStatus("ACCEPTED");

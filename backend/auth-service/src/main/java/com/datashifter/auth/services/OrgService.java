@@ -67,7 +67,7 @@ public class OrgService {
     public OrgResponse getOrg(String orgId) {
         Organization org = orgRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization", orgId));
-        long memberCount = userRepository.countByOrganization_Id(orgId);
+        long memberCount = userRepository.countByOrganization_IdAndIsActiveTrue(orgId);
         return OrgResponse.builder()
                 .id(org.getId()).name(org.getName()).slug(org.getSlug())
                 .logoUrl(org.getLogoUrl()).memberCount((int) memberCount)
@@ -90,7 +90,7 @@ public class OrgService {
 
     @Transactional(readOnly = true)
     public List<UserResponse> getMembers(String orgId) {
-        return userRepository.findByOrganization_Id(orgId).stream()
+        return userRepository.findByOrganization_IdAndIsActiveTrue(orgId).stream()
                 .map(this::toUserResponse)
                 .toList();
     }
@@ -157,6 +157,22 @@ public class OrgService {
         userRepository.save(user);
         log.info("Member updated: {} — role={}", user.getAccount().getEmail(),
                 user.getRole() != null ? user.getRole().getName() : "none");
+    }
+
+    @Transactional
+    public void removeMember(String orgId, String callerUserId, String userId) {
+        if (userId.equals(callerUserId)) {
+            throw new IllegalArgumentException("You cannot remove yourself from the organization");
+        }
+        AppUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        if (!user.getOrganization().getId().equals(orgId)) {
+            throw new ResourceNotFoundException("User", userId);
+        }
+        // Soft delete / deactivate user in the organization
+        user.setIsActive(false);
+        userRepository.save(user);
+        log.info("Member removed/deactivated: {} by {}", user.getAccount().getEmail(), callerUserId);
     }
 
     @Transactional
