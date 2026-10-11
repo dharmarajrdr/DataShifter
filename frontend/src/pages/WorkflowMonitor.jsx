@@ -430,8 +430,8 @@ const WorkflowMonitor = () => {
               >
                 <i className="fa-solid fa-play" style={{ marginRight: 6 }} />
                 {workflow.status === 'COMPLETED' ||
-                workflow.status === 'FAILED' ||
-                workflow.status === 'STOPPED'
+                  workflow.status === 'FAILED' ||
+                  workflow.status === 'STOPPED'
                   ? 'Re-Run Workflow'
                   : 'Start Workflow'}
               </Button>
@@ -451,38 +451,6 @@ const WorkflowMonitor = () => {
         </div>
       </div>
 
-      {/* Pre-Run Validation Warnings */}
-      {!workflow.singleChainReady && (workflow.validationErrors || []).length > 0 && (
-        <div
-          style={{
-            marginBottom: SPACING.md,
-            padding: '12px 16px',
-            borderRadius: BORDER_RADIUS.md,
-            background: COLORS.status.warningLight,
-            border: `1px solid ${COLORS.status.warning}`,
-            color: COLORS.status.warningText,
-            fontSize: FONT.size.sm,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-          }}
-        >
-          <div>
-            <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: 8 }} />
-            <b>Workflow cannot start yet:</b> {workflow.validationErrors.join(' · ')}
-          </div>
-          {hasPermission('workflow:edit') && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => navigate(`/workflows/${workflowId}/edit`)}
-            >
-              Fix in Chain Builder
-            </Button>
-          )}
-        </div>
-      )}
 
       {/* Live SSE Connection Bar */}
       <div
