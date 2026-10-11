@@ -88,9 +88,9 @@ public class UdfRegistryService {
             String sql = """
                 SELECT 
                     CASE 
-                        WHEN t.arguments::text ~ '^[0-9]+$' THEN (encode(lo_get(t.arguments::oid), 'escape')::jsonb ->> 'udfId')
-                        ELSE (t.arguments::text::jsonb ->> 'udfId')
-                    END AS udf_id,
+                        WHEN t.arguments::text ~ '^[0-9]+$' THEN (encode(lo_get(t.arguments::oid), 'escape')::jsonb ->> 'udfName')
+                        ELSE (t.arguments::text::jsonb ->> 'udfName')
+                    END AS udf_name,
                     COUNT(DISTINCT pt.pipeline_id) AS pipeline_count,
                     COUNT(DISTINCT cm.id) AS column_count
                 FROM transformations t
@@ -101,9 +101,9 @@ public class UdfRegistryService {
                 GROUP BY 1
             """;
             jdbcTemplate.query(sql, rs -> {
-                String udfId = rs.getString("udf_id");
-                if (udfId != null && !udfId.isBlank()) {
-                    counts.put(udfId, new UdfReferenceCounts(
+                String udfName = rs.getString("udf_name");
+                if (udfName != null && !udfName.isBlank()) {
+                    counts.put(udfName, new UdfReferenceCounts(
                             rs.getLong("pipeline_count"),
                             rs.getLong("column_count")
                     ));
@@ -119,7 +119,7 @@ public class UdfRegistryService {
     public List<UdfResponse> getAll() {
         Map<String, UdfReferenceCounts> refCounts = fetchReferenceCounts();
         return repository.findByOrganizationIdOrderByUpdatedAtDesc(requireContext(UserContext.getCurrentOrgId(), "organization"))
-                .stream().map(entity -> toResponse(entity, refCounts.get(entity.getId()))).toList();
+                .stream().map(entity -> toResponse(entity, refCounts.get(entity.getName()))).toList();
     }
 
     @Transactional
@@ -128,7 +128,7 @@ public class UdfRegistryService {
         UdfDefinition entity = repository.findById(id).orElseThrow(() -> new DatashifterException("UDF not found"));
         if (!organizationId.equals(entity.getOrganizationId())) throw new DatashifterException("UDF not found or access denied");
 
-        UdfReferenceCounts refCounts = fetchReferenceCounts().get(id);
+        UdfReferenceCounts refCounts = fetchReferenceCounts().get(entity.getName());
         if (refCounts != null && (refCounts.pipelineCount() > 0 || refCounts.columnCount() > 0)) {
             throw new DatashifterException(String.format(
                     "Cannot delete UDF '%s' because it is referenced in %d pipeline(s) and %d column(s). Remove the transformations first.",

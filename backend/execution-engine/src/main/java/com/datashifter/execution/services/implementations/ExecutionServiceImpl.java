@@ -61,11 +61,13 @@ public class ExecutionServiceImpl implements ExecutionService {
     private final ChunkSizeTuner chunkSizeTuner;
     private final ParallelChunkProcessor parallelChunkProcessor;
     private final ParallelConfig parallelConfig;
+    private final com.datashifter.execution.strategies.transformers.UdfExecutionManager udfExecutionManager;
 
     @Override
     @Transactional
     public void execute(String pipelineId, String executionLogId) {
         log.info("=== Starting pipeline execution: {} ===", pipelineId);
+        udfExecutionManager.clearCache();
 
         Pipeline pipeline = null;
         ExecutionContext ctx = null;

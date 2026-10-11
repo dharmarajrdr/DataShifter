@@ -293,7 +293,7 @@ public class PipelineDtos {
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
     public static class TransformationConfigDto {
         private TransformFunction functionName;
-        private String arguments;
+        private Object arguments;
         private Integer executionOrder;
     }
 

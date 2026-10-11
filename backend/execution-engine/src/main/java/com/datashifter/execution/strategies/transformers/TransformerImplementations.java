@@ -580,7 +580,6 @@ class RowNumberTransformer implements ColumnTransformer {
 class UdfTransformer implements ColumnTransformer {
 
     private final UdfExecutionManager udfExecutionManager;
-    private final Map<String, PreparedUdf> preparedCache = new ConcurrentHashMap<>();
 
     @Override
     public Object transform(Object input, String args) {
@@ -598,7 +597,7 @@ class UdfTransformer implements ColumnTransformer {
             return input;
         }
 
-        PreparedUdf prepared = preparedCache.computeIfAbsent(args, udfExecutionManager::prepare);
+        PreparedUdf prepared = udfExecutionManager.prepare(args);
         return udfExecutionManager.executePrepared(prepared, input, sourceRow, targetColumn);
     }
 

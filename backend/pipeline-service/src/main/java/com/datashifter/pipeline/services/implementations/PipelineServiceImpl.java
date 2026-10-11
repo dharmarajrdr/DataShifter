@@ -448,7 +448,7 @@ public class PipelineServiceImpl implements PipelineService {
                                         cm.getTransformations().add(Transformation.builder()
                                                 .columnMapping(cm)
                                                 .functionName(trReq.getFunctionName())
-                                                .arguments(trReq.getArguments())
+                                                .arguments(sanitizeTransformationArguments(trReq.getFunctionName(), trReq.getArguments()))
                                                 .executionOrder(trReq.getExecutionOrder())
                                                 .build());
                                     }
@@ -686,7 +686,7 @@ public class PipelineServiceImpl implements PipelineService {
                                                                 .sorted(Comparator.comparing(Transformation::getExecutionOrder))
                                                                 .map(tr -> TransformationConfigDto.builder()
                                                                         .functionName(tr.getFunctionName())
-                                                                        .arguments(tr.getArguments())
+                                                                        .arguments(formatExportArguments(tr))
                                                                         .executionOrder(tr.getExecutionOrder())
                                                                         .build())
                                                                 .toList())
@@ -919,7 +919,7 @@ public class PipelineServiceImpl implements PipelineService {
                                         cm.getTransformations().add(Transformation.builder()
                                                 .columnMapping(cm)
                                                 .functionName(trDto.getFunctionName())
-                                                .arguments(trDto.getArguments())
+                                                .arguments(normalizeImportArguments(trDto))
                                                 .executionOrder(trDto.getExecutionOrder() != null ? trDto.getExecutionOrder() : 0)
                                                 .build());
                                         transformationsCount++;
@@ -966,6 +966,73 @@ public class PipelineServiceImpl implements PipelineService {
                 .warnings(warnings)
                 .errors(List.of())
                 .build();
+    }
+
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
+    private Object formatExportArguments(Transformation tr) {
+        String rawArgs = tr.getArguments();
+        if (rawArgs == null || rawArgs.isBlank()) {
+            return rawArgs;
+        }
+        String trimmed = rawArgs.trim();
+        if (tr.getFunctionName() == com.datashifter.common.enums.TransformFunction.UDF || (trimmed.startsWith("{") && trimmed.endsWith("}"))) {
+            try {
+                Map<String, Object> parsed = JSON_MAPPER.readValue(
+                        trimmed, new com.fasterxml.jackson.core.type.TypeReference<java.util.LinkedHashMap<String, Object>>() {});
+                parsed.remove("udfId");
+                return parsed;
+            } catch (Exception e) {
+                log.warn("Failed to parse transformation arguments as JSON on export: {}", e.getMessage());
+            }
+        }
+        return rawArgs;
+    }
+
+    private String normalizeImportArguments(TransformationConfigDto trDto) {
+        Object rawArgs = trDto.getArguments();
+        if (rawArgs == null) {
+            return null;
+        }
+        if (rawArgs instanceof Map<?, ?> mapArgs) {
+            Map<String, Object> cleaned = new java.util.LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : mapArgs.entrySet()) {
+                String key = String.valueOf(entry.getKey());
+                if (!"udfId".equals(key)) {
+                    cleaned.put(key, entry.getValue());
+                }
+            }
+            try {
+                return JSON_MAPPER.writeValueAsString(cleaned);
+            } catch (Exception e) {
+                throw new DatashifterException("Invalid transformation arguments JSON: " + e.getMessage(), e);
+            }
+        }
+        if (rawArgs instanceof String strArgs) {
+            return sanitizeTransformationArguments(trDto.getFunctionName(), strArgs);
+        }
+        try {
+            return JSON_MAPPER.writeValueAsString(rawArgs);
+        } catch (Exception e) {
+            return String.valueOf(rawArgs);
+        }
+    }
+
+    private String sanitizeTransformationArguments(com.datashifter.common.enums.TransformFunction fn, String rawArgs) {
+        if (rawArgs == null || rawArgs.isBlank()) {
+            return rawArgs;
+        }
+        String trimmed = rawArgs.trim();
+        if (fn == com.datashifter.common.enums.TransformFunction.UDF || (trimmed.startsWith("{") && trimmed.endsWith("}"))) {
+            try {
+                Map<String, Object> parsed = JSON_MAPPER.readValue(
+                        trimmed, new com.fasterxml.jackson.core.type.TypeReference<java.util.LinkedHashMap<String, Object>>() {});
+                parsed.remove("udfId");
+                return JSON_MAPPER.writeValueAsString(parsed);
+            } catch (Exception ignored) {
+            }
+        }
+        return rawArgs;
     }
 
     @Override

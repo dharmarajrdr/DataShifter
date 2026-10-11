@@ -15,7 +15,6 @@ import java.util.List;
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UdfConfig {
-    private String udfId;
     private String udfName;
     private String version;
     private String className;

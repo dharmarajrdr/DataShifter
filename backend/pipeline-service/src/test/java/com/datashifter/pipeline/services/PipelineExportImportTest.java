@@ -299,4 +299,56 @@ class PipelineExportImportTest {
         verify(repository, times(1)).delete(pipeline);
         verify(connectionRepository, times(1)).delete(conn);
     }
+
+    @Test
+    @DisplayName("Export pipeline converts UDF arguments to JSON object and removes udfId")
+    void exportPipelineConvertsUdfArgumentsToJsonObjectWithoutUdfId() {
+        Connection sourceConn = Connection.builder().name("Src").dbType(DatabaseType.POSTGRESQL).build();
+        sourceConn.setId("conn-src");
+        Connection targetConn = Connection.builder().name("Tgt").dbType(DatabaseType.ORACLE).build();
+        targetConn.setId("conn-tgt");
+
+        Pipeline pipeline = Pipeline.builder()
+                .name("UDF Pipeline")
+                .sourceConnectionId("conn-src")
+                .targetConnectionId("conn-tgt")
+                .status(PipelineStatus.VALIDATED)
+                .defaultWriteMode(WriteMode.UPSERT)
+                .build();
+        pipeline.setId("pipe-udf");
+
+        PipelineTable pt = PipelineTable.builder().pipeline(pipeline).sourceTable("customers").executionOrder(0).build();
+        TargetTableMapping ttm = TargetTableMapping.builder().pipelineTable(pt).targetTable("CUSTOMER_MASTER").writeMode(WriteMode.UPSERT).build();
+        ColumnMapping cm = ColumnMapping.builder().targetTableMapping(ttm).sourceColumn("email").targetColumn("EMAIL_ADDRESS").mappingOrder(0).build();
+        Transformation tr = Transformation.builder()
+                .columnMapping(cm)
+                .functionName(TransformFunction.UDF)
+                .arguments("{\"udfId\":\"ac468b6e-699f-4fca-9288-85314d0a40aa\",\"udfName\":\"datashifter-valid-udf-0.1.4\",\"version\":\"1.0.0\",\"className\":\"com.datashifter.fixtures.CustomerFunctions\",\"methodName\":\"normalizeEmail\",\"failurePolicy\":\"SKIP_ROW\"}")
+                .executionOrder(0)
+                .build();
+        cm.getTransformations().add(tr);
+        ttm.getColumnMappings().add(cm);
+        pt.getTargetTableMappings().add(ttm);
+        pipeline.getPipelineTables().add(pt);
+
+        when(repository.findById("pipe-udf")).thenReturn(Optional.of(pipeline));
+        when(connectionRepository.findById("conn-src")).thenReturn(Optional.of(sourceConn));
+        when(connectionRepository.findById("conn-tgt")).thenReturn(Optional.of(targetConn));
+
+        PipelineExportDto exportDto = pipelineService.exportPipeline("pipe-udf");
+
+        Object exportedArgs = exportDto.getPipeline().getTables().get(0)
+                .getTargetMappings().get(0)
+                .getColumnMappings().get(0)
+                .getTransformations().get(0)
+                .getArguments();
+
+        assertInstanceOf(Map.class, exportedArgs);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> argsMap = (Map<String, Object>) exportedArgs;
+        assertFalse(argsMap.containsKey("udfId"), "Exported UDF arguments should not contain udfId");
+        assertEquals("datashifter-valid-udf-0.1.4", argsMap.get("udfName"));
+        assertEquals("com.datashifter.fixtures.CustomerFunctions", argsMap.get("className"));
+        assertEquals("normalizeEmail", argsMap.get("methodName"));
+    }
 }
