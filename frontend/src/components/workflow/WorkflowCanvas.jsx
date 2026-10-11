@@ -42,6 +42,7 @@ const WorkflowCanvas = ({
   onOpenAddStep,
   onMoveNode,
   onConnectNodes,
+  onRemoveNode,
   onAutoArrange,
 }) => {
   const containerRef = useRef(null);
@@ -525,6 +526,7 @@ const WorkflowCanvas = ({
                 onClick={() => onSelectNode && onSelectNode(node.pipelineId)}
                 onStartConnect={handleStartConnect}
                 onCompleteConnect={handleCompleteConnect}
+                onRemove={onRemoveNode}
               />
             </div>
           );

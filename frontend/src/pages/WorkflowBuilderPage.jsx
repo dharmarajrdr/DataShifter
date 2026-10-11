@@ -324,12 +324,46 @@ const WorkflowBuilderPage = () => {
   };
 
   const handleRemoveNode = (pipelineId) => {
-    setNodes((prev) => prev.filter((n) => n.pipelineId !== pipelineId));
-    setEdges((prev) =>
-      prev.filter(
-        (e) => e.sourcePipelineId !== pipelineId && e.targetPipelineId !== pipelineId
-      )
+    const inEdge = edges.find((e) => e.targetPipelineId === pipelineId);
+    const outEdge = edges.find((e) => e.sourcePipelineId === pipelineId);
+
+    let nextEdges = edges.filter(
+      (e) => e.sourcePipelineId !== pipelineId && e.targetPipelineId !== pipelineId
     );
+
+    // If a middle step in a chain (A -> B -> C) is removed, bridge A -> C automatically
+    if (
+      inEdge &&
+      outEdge &&
+      inEdge.sourcePipelineId !== outEdge.targetPipelineId &&
+      !nextEdges.some(
+        (e) =>
+          e.sourcePipelineId === inEdge.sourcePipelineId ||
+          e.targetPipelineId === outEdge.targetPipelineId
+      ) &&
+      !createsCycle(nextEdges, inEdge.sourcePipelineId, outEdge.targetPipelineId)
+    ) {
+      nextEdges = [
+        ...nextEdges,
+        {
+          sourcePipelineId: inEdge.sourcePipelineId,
+          targetPipelineId: outEdge.targetPipelineId,
+          onFailureAction: inEdge.onFailureAction || outEdge.onFailureAction || 'STOP_WORKFLOW',
+        },
+      ];
+    }
+
+    const remainingNodes = nodes.filter((n) => n.pipelineId !== pipelineId);
+    const arranged = computeClientTopology(remainingNodes, nextEdges).orderedNodes.map(
+      (n, idx) => ({
+        ...n,
+        positionX: n.positionX ?? TRIGGER_X,
+        positionY: 165 + idx * 145,
+      })
+    );
+
+    setNodes(arranged);
+    setEdges(nextEdges);
     setSelectedCanvasItem({ type: 'trigger' });
     setInspectorState({ mode: 'workflow_meta' });
   };
@@ -576,6 +610,7 @@ const WorkflowBuilderPage = () => {
           }}
           onMoveNode={handleMoveNode}
           onConnectNodes={handleConnectNodes}
+          onRemoveNode={handleRemoveNode}
           onAutoArrange={handleAutoArrange}
         />
 
@@ -590,7 +625,6 @@ const WorkflowBuilderPage = () => {
           topologyInfo={topologyInfo}
           onAddStep={handleAddStep}
           onUpdateNodeLinks={handleUpdateNodeLinks}
-          onRemoveNode={handleRemoveNode}
           onUpdateEdge={handleUpdateEdge}
           onDeleteEdge={handleDeleteEdge}
           onOpenAddStep={() => {

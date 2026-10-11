@@ -60,7 +60,6 @@ const WorkflowInspectorPanel = ({
   topologyInfo = { chainCount: 0, singleChainReady: false, validationErrors: [] },
   onAddStep,
   onUpdateNodeLinks,
-  onRemoveNode,
   onUpdateEdge,
   onDeleteEdge,
   onOpenAddStep,
@@ -515,33 +514,6 @@ const WorkflowInspectorPanel = ({
               ))}
             </select>
           </div>
-
-          {!readOnly && (
-            <div style={{ paddingTop: 10, borderTop: `1px solid ${COLORS.border.light}` }}>
-              <button
-                type="button"
-                onClick={() => onRemoveNode && onRemoveNode(node.pipelineId)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: BORDER_RADIUS.md,
-                  border: `1px solid ${COLORS.status.error}`,
-                  background: COLORS.status.errorLight,
-                  color: COLORS.status.errorText,
-                  fontSize: FONT.size.xs,
-                  fontWeight: FONT.weight.semibold,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                }}
-              >
-                <i className="fa-solid fa-link-slash" />
-                Remove Step from Workflow (Unlock Pipeline)
-              </button>
-            </div>
-          )}
         </div>
 
         {!readOnly && (

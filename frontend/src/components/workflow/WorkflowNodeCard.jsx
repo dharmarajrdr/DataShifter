@@ -19,6 +19,7 @@ const WorkflowNodeCard = ({
   onMouseDown,
   onStartConnect,
   onCompleteConnect,
+  onRemove,
   isConnecting = false,
 }) => {
   if (isTrigger) {
@@ -192,6 +193,50 @@ const WorkflowNodeCard = ({
         transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
       }}
     >
+      {/* Top-left remove step icon */}
+      {mode === 'builder' && onRemove && (
+        <button
+          type="button"
+          title="Remove step from workflow"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(node.pipelineId);
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = COLORS.status.error;
+            e.currentTarget.style.color = '#fff';
+            e.currentTarget.style.borderColor = COLORS.status.error;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = COLORS.background.primary;
+            e.currentTarget.style.color = COLORS.text.secondary;
+            e.currentTarget.style.borderColor = COLORS.border.medium;
+          }}
+          style={{
+            position: 'absolute',
+            top: -8,
+            left: -8,
+            width: 20,
+            height: 20,
+            borderRadius: '50%',
+            background: COLORS.background.primary,
+            border: `1.5px solid ${COLORS.border.medium}`,
+            color: COLORS.text.secondary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            zIndex: 4,
+            cursor: 'pointer',
+            boxShadow: SHADOWS.sm,
+            transition: 'all 0.12s ease',
+          }}
+        >
+          <i className="fa-solid fa-xmark" style={{ fontSize: 10, lineHeight: 1 }} />
+        </button>
+      )}
+
       {/* Top input connector port */}
       {mode === 'builder' && (
         <div
