@@ -433,14 +433,17 @@ const WorkflowBuilderPage = () => {
         })),
       };
 
+      let savedId = workflowId;
       if (isEditMode) {
-        await workflowApi.update(workflowId, payload);
+        const updated = await workflowApi.update(workflowId, payload);
+        savedId = updated?.id || workflowId;
         notify.success('Workflow saved successfully');
       } else {
-        await workflowApi.create(payload);
+        const created = await workflowApi.create(payload);
+        savedId = created?.id;
         notify.success('Workflow created successfully');
       }
-      navigate('/workflows');
+      navigate(savedId ? `/workflows/${savedId}/monitor` : '/workflows');
     } catch (err) {
       notify.error(err.message || 'Failed to save workflow');
     } finally {
