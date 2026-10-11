@@ -28,7 +28,7 @@ const WorkflowMonitor = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
-  const [selectedPipelineId, setSelectedPipelineId] = useState(null);
+  const [selectedPipelineId, setSelectedPipelineId] = useState('__TRIGGER__');
   const [updateCount, setUpdateCount] = useState(0);
 
   // Aggregated error logs state
@@ -49,8 +49,7 @@ const WorkflowMonitor = () => {
       if (res.data) {
         setWorkflow(res.data);
         setSelectedPipelineId(
-          (prev) =>
-            prev || res.data.currentPipelineId || res.data.nodes?.[0]?.pipelineId || null
+          (prev) => prev || res.data.currentPipelineId || '__TRIGGER__'
         );
       }
     } catch (err) {
@@ -265,8 +264,10 @@ const WorkflowMonitor = () => {
   const edges = workflow.edges || [];
   const completedSteps = nodes.filter((n) => n.pipelineStatus === 'COMPLETED').length;
   const canStart = workflow.singleChainReady && workflow.status !== 'RUNNING';
-  const selectedNode =
-    nodes.find((n) => n.pipelineId === selectedPipelineId) || nodes[0] || null;
+  const isTriggerSelected = !selectedPipelineId || selectedPipelineId === '__TRIGGER__';
+  const selectedNode = isTriggerSelected
+    ? null
+    : nodes.find((n) => n.pipelineId === selectedPipelineId) || null;
 
   const filteredErrors = (errorSummary.errors || []).filter((err) => {
     if (errorFilterType && err.errorType !== errorFilterType) return false;
@@ -561,12 +562,15 @@ const WorkflowMonitor = () => {
             mode="monitor"
             currentPipelineId={workflow.currentPipelineId}
             selectedItem={
-              selectedPipelineId ? { type: 'node', pipelineId: selectedPipelineId } : null
+              isTriggerSelected
+                ? { type: 'trigger' }
+                : { type: 'node', pipelineId: selectedPipelineId }
             }
             topologyInfo={{
               chainCount: workflow.chainCount || 0,
               singleChainReady: workflow.singleChainReady,
             }}
+            onSelectTrigger={() => setSelectedPipelineId('__TRIGGER__')}
             onSelectNode={(pid) => setSelectedPipelineId(pid)}
           />
 
@@ -595,7 +599,7 @@ const WorkflowMonitor = () => {
                   color: COLORS.text.primary,
                 }}
               >
-                Step Execution Status
+                {selectedNode ? 'Step Execution Status' : 'Workflow Details'}
               </h3>
               <p
                 style={{
@@ -604,9 +608,144 @@ const WorkflowMonitor = () => {
                   color: COLORS.text.secondary,
                 }}
               >
-                Click any pipeline step in the chain to inspect its progress
+                {selectedNode
+                  ? 'Click any pipeline step in the chain to inspect its progress'
+                  : 'Single-chain readiness and pre-run checklist'}
               </p>
             </div>
+
+            {!selectedNode && (
+              <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div
+                  style={{
+                    padding: 14,
+                    borderRadius: BORDER_RADIUS.md,
+                    background: workflow.singleChainReady
+                      ? COLORS.status.successLight
+                      : COLORS.background.secondary,
+                    border: `1px solid ${
+                      workflow.singleChainReady ? COLORS.status.success : COLORS.border.light
+                    }`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <i
+                      className={
+                        workflow.singleChainReady
+                          ? 'fa-solid fa-circle-check'
+                          : 'fa-solid fa-list-check'
+                      }
+                      style={{
+                        color: workflow.singleChainReady
+                          ? COLORS.status.successDark
+                          : COLORS.brand.primary,
+                        fontSize: 14,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: FONT.size.sm,
+                        fontWeight: FONT.weight.semibold,
+                        color: workflow.singleChainReady
+                          ? COLORS.status.successText
+                          : COLORS.text.primary,
+                      }}
+                    >
+                      {workflow.singleChainReady ? 'Ready for Execution' : 'Pre-Run Checklist'}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      fontSize: FONT.size.xs,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: COLORS.text.secondary,
+                      }}
+                    >
+                      <i
+                        className={
+                          nodes.length >= 1 ? 'fa-solid fa-check' : 'fa-solid fa-circle-dot'
+                        }
+                        style={{
+                          color:
+                            nodes.length >= 1 ? COLORS.status.success : COLORS.text.tertiary,
+                          width: 14,
+                        }}
+                      />
+                      <span>At least 1 pipeline step ({nodes.length} added)</span>
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: COLORS.text.secondary,
+                      }}
+                    >
+                      <i
+                        className={
+                          nodes.length >= 1 && (workflow.chainCount || 0) === 1
+                            ? 'fa-solid fa-check'
+                            : 'fa-solid fa-circle-dot'
+                        }
+                        style={{
+                          color:
+                            nodes.length >= 1 && (workflow.chainCount || 0) === 1
+                              ? COLORS.status.success
+                              : COLORS.status.warning,
+                          width: 14,
+                        }}
+                      />
+                      <span>
+                        Single connected pipeline chain ({workflow.chainCount || 0}{' '}
+                        {(workflow.chainCount || 0) === 1 ? 'chain' : 'chains'})
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: COLORS.text.secondary,
+                      }}
+                    >
+                      <i
+                        className={
+                          nodes.length >= 1 &&
+                          nodes.every(
+                            (n) =>
+                              !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
+                          )
+                            ? 'fa-solid fa-check'
+                            : 'fa-solid fa-circle-dot'
+                        }
+                        style={{
+                          color:
+                            nodes.length >= 1 &&
+                            nodes.every(
+                              (n) =>
+                                !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
+                            )
+                              ? COLORS.status.success
+                              : COLORS.status.error,
+                          width: 14,
+                        }}
+                      />
+                      <span>All member pipelines in Validated status</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {selectedNode && (
               <div
