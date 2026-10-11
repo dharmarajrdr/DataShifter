@@ -110,7 +110,7 @@ const SortableList = ({
               color: COLORS.text.tertiary, fontSize: '14px',
               cursor: 'grab', userSelect: 'none', lineHeight: 1,
             }}>
-              ☰
+              <i className="fa-solid fa-grip-vertical" />
             </span>
 
             {/* Order number */}

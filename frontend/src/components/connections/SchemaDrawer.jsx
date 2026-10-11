@@ -104,7 +104,7 @@ const SchemaDrawer = ({ connectionId, connectionName, onClose }) => {
               >
                 <div style={{ ...FRSC, gap: SPACING.xs }}>
                   <span style={{ fontSize: '10px', color: COLORS.text.tertiary, width: '12px' }}>
-                    {expandedTable === table ? '▼' : '▶'}
+                    <i className={expandedTable === table ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right'} />
                   </span>
                   <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: COLORS.text.primary }}>{table}</span>
                 </div>

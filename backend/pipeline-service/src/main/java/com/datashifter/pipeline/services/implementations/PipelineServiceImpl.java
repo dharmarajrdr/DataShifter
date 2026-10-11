@@ -309,6 +309,19 @@ public class PipelineServiceImpl implements PipelineService {
                         .filter(p -> p.getStatus() == PipelineStatus.RUNNING).count();
                 limitChecker.assertCanRunParallel(orgId2, runningCount);
 
+                // When starting or re-running from scratch (START), remove existing chunk_cursors and checkpoints
+                if (action.getAction() == PipelineAction.START) {
+                    int deletedCursors = entityManager.createQuery("DELETE FROM ChunkCursor c WHERE c.pipelineId = :pipelineId")
+                            .setParameter("pipelineId", id)
+                            .executeUpdate();
+                    var checkpointKeys = redisTemplate.keys("pipeline:" + id + ":table:*:checkpoint");
+                    if (checkpointKeys != null && !checkpointKeys.isEmpty()) {
+                        redisTemplate.delete(checkpointKeys);
+                    }
+                    redisTemplate.delete("pipeline:" + id + ":stats");
+                    log.info("Cleared {} chunk_cursors and Redis checkpoints for pipeline {} on START", deletedCursors, id);
+                }
+
                 PipelineStatus target = PipelineStatus.RUNNING;
                 PipelineStateMachine.validateTransition(entity.getStatus(), target);
                 entity.setStatus(target);
@@ -549,8 +562,10 @@ public class PipelineServiceImpl implements PipelineService {
     public PipelineExportDto exportPipeline(String id) {
         Pipeline pipeline = findEntity(id);
 
-        if (pipeline.getStatus() != PipelineStatus.VALIDATED) {
-            throw new DatashifterException("Export is only permitted when the pipeline is in VALIDATED state. Current status: " + pipeline.getStatus());
+        if (pipeline.getStatus() == PipelineStatus.DRAFT
+                || pipeline.getStatus() == PipelineStatus.NOT_VALIDATED
+                || pipeline.getStatus() == PipelineStatus.INVALID) {
+            throw new DatashifterException("Export is not permitted when the pipeline is in " + pipeline.getStatus() + " state.");
         }
 
         Connection sourceConn = connectionRepository.findById(pipeline.getSourceConnectionId()).orElse(null);

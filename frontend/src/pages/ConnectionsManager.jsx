@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiGuard, Button, Loader, PageHeader, StatusBadge, ConfirmationModal, BarLoader, SkeletonLoader } from '../components/common';
+import { ApiGuard, BarLoader, Button, ConfirmationModal, PageHeader, SkeletonLoader, StatusBadge } from '../components/common';
 import ConnectionFormModal from '../components/connections/ConnectionFormModal';
 import SchemaDrawer from '../components/connections/SchemaDrawer';
 import { OracleIcon, PostgresIcon, SpannerIcon } from '../components/layout/Icons';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
 import { FRBS, FRSC } from '../constants/layouts';
 import { CONNECTION } from '../constants/literals';
-import { connectionApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { connectionApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 /* ================================================================
@@ -322,7 +322,7 @@ const ConnectionsManager = () => {
       loadingComponent={
         <div>
           <BarLoader />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: SPACING.md, marginTop: SPACING.lg }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 1fr)', gap: SPACING.md, marginTop: SPACING.lg }}>
             <SkeletonLoader variant="card" count={3} />
           </div>
         </div>

@@ -100,3 +100,10 @@ export const ProfileIcon = ({ color = '#6B6B6B', size = 16 }) => (
     <path d="M2.5 14c0-2.76 2.46-5 5.5-5s5.5 2.24 5.5 5" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
   </svg>
 );
+
+export const UploadIcon = ({ color = '#6B6B6B', size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <path d="M8 1v9M8 1l-3 3M8 1l3 3" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+    <path d="M2.5 12.5h11c0.83 0 1.5-0.67 1.5-1.5v-2c0-0.83-0.67-1.5-1.5-1.5h-11c-0.83 0-1.5 0.67-1.5 1.5v2c0 0.83 0.67 1.5 1.5 1.5z" stroke={color} strokeWidth="1.3" />
+  </svg>
+);

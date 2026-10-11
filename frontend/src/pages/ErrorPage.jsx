@@ -294,7 +294,7 @@ export const ErrorPage = ({
               margin: '0 auto',
             }}
           >
-            <span style={{ fontSize: '10px' }}>{showDetails ? '▼' : '▶'}</span>
+            <span style={{ fontSize: '10px' }}><i className={showDetails ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right'} /></span>
             {showDetails ? 'Hide error details' : 'Show error details'}
           </button>
           {showDetails && (

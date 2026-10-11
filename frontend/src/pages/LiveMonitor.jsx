@@ -4,13 +4,14 @@ import { ApiGuard, Button, Chip, Loader, MetricCard, PageHeader, ProgressBar, St
 import { FONT, SPACING } from '../constants/design';
 import { FCSE, FRBC, FRSC, FRWSC } from '../constants/layouts';
 import { MONITOR } from '../constants/literals';
-import { useEventSource } from '../hooks/useEventSource';
-import { monitorApi, pipelineApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { useEventSource } from '../hooks/useEventSource';
+import { monitorApi, pipelineApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'];
+const NON_EXPORTABLE_STATES = ['DRAFT', 'NOT_VALIDATED', 'INVALID'];
 
 const PlayIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3.5 2l8 5-8 5V2z" fill="currentColor" /></svg>;
 const PauseIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="3" y="2" width="3" height="10" rx=".8" fill="currentColor" /><rect x="8" y="2" width="3" height="10" rx=".8" fill="currentColor" /></svg>;
@@ -76,9 +77,22 @@ const LiveMonitor = () => {
   const [updateCount, setUpdateCount] = useState(0);
   const [error, setError] = useState(null);
 
+  const getHumanReadableCurrentTime = () => {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const amPm = hh >= 12 ? 'PM' : 'AM';
+    const dateStr = `${dd}-${mm}-${yyyy}`;
+    const timeStr = `${hh}:${min}${amPm}`;
+    return { dateStr, timeStr };
+  }
+
   const handleExportPipeline = async () => {
-    if (data?.status !== 'VALIDATED') {
-      notification.warning('Pipeline must be in VALIDATED state before it can be exported.');
+    if (!data?.status || NON_EXPORTABLE_STATES.includes(data.status)) {
+      notification.warning('Pipeline must be validated before it can be exported.');
       return;
     }
     setExportLoading(true);
@@ -90,8 +104,9 @@ const LiveMonitor = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      const sanitizedName = (data.pipelineName || 'pipeline').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-      link.download = `${sanitizedName}-config.json`;
+      const pipelineName = (data.pipelineName || 'pipeline').trim();
+      const { dateStr, timeStr } = getHumanReadableCurrentTime();
+      link.download = `${pipelineName} ${dateStr} ${timeStr}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -249,8 +264,8 @@ const LiveMonitor = () => {
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={data.status !== 'VALIDATED' || exportLoading}
-                title={data.status !== 'VALIDATED' ? 'Export is available only after pipeline is validated' : 'Export pipeline configuration as JSON'}
+                disabled={!data.status || NON_EXPORTABLE_STATES.includes(data.status) || exportLoading}
+                title={!data.status || NON_EXPORTABLE_STATES.includes(data.status) ? 'Export is available only after pipeline is validated' : 'Export pipeline configuration as JSON'}
                 onClick={handleExportPipeline}
               >
                 {exportLoading ? 'Exporting...' : 'Export Pipeline'}
@@ -338,7 +353,7 @@ const LiveMonitor = () => {
           <div style={{ border: '1px solid #E8E8E5', borderRadius: '8px', overflow: 'auto', background: '#fff', maxHeight: 'calc(100vh - 375px)' }}>
             {data.previewInflightRecords === false ? (
               <div style={{ padding: '32px', textAlign: 'center', color: '#9B9B9B', fontSize: '13px' }}>
-                <span style={{ fontSize: '20px', display: 'block', marginBottom: '8px' }}>🔒</span>
+                <span style={{ fontSize: '20px', display: 'block', marginBottom: '8px' }}><i className="fa-solid fa-lock" /></span>
                 In-flight records preview is disabled for this pipeline.
                 <br /><span style={{ fontSize: '11px', color: '#B4B2A9', marginTop: '4px', display: 'inline-block' }}>Enable it in Pipeline Settings → Data privacy.</span>
               </div>

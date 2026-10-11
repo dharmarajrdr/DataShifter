@@ -73,18 +73,20 @@ class PipelineExportImportTest {
     }
 
     @Test
-    @DisplayName("Export pipeline fails if pipeline is not in VALIDATED state")
+    @DisplayName("Export pipeline fails if pipeline is in DRAFT, NOT_VALIDATED, or INVALID state")
     void exportPipelineFailsIfNotValidated() {
-        Pipeline pipeline = Pipeline.builder()
-                .name("Test Pipeline")
-                .status(PipelineStatus.NOT_VALIDATED)
-                .build();
-        when(repository.findById("pipe-1")).thenReturn(Optional.of(pipeline));
+        for (PipelineStatus invalidStatus : List.of(PipelineStatus.DRAFT, PipelineStatus.NOT_VALIDATED, PipelineStatus.INVALID)) {
+            Pipeline pipeline = Pipeline.builder()
+                    .name("Test Pipeline")
+                    .status(invalidStatus)
+                    .build();
+            when(repository.findById("pipe-1")).thenReturn(Optional.of(pipeline));
 
-        DatashifterException ex = assertThrows(DatashifterException.class, () -> {
-            pipelineService.exportPipeline("pipe-1");
-        });
-        assertTrue(ex.getMessage().contains("Export is only permitted when the pipeline is in VALIDATED state"));
+            DatashifterException ex = assertThrows(DatashifterException.class, () -> {
+                pipelineService.exportPipeline("pipe-1");
+            });
+            assertTrue(ex.getMessage().contains("Export is not permitted when the pipeline is in " + invalidStatus + " state"));
+        }
     }
 
     @Test
