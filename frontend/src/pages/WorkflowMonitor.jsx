@@ -34,6 +34,7 @@ const WorkflowMonitor = () => {
     errors: [],
   });
   const [errorFilterPipelineId, setErrorFilterPipelineId] = useState('');
+  const [errorFilterType, setErrorFilterType] = useState('');
   const [errorSearch, setErrorSearch] = useState('');
   const [expandedErrorId, setExpandedErrorId] = useState(null);
 
@@ -133,6 +134,7 @@ const WorkflowMonitor = () => {
     nodes.find((n) => n.pipelineId === selectedPipelineId) || nodes[0] || null;
 
   const filteredErrors = (errorSummary.errors || []).filter((err) => {
+    if (errorFilterType && err.errorType !== errorFilterType) return false;
     if (!errorSearch) return true;
     const q = errorSearch.toLowerCase();
     return (
@@ -142,6 +144,54 @@ const WorkflowMonitor = () => {
       (err.pipelineName || '').toLowerCase().includes(q)
     );
   });
+
+  const handleExportErrors = (format) => {
+    if (!filteredErrors.length) return;
+    const safeName = (workflow.name || 'workflow').replace(/[^a-zA-Z0-9_-]/g, '_');
+    let content = '';
+    let mime = 'text/plain;charset=utf-8';
+    let ext = format;
+
+    if (format === 'json') {
+      content = JSON.stringify(filteredErrors, null, 2);
+      mime = 'application/json;charset=utf-8';
+    } else if (format === 'csv') {
+      const headers = ['Pipeline', 'ErrorType', 'SourceTable', 'TargetTable', 'Chunk', 'Row', 'ErrorMessage', 'CreatedAt'];
+      const rows = filteredErrors.map((e) =>
+        [
+          e.pipelineName || e.pipelineId || '',
+          e.errorType || '',
+          e.sourceTable || '',
+          e.targetTable || '',
+          e.chunkNumber ?? 0,
+          e.rowNumber ?? 0,
+          (e.errorMessage || '').replace(/"/g, '""'),
+          e.createdAt || '',
+        ]
+          .map((v) => `"${v}"`)
+          .join(',')
+      );
+      content = [headers.join(','), ...rows].join('\n');
+      mime = 'text/csv;charset=utf-8';
+    } else {
+      content = filteredErrors
+        .map(
+          (e) =>
+            `[${e.createdAt || ''}] [${e.pipelineName || e.pipelineId}] [${e.errorType}] ${e.sourceTable} -> ${e.targetTable} (Chunk #${e.chunkNumber ?? 0}, Row #${e.rowNumber ?? 0}): ${e.errorMessage}`
+        )
+        .join('\n');
+    }
+
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}_errors.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div>
@@ -664,7 +714,7 @@ const WorkflowMonitor = () => {
               flexWrap: 'wrap',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <select
                 value={errorFilterPipelineId}
                 onChange={(e) => setErrorFilterPipelineId(e.target.value)}
@@ -679,6 +729,24 @@ const WorkflowMonitor = () => {
                 {nodes.map((n, idx) => (
                   <option key={n.pipelineId} value={n.pipelineId}>
                     Step #{idx + 1}: {n.pipelineName}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={errorFilterType}
+                onChange={(e) => setErrorFilterType(e.target.value)}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: BORDER_RADIUS.md,
+                  border: `1px solid ${COLORS.border.medium}`,
+                  fontSize: FONT.size.sm,
+                }}
+              >
+                <option value="">All Error Types</option>
+                {(errorSummary.errorsByType || []).map((item) => (
+                  <option key={item.type} value={item.type}>
+                    {item.type} ({item.count})
                   </option>
                 ))}
               </select>
@@ -699,10 +767,24 @@ const WorkflowMonitor = () => {
             </div>
 
             {errorSummary.totalErrors > 0 && (
-              <Button size="sm" variant="secondary" onClick={handleClearErrors}>
-                <i className="fa-solid fa-trash-can" style={{ marginRight: 6 }} />
-                Clear Workflow Error Logs
-              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Button size="sm" variant="secondary" onClick={() => handleExportErrors('csv')}>
+                  <i className="fa-solid fa-file-csv" style={{ marginRight: 5 }} />
+                  CSV
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => handleExportErrors('json')}>
+                  <i className="fa-solid fa-file-code" style={{ marginRight: 5 }} />
+                  JSON
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => handleExportErrors('txt')}>
+                  <i className="fa-solid fa-file-lines" style={{ marginRight: 5 }} />
+                  TXT
+                </Button>
+                <Button size="sm" variant="secondary" onClick={handleClearErrors}>
+                  <i className="fa-solid fa-trash-can" style={{ marginRight: 6 }} />
+                  Clear Logs
+                </Button>
+              </div>
             )}
           </div>
 
