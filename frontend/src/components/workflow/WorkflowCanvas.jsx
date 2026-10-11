@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS } from '../../constants/design';
 import AddWorkflowStepPill from './AddWorkflowStepPill';
 import WorkflowNodeCard from './WorkflowNodeCard';
@@ -52,6 +52,7 @@ const WorkflowCanvas = ({
 
   const handleNodeMouseDown = (pipelineId, e) => {
     if (mode !== 'builder' || e.button !== 0) return;
+    e.preventDefault();
     e.stopPropagation();
     const targetNode = nodes.find((n) => n.pipelineId === pipelineId);
     if (!targetNode) return;
@@ -67,6 +68,7 @@ const WorkflowCanvas = ({
 
   const handleStartConnect = (sourcePipelineId, e) => {
     if (mode !== 'builder') return;
+    e.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
     const x = rect ? (e.clientX - rect.left) / zoom : 0;
     const y = rect ? (e.clientY - rect.top) / zoom : 0;
@@ -83,12 +85,19 @@ const WorkflowCanvas = ({
   };
 
   const handleMouseMove = (e) => {
+    // Safety guard: if primary mouse button is no longer pressed, end any active drag immediately
+    if ((draggingNode || connectingFrom) && typeof e.buttons === 'number' && (e.buttons & 1) === 0) {
+      setDraggingNode(null);
+      setConnectingFrom(null);
+      return;
+    }
+
     if (draggingNode && onMoveNode) {
       const dx = (e.clientX - draggingNode.startMouseX) / zoom;
       const dy = (e.clientY - draggingNode.startMouseY) / zoom;
       const moved = Math.abs(dx) > 3 || Math.abs(dy) > 3 || draggingNode.moved;
       if (moved) {
-        setDraggingNode((prev) => ({ ...prev, moved: true }));
+        setDraggingNode((prev) => (prev ? { ...prev, moved: true } : null));
         onMoveNode(
           draggingNode.pipelineId,
           Math.max(24, Math.round(draggingNode.origX + dx)),
@@ -97,11 +106,15 @@ const WorkflowCanvas = ({
       }
     } else if (connectingFrom && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setConnectingFrom((prev) => ({
-        ...prev,
-        mouseX: (e.clientX - rect.left) / zoom,
-        mouseY: (e.clientY - rect.top) / zoom,
-      }));
+      setConnectingFrom((prev) =>
+        prev
+          ? {
+              ...prev,
+              mouseX: (e.clientX - rect.left) / zoom,
+              mouseY: (e.clientY - rect.top) / zoom,
+            }
+          : null
+      );
     }
   };
 
@@ -116,6 +129,25 @@ const WorkflowCanvas = ({
       setConnectingFrom(null);
     }
   };
+
+  useEffect(() => {
+    if (!draggingNode && !connectingFrom) return;
+    const handleWindowMouseUp = () => {
+      setDraggingNode((prev) => {
+        if (prev && !prev.moved && onSelectNode) {
+          onSelectNode(prev.pipelineId);
+        }
+        return null;
+      });
+      setConnectingFrom(null);
+    };
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    window.addEventListener('blur', handleWindowMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      window.removeEventListener('blur', handleWindowMouseUp);
+    };
+  }, [draggingNode, connectingFrom, onSelectNode]);
 
   // Determine head node (first node with no incoming edge) and tail node (last node with no outgoing edge)
   const incomingByTarget = {};
@@ -501,10 +533,33 @@ const WorkflowCanvas = ({
                 transform: 'translate(-50%, -50%)',
                 zIndex: 4,
                 display: 'inline-flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: 6,
+                gap: 5,
               }}
             >
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onSelectEdge) onSelectEdge(edge.sourcePipelineId, edge.targetPipelineId);
+                }}
+                title="Click to configure failure behavior on this link"
+                style={{
+                  padding: '2px 9px',
+                  borderRadius: BORDER_RADIUS.pill,
+                  background: badgeCfg.bg,
+                  color: badgeCfg.color,
+                  border: `1px solid ${badgeCfg.border}`,
+                  fontSize: '10px',
+                  fontWeight: FONT.weight.semibold,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: SHADOWS.sm,
+                }}
+              >
+                {badgeCfg.text}
+              </div>
+
               {mode === 'builder' && (
                 <button
                   type="button"
@@ -533,28 +588,6 @@ const WorkflowCanvas = ({
                   <i className="fa-solid fa-plus" style={{ fontSize: 10, lineHeight: 1 }} />
                 </button>
               )}
-
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectEdge) onSelectEdge(edge.sourcePipelineId, edge.targetPipelineId);
-                }}
-                title="Click to configure failure behavior on this link"
-                style={{
-                  padding: '2px 9px',
-                  borderRadius: BORDER_RADIUS.pill,
-                  background: badgeCfg.bg,
-                  color: badgeCfg.color,
-                  border: `1px solid ${badgeCfg.border}`,
-                  fontSize: '10px',
-                  fontWeight: FONT.weight.semibold,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  boxShadow: SHADOWS.sm,
-                }}
-              >
-                {badgeCfg.text}
-              </div>
             </div>
           );
         })}
