@@ -128,7 +128,7 @@ public class KafkaEventConsumer {
         payload.put("orgId", event.getOrgId());
         payload.put("status", event.getStatus() != null ? event.getStatus().name() : null);
         payload.put("currentPipelineId", event.getCurrentPipelineId());
-        payload.put("nodeOutcomes", event.getNodeOutcomes());
+        payload.put("pipelineStatuses", event.getPipelineStatuses());
 
         dispatcher.dispatch(SseEvent.builder()
                 .channel("workflow:" + event.getWorkflowId())

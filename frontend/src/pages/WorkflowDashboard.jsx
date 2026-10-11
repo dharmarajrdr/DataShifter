@@ -72,9 +72,9 @@ const WorkflowDashboard = () => {
       setWorkflows((prev) =>
         prev.map((w) => {
           if (w.id !== d.workflowId) return w;
-          const outcomes = d.nodeOutcomes || {};
-          const completedSteps = Object.values(outcomes).filter(
-            (o) => o === 'COMPLETED'
+          const statuses = d.pipelineStatuses || {};
+          const completedSteps = Object.values(statuses).filter(
+            (s) => s === 'COMPLETED'
           ).length;
           const totalSteps = w.pipelineCount || 1;
           const overallProgress =

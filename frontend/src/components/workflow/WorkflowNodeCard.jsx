@@ -98,9 +98,7 @@ const WorkflowNodeCard = ({
     );
   }
 
-  const status = mode === 'monitor' && node.lastRunOutcome && node.lastRunOutcome !== 'PENDING'
-    ? node.lastRunOutcome
-    : node.pipelineStatus || 'VALIDATED';
+  const status = node.pipelineStatus || 'VALIDATED';
 
   const getIconConfig = () => {
     if (isRunningNode || status === 'RUNNING') {

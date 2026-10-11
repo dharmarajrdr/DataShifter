@@ -276,7 +276,7 @@ class WorkflowServiceTest {
 
         assertEquals(WorkflowStatus.RUNNING, wf.getStatus());
         assertEquals("p-1", wf.getCurrentPipelineId());
-        assertEquals(WorkflowNodeOutcome.RUNNING, n1.getLastRunOutcome());
+        assertEquals(PipelineStatus.RUNNING, p1.getStatus());
 
         ArgumentCaptor<PipelineJobEvent> jobCaptor = ArgumentCaptor.forClass(PipelineJobEvent.class);
         verify(kafkaTemplate).send(eq(KafkaTopics.PIPELINE_JOBS), jobCaptor.capture());
@@ -286,6 +286,7 @@ class WorkflowServiceTest {
         // 2. Simulate p-1 COMPLETED -> triggers p-2
         when(nodeRepository.findByPipelineIdWithWorkflow("p-1")).thenReturn(Optional.of(n1));
         when(edgeRepository.findByWorkflow_IdAndSourcePipelineId("wf-1", "p-1")).thenReturn(List.of(e12));
+        when(pipelineRepository.findById("p-1")).thenReturn(Optional.of(p1));
         when(pipelineRepository.findById("p-2")).thenReturn(Optional.of(p2));
 
         workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
@@ -294,8 +295,8 @@ class WorkflowServiceTest {
                 .timestamp(Instant.now())
                 .build());
 
-        assertEquals(WorkflowNodeOutcome.COMPLETED, n1.getLastRunOutcome());
-        assertEquals(WorkflowNodeOutcome.RUNNING, n2.getLastRunOutcome());
+        assertEquals(PipelineStatus.COMPLETED, p1.getStatus());
+        assertEquals(PipelineStatus.RUNNING, p2.getStatus());
         assertEquals("p-2", wf.getCurrentPipelineId());
 
         // 3. Simulate p-2 COMPLETED -> workflow finishes COMPLETED
@@ -308,7 +309,7 @@ class WorkflowServiceTest {
                 .timestamp(Instant.now())
                 .build());
 
-        assertEquals(WorkflowNodeOutcome.COMPLETED, n2.getLastRunOutcome());
+        assertEquals(PipelineStatus.COMPLETED, p2.getStatus());
         assertEquals(WorkflowStatus.COMPLETED, wf.getStatus());
         assertNull(wf.getCurrentPipelineId());
     }
@@ -317,12 +318,13 @@ class WorkflowServiceTest {
     @DisplayName("Phase 3: Evaluates STOP_WORKFLOW, STOP_PIPELINE, and CONTINUE_PIPELINE on predecessor failure")
     void evaluateFailureActionsOnPredecessorError() {
         Workflow wf = buildWorkflow("wf-1", "Failure Action Workflow", WorkflowStatus.RUNNING);
+        Pipeline p1 = buildPipeline("p-1", "Step 1", PipelineStatus.RUNNING);
         Pipeline p2 = buildPipeline("p-2", "Step 2", PipelineStatus.VALIDATED);
         Pipeline p3 = buildPipeline("p-3", "Step 3", PipelineStatus.VALIDATED);
 
-        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").lastRunOutcome(WorkflowNodeOutcome.RUNNING).build();
-        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").lastRunOutcome(WorkflowNodeOutcome.PENDING).build();
-        WorkflowNode n3 = WorkflowNode.builder().workflow(wf).pipelineId("p-3").lastRunOutcome(WorkflowNodeOutcome.PENDING).build();
+        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").build();
+        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").build();
+        WorkflowNode n3 = WorkflowNode.builder().workflow(wf).pipelineId("p-3").build();
 
         WorkflowEdge e12 = WorkflowEdge.builder()
                 .workflow(wf)
@@ -341,7 +343,10 @@ class WorkflowServiceTest {
         when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(n1, n2, n3));
         when(edgeRepository.findByWorkflow_IdAndSourcePipelineId("wf-1", "p-1")).thenReturn(List.of(e12));
         when(edgeRepository.findByWorkflow_IdAndSourcePipelineId("wf-1", "p-2")).thenReturn(List.of(e23));
+        when(pipelineRepository.findById("p-1")).thenReturn(Optional.of(p1));
+        when(pipelineRepository.findById("p-2")).thenReturn(Optional.of(p2));
         when(pipelineRepository.findById("p-3")).thenReturn(Optional.of(p3));
+        when(pipelineRepository.findAllById(anyList())).thenReturn(List.of(p1, p2, p3));
 
         // Case A: STOP_PIPELINE on p-1 -> p-2 stops p-2 and advances to p-3
         wf.setCurrentPipelineId("p-1");
@@ -351,17 +356,16 @@ class WorkflowServiceTest {
                 .timestamp(Instant.now())
                 .build());
 
-        assertEquals(WorkflowNodeOutcome.ERRORED, n1.getLastRunOutcome());
-        assertEquals(WorkflowNodeOutcome.STOPPED, n2.getLastRunOutcome());
-        assertEquals(WorkflowNodeOutcome.RUNNING, n3.getLastRunOutcome());
+        assertEquals(PipelineStatus.ERRORED, p1.getStatus());
+        assertEquals(PipelineStatus.ERRORED, p2.getStatus());
+        assertEquals(PipelineStatus.RUNNING, p3.getStatus());
         assertEquals("p-3", wf.getCurrentPipelineId());
 
         // Case B: CONTINUE_PIPELINE on p-1 -> p-2 starts p-2 directly
         wf.setStatus(WorkflowStatus.RUNNING);
         wf.setCurrentPipelineId("p-1");
         e12.setOnFailureAction(WorkflowFailureAction.CONTINUE_PIPELINE);
-        n2.setLastRunOutcome(WorkflowNodeOutcome.PENDING);
-        when(pipelineRepository.findById("p-2")).thenReturn(Optional.of(p2));
+        p2.setStatus(PipelineStatus.VALIDATED);
 
         workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
                 .pipelineId("p-1")
@@ -369,15 +373,15 @@ class WorkflowServiceTest {
                 .timestamp(Instant.now())
                 .build());
 
-        assertEquals(WorkflowNodeOutcome.RUNNING, n2.getLastRunOutcome());
+        assertEquals(PipelineStatus.RUNNING, p2.getStatus());
         assertEquals("p-2", wf.getCurrentPipelineId());
 
-        // Case C: STOP_WORKFLOW on p-1 -> p-2 halts entire workflow and skips remaining nodes
+        // Case C: STOP_WORKFLOW on p-1 -> p-2 halts entire workflow
         wf.setStatus(WorkflowStatus.RUNNING);
         wf.setCurrentPipelineId("p-1");
         e12.setOnFailureAction(WorkflowFailureAction.STOP_WORKFLOW);
-        n2.setLastRunOutcome(WorkflowNodeOutcome.PENDING);
-        n3.setLastRunOutcome(WorkflowNodeOutcome.PENDING);
+        p2.setStatus(PipelineStatus.VALIDATED);
+        p3.setStatus(PipelineStatus.VALIDATED);
 
         workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
                 .pipelineId("p-1")
@@ -387,8 +391,8 @@ class WorkflowServiceTest {
 
         assertEquals(WorkflowStatus.FAILED, wf.getStatus());
         assertNull(wf.getCurrentPipelineId());
-        assertEquals(WorkflowNodeOutcome.SKIPPED, n2.getLastRunOutcome());
-        assertEquals(WorkflowNodeOutcome.SKIPPED, n3.getLastRunOutcome());
+        assertEquals(PipelineStatus.VALIDATED, p2.getStatus());
+        assertEquals(PipelineStatus.VALIDATED, p3.getStatus());
     }
 
     @Test
@@ -398,8 +402,8 @@ class WorkflowServiceTest {
         wf.setCurrentPipelineId("p-1");
         Pipeline p1 = buildPipeline("p-1", "Step 1", PipelineStatus.RUNNING);
         Pipeline p2 = buildPipeline("p-2", "Step 2", PipelineStatus.VALIDATED);
-        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").positionY(80.0).lastRunOutcome(WorkflowNodeOutcome.RUNNING).build();
-        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").positionY(220.0).lastRunOutcome(WorkflowNodeOutcome.PENDING).build();
+        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").positionY(80.0).build();
+        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").positionY(220.0).build();
         WorkflowEdge e12 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-1").targetPipelineId("p-2").build();
 
         when(workflowRepository.findByIdAndOrgId("wf-1", orgId)).thenReturn(Optional.of(wf));
@@ -422,8 +426,8 @@ class WorkflowServiceTest {
         workflowService.performAction("wf-1", WorkflowActionRequest.builder().action(WorkflowAction.STOP).build());
         assertEquals(WorkflowStatus.STOPPED, wf.getStatus());
         assertNull(wf.getCurrentPipelineId());
-        assertEquals(WorkflowNodeOutcome.STOPPED, n1.getLastRunOutcome());
-        assertEquals(WorkflowNodeOutcome.SKIPPED, n2.getLastRunOutcome());
+        assertEquals(PipelineStatus.ERRORED, p1.getStatus());
+        assertEquals(PipelineStatus.VALIDATED, p2.getStatus());
     }
 }
 

@@ -2,7 +2,6 @@ package com.datashifter.common.dtos;
 
 import com.datashifter.common.enums.PipelineStatus;
 import com.datashifter.common.enums.WorkflowFailureAction;
-import com.datashifter.common.enums.WorkflowNodeOutcome;
 import com.datashifter.common.enums.WorkflowStatus;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
@@ -65,7 +64,6 @@ public class WorkflowDtos {
         private String targetName;
         private int tableCount;
         private PipelineStatus pipelineStatus;
-        private WorkflowNodeOutcome lastRunOutcome;
         private Double positionX;
         private Double positionY;
         private double progress;

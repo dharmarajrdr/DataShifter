@@ -111,12 +111,11 @@ const WorkflowMonitor = () => {
             rowsPerSec: d.rowsPerSec ?? node.rowsPerSec ?? 0,
             eta: d.eta ?? node.eta,
             pipelineStatus: 'RUNNING',
-            lastRunOutcome: 'RUNNING',
           };
         });
         const totalNodes = updatedNodes.length || 1;
         const sumProgress = updatedNodes.reduce((acc, n) => {
-          if (n.lastRunOutcome === 'COMPLETED' || n.pipelineStatus === 'COMPLETED') {
+          if (n.pipelineStatus === 'COMPLETED') {
             return acc + 100;
           }
           return acc + (Number(n.progress) || 0);
@@ -142,21 +141,13 @@ const WorkflowMonitor = () => {
       if (d.workflowId) {
         setWorkflow((prev) => {
           if (!prev) return prev;
-          const outcomes = d.nodeOutcomes || {};
+          const statuses = d.pipelineStatuses || {};
           const updatedNodes = (prev.nodes || []).map((n) => {
-            const outcome = outcomes[n.pipelineId] || n.lastRunOutcome;
+            const pStatus = statuses[n.pipelineId] || n.pipelineStatus;
             return {
               ...n,
-              lastRunOutcome: outcome,
-              pipelineStatus:
-                outcome === 'COMPLETED'
-                  ? 'COMPLETED'
-                  : outcome === 'ERRORED'
-                  ? 'ERRORED'
-                  : outcome === 'RUNNING'
-                  ? 'RUNNING'
-                  : n.pipelineStatus,
-              progress: outcome === 'COMPLETED' ? 100 : n.progress,
+              pipelineStatus: pStatus,
+              progress: pStatus === 'COMPLETED' ? 100 : n.progress,
             };
           });
           return {
@@ -178,18 +169,9 @@ const WorkflowMonitor = () => {
           if (!prev || !prev.nodes) return prev;
           const updatedNodes = prev.nodes.map((node) => {
             if (node.pipelineId !== d.pipelineId) return node;
-            const nextOutcome =
-              d.newStatus === 'COMPLETED'
-                ? 'COMPLETED'
-                : d.newStatus === 'ERRORED'
-                ? 'ERRORED'
-                : d.newStatus === 'RUNNING'
-                ? 'RUNNING'
-                : node.lastRunOutcome;
             return {
               ...node,
               pipelineStatus: d.newStatus,
-              lastRunOutcome: nextOutcome,
               progress: d.newStatus === 'COMPLETED' ? 100 : node.progress,
             };
           });
@@ -274,9 +256,7 @@ const WorkflowMonitor = () => {
 
   const nodes = workflow.nodes || [];
   const edges = workflow.edges || [];
-  const completedSteps = nodes.filter(
-    (n) => n.lastRunOutcome === 'COMPLETED' || n.pipelineStatus === 'COMPLETED'
-  ).length;
+  const completedSteps = nodes.filter((n) => n.pipelineStatus === 'COMPLETED').length;
   const canStart = workflow.singleChainReady && workflow.status !== 'RUNNING';
   const selectedNode =
     nodes.find((n) => n.pipelineId === selectedPipelineId) || nodes[0] || null;
@@ -785,13 +765,7 @@ const WorkflowMonitor = () => {
                   >
                     {selectedNode.pipelineName}
                   </span>
-                  <StatusBadge
-                    status={
-                      selectedNode.lastRunOutcome && selectedNode.lastRunOutcome !== 'PENDING'
-                        ? selectedNode.lastRunOutcome
-                        : selectedNode.pipelineStatus
-                    }
-                  />
+                  <StatusBadge status={selectedNode.pipelineStatus} />
                 </div>
 
                 <div
@@ -898,10 +872,7 @@ const WorkflowMonitor = () => {
               </div>
               {nodes.map((n, index) => {
                 const isSelected = selectedNode?.pipelineId === n.pipelineId;
-                const stepStatus =
-                  n.lastRunOutcome && n.lastRunOutcome !== 'PENDING'
-                    ? n.lastRunOutcome
-                    : n.pipelineStatus;
+                const stepStatus = n.pipelineStatus;
                 return (
                   <div
                     key={n.pipelineId}

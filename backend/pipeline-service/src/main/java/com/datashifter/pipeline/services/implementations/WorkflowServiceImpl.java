@@ -168,7 +168,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                     .pipelineId(pipelineId)
                     .positionX(280.0)
                     .positionY(baseY + (index * 140.0))
-                    .lastRunOutcome(WorkflowNodeOutcome.PENDING)
                     .build();
             nodeRepository.save(node);
             existingIds.add(pipelineId);
@@ -312,7 +311,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                         .count();
                 limitChecker.assertCanRunParallel(orgId, runningCount);
 
-                // Reset all member pipelines' checkpoints and outcomes for a clean workflow run
+                // Reset all member pipelines' checkpoints and statuses for a clean workflow run
                 for (WorkflowNode node : topology.orderedNodes) {
                     Pipeline p = pipelineMap.get(node.getPipelineId());
                     if (p != null) {
@@ -320,8 +319,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                         p.setStatus(PipelineStatus.VALIDATED);
                         pipelineRepository.save(p);
                     }
-                    node.setLastRunOutcome(WorkflowNodeOutcome.PENDING);
-                    nodeRepository.save(node);
                 }
 
                 // Start the head pipeline of the single chain
@@ -330,8 +327,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                 if (headPipeline == null) {
                     throw new DatashifterException("Head pipeline not found for workflow.");
                 }
-                headNode.setLastRunOutcome(WorkflowNodeOutcome.RUNNING);
-                nodeRepository.save(headNode);
 
                 headPipeline.setStatus(PipelineStatus.RUNNING);
                 pipelineRepository.save(headPipeline);
@@ -426,17 +421,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                         }
                     });
                 }
-
-                for (WorkflowNode node : nodes) {
-                    if (node.getPipelineId().equals(activePipelineId)) {
-                        node.setLastRunOutcome(WorkflowNodeOutcome.STOPPED);
-                        nodeRepository.save(node);
-                    } else if (node.getLastRunOutcome() == WorkflowNodeOutcome.PENDING
-                            || node.getLastRunOutcome() == WorkflowNodeOutcome.RUNNING) {
-                        node.setLastRunOutcome(WorkflowNodeOutcome.SKIPPED);
-                        nodeRepository.save(node);
-                    }
-                }
                 log.info("Stopped workflow '{}' ({})", workflow.getName(), workflow.getId());
             }
         }
@@ -477,17 +461,19 @@ public class WorkflowServiceImpl implements WorkflowService {
             return;
         }
 
+        // Ensure pipeline status in DB matches the reported status
+        pipelineRepository.findById(pipelineId).ifPresent(p -> {
+            if (p.getStatus() != newStatus) {
+                p.setStatus(newStatus);
+                pipelineRepository.save(p);
+            }
+        });
+
         List<WorkflowNode> allNodes = nodeRepository.findByWorkflow_Id(workflow.getId());
         List<WorkflowEdge> outgoingEdges = edgeRepository.findByWorkflow_IdAndSourcePipelineId(workflow.getId(), pipelineId);
         Optional<WorkflowEdge> outgoingEdgeOpt = outgoingEdges.stream().findFirst();
 
         if (newStatus == PipelineStatus.COMPLETED) {
-            currentNode.setLastRunOutcome(WorkflowNodeOutcome.COMPLETED);
-            nodeRepository.save(currentNode);
-            allNodes.stream()
-                    .filter(n -> n.getPipelineId().equals(pipelineId))
-                    .forEach(n -> n.setLastRunOutcome(WorkflowNodeOutcome.COMPLETED));
-
             if (outgoingEdgeOpt.isPresent()) {
                 String nextPipelineId = outgoingEdgeOpt.get().getTargetPipelineId();
                 log.info("Workflow '{}': pipeline '{}' completed. Triggering successor pipeline '{}'.",
@@ -495,9 +481,9 @@ public class WorkflowServiceImpl implements WorkflowService {
                 triggerSuccessorPipeline(workflow, allNodes, nextPipelineId);
             } else {
                 // End of chain reached
-                boolean anyFailed = allNodes.stream().anyMatch(n ->
-                        n.getLastRunOutcome() == WorkflowNodeOutcome.ERRORED
-                                || n.getLastRunOutcome() == WorkflowNodeOutcome.STOPPED);
+                Map<String, Pipeline> pipelineMap = loadPipelinesMap(allNodes);
+                boolean anyFailed = pipelineMap.values().stream()
+                        .anyMatch(p -> p.getStatus() == PipelineStatus.ERRORED);
                 workflow.setStatus(anyFailed ? WorkflowStatus.FAILED : WorkflowStatus.COMPLETED);
                 workflow.setCurrentPipelineId(null);
                 workflowRepository.save(workflow);
@@ -505,12 +491,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                 log.info("Workflow '{}' finished with status {}", workflow.getName(), workflow.getStatus());
             }
         } else if (newStatus == PipelineStatus.ERRORED) {
-            currentNode.setLastRunOutcome(WorkflowNodeOutcome.ERRORED);
-            nodeRepository.save(currentNode);
-            allNodes.stream()
-                    .filter(n -> n.getPipelineId().equals(pipelineId))
-                    .forEach(n -> n.setLastRunOutcome(WorkflowNodeOutcome.ERRORED));
-
             if (outgoingEdgeOpt.isEmpty()) {
                 workflow.setStatus(WorkflowStatus.FAILED);
                 workflow.setCurrentPipelineId(null);
@@ -535,13 +515,10 @@ public class WorkflowServiceImpl implements WorkflowService {
                 case STOP_PIPELINE -> {
                     log.warn("Workflow '{}': pipeline '{}' failed and edge action is STOP_PIPELINE for '{}'.",
                             workflow.getName(), pipelineId, targetPipelineId);
-                    allNodes.stream()
-                            .filter(n -> n.getPipelineId().equals(targetPipelineId))
-                            .findFirst()
-                            .ifPresent(stoppedNode -> {
-                                stoppedNode.setLastRunOutcome(WorkflowNodeOutcome.STOPPED);
-                                nodeRepository.save(stoppedNode);
-                            });
+                    pipelineRepository.findById(targetPipelineId).ifPresent(targetPipeline -> {
+                        targetPipeline.setStatus(PipelineStatus.ERRORED);
+                        pipelineRepository.save(targetPipeline);
+                    });
 
                     // Check if the stopped pipeline has a downstream successor in the chain
                     List<WorkflowEdge> nextEdges = edgeRepository.findByWorkflow_IdAndSourcePipelineId(
@@ -562,12 +539,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                 case STOP_WORKFLOW -> {
                     log.warn("Workflow '{}': pipeline '{}' failed and edge action is STOP_WORKFLOW. Aborting remaining chain.",
                             workflow.getName(), pipelineId);
-                    for (WorkflowNode n : allNodes) {
-                        if (n.getLastRunOutcome() == WorkflowNodeOutcome.PENDING) {
-                            n.setLastRunOutcome(WorkflowNodeOutcome.SKIPPED);
-                            nodeRepository.save(n);
-                        }
-                    }
                     workflow.setStatus(WorkflowStatus.FAILED);
                     workflow.setCurrentPipelineId(null);
                     workflowRepository.save(workflow);
@@ -593,9 +564,6 @@ public class WorkflowServiceImpl implements WorkflowService {
             return;
         }
 
-        nextNode.setLastRunOutcome(WorkflowNodeOutcome.RUNNING);
-        nodeRepository.save(nextNode);
-
         nextPipeline.setStatus(PipelineStatus.RUNNING);
         pipelineRepository.save(nextPipeline);
 
@@ -613,11 +581,13 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
 
     private void publishWorkflowStatus(Workflow workflow, List<WorkflowNode> nodes) {
-        Map<String, String> outcomes = new HashMap<>();
-        if (nodes != null) {
+        Map<String, String> statuses = new HashMap<>();
+        if (nodes != null && !nodes.isEmpty()) {
+            Map<String, Pipeline> pipelineMap = loadPipelinesMap(nodes);
             for (WorkflowNode n : nodes) {
-                if (n.getPipelineId() != null && n.getLastRunOutcome() != null) {
-                    outcomes.put(n.getPipelineId(), n.getLastRunOutcome().name());
+                Pipeline p = pipelineMap.get(n.getPipelineId());
+                if (p != null && p.getStatus() != null) {
+                    statuses.put(p.getId(), p.getStatus().name());
                 }
             }
         }
@@ -627,7 +597,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                         .orgId(workflow.getOrgId())
                         .status(workflow.getStatus())
                         .currentPipelineId(workflow.getCurrentPipelineId())
-                        .nodeOutcomes(outcomes)
+                        .pipelineStatuses(statuses)
                         .timestamp(Instant.now())
                         .build());
     }
@@ -729,7 +699,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                         .pipelineId(ni.getPipelineId())
                         .positionX(posX)
                         .positionY(posY)
-                        .lastRunOutcome(WorkflowNodeOutcome.PENDING)
                         .build();
             } else {
                 node.setPositionX(posX);
@@ -957,7 +926,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             Map<Object, Object> stats = redisTemplate.opsForHash().entries(statsKey);
 
             double progress = getDoubleFromMap(stats, "overallProgress");
-            if (p.getStatus() == PipelineStatus.COMPLETED || n.getLastRunOutcome() == WorkflowNodeOutcome.COMPLETED) {
+            if (p.getStatus() == PipelineStatus.COMPLETED) {
                 progress = 100.0;
             }
             long rowsProcessed = getLongFromMap(stats, "rowsProcessed");
@@ -977,7 +946,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                     .targetName(connNames.getOrDefault(p.getTargetConnectionId(), "Target"))
                     .tableCount(p.getPipelineTables() != null ? p.getPipelineTables().size() : 0)
                     .pipelineStatus(p.getStatus())
-                    .lastRunOutcome(n.getLastRunOutcome())
                     .positionX(n.getPositionX())
                     .positionY(n.getPositionY())
                     .progress(progress)
@@ -1046,7 +1014,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         for (WorkflowNode n : topology.orderedNodes) {
             Pipeline p = pipelineMap.get(n.getPipelineId());
             if (p == null) continue;
-            if (p.getStatus() == PipelineStatus.COMPLETED || n.getLastRunOutcome() == WorkflowNodeOutcome.COMPLETED) {
+            if (p.getStatus() == PipelineStatus.COMPLETED) {
                 totalProgressSum += 100.0;
             } else if (p.getStatus() == PipelineStatus.RUNNING || p.getStatus() == PipelineStatus.PAUSED) {
                 String statsKey = "pipeline:" + p.getId() + ":stats";

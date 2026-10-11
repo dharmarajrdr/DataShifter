@@ -221,7 +221,6 @@ const WorkflowBuilderPage = () => {
       targetName: connectionsMap[pipelineSummary.targetConnectionId] || 'Target',
       tableCount: pipelineSummary.tableCount ?? 0,
       pipelineStatus: pipelineSummary.status || 'VALIDATED',
-      lastRunOutcome: 'PENDING',
       positionX: predNode ? (predNode.positionX ?? TRIGGER_X) : TRIGGER_X,
       positionY: newPosY,
     };

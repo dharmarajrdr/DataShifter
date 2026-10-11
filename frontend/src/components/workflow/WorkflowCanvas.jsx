@@ -500,7 +500,7 @@ const WorkflowCanvas = ({
           const posY = node.positionY ?? 170 + index * 145;
           const isSelected =
             selectedItem?.type === 'node' && selectedItem?.pipelineId === node.pipelineId;
-          const isRunning = currentPipelineId === node.pipelineId || node.lastRunOutcome === 'RUNNING';
+          const isRunning = currentPipelineId === node.pipelineId || node.pipelineStatus === 'RUNNING';
 
           return (
             <div

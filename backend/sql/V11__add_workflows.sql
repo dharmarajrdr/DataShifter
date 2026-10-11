@@ -39,19 +39,8 @@ CREATE TABLE IF NOT EXISTS workflow_nodes (
     pipeline_id      VARCHAR(36) NOT NULL UNIQUE REFERENCES pipelines(id) ON DELETE RESTRICT,
     position_x       DOUBLE PRECISION DEFAULT 100.0,
     position_y       DOUBLE PRECISION DEFAULT 80.0,
-    last_run_outcome VARCHAR(32) DEFAULT 'PENDING',
     created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT workflow_nodes_outcome_check CHECK (
-        last_run_outcome IS NULL OR last_run_outcome::text = ANY (ARRAY[
-            'PENDING'::character varying,
-            'RUNNING'::character varying,
-            'COMPLETED'::character varying,
-            'ERRORED'::character varying,
-            'SKIPPED'::character varying,
-            'STOPPED'::character varying
-        ]::text[])
-    )
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_workflow_nodes_workflow_id ON workflow_nodes (workflow_id);

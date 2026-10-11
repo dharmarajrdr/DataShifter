@@ -1,6 +1,5 @@
 package com.datashifter.common.models;
 
-import com.datashifter.common.enums.WorkflowNodeOutcome;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,10 +28,5 @@ public class WorkflowNode extends BaseEntity {
     @Column(name = "position_y")
     @Builder.Default
     private Double positionY = 80.0;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "last_run_outcome", length = 32)
-    @Builder.Default
-    private WorkflowNodeOutcome lastRunOutcome = WorkflowNodeOutcome.PENDING;
 }
 

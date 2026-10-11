@@ -102,7 +102,7 @@ public class PipelineEvents {
         private String orgId;
         private WorkflowStatus status;
         private String currentPipelineId;
-        private Map<String, String> nodeOutcomes;
+        private Map<String, String> pipelineStatuses;
         private Instant timestamp;
     }
 }
