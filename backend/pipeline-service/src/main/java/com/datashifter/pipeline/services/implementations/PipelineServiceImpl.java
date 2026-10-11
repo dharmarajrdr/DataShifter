@@ -159,15 +159,24 @@ public class PipelineServiceImpl implements PipelineService {
 
         // Per-table write mode overrides
         if (req.getTableWriteModeOverrides() != null && !req.getTableWriteModeOverrides().isEmpty()) {
+            boolean writeModeChanged = false;
             for (var override : req.getTableWriteModeOverrides()) {
-                entity.getPipelineTables().stream()
+                var ttmOpt = entity.getPipelineTables().stream()
                         .flatMap(pt -> pt.getTargetTableMappings().stream())
                         .filter(ttm -> ttm.getId().equals(override.getTargetTableMappingId()))
-                        .findFirst()
-                        .ifPresent(ttm -> ttm.setWriteMode(override.getWriteMode()));
+                        .findFirst();
+                if (ttmOpt.isPresent()) {
+                    TargetTableMapping ttm = ttmOpt.get();
+                    if (override.getWriteMode() != null && override.getWriteMode() != ttm.getWriteMode()) {
+                        ttm.setWriteMode(override.getWriteMode());
+                        writeModeChanged = true;
+                    }
+                }
             }
-            entity.setStatus(PipelineStatus.NOT_VALIDATED);
-            entity.setValidationErrors(null);
+            if (writeModeChanged) {
+                entity.setStatus(PipelineStatus.NOT_VALIDATED);
+                entity.setValidationErrors(null);
+            }
         }
 
         Pipeline saved = repository.save(entity);
@@ -327,9 +336,12 @@ public class PipelineServiceImpl implements PipelineService {
                         .filter(p -> p.getStatus() == PipelineStatus.RUNNING).count();
                 limitChecker.assertCanRunParallel(orgId2, runningCount);
 
-                // When starting or re-running from scratch (START), remove existing chunk_cursors and checkpoints
+                // When starting or re-running from scratch (START), remove existing chunk_cursors, error_logs, and checkpoints
                 if (action.getAction() == PipelineAction.START) {
                     int deletedCursors = entityManager.createQuery("DELETE FROM ChunkCursor c WHERE c.pipelineId = :pipelineId")
+                            .setParameter("pipelineId", id)
+                            .executeUpdate();
+                    entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
                             .setParameter("pipelineId", id)
                             .executeUpdate();
                     var checkpointKeys = redisTemplate.keys("pipeline:" + id + ":table:*:checkpoint");
@@ -337,7 +349,14 @@ public class PipelineServiceImpl implements PipelineService {
                         redisTemplate.delete(checkpointKeys);
                     }
                     redisTemplate.delete("pipeline:" + id + ":stats");
-                    log.info("Cleared {} chunk_cursors and Redis checkpoints for pipeline {} on START", deletedCursors, id);
+                    log.info("Cleared {} chunk_cursors, error_logs, and Redis checkpoints for pipeline {} on START", deletedCursors, id);
+                } else {
+                    entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
+                            .setParameter("pipelineId", id)
+                            .executeUpdate();
+                    if (redisTemplate.opsForHash() != null) {
+                        redisTemplate.opsForHash().put("pipeline:" + id + ":stats", "errorsSkipped", "0");
+                    }
                 }
 
                 PipelineStatus target = PipelineStatus.RUNNING;

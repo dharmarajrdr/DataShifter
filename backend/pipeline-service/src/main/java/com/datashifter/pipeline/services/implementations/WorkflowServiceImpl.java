@@ -356,6 +356,13 @@ public class WorkflowServiceImpl implements WorkflowService {
                         // Target stage to restart/resume
                         if (actionType == WorkflowAction.RERUN_FAILED_STAGE) {
                             clearPipelineCheckpoints(p.getId());
+                        } else {
+                            entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
+                                    .setParameter("pipelineId", p.getId())
+                                    .executeUpdate();
+                            if (redisTemplate.opsForHash() != null) {
+                                redisTemplate.opsForHash().put("pipeline:" + p.getId() + ":stats", "errorsSkipped", "0");
+                            }
                         }
                         p.setStatus(PipelineStatus.VALIDATED);
                         pipelineRepository.save(p);
@@ -652,6 +659,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     private void clearPipelineCheckpoints(String pipelineId) {
         entityManager.createQuery("DELETE FROM ChunkCursor c WHERE c.pipelineId = :pipelineId")
+                .setParameter("pipelineId", pipelineId)
+                .executeUpdate();
+        entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
                 .setParameter("pipelineId", pipelineId)
                 .executeUpdate();
         var checkpointKeys = redisTemplate.keys("pipeline:" + pipelineId + ":table:*:checkpoint");

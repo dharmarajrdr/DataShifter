@@ -11,4 +11,5 @@ public class TransformationExecutionContext {
     private String sourceTable;
     private String targetTable;
     private long chunkNumber;
+    private ExecutionContext executionContext;
 }

@@ -229,21 +229,7 @@ public class OracleConnector implements DatabaseConnector {
             conn.setAutoCommit(false);
 
             for (Map<String, Object> record : records) {
-                int idx = 1;
-                if ("UPSERT".equals(writeMode)) {
-                    for (String col : columns) {
-                        ps.setObject(idx++, record.get(col));
-                    }
-                } else if ("UPDATE_ONLY".equals(writeMode)) {
-                    for (String col : columns) {
-                        if (!col.equalsIgnoreCase(pkColumn)) ps.setObject(idx++, record.get(col));
-                    }
-                    ps.setObject(idx++, record.get(pkColumn));
-                } else {
-                    for (String col : columns) {
-                        ps.setObject(idx++, record.get(col));
-                    }
-                }
+                bindRecordParameters(ps, record, columns, writeMode, pkColumn);
                 ps.addBatch();
             }
 
@@ -263,33 +249,38 @@ public class OracleConnector implements DatabaseConnector {
                     }
                 }
             } catch (BatchUpdateException bue) {
-                try { conn.commit(); } catch (SQLException commitEx) {
-                    try { conn.rollback(); } catch (SQLException ignored) {}
-                }
+                try { conn.rollback(); } catch (SQLException ignored) {}
+                try { ps.clearBatch(); } catch (SQLException ignored) {}
 
-                int[] updateCounts = bue.getUpdateCounts();
-                if (updateCounts != null) {
-                    for (int i = 0; i < updateCounts.length; i++) {
-                        if (updateCounts[i] == Statement.EXECUTE_FAILED) {
+                if (Boolean.TRUE.equals(config.getIgnoreExceptions())) {
+                    int maxErrors = (config.getMaxErrorThreshold() != null && config.getMaxErrorThreshold() > 0)
+                            ? config.getMaxErrorThreshold() : 1000;
+                    conn.setAutoCommit(true);
+                    for (Map<String, Object> record : records) {
+                        try {
+                            bindRecordParameters(ps, record, columns, writeMode, pkColumn);
+                            ps.executeUpdate();
+                            successCount++;
+                        } catch (SQLException rowEx) {
                             failedRecords.add(WriteResult.FailedRecord.builder()
-                                    .record(i < records.size() ? records.get(i) : Map.of())
-                                    .errorMessage(bue.getMessage())
+                                    .record(record)
+                                    .errorMessage(rowEx.getMessage())
                                     .errorType("BATCH_WRITE_FAILED")
                                     .build());
-                        } else {
-                            successCount++;
+                            if (failedRecords.size() >= maxErrors) {
+                                break;
+                            }
                         }
                     }
-                }
-
-                if (successCount == 0 && failedRecords.isEmpty()) {
-                    for (Map<String, Object> record : records) {
-                        failedRecords.add(WriteResult.FailedRecord.builder()
-                                .record(record)
-                                .errorMessage(bue.getMessage())
-                                .errorType("BATCH_WRITE_FAILED")
-                                .build());
-                    }
+                } else {
+                    int[] updateCounts = bue.getUpdateCounts();
+                    int failedIdx = (updateCounts != null && updateCounts.length < records.size())
+                            ? updateCounts.length : 0;
+                    failedRecords.add(WriteResult.FailedRecord.builder()
+                            .record(records.get(failedIdx))
+                            .errorMessage(bue.getMessage())
+                            .errorType("BATCH_WRITE_FAILED")
+                            .build());
                 }
             } catch (Exception e) {
                 conn.rollback();
@@ -297,9 +288,13 @@ public class OracleConnector implements DatabaseConnector {
             }
         } catch (Exception e) {
             log.error("Oracle batch write failed: {}", e.getMessage());
-            for (Map<String, Object> record : records) {
+            int maxErrors = (config.getMaxErrorThreshold() != null && config.getMaxErrorThreshold() > 0)
+                    ? config.getMaxErrorThreshold() : 1000;
+            int limit = Boolean.TRUE.equals(config.getIgnoreExceptions())
+                    ? Math.min(records.size(), maxErrors) : 1;
+            for (int i = 0; i < limit; i++) {
                 failedRecords.add(WriteResult.FailedRecord.builder()
-                        .record(record)
+                        .record(records.get(i))
                         .errorMessage(e.getMessage())
                         .errorType("WRITE_FAILED")
                         .build());
@@ -312,6 +307,21 @@ public class OracleConnector implements DatabaseConnector {
                 .failureCount(failedRecords.size())
                 .failedRecords(failedRecords)
                 .build();
+    }
+
+    private void bindRecordParameters(PreparedStatement ps, Map<String, Object> record,
+                                      List<String> columns, String writeMode, String pkColumn) throws SQLException {
+        int idx = 1;
+        if ("UPDATE_ONLY".equals(writeMode)) {
+            for (String col : columns) {
+                if (!col.equalsIgnoreCase(pkColumn)) ps.setObject(idx++, record.get(col));
+            }
+            ps.setObject(idx, record.get(pkColumn));
+        } else {
+            for (String col : columns) {
+                ps.setObject(idx++, record.get(col));
+            }
+        }
     }
 
     private String buildWriteSql(String table, List<String> columns, String writeMode, String pkColumn) {

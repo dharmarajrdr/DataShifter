@@ -291,25 +291,7 @@ public class PostgresConnector implements DatabaseConnector {
 
             // Add all rows to the batch
             for (Map<String, Object> record : records) {
-                int paramIdx = 1;
-
-                if ("UPDATE_ONLY".equals(writeMode)) {
-                    // UPDATE SET col1=?, col2=? WHERE pk=?
-                    // Bind non-PK columns first, then PK for WHERE clause
-                    for (String col : columns) {
-                        if (!col.equals(primaryKeyColumn)) {
-                            ps.setObject(paramIdx++, record.get(col));
-                        }
-                    }
-                    ps.setObject(paramIdx, record.get(primaryKeyColumn));
-                } else {
-                    // INSERT_ONLY and UPSERT: bind all columns in order
-                    // UPSERT uses EXCLUDED.col syntax — no extra PK parameter needed
-                    for (String col : columns) {
-                        ps.setObject(paramIdx++, record.get(col));
-                    }
-                }
-
+                bindRecordParameters(ps, record, columns, writeMode, primaryKeyColumn);
                 ps.addBatch();
             }
 
@@ -333,45 +315,50 @@ public class PostgresConnector implements DatabaseConnector {
                     }
                 }
             } catch (BatchUpdateException bue) {
-                // Partial batch failure — some rows succeeded, some failed
-                // Try to commit the successful ones
-                try { conn.commit(); } catch (SQLException commitEx) {
-                    // Entire batch rolled back — all rows failed
-                    try { conn.rollback(); } catch (SQLException ignored) {}
-                }
+                try { conn.rollback(); } catch (SQLException ignored) {}
+                try { ps.clearBatch(); } catch (SQLException ignored) {}
 
-                int[] updateCounts = bue.getUpdateCounts();
-                if (updateCounts != null) {
-                    for (int i = 0; i < updateCounts.length; i++) {
-                        if (updateCounts[i] == Statement.EXECUTE_FAILED) {
+                if (Boolean.TRUE.equals(config.getIgnoreExceptions())) {
+                    int maxErrors = (config.getMaxErrorThreshold() != null && config.getMaxErrorThreshold() > 0)
+                            ? config.getMaxErrorThreshold() : 1000;
+                    conn.setAutoCommit(true);
+                    for (Map<String, Object> record : records) {
+                        try {
+                            bindRecordParameters(ps, record, columns, writeMode, primaryKeyColumn);
+                            ps.executeUpdate();
+                            successCount++;
+                        } catch (SQLException rowEx) {
                             failedRecords.add(WriteResult.FailedRecord.builder()
-                                    .record(i < records.size() ? records.get(i) : Map.of())
-                                    .errorMessage(bue.getMessage())
+                                    .record(record)
+                                    .errorMessage(rowEx.getMessage())
                                     .errorType("BATCH_WRITE_FAILED")
                                     .build());
-                        } else {
-                            successCount++;
+                            if (failedRecords.size() >= maxErrors) {
+                                break;
+                            }
                         }
                     }
-                }
-
-                // If no per-row info available, all rows are failed
-                if (successCount == 0 && failedRecords.isEmpty()) {
-                    for (Map<String, Object> record : records) {
-                        failedRecords.add(WriteResult.FailedRecord.builder()
-                                .record(record)
-                                .errorMessage(bue.getMessage())
-                                .errorType("BATCH_WRITE_FAILED")
-                                .build());
-                    }
+                } else {
+                    int[] updateCounts = bue.getUpdateCounts();
+                    int failedIdx = (updateCounts != null && updateCounts.length < records.size())
+                            ? updateCounts.length : 0;
+                    failedRecords.add(WriteResult.FailedRecord.builder()
+                            .record(records.get(failedIdx))
+                            .errorMessage(bue.getMessage())
+                            .errorType("BATCH_WRITE_FAILED")
+                            .build());
                 }
             }
 
         } catch (SQLException e) {
-            // Complete connection/SQL failure — all rows failed
-            for (Map<String, Object> record : records) {
+            // Complete connection/SQL failure
+            int maxErrors = (config.getMaxErrorThreshold() != null && config.getMaxErrorThreshold() > 0)
+                    ? config.getMaxErrorThreshold() : 1000;
+            int limit = Boolean.TRUE.equals(config.getIgnoreExceptions())
+                    ? Math.min(records.size(), maxErrors) : 1;
+            for (int i = 0; i < limit; i++) {
                 failedRecords.add(WriteResult.FailedRecord.builder()
-                        .record(record)
+                        .record(records.get(i))
                         .errorMessage(e.getMessage())
                         .errorType("WRITE_FAILED")
                         .build());
@@ -384,6 +371,23 @@ public class PostgresConnector implements DatabaseConnector {
                 .failureCount(failedRecords.size())
                 .failedRecords(failedRecords)
                 .build();
+    }
+
+    private void bindRecordParameters(PreparedStatement ps, Map<String, Object> record,
+                                      List<String> columns, String writeMode, String primaryKeyColumn) throws SQLException {
+        int paramIdx = 1;
+        if ("UPDATE_ONLY".equals(writeMode)) {
+            for (String col : columns) {
+                if (!col.equals(primaryKeyColumn)) {
+                    ps.setObject(paramIdx++, record.get(col));
+                }
+            }
+            ps.setObject(paramIdx, record.get(primaryKeyColumn));
+        } else {
+            for (String col : columns) {
+                ps.setObject(paramIdx++, record.get(col));
+            }
+        }
     }
 
     // =========================================================================

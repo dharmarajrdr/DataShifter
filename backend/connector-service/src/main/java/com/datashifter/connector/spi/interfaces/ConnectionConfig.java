@@ -24,4 +24,12 @@ public class ConnectionConfig {
     /** Max connections in the HikariCP pool for this connection. Default 10. */
     @Builder.Default
     private Integer maxPoolSize = 10;
+
+    /** Whether to skip failed rows and continue up to maxErrorThreshold. */
+    @Builder.Default
+    private Boolean ignoreExceptions = false;
+
+    /** Maximum number of row errors to tolerate before stopping batch fallback. */
+    @Builder.Default
+    private Integer maxErrorThreshold = 1000;
 }

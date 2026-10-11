@@ -7,6 +7,7 @@ import com.datashifter.common.events.PipelineEvents.ErrorEvent;
 import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.models.UdfDefinition;
 import com.datashifter.common.repositories.UdfDefinitionRepository;
+import com.datashifter.execution.contexts.ExecutionContext;
 import com.datashifter.execution.contexts.TransformationExecutionContext;
 import com.datashifter.execution.contexts.TransformationExecutionContextHolder;
 import com.datashifter.execution.exceptions.UdfExecutionException;
@@ -239,8 +240,28 @@ public class UdfExecutionManager {
 
         log.error("UDF Failure on target {}: {}", targetColumn, errorMessage, error);
 
+        TransformationExecutionContext tCtx = TransformationExecutionContextHolder.get();
+        ExecutionContext execCtx = tCtx != null ? tCtx.getExecutionContext() : null;
+        boolean thresholdExceeded = false;
+        long currentErrors = 0;
+        int maxThreshold = 1000;
+
+        if (execCtx != null) {
+            currentErrors = execCtx.incrementErrors(1);
+            maxThreshold = execCtx.getPipeline().getMaxErrorThreshold() != null
+                    ? execCtx.getPipeline().getMaxErrorThreshold() : 1000;
+            thresholdExceeded = execCtx.isErrorThresholdExceeded();
+        }
+
         // Publish error event to monitoring / Kafka
-        publishErrorEvent(config, errorMessage, sourceRecord, policy == UdfFailurePolicy.STOP_PIPELINE);
+        publishErrorEvent(config, errorMessage, sourceRecord,
+                policy == UdfFailurePolicy.STOP_PIPELINE || thresholdExceeded);
+
+        if (thresholdExceeded) {
+            throw new UdfStopPipelineException(String.format(
+                    "Error threshold exceeded: %d errors (max: %d). Pipeline stopped. Last error: %s",
+                    currentErrors, maxThreshold, errorMessage), error);
+        }
 
         return switch (policy) {
             case DEFAULT_VALUE -> {
