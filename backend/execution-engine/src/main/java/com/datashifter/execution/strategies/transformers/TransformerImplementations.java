@@ -130,10 +130,17 @@ class SubstringTransformer implements ColumnTransformer {
     public Object transform(Object input, String args) {
         if (input == null) return null;
         String s = input.toString();
-        String[] parts = args != null ? args.split(",") : new String[]{"0"};
+        if (args == null || args.isBlank()) return s;
+        String cleaned = args.replace("'", "").trim();
+        if (cleaned.isEmpty()) return s;
+        String[] parts = cleaned.split(",");
         int start = Integer.parseInt(parts[0].trim());
-        int end = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : s.length();
-        return s.substring(Math.min(start, s.length()), Math.min(end, s.length()));
+        int end = (parts.length > 1 && !parts[1].trim().isEmpty())
+                ? Integer.parseInt(parts[1].trim())
+                : s.length();
+        int safeStart = Math.max(0, Math.min(start, s.length()));
+        int safeEnd = Math.max(safeStart, Math.min(end, s.length()));
+        return s.substring(safeStart, safeEnd);
     }
     public String getFunctionName() { return "SUBSTRING"; }
 }
@@ -146,8 +153,16 @@ class SubstringTransformer implements ColumnTransformer {
 class ToNumberTransformer implements ColumnTransformer {
     public Object transform(Object input, String args) {
         if (input == null) return null;
+        if (input instanceof Number) return input;
+        if (input instanceof Boolean b) return b ? 1L : 0L;
+        if (input instanceof Date d) return d.getTime();
+        if (input instanceof Instant inst) return inst.toEpochMilli();
+        if (input instanceof java.time.LocalDateTime ldt) return Timestamp.valueOf(ldt).getTime();
+        if (input instanceof java.time.LocalDate ld) return Timestamp.valueOf(ld.atStartOfDay()).getTime();
         String s = input.toString().trim();
         if (s.isEmpty()) return null;
+        if (s.equalsIgnoreCase("true")) return 1L;
+        if (s.equalsIgnoreCase("false")) return 0L;
         if (s.contains(".")) return Double.parseDouble(s);
         return Long.parseLong(s);
     }
@@ -180,9 +195,70 @@ class ToBooleanTransformer implements ColumnTransformer {
 class ToDateTransformer implements ColumnTransformer {
     public Object transform(Object input, String args) {
         if (input == null) return null;
+        if (input instanceof Timestamp ts) return ts;
+        if (input instanceof Date d) return new Timestamp(d.getTime());
+        if (input instanceof Instant inst) return Timestamp.from(inst);
+        if (input instanceof java.time.LocalDateTime ldt) return Timestamp.valueOf(ldt);
+        if (input instanceof java.time.LocalDate ld) return Timestamp.valueOf(ld.atStartOfDay());
+
+        String cleanArgs = args != null ? args.replace("'", "").trim() : "";
+        boolean hasPattern = !cleanArgs.isEmpty();
+
+        if (input instanceof Number num) {
+            long val = num.longValue();
+            if (hasPattern) {
+                try {
+                    SimpleDateFormat sdf = new SimpleDateFormat(cleanArgs);
+                    sdf.setLenient(false);
+                    Date parsed = sdf.parse(String.valueOf(val));
+                    return new Timestamp(parsed.getTime());
+                } catch (Exception ignored) {
+                    // Fall back to epoch conversion below
+                }
+            }
+            if (!hasPattern && val >= 19000101L && val <= 21991231L) {
+                try {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+                    sdf.setLenient(false);
+                    Date parsed = sdf.parse(String.valueOf(val));
+                    return new Timestamp(parsed.getTime());
+                } catch (Exception ignored) {
+                    // Fall back to epoch conversion
+                }
+            }
+            long millis = Math.abs(val) < 100_000_000_000L ? val * 1000L : val;
+            return new Timestamp(millis);
+        }
+
+        String s = input.toString().trim();
+        if (s.isEmpty()) return null;
+
         try {
-            String pattern = args != null ? args.replace("'", "") : "yyyy-MM-dd";
-            return new SimpleDateFormat(pattern).parse(input.toString().trim());
+            if (hasPattern) {
+                SimpleDateFormat sdf = new SimpleDateFormat(cleanArgs);
+                Date parsed = sdf.parse(s);
+                return new Timestamp(parsed.getTime());
+            }
+
+            if (s.matches("^-?\\d+$")) {
+                long val = Long.parseLong(s);
+                if (val >= 19000101L && val <= 21991231L) {
+                    try {
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+                        sdf.setLenient(false);
+                        Date parsed = sdf.parse(s);
+                        return new Timestamp(parsed.getTime());
+                    } catch (Exception ignored) {
+                        // Fall back to epoch conversion
+                    }
+                }
+                long millis = Math.abs(val) < 100_000_000_000L ? val * 1000L : val;
+                return new Timestamp(millis);
+            }
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            Date parsed = sdf.parse(s);
+            return new Timestamp(parsed.getTime());
         } catch (Exception e) {
             throw new RuntimeException("TO_DATE failed for value: " + input + " with pattern: " + args, e);
         }

@@ -83,7 +83,7 @@ public class WorkflowDtos {
     }
 
     public enum WorkflowAction {
-        START, PAUSE, RESUME, STOP
+        START, PAUSE, RESUME, STOP, RERUN_FAILED_STAGE, RERUN_FROM_CHECKPOINT
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

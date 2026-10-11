@@ -96,8 +96,7 @@ public class TransformTypeResolver {
 
                 // Type conversion transformations
                 case TO_NUMBER -> {
-                    if (currentType == CanonicalDataType.DATE_TIME
-                            || currentType == CanonicalDataType.BINARY
+                    if (currentType == CanonicalDataType.BINARY
                             || currentType == CanonicalDataType.JSON
                             || currentType == CanonicalDataType.UUID) {
                         return TypeResolutionResult.builder()

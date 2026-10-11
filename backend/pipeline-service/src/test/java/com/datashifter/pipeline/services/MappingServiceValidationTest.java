@@ -352,4 +352,89 @@ class MappingServiceValidationTest {
 
         assertTrue(errors.isEmpty(), "Expected no validation errors, got: " + errors);
     }
+
+    @Test
+    void testPostgresIntegerToOracleDateWithToDateTransformPasses() {
+        String sourceConnId = "conn-source-pg";
+        String targetConnId = "conn-target-ora";
+
+        Connection sourceConn = Connection.builder()
+                .dbType(DatabaseType.POSTGRESQL)
+                .host("localhost").port(5432).databaseName("srcdb")
+                .encryptedPassword(com.datashifter.common.utils.EncryptionUtil.encrypt("test"))
+                .build();
+        sourceConn.setId(sourceConnId);
+
+        Connection targetConn = Connection.builder()
+                .dbType(DatabaseType.ORACLE)
+                .host("localhost").port(1521).databaseName("ORCL")
+                .encryptedPassword(com.datashifter.common.utils.EncryptionUtil.encrypt("test"))
+                .build();
+        targetConn.setId(targetConnId);
+
+        DatabaseConnector sourceConnector = mock(DatabaseConnector.class);
+        DatabaseConnector targetConnector = mock(DatabaseConnector.class);
+
+        when(connectionRepository.findById(sourceConnId)).thenReturn(Optional.of(sourceConn));
+        when(connectionRepository.findById(targetConnId)).thenReturn(Optional.of(targetConn));
+        when(connectorFactory.getConnector(DatabaseType.POSTGRESQL)).thenReturn(sourceConnector);
+        when(connectorFactory.getConnector(DatabaseType.ORACLE)).thenReturn(targetConnector);
+
+        List<ColumnMetadata> sourceCols = List.of(
+                ColumnMetadata.builder().columnName("id").dataType("INTEGER").nullable(false).primaryKey(true).build(),
+                ColumnMetadata.builder().columnName("created_epoch").dataType("INTEGER").nullable(false).primaryKey(false).build(),
+                ColumnMetadata.builder().columnName("event_date").dataType("DATE").nullable(true).primaryKey(false).build()
+        );
+        List<ColumnMetadata> targetCols = List.of(
+                ColumnMetadata.builder().columnName("ID").dataType("NUMBER").nullable(false).primaryKey(true).build(),
+                ColumnMetadata.builder().columnName("CREATED_DATE").dataType("DATE").nullable(false).primaryKey(false).build(),
+                ColumnMetadata.builder().columnName("EVENT_EPOCH").dataType("NUMBER").nullable(true).primaryKey(false).build()
+        );
+
+        when(sourceConnector.getColumns(any(ConnectionConfig.class), eq("orders"))).thenReturn(sourceCols);
+        when(targetConnector.getColumns(any(ConnectionConfig.class), eq("ORDERS_ORA"))).thenReturn(targetCols);
+
+        Pipeline pipeline = Pipeline.builder()
+                .sourceConnectionId(sourceConnId)
+                .targetConnectionId(targetConnId)
+                .build();
+
+        PipelineTable pt = PipelineTable.builder().pipeline(pipeline).sourceTable("orders").build();
+        TargetTableMapping ttm = TargetTableMapping.builder()
+                .pipelineTable(pt).targetTable("ORDERS_ORA").writeMode(WriteMode.UPSERT).build();
+
+        // 1. INTEGER -> NUMBER
+        ttm.getColumnMappings().add(ColumnMapping.builder()
+                .targetTableMapping(ttm).sourceColumn("id").targetColumn("ID").mappingOrder(0).build());
+
+        // 2. Postgres INTEGER -> TO_DATE (no format arg needed for epoch integer) -> Oracle DATE
+        ColumnMapping intToDateMapping = ColumnMapping.builder()
+                .targetTableMapping(ttm).sourceColumn("created_epoch").targetColumn("CREATED_DATE").mappingOrder(1).build();
+        intToDateMapping.getTransformations().add(Transformation.builder()
+                .columnMapping(intToDateMapping)
+                .functionName(com.datashifter.common.enums.TransformFunction.TO_DATE)
+                .arguments("")
+                .executionOrder(0)
+                .build());
+        ttm.getColumnMappings().add(intToDateMapping);
+
+        // 3. Postgres DATE -> TO_NUMBER -> Oracle NUMBER
+        ColumnMapping dateToNumMapping = ColumnMapping.builder()
+                .targetTableMapping(ttm).sourceColumn("event_date").targetColumn("EVENT_EPOCH").mappingOrder(2).build();
+        dateToNumMapping.getTransformations().add(Transformation.builder()
+                .columnMapping(dateToNumMapping)
+                .functionName(com.datashifter.common.enums.TransformFunction.TO_NUMBER)
+                .arguments("")
+                .executionOrder(0)
+                .build());
+        ttm.getColumnMappings().add(dateToNumMapping);
+
+        pt.getTargetTableMappings().add(ttm);
+        pipeline.getPipelineTables().add(pt);
+
+        List<String> errors = mappingService.validatePipeline(pipeline);
+
+        assertTrue(errors.isEmpty(), "Expected Postgres INTEGER -> TO_DATE -> Oracle DATE and DATE -> TO_NUMBER -> NUMBER to pass, got: " + errors);
+    }
 }
+

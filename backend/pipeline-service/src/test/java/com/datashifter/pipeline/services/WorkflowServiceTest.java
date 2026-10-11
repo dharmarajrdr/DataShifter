@@ -429,5 +429,88 @@ class WorkflowServiceTest {
         assertEquals(PipelineStatus.ERRORED, p1.getStatus());
         assertEquals(PipelineStatus.VALIDATED, p2.getStatus());
     }
+
+    @Test
+    @DisplayName("Phase 4: RERUN_FAILED_STAGE preserves COMPLETED stages and restarts the failed stage from scratch")
+    void rerunFailedStagePreservesCompletedAndRestartsFailedStage() {
+        Workflow wf = buildWorkflow("wf-1", "Rerun Failed Stage Workflow", WorkflowStatus.FAILED);
+        Pipeline p1 = buildPipeline("p-1", "Stage 1", PipelineStatus.COMPLETED);
+        Pipeline p2 = buildPipeline("p-2", "Stage 2", PipelineStatus.ERRORED);
+        Pipeline p3 = buildPipeline("p-3", "Stage 3", PipelineStatus.VALIDATED);
+
+        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").positionY(80.0).build();
+        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").positionY(220.0).build();
+        WorkflowNode n3 = WorkflowNode.builder().workflow(wf).pipelineId("p-3").positionY(360.0).build();
+
+        WorkflowEdge e12 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-1").targetPipelineId("p-2").build();
+        WorkflowEdge e23 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-2").targetPipelineId("p-3").build();
+
+        Query mockQuery = mock(Query.class);
+        when(entityManager.createQuery(anyString())).thenReturn(mockQuery);
+        when(mockQuery.setParameter(anyString(), any())).thenReturn(mockQuery);
+
+        when(workflowRepository.findByIdAndOrgId("wf-1", orgId)).thenReturn(Optional.of(wf));
+        when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(n1, n2, n3));
+        when(edgeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(e12, e23));
+        when(pipelineRepository.findAllById(anyList())).thenReturn(List.of(p1, p2, p3));
+        when(pipelineRepository.findByOrgId(orgId)).thenReturn(List.of(p1, p2, p3));
+
+        workflowService.performAction("wf-1", WorkflowActionRequest.builder()
+                .action(WorkflowAction.RERUN_FAILED_STAGE)
+                .build());
+
+        assertEquals(WorkflowStatus.RUNNING, wf.getStatus());
+        assertEquals("p-2", wf.getCurrentPipelineId());
+        assertEquals(PipelineStatus.COMPLETED, p1.getStatus(), "Completed stage p-1 must remain COMPLETED");
+        assertEquals(PipelineStatus.RUNNING, p2.getStatus(), "Failed stage p-2 must transition to RUNNING");
+        assertEquals(PipelineStatus.VALIDATED, p3.getStatus(), "Downstream stage p-3 must be VALIDATED");
+
+        ArgumentCaptor<PipelineJobEvent> jobCaptor = ArgumentCaptor.forClass(PipelineJobEvent.class);
+        verify(kafkaTemplate).send(eq(KafkaTopics.PIPELINE_JOBS), jobCaptor.capture());
+        assertEquals("p-2", jobCaptor.getValue().getPipelineId());
+        assertEquals("START", jobCaptor.getValue().getAction());
+    }
+
+    @Test
+    @DisplayName("Phase 4: RERUN_FROM_CHECKPOINT preserves COMPLETED stages and dispatches RETRY on the failed stage")
+    void rerunFromCheckpointDispatchesRetryOnFailedStage() {
+        Workflow wf = buildWorkflow("wf-1", "Rerun Checkpoint Workflow", WorkflowStatus.FAILED);
+        Pipeline p1 = buildPipeline("p-1", "Stage 1", PipelineStatus.COMPLETED);
+        Pipeline p2 = buildPipeline("p-2", "Stage 2", PipelineStatus.ERRORED);
+        Pipeline p3 = buildPipeline("p-3", "Stage 3", PipelineStatus.ERRORED);
+
+        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").positionY(80.0).build();
+        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").positionY(220.0).build();
+        WorkflowNode n3 = WorkflowNode.builder().workflow(wf).pipelineId("p-3").positionY(360.0).build();
+
+        WorkflowEdge e12 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-1").targetPipelineId("p-2").build();
+        WorkflowEdge e23 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-2").targetPipelineId("p-3").build();
+
+        Query mockQuery = mock(Query.class);
+        when(entityManager.createQuery(anyString())).thenReturn(mockQuery);
+        when(mockQuery.setParameter(anyString(), any())).thenReturn(mockQuery);
+
+        when(workflowRepository.findByIdAndOrgId("wf-1", orgId)).thenReturn(Optional.of(wf));
+        when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(n1, n2, n3));
+        when(edgeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(e12, e23));
+        when(pipelineRepository.findAllById(anyList())).thenReturn(List.of(p1, p2, p3));
+        when(pipelineRepository.findByOrgId(orgId)).thenReturn(List.of(p1, p2, p3));
+
+        workflowService.performAction("wf-1", WorkflowActionRequest.builder()
+                .action(WorkflowAction.RERUN_FROM_CHECKPOINT)
+                .build());
+
+        assertEquals(WorkflowStatus.RUNNING, wf.getStatus());
+        assertEquals("p-2", wf.getCurrentPipelineId());
+        assertEquals(PipelineStatus.COMPLETED, p1.getStatus());
+        assertEquals(PipelineStatus.RUNNING, p2.getStatus());
+        assertEquals(PipelineStatus.VALIDATED, p3.getStatus(), "Downstream stage p-3 must be reset to VALIDATED");
+
+        ArgumentCaptor<PipelineJobEvent> jobCaptor = ArgumentCaptor.forClass(PipelineJobEvent.class);
+        verify(kafkaTemplate).send(eq(KafkaTopics.PIPELINE_JOBS), jobCaptor.capture());
+        assertEquals("p-2", jobCaptor.getValue().getPipelineId());
+        assertEquals("RESUME", jobCaptor.getValue().getAction());
+    }
 }
+
 

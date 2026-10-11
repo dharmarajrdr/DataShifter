@@ -22,10 +22,10 @@ const FN_META = {
   TRIM: { desc: 'Remove leading/trailing whitespace', needsArgs: false, category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
   UPPER: { desc: 'Convert to UPPERCASE', needsArgs: false, category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
   LOWER: { desc: 'Convert to lowercase', needsArgs: false, category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
-  APPEND: { desc: 'Append suffix to value', needsArgs: true, argHint: "'_suffix'", category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
-  PREPEND: { desc: 'Prepend prefix to value', needsArgs: true, argHint: "'PREFIX_'", category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
-  CONCAT: { desc: 'Append suffix (alias for APPEND)', needsArgs: true, argHint: "'_suffix'", category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
-  CONCAT_COLUMNS: { desc: 'Concat multiple columns', needsArgs: 'split', argHint: ['Separator', 'Column names (comma-sep)'], category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
+  APPEND: { desc: 'Append suffix to value', needsArgs: true, argHint: "'_suffix'", category: 'Text', inputTypes: ['STRING', 'NUMBER', 'BOOLEAN', 'DATE'], outputType: 'STRING' },
+  PREPEND: { desc: 'Prepend prefix to value', needsArgs: true, argHint: "'PREFIX_'", category: 'Text', inputTypes: ['STRING', 'NUMBER', 'BOOLEAN', 'DATE'], outputType: 'STRING' },
+  CONCAT: { desc: 'Append suffix (alias for APPEND)', needsArgs: true, argHint: "'_suffix'", category: 'Text', inputTypes: ['STRING', 'NUMBER', 'BOOLEAN', 'DATE'], outputType: 'STRING' },
+  CONCAT_COLUMNS: { desc: 'Concat multiple columns', needsArgs: 'split', argHint: ['Separator', 'Column names (comma-sep)'], category: 'Text', inputTypes: ['STRING', 'NUMBER', 'BOOLEAN', 'DATE'], outputType: 'STRING' },
   SUBSTRING: { desc: 'Extract substring by index', needsArgs: 'split', argHint: ['Start index (required)', 'End index (required)'], category: 'Text', inputTypes: ['STRING'], outputType: 'STRING' },
   TO_STRING: { desc: 'Convert to string', needsArgs: false, category: 'Type', inputTypes: ['ANY'], outputType: 'STRING' },
 
@@ -35,10 +35,10 @@ const FN_META = {
   FLOOR: { desc: 'Largest integer <= value', needsArgs: false, category: 'Math', inputTypes: ['NUMBER'], outputType: 'NUMBER' },
   ABS: { desc: 'Absolute value', needsArgs: false, category: 'Math', inputTypes: ['NUMBER'], outputType: 'NUMBER' },
   TRUNC: { desc: 'Truncate towards zero to decimals (default 0)', needsArgs: 'optional', argHint: 'decimals (e.g., 2, 0)', category: 'Math', inputTypes: ['NUMBER'], outputType: 'NUMBER' },
-  TO_NUMBER: { desc: 'Parse string to number', needsArgs: false, category: 'Type', inputTypes: ['STRING', 'NUMBER', 'BOOLEAN'], outputType: 'NUMBER' },
+  TO_NUMBER: { desc: 'Convert string, boolean, or date to number', needsArgs: false, category: 'Type', inputTypes: ['STRING', 'NUMBER', 'BOOLEAN', 'DATE'], outputType: 'NUMBER' },
 
   // Date
-  TO_DATE: { desc: 'Parse string to date', needsArgs: true, argHint: "yyyy-MM-dd", category: 'Type', inputTypes: ['STRING', 'DATE'], outputType: 'DATE' },
+  TO_DATE: { desc: 'Convert string or epoch number to date/timestamp', needsArgs: 'optional', argHint: "yyyy-MM-dd (optional for epoch number)", category: 'Type', inputTypes: ['STRING', 'NUMBER', 'DATE'], outputType: 'DATE' },
 
   // Boolean
   TO_BOOLEAN: { desc: 'Parse to boolean (true/false, 1/0, yes/no)', needsArgs: false, category: 'Type', inputTypes: ['STRING', 'NUMBER', 'BOOLEAN'], outputType: 'BOOLEAN' },
@@ -48,7 +48,7 @@ const FN_META = {
 
   // JSON
   TO_JSON: { desc: 'Build JSON object field', needsArgs: true, argHint: 'field name', category: 'JSON', inputTypes: ['ANY'], outputType: 'JSON' },
-  TO_JSON_ARRAY: { desc: 'Build JSON array', needsArgs: true, argHint: 'wrapper key (optional)', category: 'JSON', inputTypes: ['ANY'], outputType: 'JSON' },
+  TO_JSON_ARRAY: { desc: 'Build JSON array', needsArgs: 'optional', argHint: 'wrapper key (optional)', category: 'JSON', inputTypes: ['ANY'], outputType: 'JSON' },
 
   // System values (no source column needed)
   CURRENT_TIMESTAMP: { desc: 'Current system timestamp', needsArgs: false, category: 'System', isSystemValue: true, inputTypes: ['ANY'], outputType: 'DATE' },
@@ -73,21 +73,7 @@ const ALL_FUNCTIONS = [
    ================================================================ */
 const normalizeDataType = (rawType) => {
   if (!rawType) return 'STRING';
-  const t = rawType.toUpperCase().trim();
-  if (
-    t.includes('INT') ||
-    t.includes('NUM') ||
-    t.includes('DEC') ||
-    t.includes('FLOAT') ||
-    t.includes('DOUBLE') ||
-    t.includes('REAL') ||
-    t.includes('SERIAL') ||
-    t.includes('MONEY') ||
-    t.includes('BYTE') ||
-    t.includes('LONG')
-  ) {
-    return 'NUMBER';
-  }
+  const t = rawType.toUpperCase().trim().replace(/\s*\([^)]*\)/g, '');
   if (
     t.includes('DATE') ||
     t.includes('TIME') ||
@@ -96,11 +82,23 @@ const normalizeDataType = (rawType) => {
   ) {
     return 'DATE';
   }
-  if (t.includes('BOOL')) {
+  if (t.includes('BOOL') || t === 'BIT') {
     return 'BOOLEAN';
   }
   if (t.includes('JSON')) {
     return 'JSON';
+  }
+  if (
+    t.includes('INT') ||
+    t.includes('NUM') ||
+    t.includes('DEC') ||
+    t.includes('FLOAT') ||
+    t.includes('DOUBLE') ||
+    t.includes('REAL') ||
+    t.includes('SERIAL') ||
+    t.includes('MONEY')
+  ) {
+    return 'NUMBER';
   }
   return 'STRING';
 };
@@ -233,9 +231,49 @@ const simulateOne = (value, fn, args) => {
       return { ok: true, val: Math.trunc(n * factor) / factor };
     }
     case 'TO_STRING': return { ok: true, val: s };
-    case 'TO_NUMBER': { const n = Number(s.trim()); return isNaN(n) ? { ok: false, val: s, err: `"${s.trim()}" is not a number` } : { ok: true, val: n }; }
-    case 'TO_BOOLEAN': { const low = s.trim().toLowerCase(); const truthy = ['true', 'yes', '1', 'y', 't', 'on']; const falsy = ['false', 'no', '0', 'n', 'f', 'off']; if (truthy.includes(low)) return { ok: true, val: true }; if (falsy.includes(low)) return { ok: true, val: false }; return { ok: false, val: s, err: `"${s}" is not a boolean` }; }
-    case 'TO_DATE': { const d = new Date(s.trim()); return isNaN(d.getTime()) ? { ok: false, val: s, err: `"${s.trim()}" is not a valid date` } : { ok: true, val: d.toISOString().split('T')[0] }; }
+    case 'TO_NUMBER': {
+      const trimmed = s.trim();
+      if (trimmed === '') return { ok: true, val: null };
+      const low = trimmed.toLowerCase();
+      if (low === 'true') return { ok: true, val: 1 };
+      if (low === 'false') return { ok: true, val: 0 };
+      const n = Number(trimmed);
+      if (!isNaN(n)) return { ok: true, val: n };
+      const parsedDate = Date.parse(trimmed);
+      if (!isNaN(parsedDate)) return { ok: true, val: parsedDate };
+      return { ok: false, val: s, err: `"${trimmed}" is not a number` };
+    }
+    case 'TO_BOOLEAN': {
+      const trimmed = s.trim();
+      if (trimmed === '') return { ok: true, val: null };
+      const low = trimmed.toLowerCase();
+      const truthy = ['true', 'yes', '1', 'y', 't', 'on'];
+      const falsy = ['false', 'no', '0', 'n', 'f', 'off'];
+      if (truthy.includes(low)) return { ok: true, val: true };
+      if (falsy.includes(low)) return { ok: true, val: false };
+      const numVal = Number(trimmed);
+      if (!isNaN(numVal)) return { ok: true, val: numVal !== 0 };
+      return { ok: false, val: s, err: `"${s}" is not a boolean` };
+    }
+    case 'TO_DATE': {
+      const trimmed = s.trim();
+      if (trimmed === '') return { ok: true, val: null };
+      if (/^(19|20)\d{6}$/.test(trimmed)) {
+        return { ok: true, val: `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6, 8)}` };
+      }
+      const num = Number(trimmed);
+      if (!isNaN(num)) {
+        const ms = Math.abs(num) < 100000000000 ? Math.round(num * 1000) : Math.round(num);
+        const dNum = new Date(ms);
+        if (!isNaN(dNum.getTime())) {
+          return { ok: true, val: dNum.toISOString().split('T')[0] };
+        }
+      }
+      const d = new Date(trimmed);
+      return isNaN(d.getTime())
+        ? { ok: false, val: s, err: `"${trimmed}" is not a valid date` }
+        : { ok: true, val: d.toISOString().split('T')[0] };
+    }
     case 'DEFAULT_IF_NULL': return { ok: true, val: s };
     case 'TO_JSON': return args ? { ok: true, val: `{"${args}": "${s}"}` } : { ok: false, val: s, err: 'No field name' };
     case 'TO_JSON_ARRAY': return { ok: true, val: args ? `{"${args}": ["${s}"]}` : `["${s}"]` };
@@ -261,7 +299,21 @@ const simulateChain = (sourceValue, steps, chainAnalysis) => {
   return results;
 };
 
-const getSampleData = (normType) => {
+const getSampleData = (normType, firstStepFn) => {
+  if (normType === 'STRING') {
+    if (firstStepFn === 'TO_NUMBER' || ['ROUND', 'CEIL', 'FLOOR', 'ABS', 'TRUNC'].includes(firstStepFn)) {
+      return ['123.45', '42', '-17.5', '0', null];
+    }
+    if (firstStepFn === 'TO_DATE') {
+      return ['2024-03-15', '2026-10-10', '2023-12-01', null];
+    }
+    if (firstStepFn === 'TO_BOOLEAN') {
+      return ['true', 'false', '1', '0', null];
+    }
+  }
+  if (normType === 'NUMBER' && firstStepFn === 'TO_DATE') {
+    return ['1710460800', '1728518400', '20240315', '0', null];
+  }
   switch (normType) {
     case 'NUMBER':
       return ['123.45', '42', '-17.5', '0', null];
@@ -402,8 +454,8 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables =
 
   const defaultSamples = useMemo(() => {
     if (isSystemValue) return [null, null, null];
-    return getSampleData(sourceNormType);
-  }, [sourceNormType, isSystemValue]);
+    return getSampleData(sourceNormType, steps[0]?.fn);
+  }, [sourceNormType, isSystemValue, steps]);
 
   const effectiveSamples = useMemo(() => {
     if (isSystemValue) return [null, null, null];

@@ -41,6 +41,8 @@ const WorkflowMonitor = () => {
   const [errorFilterType, setErrorFilterType] = useState('');
   const [errorSearch, setErrorSearch] = useState('');
   const [expandedErrorId, setExpandedErrorId] = useState(null);
+  const [reRunModalOpen, setReRunModalOpen] = useState(false);
+  const [selectedReRunMode, setSelectedReRunMode] = useState('RERUN_FAILED_STAGE');
 
   const fetchWorkflow = useCallback(async () => {
     try {
@@ -447,20 +449,38 @@ const WorkflowMonitor = () => {
               )}
             </>
           ) : (
-            hasPermission('workflow:run') && (
-              <Button
-                variant="primary"
-                disabled={!canStart || actionBusy}
-                onClick={() => handleAction('START')}
-              >
-                <i className="fa-solid fa-play" style={{ marginRight: 6 }} />
-                {effectiveStatus === 'COMPLETED' ||
-                  effectiveStatus === 'FAILED' ||
-                  effectiveStatus === 'STOPPED'
-                  ? 'Re-Run Workflow'
-                  : 'Start Workflow'}
-              </Button>
-            )
+            hasPermission('workflow:run') && (() => {
+              const isReRun =
+                effectiveStatus === 'COMPLETED' ||
+                effectiveStatus === 'FAILED' ||
+                effectiveStatus === 'STOPPED' ||
+                nodes.some(
+                  (n) => n.pipelineStatus === 'COMPLETED' || n.pipelineStatus === 'ERRORED'
+                ) ||
+                (workflow.totalRowsProcessed || 0) > 0;
+              return (
+                <Button
+                  variant="primary"
+                  disabled={!canStart || actionBusy}
+                  onClick={() => {
+                    if (isReRun) {
+                      const hasFailedOrIncomplete = nodes.some(
+                        (n) => n.pipelineStatus !== 'COMPLETED'
+                      );
+                      setSelectedReRunMode(
+                        hasFailedOrIncomplete ? 'RERUN_FAILED_STAGE' : 'START'
+                      );
+                      setReRunModalOpen(true);
+                    } else {
+                      handleAction('START');
+                    }
+                  }}
+                >
+                  <i className="fa-solid fa-play" style={{ marginRight: 6 }} />
+                  {isReRun ? 'Re-Run Workflow' : 'Start Workflow'}
+                </Button>
+              );
+            })()
           )}
 
           {hasPermission('workflow:edit') && (
@@ -1074,6 +1094,217 @@ const WorkflowMonitor = () => {
           )}
         </div>
       )}
+
+      {/* Re-Run Workflow Options Modal */}
+      {reRunModalOpen && (() => {
+        const erroredIndex = nodes.findIndex((n) => n.pipelineStatus === 'ERRORED');
+        const incompleteIndex = nodes.findIndex((n) => n.pipelineStatus !== 'COMPLETED');
+        const targetStageIndex =
+          erroredIndex !== -1 ? erroredIndex : incompleteIndex !== -1 ? incompleteIndex : 0;
+        const targetStageNode = nodes[targetStageIndex] || nodes[0] || null;
+        const targetStageLabel = targetStageNode
+          ? `Stage ${targetStageIndex + 1}: ${targetStageNode.pipelineName}`
+          : 'Stage 1';
+
+        const reRunOptions = [
+          {
+            value: 'START',
+            title: '1. Restart workflow from beginning',
+            desc: 'Clears checkpoints across all stages and starts execution from Stage 1.',
+            icon: 'fa-solid fa-rotate-left',
+          },
+          {
+            value: 'RERUN_FAILED_STAGE',
+            title: '2. Restart from last failed stage',
+            desc: `Keeps completed upstream stages intact and restarts ${targetStageLabel} from the beginning.`,
+            icon: 'fa-solid fa-forward-step',
+          },
+          {
+            value: 'RERUN_FROM_CHECKPOINT',
+            title: '3. Restart from last checkpoint',
+            desc: `Keeps completed upstream stages intact and resumes ${targetStageLabel} from its last completed chunk checkpoint.`,
+            icon: 'fa-solid fa-bookmark',
+          },
+        ];
+
+        return (
+          <div
+            onClick={() => !actionBusy && setReRunModalOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.45)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: 16,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: 480,
+                background: COLORS.background.primary,
+                borderRadius: BORDER_RADIUS.lg,
+                boxShadow: SHADOWS.lg || '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
+                border: `1px solid ${COLORS.border.light}`,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: '16px 20px',
+                  borderBottom: `1px solid ${COLORS.border.light}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <i
+                    className="fa-solid fa-rotate-right"
+                    style={{ color: COLORS.brand.primary, fontSize: 15 }}
+                  />
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: FONT.size.lg,
+                      fontWeight: FONT.weight.semibold,
+                      color: COLORS.text.primary,
+                    }}
+                  >
+                    Re-Run Workflow
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={() => setReRunModalOpen(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: COLORS.text.tertiary,
+                    fontSize: 14,
+                    padding: 4,
+                  }}
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              </div>
+
+              <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p
+                  style={{
+                    margin: '0 0 4px',
+                    fontSize: FONT.size.xs,
+                    color: COLORS.text.secondary,
+                  }}
+                >
+                  Choose how you want to re-run <strong>{workflow.name}</strong>:
+                </p>
+
+                {reRunOptions.map((opt) => {
+                  const isSelected = selectedReRunMode === opt.value;
+                  return (
+                    <div
+                      key={opt.value}
+                      onClick={() => setSelectedReRunMode(opt.value)}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: BORDER_RADIUS.md,
+                        border: `1.5px solid ${
+                          isSelected ? COLORS.brand.primary : COLORS.border.light
+                        }`,
+                        background: isSelected
+                          ? COLORS.brand.light || '#EEF2FF'
+                          : COLORS.background.secondary,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="reRunMode"
+                        checked={isSelected}
+                        onChange={() => setSelectedReRunMode(opt.value)}
+                        style={{ marginTop: 3, cursor: 'pointer' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            fontSize: FONT.size.sm,
+                            fontWeight: FONT.weight.semibold,
+                            color: COLORS.text.primary,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <i
+                            className={opt.icon}
+                            style={{
+                              fontSize: 12,
+                              color: isSelected ? COLORS.brand.primary : COLORS.text.secondary,
+                            }}
+                          />
+                          <span>{opt.title}</span>
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: FONT.size.xs,
+                            color: COLORS.text.secondary,
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {opt.desc}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div
+                style={{
+                  padding: '12px 20px',
+                  borderTop: `1px solid ${COLORS.border.light}`,
+                  background: COLORS.background.secondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: 8,
+                }}
+              >
+                <Button
+                  variant="secondary"
+                  disabled={actionBusy}
+                  onClick={() => setReRunModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={actionBusy}
+                  onClick={async () => {
+                    setReRunModalOpen(false);
+                    await handleAction(selectedReRunMode);
+                  }}
+                >
+                  <i className="fa-solid fa-play" style={{ marginRight: 6 }} />
+                  Proceed
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
