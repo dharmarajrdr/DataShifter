@@ -504,7 +504,7 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables =
           </p>
           <div style={{ ...FRSC, gap: '6px', marginTop: '3px' }}>
             {isSystemValue ? (
-              <span style={{ fontSize: FONT.size.xs, color: '#6B6B6B' }}>⚙ {mapping?.target} ({rawTargetType || 'AUTO'})</span>
+              <span style={{ fontSize: FONT.size.xs, color: '#6B6B6B' }}><i className="fa-solid fa-gear" style={{ marginRight: '4px' }} />{mapping?.target} ({rawTargetType || 'AUTO'})</span>
             ) : (
               <>
                 <span style={{ fontSize: FONT.size.xs, color: '#3C3489', background: '#EEEDFE', padding: '1px 6px', borderRadius: '4px', fontWeight: 500 }}>
@@ -549,7 +549,7 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables =
                   {i > 0 && <div style={{ padding: '2px 0 2px 32px', fontSize: '10px', color: '#9B9B9B', background: '#FAFAF9' }}>↓ then ({step.inputType})</div>}
                   <div style={{ display: 'flex', alignItems: 'center', padding: `8px ${SPACING.sm}`, background: hasErr ? '#FDF2F2' : isLocked ? '#FFFBEB' : '#F7F7F5', gap: '6px' }}>
                     <span style={{ background: clr.bg, color: clr.text, fontSize: '10px', padding: '1px 6px', borderRadius: '4px', fontWeight: 500, flexShrink: 0 }}>
-                      {isLocked ? '⚙' : i + 1}
+                      {isLocked ? <i className="fa-solid fa-gear" /> : i + 1}
                     </span>
                     <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, fontFamily: 'monospace', flexShrink: 0 }}>{step.fn}</span>
                     <span style={{ fontSize: '9px', color: '#6B6B6B', background: '#E8E8E5', padding: '1px 4px', borderRadius: '3px', fontFamily: 'monospace' }}>
@@ -587,19 +587,19 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables =
                       <span style={{ fontSize: '10px', color: '#9B9B9B', flex: 1 }}>{meta.desc}</span>
                     )}
                     {isLocked ? (
-                      <span style={{ fontSize: '8px', color: '#D97706', flexShrink: 0 }} title="System value cannot be removed here. Use Remove on the board.">🔒</span>
+                      <span style={{ fontSize: '10px', color: '#D97706', flexShrink: 0 }} title="System value cannot be removed here. Use Remove on the board."><i className="fa-solid fa-lock" /></span>
                     ) : (
                       <span onClick={() => removeStep(step.id)} style={{ cursor: 'pointer', flexShrink: 0 }}><CloseIcon color="#9B9B9B" size={10} /></span>
                     )}
                   </div>
                   {step.typeError && (
                     <div style={{ padding: '3px 8px 4px 32px', fontSize: '10px', color: '#A32D2D', background: '#FDF2F2', fontWeight: 500 }}>
-                      ⚠ Type mismatch: {step.typeError}
+                      <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '4px' }} />Type mismatch: {step.typeError}
                     </div>
                   )}
                   {stepErr && !step.typeError && (
                     <div style={{ padding: '2px 8px 4px 32px', fontSize: '10px', color: '#A32D2D', background: '#FDF2F2' }}>
-                      ⚠ {stepErr}
+                      <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '4px' }} />{stepErr}
                     </div>
                   )}
                 </div>
@@ -611,7 +611,7 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables =
         {/* Target Datatype Compatibility Alert */}
         {!targetComp.ok && (
           <div style={{ background: '#FDF2F2', border: '1px solid #F87171', borderRadius: '6px', padding: '8px 10px', marginBottom: SPACING.md, fontSize: FONT.size.xs, color: '#991B1B' }}>
-            <strong>⚠ Target type incompatible:</strong> {targetComp.error}
+            <strong><i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '4px' }} />Target type incompatible:</strong> {targetComp.error}
           </div>
         )}
 
@@ -689,7 +689,7 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables =
             />
             {customInput && !customValidation.ok && (
               <div style={{ fontSize: '10px', color: '#A32D2D', marginTop: '3px', fontWeight: 500 }}>
-                ⚠ {customValidation.message}
+                <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '4px' }} />{customValidation.message}
               </div>
             )}
           </div>
@@ -710,7 +710,7 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables =
                     <tr key={i} style={{ borderTop: '1px solid #E8E8E5', background: '#FDF2F2' }}>
                       <td style={{ padding: '5px 8px', color: '#A32D2D', fontWeight: 600 }}>"{val}" <small>(custom)</small></td>
                       <td style={{ padding: '5px 8px', color: '#9B9B9B' }}>—</td>
-                      <td style={{ padding: '5px 8px', fontSize: '10px', color: '#A32D2D' }}>⚠ Invalid {sourceNormType}</td>
+                      <td style={{ padding: '5px 8px', fontSize: '10px', color: '#A32D2D' }}><i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '4px' }} />Invalid {sourceNormType}</td>
                     </tr>
                   );
                 }
@@ -731,9 +731,9 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables =
                     </td>
                     <td style={{ padding: '5px 8px', fontSize: '10px' }}>
                       {steps.length === 0 ? <span style={{ color: '#9B9B9B' }}>Passthrough</span> : hasErr ? (
-                        <span style={{ color: '#A32D2D' }}>⚠ {errMsg}</span>
+                        <span style={{ color: '#A32D2D' }}><i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '4px' }} />{errMsg}</span>
                       ) : (
-                        <span style={{ color: '#0F6E56' }}>✓ OK</span>
+                        <span style={{ color: '#0F6E56' }}><i className="fa-solid fa-check" style={{ marginRight: '4px' }} />OK</span>
                       )}
                     </td>
                   </tr>
@@ -747,7 +747,7 @@ const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables =
         {hasValidationErrors && <span style={{ fontSize: '10px', color: '#A32D2D', flex: 1 }}>Fix step argument errors</span>}
         {hasTypeErrors && !hasValidationErrors && <span style={{ fontSize: '10px', color: '#A32D2D', flex: 1 }}>Fix chain type mismatch</span>}
         {targetMismatch && !hasValidationErrors && !hasTypeErrors && <span style={{ fontSize: '10px', color: '#A32D2D', flex: 1 }}>Match target type ({targetNormType})</span>}
-        {previewHasErrors && !hasValidationErrors && !hasTypeErrors && !targetMismatch && <span style={{ fontSize: '10px', color: '#D97706', flex: 1 }}>⚠ Preview shows error</span>}
+        {previewHasErrors && !hasValidationErrors && !hasTypeErrors && !targetMismatch && <span style={{ fontSize: '10px', color: '#D97706', flex: 1 }}><i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '4px' }} />Preview shows error</span>}
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
         <Button onClick={handleApply} style={!canApply ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>Apply</Button>
       </div>
@@ -901,7 +901,7 @@ const Backdrop = ({ onClick }) => <div onClick={onClick} style={{ position: 'fix
 
 const ValidationErrors = ({ errors, onDismiss }) => {
   if (!errors?.length) return null;
-  const hasOnlyWarnings = errors.every(e => e.startsWith('⚠'));
+  const hasOnlyWarnings = errors.every(e => typeof e === 'object' && e?.isWarning);
   const bg = hasOnlyWarnings ? '#FEF3C7' : '#FAECE7';
   const border = hasOnlyWarnings ? '#F59E0B' : '#D85A30';
   const textColor = hasOnlyWarnings ? '#854F0B' : '#712B13';
@@ -909,7 +909,15 @@ const ValidationErrors = ({ errors, onDismiss }) => {
   return (
     <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: '8px', padding: `${SPACING.sm} ${SPACING.md}`, marginBottom: SPACING.md }}>
       <div style={{ ...FRBC, marginBottom: '6px' }}><span style={{ fontSize: FONT.size.sm, fontWeight: 500, color: textColor }}>{title}</span><span onClick={onDismiss} style={{ cursor: 'pointer', fontSize: FONT.size.xs, color: textColor }}>Dismiss</span></div>
-      {errors.map((e, i) => <div key={i} style={{ fontSize: FONT.size.xs, color: textColor, padding: '2px 0' }}>{e}</div>)}
+      {errors.map((e, i) => (
+        <div key={i} style={{ fontSize: FONT.size.xs, color: textColor, padding: '2px 0' }}>
+          {typeof e === 'object' && e?.isWarning ? (
+            <><i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />{e.text}</>
+          ) : (
+            e
+          )}
+        </div>
+      ))}
     </div>
   );
 };
@@ -1115,7 +1123,7 @@ const ColumnMappingBoard = () => {
     // Validate but don't block — show warnings, allow partial save
     const warnings = validate();
     if (warnings.length > 0) {
-      setValErrors(warnings.map(w => '⚠ ' + w));
+      setValErrors(warnings.map(w => ({ isWarning: true, text: w })));
     }
     setSaving(true);
     try {

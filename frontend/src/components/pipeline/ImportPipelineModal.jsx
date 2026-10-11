@@ -4,6 +4,7 @@ import { FRSC } from '../../constants/layouts';
 import { useNotification } from '../../contexts/NotificationContext';
 import { pipelineApi } from '../../services/api';
 import { Button, ConfirmationModal, ProgressBar, SpinnerLoader } from '../common';
+import { UploadIcon } from '../layout/Icons';
 
 export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
   const [file, setFile] = useState(null);
@@ -42,6 +43,9 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
+    if (selectedFile.type !== 'application/json') {
+      return setValidationError('Invalid file type. Please select a JSON file.');
+    }
 
     setValidationError(null);
     setFile(selectedFile);
@@ -224,12 +228,12 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
           <div style={{ padding: SPACING.lg, maxHeight: '65vh', overflowY: 'auto' }}>
             {stage === 'select' && (
               <div>
-                <p style={{ margin: `0 0 ${SPACING.md} 0`, fontSize: FONT.size.sm, color: COLORS.text.secondary }}>
-                  Select an exported JSON configuration file to create connections, pipeline tables, and column transformations.
-                </p>
 
-                <div
-                  style={{
+                {!file && <>
+                  <p style={{ margin: `0 0 ${SPACING.md} 0`, fontSize: FONT.size.sm, color: COLORS.text.secondary }}>
+                    Select an exported JSON configuration file to create connections, pipeline tables, and column transformations.
+                  </p>
+                  <div style={{
                     border: `2px dashed ${validationError ? COLORS.status.errorDark : COLORS.border.medium}`,
                     borderRadius: BORDER_RADIUS.md,
                     padding: SPACING.xl,
@@ -237,24 +241,22 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
                     backgroundColor: COLORS.background.secondary,
                     cursor: 'pointer',
                     marginBottom: SPACING.md,
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    style={{ display: 'none' }}
-                    onChange={handleFileChange}
-                  />
-                  <div style={{ fontSize: '32px', marginBottom: SPACING.xs }}>📄</div>
-                  <div style={{ fontSize: FONT.size.md, fontWeight: 500, color: COLORS.text.primary, marginBottom: '4px' }}>
-                    {file ? file.name : 'Click to browse or drop JSON file here'}
+                  }} onClick={() => fileInputRef.current?.click()}>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json,application/json"
+                      style={{ display: 'none' }}
+                      onChange={handleFileChange}
+                    />
+                    <div style={{ fontSize: '42px' }}>
+                      <UploadIcon size={25} />
+                    </div>
+                    <div style={{ fontSize: FONT.size.md, fontWeight: 500, color: COLORS.text.secondary, marginBottom: '4px' }}>
+                      Click to browse or drop JSON file here
+                    </div>
                   </div>
-                  <div style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-                    Accepts valid DataShifter .json exports
-                  </div>
-                </div>
+                </>}
 
                 {validationError && (
                   <div
@@ -333,7 +335,7 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
                     fontWeight: 500,
                   }}
                 >
-                  ✓ Pipeline "{importResult.pipelineName}" imported successfully.
+                  <i className="fa-solid fa-circle-check" style={{ marginRight: '6px' }} />Pipeline "{importResult.pipelineName}" imported successfully.
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sm, marginBottom: SPACING.md }}>
@@ -477,17 +479,18 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
             )}
           </div>
         </div>
-      </div>
+      </div >
 
       {/* Confirmation modal before rollback */}
-      <ConfirmationModal
+      < ConfirmationModal
         isOpen={showRollbackConfirm}
         title="Confirm Rollback"
         message="Are you sure you want to rollback this import? This will delete the newly created pipeline and any connections created during this import session."
-        actions={[
-          { label: 'Cancel', onClick: () => setShowRollbackConfirm(false), variant: 'secondary' },
-          { label: 'Confirm Rollback', onClick: executeRollback, variant: 'danger', loading: isRollingBack },
-        ]}
+        actions={
+          [
+            { label: 'Cancel', onClick: () => setShowRollbackConfirm(false), variant: 'secondary' },
+            { label: 'Confirm Rollback', onClick: executeRollback, variant: 'danger', loading: isRollingBack },
+          ]}
         onClose={() => setShowRollbackConfirm(false)}
       />
     </>

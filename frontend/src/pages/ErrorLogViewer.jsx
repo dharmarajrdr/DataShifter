@@ -59,7 +59,7 @@ const ErrorEntry = ({ error }) => (
 const exportFormats = {
   csv: {
     label: 'CSV',
-    icon: '📊',
+    icon: 'fa-solid fa-file-csv',
     mime: 'text/csv',
     ext: 'csv',
     serialize: (errors, pipelineName) => {
@@ -71,7 +71,7 @@ const exportFormats = {
   },
   json: {
     label: 'JSON',
-    icon: '{ }',
+    icon: 'fa-solid fa-file-code',
     mime: 'application/json',
     ext: 'json',
     serialize: (errors, pipelineName) => JSON.stringify({
@@ -93,7 +93,7 @@ const exportFormats = {
   },
   txt: {
     label: 'Plain Text',
-    icon: '📄',
+    icon: 'fa-solid fa-file-lines',
     mime: 'text/plain',
     ext: 'txt',
     serialize: (errors, pipelineName) => {
@@ -121,7 +121,7 @@ const exportFormats = {
 // const externalTargets = {
 //   datadog: {
 //     label: 'Send to Datadog',
-//     icon: '🐕',
+//     icon: 'fa-solid fa-server',
 //     publish: async (errors, config) => {
 //       // POST to Datadog Logs API
 //       // https://docs.datadoghq.com/api/latest/logs/
@@ -197,7 +197,7 @@ const ExportDropdown = ({ errors, pipelineName }) => {
                 style={{ ...FRSC, gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: FONT.size.xs }}
                 onMouseEnter={e => e.currentTarget.style.background = COLORS.background.secondary}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                {/* <span style={{ fontSize: '12px', width: '20px', textAlign: 'center' }}>{config.icon}</span> */}
+                <span style={{ fontSize: '12px', width: '16px', textAlign: 'center', color: COLORS.text.secondary }}><i className={config.icon} /></span>
                 <div>
                   <span style={{ fontWeight: FONT.weight.medium }}>{config.label}</span>
                   <span style={{ color: COLORS.text.tertiary, marginLeft: '6px' }}>(.{config.ext})</span>
@@ -210,7 +210,7 @@ const ExportDropdown = ({ errors, pipelineName }) => {
             <div style={{ ...FRSC, gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: FONT.size.xs, opacity: 0.5 }}
               onMouseEnter={e => e.currentTarget.style.background = COLORS.background.secondary}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <span style={{ fontSize: '12px', width: '20px', textAlign: 'center' }}>🐕</span>
+              <span style={{ fontSize: '12px', width: '20px', textAlign: 'center' }}><i className="fa-solid fa-server" /></span>
               <div><span>Datadog</span><span style={{ color: COLORS.text.tertiary, marginLeft: '6px' }}>coming soon</span></div>
             </div> */}
           </div>

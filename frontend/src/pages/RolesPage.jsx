@@ -299,7 +299,7 @@ const RolesPage = () => {
               }} onClick={() => setExpandedRole(isExpanded ? null : role.id)}>
                 <div style={{ ...FRSC, gap: SPACING.sm }}>
                   <span style={{ fontSize: '11px', color: COLORS.text.tertiary, width: '14px' }}>
-                    {isExpanded ? '▼' : '▶'}
+                    <i className={isExpanded ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right'} />
                   </span>
                   <div>
                     <div style={{ ...FRSC, gap: SPACING.xs }}>

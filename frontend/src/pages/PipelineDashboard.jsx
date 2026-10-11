@@ -77,7 +77,7 @@ const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPip
       onDrop={(e) => { e.preventDefault(); const pid = e.dataTransfer.getData('text/plain'); if (pid) onDropPipeline(pid, namespace.id, namespace.name); setDragOverNs(null); }}>
       <div style={{ ...FRBC, padding: `${SPACING.xs} ${SPACING.sm}`, cursor: 'pointer', marginBottom: collapsed ? 0 : SPACING.xs, borderRadius: BORDER_RADIUS.md, border: isDropTarget ? `2px dashed ${namespace.color || COLORS.brand.primary}` : '2px solid transparent', background: isDropTarget ? (namespace.color || COLORS.brand.primary) + '10' : 'transparent', transition: 'all 0.15s' }}>
         <div style={{ ...FRSC, gap: SPACING.xs }} onClick={() => setCollapsed(!collapsed)}>
-          <span style={{ fontSize: '11px', color: COLORS.text.tertiary, width: '14px' }}>{collapsed ? '▶' : '▼'}</span>
+          <span style={{ fontSize: '11px', color: COLORS.text.tertiary, width: '14px' }}><i className={collapsed ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down'} /></span>
           <div style={{ width: 10, height: 10, borderRadius: '2px', background: namespace.color || COLORS.brand.primary, flexShrink: 0 }} />
           <span style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, color: COLORS.text.primary }}>{namespace.name}</span>
           <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, background: COLORS.background.secondary, padding: '1px 8px', borderRadius: BORDER_RADIUS.pill }}>{pipelines.length}</span>

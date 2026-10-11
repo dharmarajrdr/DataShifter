@@ -353,7 +353,7 @@ const LiveMonitor = () => {
           <div style={{ border: '1px solid #E8E8E5', borderRadius: '8px', overflow: 'auto', background: '#fff', maxHeight: 'calc(100vh - 375px)' }}>
             {data.previewInflightRecords === false ? (
               <div style={{ padding: '32px', textAlign: 'center', color: '#9B9B9B', fontSize: '13px' }}>
-                <span style={{ fontSize: '20px', display: 'block', marginBottom: '8px' }}>🔒</span>
+                <span style={{ fontSize: '20px', display: 'block', marginBottom: '8px' }}><i className="fa-solid fa-lock" /></span>
                 In-flight records preview is disabled for this pipeline.
                 <br /><span style={{ fontSize: '11px', color: '#B4B2A9', marginTop: '4px', display: 'inline-block' }}>Enable it in Pipeline Settings → Data privacy.</span>
               </div>

@@ -13,11 +13,11 @@ const toKey = (t, c) => `${t}.${c}`;
 const getLC = (m) => LINE_COLORS.find(c => c.key === m.color) || LINE_COLORS[0];
 
 const SYSTEM_VALUES = [
-  { fn: 'CURRENT_TIMESTAMP', label: 'Current timestamp', desc: 'System time when row is migrated', icon: '🕐' },
-  { fn: 'CURRENT_DATE', label: 'Current date', desc: 'Today\'s date (no time)', icon: '📅' },
-  { fn: 'STATIC_VALUE', label: 'Static value', desc: 'Same fixed value for every row (e.g., "STANDARD")', icon: '📌', needsArgs: true, argHint: 'Enter value' },
-  { fn: 'UUID', label: 'Generate UUID', desc: 'Unique identifier (UUID v4)', icon: '🔑' },
-  { fn: 'ROW_NUMBER', label: 'Row number', desc: 'Sequential counter (1, 2, 3...)', icon: '#️⃣' },
+  { fn: 'CURRENT_TIMESTAMP', label: 'Current timestamp', desc: 'System time when row is migrated', icon: 'fa-regular fa-clock' },
+  { fn: 'CURRENT_DATE', label: 'Current date', desc: 'Today\'s date (no time)', icon: 'fa-regular fa-calendar' },
+  { fn: 'STATIC_VALUE', label: 'Static value', desc: 'Same fixed value for every row (e.g., "STANDARD")', icon: 'fa-solid fa-thumbtack', needsArgs: true, argHint: 'Enter value' },
+  { fn: 'UUID', label: 'Generate UUID', desc: 'Unique identifier (UUID v4)', icon: 'fa-solid fa-key' },
+  { fn: 'ROW_NUMBER', label: 'Row number', desc: 'Sequential counter (1, 2, 3...)', icon: 'fa-solid fa-hashtag' },
 ];
 
 const organize = (src, tgt, w) => {
@@ -74,10 +74,11 @@ const TargetConfigModal = ({ colName, sourceTables, onSelectSystem, onSelectUdf,
                 flex: 1, padding: '8px 12px', border: 'none', background: 'transparent',
                 borderBottom: mode === 'system' ? '2px solid #534AB7' : '2px solid transparent',
                 color: mode === 'system' ? '#534AB7' : '#6B6B6B', fontWeight: mode === 'system' ? 600 : 400,
-                fontSize: '12px', cursor: 'pointer', te
+                fontSize: '12px', cursor: 'pointer',
               }}
             >
-              ⚙ System Value
+              <i className="fa-solid fa-gear" style={{ marginRight: '6px' }} />
+              System Value
             </span>
           </div>
         </div>
@@ -96,7 +97,9 @@ const TargetConfigModal = ({ colName, sourceTables, onSelectSystem, onSelectUdf,
                 }}
                 onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = '#F7F7F5'; }}
                 onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}>
-                <span style={{ fontSize: '16px', marginTop: '1px' }}>{sv.icon}</span>
+                <span style={{ fontSize: '14px', marginTop: '2px', width: '18px', textAlign: 'center', color: isSel ? '#534AB7' : '#6B6B6B' }}>
+                  <i className={sv.icon} />
+                </span>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: 500, color: '#1A1A1A' }}>{sv.label}</div>
                   <div style={{ fontSize: '11px', color: '#9B9B9B', marginTop: '1px' }}>{sv.desc}</div>
@@ -220,7 +223,7 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
                   {!col.nullable && !col.primaryKey && <text x={DOT_R * 2 + 8} y={cy + 3} fontSize="9" fill="#A32D2D">*</text>}
                   <text x={col.primaryKey || !col.nullable ? DOT_R * 2 + 20 : DOT_R * 2 + 14} y={cy + 3} fontSize="10" fill="#1A1A1A" fontFamily="system-ui">{col.name}</text>
                   <text x={!col.primaryKey ? TBL_WIDTH - 22 : TBL_WIDTH - 8} y={cy + 3} fontSize="8" fill="#9B9B9B" fontFamily="monospace" textAnchor="end">{col.type}</text>
-                  {/* ⚙ icon — states: default (gray), system active (amber), udf active (purple) */}
+                  {/* Gear icon — states: default (gray), system active (amber), udf active (purple) */}
                   {!col.primaryKey && !hasRegularMapping && (
                     <g transform={`translate(${TBL_WIDTH - 16},${cy - 5})`}
                       style={{ cursor: 'pointer' }}
@@ -267,7 +270,7 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'absolute', top: 8, right: 8, zIndex: 10, background: '#fff', border: '1px solid #E8E8E5', borderRadius: '8px', padding: '3px 6px' }}>
         <button onClick={() => zBy(0.15)} style={bS} title="Zoom in">+</button>
         <span style={{ color: '#6B6B6B', minWidth: 36, textAlign: 'center', fontSize: '10px' }}>{Math.round(zoom * 100)}%</span>
-        <button onClick={() => zBy(-0.15)} style={bS} title="Zoom out">−</button>
+        <button onClick={() => zBy(-0.15)} style={bS} title="Zoom out">-</button>
         <span style={{ color: '#E8E8E5', padding: '0 2px' }}>|</span>
         <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} style={bS} title="Reset view"><ResetIcon /></button>
         <button onClick={doOrg} style={{ ...bS, color: '#534AB7' }} title="Organize"><OrganizeIcon /></button>
@@ -297,7 +300,13 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
       {/* Selected mapping action bar */}
       {sel !== null && mappings[sel] && (
         <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', background: '#fff', border: '1px solid #E8E8E5', padding: '6px 16px', borderRadius: '99px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', fontSize: '12px', zIndex: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ color: '#6B6B6B' }}>{mappings[sel].targetOnly ? `⚙ ${mappings[sel].target}` : `${mappings[sel].source} → ${mappings[sel].target}`}</span>
+          <span style={{ color: '#6B6B6B' }}>
+            {mappings[sel].targetOnly ? (
+              <><i className="fa-solid fa-gear" style={{ marginRight: '4px' }} />{mappings[sel].target}</>
+            ) : (
+              `${mappings[sel].source} → ${mappings[sel].target}`
+            )}
+          </span>
           {/* {mappings[sel].transforms?.some(t => t.fn === 'UDF') ? (
             <span style={{ background: '#EEEDFE', color: '#534AB7', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>UDF Pinned</span>
           ) : mappings[sel].targetOnly ? (
@@ -306,7 +315,7 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
           <span style={{ color: '#D4D4D0' }}>|</span>
           {onMappingClick && <><span style={{ cursor: 'pointer', color: '#534AB7', fontWeight: 500 }} onClick={() => onMappingClick(mappings[sel], sel)}>Transform</span><span style={{ color: '#D4D4D0' }}>|</span></>}
           <span style={{ cursor: 'pointer', color: '#A32D2D', fontWeight: 500 }} onClick={delS}>Remove</span>
-          <span style={{ color: '#9B9B9B', fontSize: '10px' }}>(⌫)</span>
+          <span style={{ color: '#9B9B9B', fontSize: '10px' }}>(<i className="fa-solid fa-delete-left" />)</span>
         </div>
       )}
 

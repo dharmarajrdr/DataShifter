@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ApiGuard, BarLoader, Button, Chip, Loader } from '../components/common';
+import { ApiGuard, BarLoader, Button, Loader } from '../components/common';
 import SettingsTabs from '../components/common/SettingsTabs';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
 import { FRBC, FRSC } from '../constants/layouts';
@@ -213,7 +213,7 @@ const OrgSettingsPage = () => {
                     {name || user?.orgName || 'Organization'}
                   </h2>
                   <div style={{ ...FRSC, gap: SPACING.xs, marginTop: '4px', flexWrap: 'wrap' }}>
-                    {org?.slug && <Chip label={`slug: ${org.slug}`} colorScheme="purple" />}
+                    {/* {org?.slug && <Chip label={`slug: ${org.slug}`} colorScheme="purple" />} */}
                     {org?.memberCount !== undefined && (
                       <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
                         {org.memberCount} member{org.memberCount !== 1 ? 's' : ''}

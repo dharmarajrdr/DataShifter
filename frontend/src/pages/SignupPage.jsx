@@ -61,19 +61,19 @@ const SignupPage = () => {
             title="Create a new organization"
             description="Set up your team workspace and invite members"
             onClick={() => handleChoose('create_org')}
-            icon="+"
+            icon={<i className="fa-solid fa-plus" style={{ fontSize: '14px' }} />}
           />
           <PathCard
             title="Join with an invite link"
             description="I have an invitation from my team"
             onClick={() => handleChoose('invite')}
-            icon="→"
+            icon={<i className="fa-solid fa-arrow-right" style={{ fontSize: '14px' }} />}
           />
           <PathCard
             title="Sign up and join later"
             description="Create your account now, join an org later"
             onClick={() => handleChoose('skip')}
-            icon="○"
+            icon={<i className="fa-regular fa-clock" style={{ fontSize: '14px' }} />}
             subtle
           />
         </div>

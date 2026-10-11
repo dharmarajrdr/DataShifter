@@ -475,7 +475,7 @@ const UdfPickerModal = ({
                 lineHeight: '1.2',
               }}
             >
-              <span>☕</span>
+              <i className="fa-brands fa-java" style={{ color: COLORS.brand.primary }} />
               <span>Java UDF Transformation</span>
             </h2>
             {targetColumn && (
@@ -568,7 +568,7 @@ const UdfPickerModal = ({
                 fontSize: FONT.size.sm,
               }}
             >
-              ⚠ {fetchError}
+              <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />{fetchError}
             </div>
           ) : udfs.length === 0 ? (
             <div
@@ -677,7 +677,7 @@ const UdfPickerModal = ({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <span>📌</span>
+                      <i className="fa-solid fa-thumbtack" />
                       <span>v{selectedUdf.version || '1.0.0'}</span>
                     </div>
                   )} */}
@@ -723,7 +723,7 @@ const UdfPickerModal = ({
                       borderRadius: BORDER_RADIUS.md,
                     }}
                   >
-                    ⚠ No methods annotated with <code>@DataShifterUdf</code> were found in this JAR.
+                    <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />No methods annotated with <code>@DataShifterUdf</code> were found in this JAR.
                   </div>
                 ) : (
                   <MethodDropdown
