@@ -49,7 +49,7 @@ const MethodDropdown = ({ functions, selectedMethodName, onSelect }) => {
           border: `1px solid ${isOpen ? COLORS.brand.primary : COLORS.border.medium}`,
           boxShadow: isOpen ? `0 0 0 3px ${COLORS.brand.primaryLight}` : 'none',
           fontSize: FONT.size.sm,
-          fontFamily: 'monospace',
+          fontFamily: FONT.family,
           color: COLORS.text.primary,
           background: COLORS.background.primary,
           cursor: 'pointer',
@@ -177,7 +177,7 @@ const MethodDropdown = ({ functions, selectedMethodName, onSelect }) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: `8px 12px`,
+                  padding: `6px 10px`,
                   cursor: 'pointer',
                   background: isSelected ? COLORS.brand.primaryLight : 'transparent',
                   transition: 'background-color 0.12s ease',
@@ -192,7 +192,7 @@ const MethodDropdown = ({ functions, selectedMethodName, onSelect }) => {
               >
                 <span
                   style={{
-                    fontFamily: 'monospace',
+                    fontFamily: FONT.family,
                     fontSize: FONT.size.sm,
                     color: isSelected ? COLORS.brand.primaryDark : COLORS.text.primary,
                     fontWeight: isSelected ? FONT.weight.semibold : FONT.weight.regular,
