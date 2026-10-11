@@ -436,5 +436,81 @@ class MappingServiceValidationTest {
 
         assertTrue(errors.isEmpty(), "Expected Postgres INTEGER -> TO_DATE -> Oracle DATE and DATE -> TO_NUMBER -> NUMBER to pass, got: " + errors);
     }
+
+    @Test
+    void testUdfReferenceValidationStepDetectsMissingUdfClassAndMethodBeforeDataTypeStep() {
+        String sourceConnId = "conn-source-pg";
+        String targetConnId = "conn-target-ora";
+
+        Connection sourceConn = Connection.builder()
+                .dbType(DatabaseType.POSTGRESQL)
+                .host("localhost").port(5432).databaseName("srcdb")
+                .encryptedPassword(com.datashifter.common.utils.EncryptionUtil.encrypt("test"))
+                .build();
+        sourceConn.setId(sourceConnId);
+
+        Connection targetConn = Connection.builder()
+                .dbType(DatabaseType.ORACLE)
+                .host("localhost").port(1521).databaseName("ORCL")
+                .encryptedPassword(com.datashifter.common.utils.EncryptionUtil.encrypt("test"))
+                .build();
+        targetConn.setId(targetConnId);
+
+        when(connectionRepository.findById(sourceConnId)).thenReturn(Optional.of(sourceConn));
+        when(connectionRepository.findById(targetConnId)).thenReturn(Optional.of(targetConn));
+        when(connectorFactory.getConnector(DatabaseType.ORACLE)).thenReturn(databaseConnector);
+
+        List<ColumnMetadata> targetCols = List.of(
+                ColumnMetadata.builder().columnName("ID").dataType("NUMBER").nullable(false).primaryKey(true).build(),
+                ColumnMetadata.builder().columnName("EMAIL_ADDRESS").dataType("VARCHAR2").nullable(false).primaryKey(false).build()
+        );
+        when(databaseConnector.getColumns(any(ConnectionConfig.class), eq("CUSTOMER_MASTER"))).thenReturn(targetCols);
+
+        com.datashifter.common.repositories.UdfDefinitionRepository udfRepo =
+                org.mockito.Mockito.mock(com.datashifter.common.repositories.UdfDefinitionRepository.class);
+        when(udfRepo.findFirstByNameOrderByUpdatedAtDesc("datashifter-valid-udf-0.1.4"))
+                .thenReturn(Optional.empty());
+
+        com.datashifter.pipeline.validation.PipelineValidationChain chain =
+                new com.datashifter.pipeline.validation.PipelineValidationChain(List.of(
+                        new com.datashifter.pipeline.validation.steps.ColumnMappingValidationStep(),
+                        new com.datashifter.pipeline.validation.steps.UdfReferenceValidationStep(udfRepo),
+                        new com.datashifter.pipeline.validation.steps.ColumnDataTypeValidationStep(
+                                new com.datashifter.pipeline.validation.datatype.DatabaseTypeDialectFactory(),
+                                new com.datashifter.pipeline.validation.datatype.TransformTypeResolver())));
+
+        MappingService svcWithUdfValidation = new MappingService(
+                pipelineRepository, connectorFactory, connectionRepository, new com.fasterxml.jackson.databind.ObjectMapper(), chain);
+
+        Pipeline pipeline = Pipeline.builder()
+                .sourceConnectionId(sourceConnId)
+                .targetConnectionId(targetConnId)
+                .build();
+
+        PipelineTable pt = PipelineTable.builder().pipeline(pipeline).sourceTable("customers").build();
+        TargetTableMapping ttm = TargetTableMapping.builder()
+                .pipelineTable(pt).targetTable("CUSTOMER_MASTER").writeMode(WriteMode.UPSERT).build();
+
+        ttm.getColumnMappings().add(ColumnMapping.builder()
+                .targetTableMapping(ttm).sourceColumn("id").targetColumn("ID").mappingOrder(0).build());
+
+        ColumnMapping emailMapping = ColumnMapping.builder()
+                .targetTableMapping(ttm).sourceColumn("email").targetColumn("EMAIL_ADDRESS").mappingOrder(1).build();
+        emailMapping.getTransformations().add(Transformation.builder()
+                .columnMapping(emailMapping)
+                .functionName(com.datashifter.common.enums.TransformFunction.UDF)
+                .arguments("{\"udfName\":\"datashifter-valid-udf-0.1.4\",\"className\":\"com.datashifter.fixtures.CustomerFunctions\",\"methodName\":\"normalizeEmail\"}")
+                .executionOrder(0)
+                .build());
+        ttm.getColumnMappings().add(emailMapping);
+
+        pt.getTargetTableMappings().add(ttm);
+        pipeline.getPipelineTables().add(pt);
+
+        List<String> errors = svcWithUdfValidation.validatePipeline(pipeline);
+
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).contains("UDF 'datashifter-valid-udf-0.1.4' does not exist"), "Got: " + errors.get(0));
+    }
 }
 

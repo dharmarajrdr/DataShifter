@@ -11,6 +11,7 @@ import com.datashifter.pipeline.validation.datatype.DatabaseTypeDialectFactory;
 import com.datashifter.pipeline.validation.datatype.TransformTypeResolver;
 import com.datashifter.pipeline.validation.steps.ColumnDataTypeValidationStep;
 import com.datashifter.pipeline.validation.steps.ColumnMappingValidationStep;
+import com.datashifter.pipeline.validation.steps.UdfReferenceValidationStep;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,8 +20,8 @@ import lombok.extern.slf4j.Slf4j;
  * {@link PipelineValidationStep#getOrder()}.
  *
  * Short-circuits and returns immediately if any step produces validation errors
- * (e.g., if Step 1 Column Mapping Validation fails, Step 2 Data Type Validation
- * is not executed).
+ * (e.g., if Step 1 Column Mapping Validation fails, Step 2 UDF Reference Validation
+ * and Step 3 Data Type Validation are not executed).
  */
 @Component
 @Slf4j
@@ -31,6 +32,7 @@ public class PipelineValidationChain {
     public PipelineValidationChain() {
         this(List.of(
                 new ColumnMappingValidationStep(),
+                new UdfReferenceValidationStep(),
                 new ColumnDataTypeValidationStep(new DatabaseTypeDialectFactory(), new TransformTypeResolver())));
     }
 

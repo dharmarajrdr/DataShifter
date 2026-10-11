@@ -43,7 +43,7 @@ public class ColumnDataTypeValidationStep implements PipelineValidationStep {
 
     @Override
     public int getOrder() {
-        return 2;
+        return 3;
     }
 
     @Override
