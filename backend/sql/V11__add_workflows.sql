@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS workflows (
             'RUNNING'::character varying,
             'PAUSED'::character varying,
             'COMPLETED'::character varying,
-            'ERRORED'::character varying
+            'ERRORED'::character varying,
+            'FAILED'::character varying,
+            'STOPPED'::character varying
         ]::text[])
     )
 );
@@ -46,7 +48,8 @@ CREATE TABLE IF NOT EXISTS workflow_nodes (
             'RUNNING'::character varying,
             'COMPLETED'::character varying,
             'ERRORED'::character varying,
-            'SKIPPED'::character varying
+            'SKIPPED'::character varying,
+            'STOPPED'::character varying
         ]::text[])
     )
 );
