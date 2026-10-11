@@ -26,5 +26,7 @@ public interface WorkflowService {
     void delete(String id);
 
     WorkflowResponse performAction(String id, WorkflowActionRequest action);
+
+    void syncWorkflowStatusForPipeline(String pipelineId);
 }
 

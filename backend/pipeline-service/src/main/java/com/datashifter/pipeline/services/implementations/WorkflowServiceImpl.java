@@ -175,7 +175,8 @@ public class WorkflowServiceImpl implements WorkflowService {
         }
 
         refreshDerivedStatus(workflow);
-        workflowRepository.save(workflow);
+        workflow = workflowRepository.save(workflow);
+        publishWorkflowStatus(workflow, nodeRepository.findByWorkflow_Id(id));
         return toFullResponse(workflow);
     }
 
@@ -202,7 +203,8 @@ public class WorkflowServiceImpl implements WorkflowService {
         nodeRepository.flush();
 
         refreshDerivedStatus(workflow);
-        workflowRepository.save(workflow);
+        workflow = workflowRepository.save(workflow);
+        publishWorkflowStatus(workflow, nodeRepository.findByWorkflow_Id(id));
         return toFullResponse(workflow);
     }
 
@@ -724,7 +726,25 @@ public class WorkflowServiceImpl implements WorkflowService {
         edgeRepository.flush();
 
         refreshDerivedStatus(workflow);
-        workflowRepository.save(workflow);
+        workflow = workflowRepository.save(workflow);
+        publishWorkflowStatus(workflow, nodeRepository.findByWorkflow_Id(workflow.getId()));
+    }
+
+    @Override
+    @Transactional
+    public void syncWorkflowStatusForPipeline(String pipelineId) {
+        nodeRepository.findByPipelineIdWithWorkflow(pipelineId).ifPresent(node -> {
+            Workflow workflow = node.getWorkflow();
+            WorkflowStatus prevStatus = workflow.getStatus();
+            refreshDerivedStatus(workflow);
+            workflow = workflowRepository.save(workflow);
+            List<WorkflowNode> allNodes = nodeRepository.findByWorkflow_Id(workflow.getId());
+            publishWorkflowStatus(workflow, allNodes);
+            if (prevStatus != workflow.getStatus()) {
+                log.info("Synced workflow '{}' ({}) status from {} to {} after pipeline {} update",
+                        workflow.getName(), workflow.getId(), prevStatus, workflow.getStatus(), pipelineId);
+            }
+        });
     }
 
     private Pipeline validatePipelineEligibleForWorkflow(String pipelineId, String currentWorkflowId) {
@@ -956,8 +976,9 @@ public class WorkflowServiceImpl implements WorkflowService {
                     .build());
         }
 
+        WorkflowStatus effectiveStatus = resolveEffectiveStatus(w, topology);
         double overallProgress = nodeResponses.isEmpty() ? 0.0 : (totalProgressSum / nodeResponses.size());
-        if (w.getStatus() == WorkflowStatus.COMPLETED) {
+        if (effectiveStatus == WorkflowStatus.COMPLETED) {
             overallProgress = 100.0;
         }
 
@@ -979,7 +1000,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                 .namespaceName(w.getNamespace() != null ? w.getNamespace().getName() : null)
                 .name(w.getName())
                 .description(w.getDescription())
-                .status(w.getStatus())
+                .status(effectiveStatus)
                 .currentPipelineId(w.getCurrentPipelineId())
                 .singleChainReady(topology.singleChainReady)
                 .chainCount(topology.chainCount)
@@ -1002,6 +1023,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         List<WorkflowEdge> edges = edgeRepository.findByWorkflow_Id(w.getId());
         Map<String, Pipeline> pipelineMap = loadPipelinesMap(nodes);
         TopologyAnalysis topology = analyzeTopology(nodes, edges, pipelineMap);
+        WorkflowStatus effectiveStatus = resolveEffectiveStatus(w, topology);
 
         List<String> orderedNames = topology.orderedNodes.stream()
                 .map(n -> {
@@ -1025,7 +1047,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             }
         }
         double progress = topology.orderedNodes.isEmpty() ? 0.0 : (totalProgressSum / topology.orderedNodes.size());
-        if (w.getStatus() == WorkflowStatus.COMPLETED) {
+        if (effectiveStatus == WorkflowStatus.COMPLETED) {
             progress = 100.0;
         }
 
@@ -1037,7 +1059,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                 .description(w.getDescription())
                 .namespaceId(w.getNamespace() != null ? w.getNamespace().getId() : null)
                 .namespaceName(w.getNamespace() != null ? w.getNamespace().getName() : null)
-                .status(w.getStatus())
+                .status(effectiveStatus)
                 .pipelineCount(nodes.size())
                 .chainCount(topology.chainCount)
                 .singleChainReady(topology.singleChainReady)
@@ -1049,6 +1071,20 @@ public class WorkflowServiceImpl implements WorkflowService {
                 .createdAt(w.getCreatedAt())
                 .updatedAt(w.getUpdatedAt())
                 .build();
+    }
+
+    private WorkflowStatus resolveEffectiveStatus(Workflow w, TopologyAnalysis topology) {
+        WorkflowStatus status = w.getStatus();
+        if (status == WorkflowStatus.RUNNING || status == WorkflowStatus.PAUSED) {
+            return status;
+        }
+        if (!topology.singleChainReady) {
+            return WorkflowStatus.DRAFT;
+        }
+        if (status == WorkflowStatus.DRAFT) {
+            return WorkflowStatus.READY;
+        }
+        return status;
     }
 
     private String computeInitials(AppUser user) {

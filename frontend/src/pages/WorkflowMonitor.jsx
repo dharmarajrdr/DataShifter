@@ -179,7 +179,11 @@ const WorkflowMonitor = () => {
           });
           return { ...prev, nodes: updatedNodes };
         });
-        if (d.newStatus === 'COMPLETED' || d.newStatus === 'ERRORED') {
+        if (
+          ['COMPLETED', 'ERRORED', 'VALIDATED', 'NOT_VALIDATED', 'INVALID', 'DRAFT'].includes(
+            d.newStatus
+          )
+        ) {
           fetchWorkflow();
           fetchErrors();
         }
@@ -263,7 +267,20 @@ const WorkflowMonitor = () => {
   const nodes = workflow.nodes || [];
   const edges = workflow.edges || [];
   const completedSteps = nodes.filter((n) => n.pipelineStatus === 'COMPLETED').length;
-  const canStart = workflow.singleChainReady && workflow.status !== 'RUNNING';
+  const allValidated =
+    nodes.length >= 1 &&
+    nodes.every((n) => !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus));
+  const isSingleChainReady =
+    Boolean(workflow.singleChainReady) && (workflow.chainCount || 0) === 1 && allValidated;
+  const effectiveStatus =
+    workflow.status === 'RUNNING' || workflow.status === 'PAUSED'
+      ? workflow.status
+      : !isSingleChainReady
+        ? 'DRAFT'
+        : workflow.status === 'DRAFT'
+          ? 'READY'
+          : workflow.status;
+  const canStart = isSingleChainReady && effectiveStatus !== 'RUNNING';
   const isTriggerSelected = !selectedPipelineId || selectedPipelineId === '__TRIGGER__';
   const selectedNode = isTriggerSelected
     ? null
@@ -368,7 +385,7 @@ const WorkflowMonitor = () => {
             >
               {workflow.name}
             </h1>
-            <StatusBadge status={workflow.status} />
+            <StatusBadge status={effectiveStatus} />
           </div>
           <p
             style={{
@@ -383,7 +400,7 @@ const WorkflowMonitor = () => {
 
         {/* Workflow Execution Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {workflow.status === 'RUNNING' ? (
+          {effectiveStatus === 'RUNNING' ? (
             <>
               {hasPermission('workflow:pause') && (
                 <Button
@@ -406,7 +423,7 @@ const WorkflowMonitor = () => {
                 </Button>
               )}
             </>
-          ) : workflow.status === 'PAUSED' ? (
+          ) : effectiveStatus === 'PAUSED' ? (
             <>
               {hasPermission('workflow:run') && (
                 <Button
@@ -437,9 +454,9 @@ const WorkflowMonitor = () => {
                 onClick={() => handleAction('START')}
               >
                 <i className="fa-solid fa-play" style={{ marginRight: 6 }} />
-                {workflow.status === 'COMPLETED' ||
-                  workflow.status === 'FAILED' ||
-                  workflow.status === 'STOPPED'
+                {effectiveStatus === 'COMPLETED' ||
+                  effectiveStatus === 'FAILED' ||
+                  effectiveStatus === 'STOPPED'
                   ? 'Re-Run Workflow'
                   : 'Start Workflow'}
               </Button>
@@ -449,7 +466,7 @@ const WorkflowMonitor = () => {
           {hasPermission('workflow:edit') && (
             <Button
               variant="secondary"
-              disabled={workflow.status === 'RUNNING' || workflow.status === 'PAUSED'}
+              disabled={effectiveStatus === 'RUNNING' || effectiveStatus === 'PAUSED'}
               onClick={() => navigate(`/workflows/${workflowId}/edit`)}
             >
               <i className="fa-solid fa-diagram-project" style={{ marginRight: 6 }} />
@@ -568,7 +585,7 @@ const WorkflowMonitor = () => {
             }
             topologyInfo={{
               chainCount: workflow.chainCount || 0,
-              singleChainReady: workflow.singleChainReady,
+              singleChainReady: isSingleChainReady,
             }}
             onSelectTrigger={() => setSelectedPipelineId('__TRIGGER__')}
             onSelectNode={(pid) => setSelectedPipelineId(pid)}
@@ -620,23 +637,23 @@ const WorkflowMonitor = () => {
                   style={{
                     padding: 14,
                     borderRadius: BORDER_RADIUS.md,
-                    background: workflow.singleChainReady
+                    background: isSingleChainReady
                       ? COLORS.status.successLight
                       : COLORS.background.secondary,
                     border: `1px solid ${
-                      workflow.singleChainReady ? COLORS.status.success : COLORS.border.light
+                      isSingleChainReady ? COLORS.status.success : COLORS.border.light
                     }`,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <i
                       className={
-                        workflow.singleChainReady
+                        isSingleChainReady
                           ? 'fa-solid fa-circle-check'
                           : 'fa-solid fa-list-check'
                       }
                       style={{
-                        color: workflow.singleChainReady
+                        color: isSingleChainReady
                           ? COLORS.status.successDark
                           : COLORS.brand.primary,
                         fontSize: 14,
@@ -646,12 +663,12 @@ const WorkflowMonitor = () => {
                       style={{
                         fontSize: FONT.size.sm,
                         fontWeight: FONT.weight.semibold,
-                        color: workflow.singleChainReady
+                        color: isSingleChainReady
                           ? COLORS.status.successText
                           : COLORS.text.primary,
                       }}
                     >
-                      {workflow.singleChainReady ? 'Ready for Execution' : 'Pre-Run Checklist'}
+                      {isSingleChainReady ? 'Ready for Execution' : 'Pre-Run Checklist'}
                     </span>
                   </div>
 

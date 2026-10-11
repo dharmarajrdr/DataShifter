@@ -15,6 +15,7 @@ import com.datashifter.common.services.SubscriptionLimitChecker;
 import com.datashifter.common.repositories.CommonWorkflowNodeRepository;
 import com.datashifter.pipeline.repositories.PipelineRepository;
 import com.datashifter.pipeline.services.interfaces.PipelineService;
+import com.datashifter.pipeline.services.interfaces.WorkflowService;
 import com.datashifter.pipeline.statemachine.PipelineStateMachine;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class PipelineServiceImpl implements PipelineService {
     private final ObjectMapper objectMapper;
     private final com.datashifter.connector.repositories.ConnectionRepository connectionRepository;
     private final CommonWorkflowNodeRepository workflowNodeRepository;
+    private final WorkflowService workflowService;
 
     // =========================================================================
     // CREATE — builds PipelineTable + TargetTableMapping entries
@@ -168,7 +170,9 @@ public class PipelineServiceImpl implements PipelineService {
             entity.setValidationErrors(null);
         }
 
-        return toFullResponse(repository.save(entity));
+        Pipeline saved = repository.save(entity);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     // =========================================================================
@@ -211,7 +215,9 @@ public class PipelineServiceImpl implements PipelineService {
         pipeline.setValidationErrors(null);
 
         log.info("Added table pair: {} → {} to pipeline {}", request.getSourceTable(), request.getTargetTable(), pipelineId);
-        return toFullResponse(repository.save(pipeline));
+        Pipeline saved = repository.save(pipeline);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     @Override
@@ -233,7 +239,9 @@ public class PipelineServiceImpl implements PipelineService {
         pipeline.setValidationErrors(null);
 
         log.info("Removed table pair {} from pipeline {}", pipelineTableId, pipelineId);
-        return toFullResponse(repository.save(pipeline));
+        Pipeline saved = repository.save(pipeline);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     // =========================================================================
@@ -372,7 +380,9 @@ public class PipelineServiceImpl implements PipelineService {
                 break;
         }
 
-        return toFullResponse(repository.save(entity));
+        Pipeline saved = repository.save(entity);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     // =========================================================================
@@ -451,7 +461,9 @@ public class PipelineServiceImpl implements PipelineService {
         entity.setStatus(PipelineStatus.NOT_VALIDATED);
         entity.setValidationErrors(null);
 
-        return toFullResponse(repository.save(entity));
+        Pipeline saved = repository.save(entity);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     // =========================================================================
