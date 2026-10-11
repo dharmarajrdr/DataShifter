@@ -51,6 +51,8 @@ class PipelineExportImportTest {
     private ObjectMapper objectMapper;
     @Mock
     private ConnectionRepository connectionRepository;
+    @Mock
+    private com.datashifter.common.repositories.CommonWorkflowNodeRepository workflowNodeRepository;
 
     @InjectMocks
     private PipelineServiceImpl pipelineService;

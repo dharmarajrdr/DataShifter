@@ -26,6 +26,15 @@ public final class Permissions {
         public static final String PIPELINE_PAUSE = "pipeline:pause";
         public static final String PIPELINE_STOP = "pipeline:stop";
 
+        // --- Workflow ---
+        public static final String WORKFLOW_CREATE = "workflow:create";
+        public static final String WORKFLOW_VIEW = "workflow:view";
+        public static final String WORKFLOW_EDIT = "workflow:edit";
+        public static final String WORKFLOW_DELETE = "workflow:delete";
+        public static final String WORKFLOW_RUN = "workflow:run";
+        public static final String WORKFLOW_PAUSE = "workflow:pause";
+        public static final String WORKFLOW_STOP = "workflow:stop";
+
         // --- Namespace ---
         public static final String NAMESPACE_CREATE = "namespace:create";
         public static final String NAMESPACE_EDIT = "namespace:edit";
@@ -61,6 +70,8 @@ public final class Permissions {
         public static final List<String> ALL = List.of(
                         PIPELINE_CREATE, PIPELINE_VIEW, PIPELINE_EDIT, PIPELINE_DELETE,
                         PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP,
+                        WORKFLOW_CREATE, WORKFLOW_VIEW, WORKFLOW_EDIT, WORKFLOW_DELETE,
+                        WORKFLOW_RUN, WORKFLOW_PAUSE, WORKFLOW_STOP,
                         NAMESPACE_CREATE, NAMESPACE_EDIT, NAMESPACE_DELETE,
                         CONNECTION_CREATE, CONNECTION_VIEW, CONNECTION_EDIT, CONNECTION_DELETE,
                         CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
@@ -73,6 +84,8 @@ public final class Permissions {
         public static final List<String> EDITOR = List.of(
                         PIPELINE_CREATE, PIPELINE_VIEW, PIPELINE_EDIT,
                         PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP,
+                        WORKFLOW_CREATE, WORKFLOW_VIEW, WORKFLOW_EDIT,
+                        WORKFLOW_RUN, WORKFLOW_PAUSE, WORKFLOW_STOP,
                         NAMESPACE_CREATE, NAMESPACE_EDIT,
                         CONNECTION_CREATE, CONNECTION_VIEW, CONNECTION_EDIT, CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
                         MONITOR_VIEW, MONITOR_VIEW_ERRORS,
@@ -81,5 +94,5 @@ public final class Permissions {
 
         /** Default Viewer permissions */
         public static final List<String> VIEWER = List.of(
-                        PIPELINE_VIEW, MONITOR_VIEW, MONITOR_VIEW_ERRORS, CONNECTION_VIEW, CONNECTION_BROWSE_SCHEMA, UDF_VIEW);
+                        PIPELINE_VIEW, WORKFLOW_VIEW, MONITOR_VIEW, MONITOR_VIEW_ERRORS, CONNECTION_VIEW, CONNECTION_BROWSE_SCHEMA, UDF_VIEW);
 }

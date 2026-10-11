@@ -23,6 +23,7 @@ public class PaymentDtos {
         private long priceHalfYearly;
         private String currency;
         private Integer maxPipelines;
+        private Integer maxWorkflows;
         private Integer maxConnections;
         private Long maxRowsPerMonth;
         private Integer maxMembers;

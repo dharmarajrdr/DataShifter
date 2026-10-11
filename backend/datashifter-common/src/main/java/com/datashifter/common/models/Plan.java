@@ -44,6 +44,10 @@ public class Plan extends BaseEntity {
     @Column(name = "max_pipelines")
     private Integer maxPipelines;
 
+    @Column(name = "max_workflows")
+    @Builder.Default
+    private Integer maxWorkflows = 1;
+
     @Column(name = "max_connections")
     private Integer maxConnections;
 
