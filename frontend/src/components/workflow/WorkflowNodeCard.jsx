@@ -1,5 +1,4 @@
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS } from '../../constants/design';
-import StatusBadge from '../common/StatusBadge';
 
 const WorkflowNodeCard = ({
   node,
@@ -242,7 +241,15 @@ const WorkflowNodeCard = ({
         />
       )}
 
-      <div style={{ display: 'flex', alignItems: 'stretch', overflow: 'hidden', borderRadius: BORDER_RADIUS.lg }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          minHeight: 54,
+          overflow: 'hidden',
+          borderRadius: BORDER_RADIUS.lg,
+        }}
+      >
         {/* Left icon well */}
         <div
           style={{
@@ -272,43 +279,29 @@ const WorkflowNodeCard = ({
         </div>
 
         {/* Right content compartment */}
-        <div style={{ padding: '11px 14px', flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-            <span
-              style={{
-                fontSize: FONT.size.md,
-                fontWeight: FONT.weight.semibold,
-                color: COLORS.text.primary,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-              title={node.pipelineName}
-            >
-              {node.pipelineName}
-            </span>
-            <StatusBadge status={status} />
-          </div>
-
-          <div
+        <div
+          style={{
+            padding: '11px 14px',
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
+          <span
             style={{
-              fontSize: FONT.size.xs,
-              color: COLORS.text.secondary,
-              marginTop: 4,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
+              fontSize: FONT.size.md,
+              fontWeight: FONT.weight.semibold,
+              color: COLORS.text.primary,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
             }}
+            title={node.pipelineName}
           >
-            <span>{node.sourceName || 'Source'}</span>
-            <i className="fa-solid fa-arrow-right" style={{ fontSize: 9, color: COLORS.text.tertiary }} />
-            <span>{node.targetName || 'Target'}</span>
-            <span style={{ color: COLORS.text.tertiary }}>·</span>
-            <span>{node.tableCount ?? 0} tables</span>
-          </div>
+            {node.pipelineName}
+          </span>
 
           {mode === 'monitor' && (
             <div style={{ marginTop: 8 }}>

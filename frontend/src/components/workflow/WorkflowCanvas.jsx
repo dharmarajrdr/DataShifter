@@ -4,7 +4,7 @@ import AddWorkflowStepPill from './AddWorkflowStepPill';
 import WorkflowNodeCard from './WorkflowNodeCard';
 
 const CARD_WIDTH = 310;
-const CARD_HEIGHT = 76;
+const CARD_HEIGHT = 56;
 const TRIGGER_X = 260;
 const TRIGGER_Y = 44;
 
@@ -364,7 +364,7 @@ const WorkflowCanvas = ({
             const tgtNode = nodes.find((n) => n.pipelineId === edge.targetPipelineId);
             if (!srcNode || !tgtNode) return null;
 
-            const srcHeight = mode === 'monitor' ? 104 : CARD_HEIGHT;
+            const srcHeight = mode === 'monitor' ? 78 : CARD_HEIGHT;
             const x1 = (srcNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
             const y1 = (srcNode.positionY ?? 170) + srcHeight;
             const x2 = (tgtNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
@@ -479,7 +479,7 @@ const WorkflowCanvas = ({
           const tgtNode = nodes.find((n) => n.pipelineId === edge.targetPipelineId);
           if (!srcNode || !tgtNode) return null;
 
-          const srcHeight = mode === 'monitor' ? 104 : CARD_HEIGHT;
+          const srcHeight = mode === 'monitor' ? 78 : CARD_HEIGHT;
           const x1 = (srcNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
           const y1 = (srcNode.positionY ?? 170) + srcHeight;
           const x2 = (tgtNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
