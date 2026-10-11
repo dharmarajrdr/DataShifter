@@ -107,6 +107,8 @@ const WorkflowNodeCard = ({
       return {
         bg: COLORS.status.infoLight,
         color: COLORS.status.infoDark,
+        borderColor: COLORS.status.info,
+        glow: 'rgba(24, 95, 165, 0.18)',
         icon: 'fa-solid fa-spinner fa-spin',
       };
     }
@@ -114,6 +116,8 @@ const WorkflowNodeCard = ({
       return {
         bg: COLORS.status.successLight,
         color: COLORS.status.successDark,
+        borderColor: COLORS.status.success,
+        glow: 'rgba(29, 158, 117, 0.18)',
         icon: 'fa-solid fa-circle-check',
       };
     }
@@ -121,6 +125,8 @@ const WorkflowNodeCard = ({
       return {
         bg: COLORS.status.errorLight,
         color: COLORS.status.errorDark,
+        borderColor: COLORS.status.error,
+        glow: 'rgba(216, 90, 48, 0.18)',
         icon: 'fa-solid fa-triangle-exclamation',
       };
     }
@@ -128,12 +134,35 @@ const WorkflowNodeCard = ({
       return {
         bg: COLORS.status.warningLight,
         color: COLORS.status.warningDark,
+        borderColor: COLORS.status.warning,
+        glow: 'rgba(217, 119, 6, 0.18)',
         icon: 'fa-solid fa-ban',
       };
     }
+    // Builder / Ready theme variants matching Exlo reference screenshot (Purple / Amber / Teal)
+    if (stepNumber === 1 || !incomingEdge) {
+      return {
+        bg: COLORS.accent.purpleLight,
+        color: COLORS.brand.primary,
+        borderColor: 'rgba(83, 74, 183, 0.55)',
+        glow: 'rgba(83, 74, 183, 0.16)',
+        icon: 'fa-solid fa-microchip',
+      };
+    }
+    if (incomingEdge?.onFailureAction === 'CONTINUE_PIPELINE') {
+      return {
+        bg: COLORS.accent.tealLight,
+        color: COLORS.status.success,
+        borderColor: 'rgba(29, 158, 117, 0.55)',
+        glow: 'rgba(29, 158, 117, 0.18)',
+        icon: 'fa-solid fa-diagram-project',
+      };
+    }
     return {
-      bg: selected ? COLORS.accent.purpleLight : COLORS.background.secondary,
-      color: selected ? COLORS.brand.primary : COLORS.text.secondary,
+      bg: COLORS.status.warningLight,
+      color: COLORS.status.warning,
+      borderColor: 'rgba(217, 119, 6, 0.55)',
+      glow: 'rgba(217, 119, 6, 0.16)',
       icon: 'fa-solid fa-diagram-project',
     };
   };
@@ -151,13 +180,13 @@ const WorkflowNodeCard = ({
         width: 310,
         background: COLORS.background.primary,
         border: selected
-          ? `2px solid ${COLORS.brand.primary}`
+          ? `2px solid ${iconCfg.color}`
           : isRunningNode
             ? `2px solid ${COLORS.status.info}`
-            : `1px solid ${COLORS.border.light}`,
+            : `1.5px solid ${iconCfg.borderColor}`,
         borderRadius: BORDER_RADIUS.lg,
-        boxShadow: selected
-          ? `0 0 0 3px rgba(83, 74, 183, 0.14), ${SHADOWS.md}`
+        boxShadow: selected || isRunningNode
+          ? `0 0 0 4px ${iconCfg.glow}, ${SHADOWS.md}`
           : SHADOWS.sm,
         position: 'relative',
         cursor: mode === 'builder' ? 'grab' : 'pointer',
@@ -195,7 +224,7 @@ const WorkflowNodeCard = ({
           style={{
             width: 54,
             background: iconCfg.bg,
-            borderRight: `1px solid ${COLORS.border.light}`,
+            borderRight: `1.5px solid ${iconCfg.borderColor}`,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
