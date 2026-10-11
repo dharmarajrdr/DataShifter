@@ -2,6 +2,7 @@ package com.datashifter.execution.consumers;
 
 import com.datashifter.common.events.KafkaTopics;
 import com.datashifter.common.events.PipelineEvents.*;
+import com.datashifter.execution.checkpoint.CheckpointManager;
 import com.datashifter.execution.services.interfaces.ExecutionService;
 import lombok.extern.slf4j.Slf4j;
 import com.datashifter.execution.consumers.CommandRegistry;
@@ -31,6 +32,8 @@ public class PipelineJobConsumer {
 
     private final CommandRegistry commandRegistry;
 
+    private final CheckpointManager checkpointManager;
+
     /** Pending commands per pipeline (PAUSE, STOP) */
     private final Map<String, String> pendingCommands = new ConcurrentHashMap<>();
 
@@ -40,9 +43,10 @@ public class PipelineJobConsumer {
     /** Thread pool for async pipeline execution */
     private final ExecutorService executorService;
 
-    public PipelineJobConsumer(ExecutionService executionService, CommandRegistry commandRegistry) {
+    public PipelineJobConsumer(ExecutionService executionService, CommandRegistry commandRegistry, CheckpointManager checkpointManager) {
         this.executionService = executionService;
         this.commandRegistry = commandRegistry;
+        this.checkpointManager = checkpointManager;
         // Fixed pool — one pipeline per thread. Size 4 allows 4 concurrent pipelines.
         // In Phase 2, make this configurable via application.properties
         this.executorService = Executors.newFixedThreadPool(4, r -> {
@@ -75,6 +79,9 @@ public class PipelineJobConsumer {
         activePipelines.add(pipelineId);
         executorService.submit(() -> {
             try {
+                if ("START".equalsIgnoreCase(event.getAction())) {
+                    checkpointManager.clearCheckpoints(pipelineId);
+                }
                 executionService.execute(pipelineId, event.getExecutionLogId());
             } catch (Exception e) {
                 log.error("Unhandled exception in pipeline execution {}: {}", pipelineId, e.getMessage(), e);
