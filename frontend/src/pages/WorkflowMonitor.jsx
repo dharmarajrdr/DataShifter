@@ -1050,7 +1050,7 @@ const WorkflowMonitor = () => {
                         <td style={{ padding: '10px 12px', color: COLORS.text.secondary }}>
                           Chunk #{err.chunkNumber ?? 0} · Row #{err.rowNumber ?? 0}
                         </td>
-                        <td style={{ padding: '10px 12px', color: COLORS.status.errorText }}>
+                        <td style={{ padding: '10px 12px', color: COLORS.status.errorText, wordBreak: 'break-word' }}>
                           {err.errorMessage}
                         </td>
                       </tr>
@@ -1062,6 +1062,7 @@ const WorkflowMonitor = () => {
                               padding: '10px 16px',
                               background: COLORS.background.secondary,
                               borderBottom: `1px solid ${COLORS.border.light}`,
+                              maxWidth: 0,
                             }}
                           >
                             <div
@@ -1077,7 +1078,9 @@ const WorkflowMonitor = () => {
                               style={{
                                 margin: 0,
                                 fontSize: '11px',
-                                overflowX: 'auto',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-all',
+                                overflowWrap: 'anywhere',
                                 color: COLORS.text.primary,
                               }}
                             >
