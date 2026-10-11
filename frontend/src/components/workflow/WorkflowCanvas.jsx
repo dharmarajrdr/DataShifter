@@ -323,7 +323,9 @@ const WorkflowCanvas = ({
             ? 'No pipeline steps added yet'
             : topologyInfo.singleChainReady
               ? `Single Chain Ready (${nodes.length} ${nodes.length === 1 ? 'step' : 'steps'})`
-              : `${topologyInfo.chainCount} Disconnected Chains — Link into 1 chain before running`}
+              : topologyInfo.chainCount > 1
+                ? `${topologyInfo.chainCount} Disconnected Chains — Link into 1 chain before running`
+                : `${topologyInfo.chainCount || 1} Not Validated Chains — Validate the chain before running`}
         </div>
       </div>
 
