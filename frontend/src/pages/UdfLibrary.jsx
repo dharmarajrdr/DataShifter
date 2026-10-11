@@ -155,6 +155,8 @@ const UdfCard = ({ udf, canDelete, deleting, onDelete }) => {
                         </div>
                         <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>Version {udf.version || '1.0.0'} · Java</p>
                     </div>
+                </div>
+                <div style={{ ...FRSC, gap: SPACING.sm, flexShrink: 0 }}>
                     <StatusChip status={udf.status} />
                     {canDelete && (
                         <button
@@ -284,13 +286,13 @@ const UdfLibrary = () => {
                     <Chip label={`${udfs.length} UDF${udfs.length === 1 ? '' : 's'}`} colorScheme="purple" />
                 </div>
                 {udfs.length === 0 ? (
-                    <div style={{ padding: '60px 24px', textAlign: 'center', color: COLORS.text.secondary, border: `1px dashed ${COLORS.border.medium}`, borderRadius: BORDER_RADIUS.lg }}>
+                    <div style={{ padding: '60px 24px', width: '100%', textAlign: 'center', color: COLORS.text.secondary, border: `1px dashed ${COLORS.border.medium}`, borderRadius: BORDER_RADIUS.lg }}>
                         <Code2 size={32} color={COLORS.brand.primary} />
                         <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, color: COLORS.text.primary, margin: `${SPACING.sm} 0 ${SPACING.xs}` }}>No UDFs yet</p>
                         <p style={{ fontSize: FONT.size.sm, marginBottom: SPACING.md }}>Upload a Java function to reuse custom business rules across pipelines.</p>
                         <Button onClick={() => setShowUpload(true)}>Upload your first UDF</Button>
                     </div>
-                ) : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 1fr)', gap: SPACING.md }}>{udfs.map(udf => <UdfCard key={udf.id} udf={udf} canDelete={canDelete} deleting={deletingId === udf.id} onDelete={handleDeleteRequest} />)}</div>}
+                ) : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: SPACING.md }}>{udfs.map(udf => <UdfCard key={udf.id} udf={udf} canDelete={canDelete} deleting={deletingId === udf.id} onDelete={handleDeleteRequest} />)}</div>}
                 {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUploaded={udf => { setUdfs(prev => [udf, ...prev]); notification.success(`UDF "${udf.name}" uploaded successfully`); }} />}
 
                 {/* Delete Confirmation Modal */}

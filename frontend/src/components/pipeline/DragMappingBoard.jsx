@@ -315,7 +315,6 @@ const DragMappingBoard = ({ sourceTables, targetTables, mappings, onMappingsChan
           <span style={{ color: '#D4D4D0' }}>|</span>
           {onMappingClick && <><span style={{ cursor: 'pointer', color: '#534AB7', fontWeight: 500 }} onClick={() => onMappingClick(mappings[sel], sel)}>Transform</span><span style={{ color: '#D4D4D0' }}>|</span></>}
           <span style={{ cursor: 'pointer', color: '#A32D2D', fontWeight: 500 }} onClick={delS}>Remove</span>
-          <span style={{ color: '#9B9B9B', fontSize: '10px' }}>(<i className="fa-solid fa-delete-left" />)</span>
         </div>
       )}
 
