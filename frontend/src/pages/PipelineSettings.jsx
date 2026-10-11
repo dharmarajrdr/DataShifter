@@ -6,7 +6,7 @@ import { FRBC, FRSC } from '../constants/layouts';
 import { SETTINGS } from '../constants/literals';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { connectionApi, settingsApi } from '../services/api';
+import { connectionApi, pipelineApi, settingsApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 const SectionTitle = ({ title, subtitle }) => (
@@ -32,6 +32,7 @@ const PipelineSettings = () => {
   const { hasPermission } = useAuth();
   const canViewPipeline = hasPermission('pipeline:view');
   const canEditSettings = hasPermission('settings:edit');
+  const canDeletePipeline = hasPermission('pipeline:delete');
   const [accessDenied, setAccessDenied] = useState(false);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -50,6 +51,8 @@ const PipelineSettings = () => {
   const [addingTable, setAddingTable] = useState(false);
 
   const [pairToRemove, setPairToRemove] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const notification = useNotification();
 
   const fetchSettings = useCallback(() => {
@@ -153,6 +156,21 @@ const PipelineSettings = () => {
       fetchSettings();
     } catch (e) {
       notification.error('Failed to remove: ' + (e?.response?.data?.message || e.message));
+    }
+  };
+
+  const confirmDeletePipeline = async () => {
+    if (!canDeletePipeline || isRunning || deleting) return;
+    setDeleting(true);
+    try {
+      await pipelineApi.delete(pipelineId);
+      setShowDeleteConfirm(false);
+      notification.success(`Pipeline "${settings.name}" deleted`);
+      navigate('/pipelines');
+    } catch (e) {
+      notification.error('Failed to delete pipeline: ' + (e?.response?.data?.message || e.message));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -404,6 +422,39 @@ const PipelineSettings = () => {
             <Toggle checked={settings.previewInflightRecords !== false} onChange={v => update('previewInflightRecords', v)} />
           </SettingRow>
 
+          <Divider />
+
+          {/* ============================================================ */}
+          {/* DANGER ZONE */}
+          {/* ============================================================ */}
+          <SectionTitle title="Danger zone" subtitle="Irreversible and destructive actions for this pipeline." />
+          <div style={{
+            ...FRBC,
+            padding: `${SPACING.sm} ${SPACING.md}`,
+            background: COLORS.status.errorLight,
+            border: `1px solid ${COLORS.status.error}`,
+            borderRadius: BORDER_RADIUS.md,
+            marginBottom: SPACING.xl,
+          }}>
+            <div>
+              <p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, color: COLORS.status.errorDark }}>Delete pipeline</p>
+              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>
+                {isRunning
+                  ? 'Pause or stop the pipeline before deleting it.'
+                  : 'Permanently delete this pipeline, its table mappings, transformations, and execution history. This cannot be undone.'}
+              </p>
+            </div>
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={!canDeletePipeline || isRunning || deleting}
+              title={!canDeletePipeline ? 'You do not have permission to delete pipelines' : isRunning ? 'Cannot delete a running pipeline' : 'Delete this pipeline'}
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              {deleting ? 'Deleting...' : 'Delete Pipeline'}
+            </Button>
+          </div>
+
         </div>
       </div>
 
@@ -417,6 +468,19 @@ const PipelineSettings = () => {
         actions={[
           { label: 'Cancel', variant: 'secondary', onClick: () => setPairToRemove(null) },
           { label: 'Yes, remove', variant: 'danger', onClick: confirmRemoveTablePair },
+        ]}
+      />
+
+      {/* Delete pipeline confirmation modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title="Delete Pipeline"
+        message={`Are you sure you want to delete pipeline "${settings.name}"? This cannot be undone.`}
+        color={COLORS.status.error}
+        onClose={() => !deleting && setShowDeleteConfirm(false)}
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onClick: () => setShowDeleteConfirm(false) },
+          { label: deleting ? 'Deleting...' : 'Yes, delete', variant: 'danger', onClick: confirmDeletePipeline },
         ]}
       />
     </div>

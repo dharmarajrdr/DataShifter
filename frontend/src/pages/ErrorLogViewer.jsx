@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC, FRWSC } from '../constants/layouts';
+import { ApiGuard, BarLoader, Button, Chip, ConfirmationModal, MetricCard, PageHeader } from '../components/common';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { FRBC, FRSC, FRWSC } from '../constants/layouts';
 import { ERRORS } from '../constants/literals';
-import { PageHeader, MetricCard, Button, Chip, ApiGuard, Loader, ConfirmationModal, BarLoader } from '../components/common';
-import { errorApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { errorApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 const ERROR_TYPE_COLORS = {
@@ -172,11 +172,11 @@ const ExportDropdown = ({ errors, pipelineName }) => {
       <Button variant="secondary" onClick={() => setOpen(!open)}>
         <span style={{ ...FRSC, gap: '6px' }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M7 2v7M4 6l3 3 3-3M2 11h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M7 2v7M4 6l3 3 3-3M2 11h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Export
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <path d="M2.5 4L5 6.5 7.5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            <path d="M2.5 4L5 6.5 7.5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
         </span>
       </Button>
@@ -188,19 +188,19 @@ const ExportDropdown = ({ errors, pipelineName }) => {
             background: '#fff', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md,
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)', minWidth: '180px', overflow: 'hidden',
           }}>
-            <div style={{ padding: '6px 12px', fontSize: '10px', color: COLORS.text.tertiary, borderBottom: `1px solid ${COLORS.border.light}` }}>
+            {/* <div style={{ padding: '6px 12px', fontSize: '10px', color: COLORS.text.tertiary, borderBottom: `1px solid ${COLORS.border.light}` }}>
               Download as
-            </div>
+            </div> */}
             {Object.entries(exportFormats).map(([key, config]) => (
               <div key={key}
                 onClick={() => handleExport(key)}
                 style={{ ...FRSC, gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: FONT.size.xs }}
                 onMouseEnter={e => e.currentTarget.style.background = COLORS.background.secondary}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <span style={{ fontSize: '12px', width: '20px', textAlign: 'center' }}>{config.icon}</span>
+                {/* <span style={{ fontSize: '12px', width: '20px', textAlign: 'center' }}>{config.icon}</span> */}
                 <div>
                   <span style={{ fontWeight: FONT.weight.medium }}>{config.label}</span>
-                  <span style={{ color: COLORS.text.tertiary, marginLeft: '6px' }}>.{config.ext}</span>
+                  <span style={{ color: COLORS.text.tertiary, marginLeft: '6px' }}>(.{config.ext})</span>
                 </div>
               </div>
             ))}
@@ -351,110 +351,110 @@ const ErrorLogViewer = () => {
     >
       {data && (
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
-      <PageHeader
-        breadcrumbs={[
-          { label: data.pipelineName, onClick: () => navigate(`/pipelines/${pipelineId}/monitor`) },
-          { label: ERRORS.title },
-        ]}
-        actions={
-          <div style={{ ...FRSC, gap: SPACING.xs }}>
-            <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-              {totalErrors} error{totalErrors !== 1 ? 's' : ''}
-            </span>
-            {totalErrors > 0 && (
-              <Button variant="secondary" size="sm" onClick={() => setConfirmClear(true)}>Clear logs</Button>
+          <PageHeader
+            breadcrumbs={[
+              { label: data.pipelineName, onClick: () => navigate(`/pipelines/${pipelineId}/monitor`) },
+              { label: ERRORS.title },
+            ]}
+            actions={
+              <div style={{ ...FRSC, gap: SPACING.xs }}>
+                <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
+                  {totalErrors} error{totalErrors !== 1 ? 's' : ''}
+                </span>
+                {totalErrors > 0 && (
+                  <Button variant="secondary" size="sm" onClick={() => setConfirmClear(true)}>Clear logs</Button>
+                )}
+                <ExportDropdown errors={filteredErrors} pipelineName={data.pipelineName} />
+              </div>
+            }
+          />
+
+          {/* Metrics */}
+          <div style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.lg, flexShrink: 0 }}>
+            <MetricCard label={ERRORS.totalErrors} value={totalErrors} color={COLORS.status.errorDark} />
+            <MetricCard label={ERRORS.skipped} value={data.skipped || 0} color={COLORS.status.warningDark} />
+            <MetricCard label={ERRORS.pipelineStopped} value={data.pipelineStopped || 0} color={COLORS.status.errorDark} />
+            <MetricCard label={ERRORS.errorRate} value={data.errorRate || 0} />
+          </div>
+
+          {/* Error type chips */}
+          {data.errorTypes?.length > 0 && (
+            <div style={{ marginBottom: SPACING.md, flexShrink: 0 }}>
+              <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary, marginBottom: SPACING.xs }}>
+                {ERRORS.errorsByType}
+              </p>
+              <div style={{ ...FRWSC, gap: '6px' }}>
+                {data.errorTypes.map(et => (
+                  <Chip key={et.type}
+                    label={`${et.type} (${et.count})`}
+                    colorScheme={ERROR_TYPE_COLORS[et.type] || 'default'}
+                    onClick={() => setFilterType(filterType === et.type ? 'all' : et.type)}
+                    style={filterType === et.type ? { outline: `2px solid ${COLORS.brand.primary}` } : {}}
+                  />
+                ))}
+                {filterType !== 'all' && (
+                  <span onClick={() => setFilterType('all')} style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, cursor: 'pointer', textDecoration: 'underline' }}>Clear</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Search + filters */}
+          <div style={{ ...FRSC, gap: SPACING.xs, marginBottom: SPACING.sm, flexShrink: 0 }}>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={ERRORS.searchPlaceholder}
+              style={{ flex: 1, padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm }} />
+            <select value={filterTable} onChange={e => setFilterTable(e.target.value)}
+              style={{ padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm, background: '#fff' }}>
+              <option value="all">All tables</option>
+              {uniqueTables.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select value={filterType} onChange={e => setFilterType(e.target.value)}
+              style={{ padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm, background: '#fff' }}>
+              <option value="all">All types</option>
+              {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          {/* Scrollable error list — fills remaining space */}
+          <div style={{
+            flex: 1, minHeight: 0, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md,
+            overflow: 'auto', background: '#fff',
+          }}>
+            {filteredErrors.length === 0 ? (
+              <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.text.secondary, fontSize: FONT.size.md }}>
+                {totalErrors === 0 ? 'No errors recorded for this pipeline.' : 'No errors match your filters.'}
+              </div>
+            ) : (
+              filteredErrors.map(error => <ErrorEntry key={error.id} error={error} />)
             )}
-            <ExportDropdown errors={filteredErrors} pipelineName={data.pipelineName} />
           </div>
-        }
-      />
 
-      {/* Metrics */}
-      <div style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.lg, flexShrink: 0 }}>
-        <MetricCard label={ERRORS.totalErrors} value={totalErrors} color={COLORS.status.errorDark} />
-        <MetricCard label={ERRORS.skipped} value={data.skipped || 0} color={COLORS.status.warningDark} />
-        <MetricCard label={ERRORS.pipelineStopped} value={data.pipelineStopped || 0} color={COLORS.status.errorDark} />
-        <MetricCard label={ERRORS.errorRate} value={data.errorRate || 0} />
-      </div>
-
-      {/* Error type chips */}
-      {data.errorTypes?.length > 0 && (
-        <div style={{ marginBottom: SPACING.md, flexShrink: 0 }}>
-          <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary, marginBottom: SPACING.xs }}>
-            {ERRORS.errorsByType}
-          </p>
-          <div style={{ ...FRWSC, gap: '6px' }}>
-            {data.errorTypes.map(et => (
-              <Chip key={et.type}
-                label={`${et.type} (${et.count})`}
-                colorScheme={ERROR_TYPE_COLORS[et.type] || 'default'}
-                onClick={() => setFilterType(filterType === et.type ? 'all' : et.type)}
-                style={filterType === et.type ? { outline: `2px solid ${COLORS.brand.primary}` } : {}}
-              />
-            ))}
-            {filterType !== 'all' && (
-              <span onClick={() => setFilterType('all')} style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, cursor: 'pointer', textDecoration: 'underline' }}>Clear</span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Search + filters */}
-      <div style={{ ...FRSC, gap: SPACING.xs, marginBottom: SPACING.sm, flexShrink: 0 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={ERRORS.searchPlaceholder}
-          style={{ flex: 1, padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm }} />
-        <select value={filterTable} onChange={e => setFilterTable(e.target.value)}
-          style={{ padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm, background: '#fff' }}>
-          <option value="all">All tables</option>
-          {uniqueTables.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={filterType} onChange={e => setFilterType(e.target.value)}
-          style={{ padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm, background: '#fff' }}>
-          <option value="all">All types</option>
-          {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-      </div>
-
-      {/* Scrollable error list — fills remaining space */}
-      <div style={{
-        flex: 1, minHeight: 0, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md,
-        overflow: 'auto', background: '#fff',
-      }}>
-        {filteredErrors.length === 0 ? (
-          <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.text.secondary, fontSize: FONT.size.md }}>
-            {totalErrors === 0 ? 'No errors recorded for this pipeline.' : 'No errors match your filters.'}
-          </div>
-        ) : (
-          filteredErrors.map(error => <ErrorEntry key={error.id} error={error} />)
-        )}
-      </div>
-
-      {/* Pagination — always visible at bottom */}
-      {totalErrors > 0 && (
-        <div style={{ ...FRBC, padding: `${SPACING.sm} 0`, flexShrink: 0 }}>
-          <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
-            Showing {startRow}-{endRow} of {totalErrors} errors
-          </span>
-          <div style={{ ...FRSC, gap: '4px' }}>
-            <Button variant="secondary" size="sm" onClick={() => goToPage(page - 1)}
-              style={page === 0 ? { opacity: 0.4, pointerEvents: 'none' } : {}}>Prev</Button>
-            {startPage > 0 && <>
-              <Button variant="secondary" size="sm" onClick={() => goToPage(0)}>1</Button>
-              {startPage > 1 && <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, padding: '0 4px' }}>…</span>}
-            </>}
-            {pageNumbers.map(p => (
-              <Button key={p} variant={p === page ? 'primary' : 'secondary'} size="sm"
-                onClick={() => goToPage(p)}>{p + 1}</Button>
-            ))}
-            {endPage < totalPages && <>
-              {endPage < totalPages - 1 && <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, padding: '0 4px' }}>…</span>}
-              <Button variant="secondary" size="sm" onClick={() => goToPage(totalPages - 1)}>{totalPages}</Button>
-            </>}
-            <Button variant="secondary" size="sm" onClick={() => goToPage(page + 1)}
-              style={page >= totalPages - 1 ? { opacity: 0.4, pointerEvents: 'none' } : {}}>Next</Button>
-          </div>
-        </div>
-      )}
+          {/* Pagination — always visible at bottom */}
+          {totalErrors > 0 && (
+            <div style={{ ...FRBC, padding: `${SPACING.sm} 0`, flexShrink: 0 }}>
+              <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
+                Showing {startRow}-{endRow} of {totalErrors} errors
+              </span>
+              <div style={{ ...FRSC, gap: '4px' }}>
+                <Button variant="secondary" size="sm" onClick={() => goToPage(page - 1)}
+                  style={page === 0 ? { opacity: 0.4, pointerEvents: 'none' } : {}}>Prev</Button>
+                {startPage > 0 && <>
+                  <Button variant="secondary" size="sm" onClick={() => goToPage(0)}>1</Button>
+                  {startPage > 1 && <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, padding: '0 4px' }}>…</span>}
+                </>}
+                {pageNumbers.map(p => (
+                  <Button key={p} variant={p === page ? 'primary' : 'secondary'} size="sm"
+                    onClick={() => goToPage(p)}>{p + 1}</Button>
+                ))}
+                {endPage < totalPages && <>
+                  {endPage < totalPages - 1 && <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, padding: '0 4px' }}>…</span>}
+                  <Button variant="secondary" size="sm" onClick={() => goToPage(totalPages - 1)}>{totalPages}</Button>
+                </>}
+                <Button variant="secondary" size="sm" onClick={() => goToPage(page + 1)}
+                  style={page >= totalPages - 1 ? { opacity: 0.4, pointerEvents: 'none' } : {}}>Next</Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

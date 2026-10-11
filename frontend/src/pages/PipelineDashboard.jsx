@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarLoader, Button, ConfirmationModal, MetricCard, PageHeader, ProgressBar, SkeletonLoader, StatusBadge } from '../components/common';
+import { BarLoader, Button, MetricCard, PageHeader, ProgressBar, SkeletonLoader, StatusBadge } from '../components/common';
 import ApiGuard from '../components/common/ApiGuard';
 import CreateNamespaceModal from '../components/pipeline/CreateNamespaceModal';
 import ImportPipelineModal from '../components/pipeline/ImportPipelineModal';
@@ -23,94 +23,9 @@ const OwnerAvatar = ({ name, initials, color, size = 24 }) => (
 );
 
 /* ================================================================
-   KEBAB MENU (three-dot) — renders dropdown on click
+   PIPELINE ROW — draggable
    ================================================================ */
-const KebabMenu = ({ pipeline, navigate, onDelete, canDelete, canEditSettings }) => {
-  const [open, setOpen] = useState(false);
-
-  const items = [
-    { label: 'Monitor', icon: '📊', onClick: () => navigate(`/pipelines/${pipeline.id}/monitor`) },
-    { label: 'Column mapping', icon: '🔗', onClick: () => navigate(`/pipelines/${pipeline.id}/mapping`) },
-    {
-      label: 'Settings',
-      icon: '⚙',
-      disabled: !canEditSettings,
-      tooltip: !canEditSettings ? 'You do not have permission to edit pipeline settings' : '',
-      onClick: () => navigate(`/pipelines/${pipeline.id}/settings`)
-    },
-  ];
-
-  if (canDelete) {
-    items.push({ type: 'divider' });
-    items.push({
-      label: 'Delete', icon: '🗑', danger: true, onClick: () => {
-        onDelete(pipeline);
-      }
-    });
-  }
-
-  return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      <div onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        style={{ width: 28, height: 28, borderRadius: BORDER_RADIUS.sm, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: open ? COLORS.background.secondary : 'transparent' }}
-        onMouseEnter={e => { if (!open) e.currentTarget.style.background = COLORS.background.secondary; }}
-        onMouseLeave={e => { if (!open) e.currentTarget.style.background = 'transparent'; }}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="3.5" r="1.2" fill={COLORS.text.tertiary} />
-          <circle cx="8" cy="8" r="1.2" fill={COLORS.text.tertiary} />
-          <circle cx="8" cy="12.5" r="1.2" fill={COLORS.text.tertiary} />
-        </svg>
-      </div>
-
-      {open && (
-        <>
-          {/* Backdrop to close menu */}
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }} />
-          {/* Menu dropdown */}
-          <div style={{
-            position: 'absolute', top: '100%', right: 0, marginTop: '4px', zIndex: 100,
-            background: COLORS.background.primary, border: `1px solid ${COLORS.border.light}`,
-            borderRadius: BORDER_RADIUS.md, boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-            minWidth: '160px', overflow: 'hidden',
-          }}>
-            {items.map((item, i) => {
-              if (item.type === 'divider') {
-                return <div key={`d-${i}`} style={{ height: '1px', background: COLORS.border.light, margin: '4px 0' }} />;
-              }
-              const disabled = item.disabled;
-              return (
-                <div key={item.label}
-                  title={item.tooltip || ''}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (disabled) return;
-                    setOpen(false);
-                    item.onClick();
-                  }}
-                  style={{
-                    ...FRSC, gap: '8px', padding: '8px 12px',
-                    cursor: disabled ? 'not-allowed' : 'pointer',
-                    fontSize: FONT.size.xs,
-                    color: disabled ? COLORS.text.tertiary : (item.danger ? COLORS.status.errorDark : COLORS.text.primary),
-                    opacity: disabled ? 0.6 : 1,
-                  }}
-                  onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = item.danger ? COLORS.status.errorLight : COLORS.background.secondary; }}
-                  onMouseLeave={e => { if (!disabled) e.currentTarget.style.background = 'transparent'; }}>
-                  <span>{item.label}</span>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-/* ================================================================
-   PIPELINE ROW — draggable, with kebab menu
-   ================================================================ */
-const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete, canDelete, canEditSettings }) => {
+const PipelineRow = ({ pipeline, navigate, onDragStart }) => {
   const getOwnerInitials = (name) => {
     if (!name) return '?';
     const parts = name.trim().split(' ');
@@ -144,7 +59,6 @@ const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete, canDelete, can
             <ProgressBar progress={pipeline.progress} height="4px" showLabel={true} />
           </div>
         )}
-        <KebabMenu pipeline={pipeline} navigate={navigate} onDelete={onDelete} canDelete={canDelete} canEditSettings={canEditSettings} />
       </div>
     </div>
   </div>
@@ -153,7 +67,7 @@ const PipelineRow = ({ pipeline, navigate, onDragStart, onDelete, canDelete, can
 /* ================================================================
    NAMESPACE GROUP
    ================================================================ */
-const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPipeline, dragOverNs, setDragOverNs, onDelete, canDelete, canEditSettings }) => {
+const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPipeline, dragOverNs, setDragOverNs }) => {
   const [collapsed, setCollapsed] = useState(false);
   const isDropTarget = dragOverNs === namespace.id;
   return (
@@ -177,7 +91,7 @@ const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPip
               Drop pipeline here
             </div>
           )}
-          {pipelines.map(p => <PipelineRow key={p.id} pipeline={p} navigate={navigate} onDragStart={onDragStart} onDelete={onDelete} canDelete={canDelete} canEditSettings={canEditSettings} />)}
+          {pipelines.map(p => <PipelineRow key={p.id} pipeline={p} navigate={navigate} onDragStart={onDragStart} />)}
         </div>
       )}
     </div>
@@ -196,15 +110,12 @@ const PipelineDashboard = () => {
   const [draggingPipelineId, setDraggingPipelineId] = useState(null);
   const [showCreateNs, setShowCreateNs] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [pipelineToDelete, setPipelineToDelete] = useState(null);
   const navigate = useNavigate();
   const notification = useNotification();
   const { user, hasPermission } = useAuth();
   const canViewPipeline = hasPermission('pipeline:view');
   const canCreatePipeline = hasPermission('pipeline:create');
   const canCreateNamespace = hasPermission('namespace:create');
-  const canDeletePipeline = hasPermission('pipeline:delete');
-  const canEditSettings = hasPermission('settings:edit');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -255,26 +166,6 @@ const PipelineDashboard = () => {
     }
     setDraggingPipelineId(null);
   }, [pipelines, notification]);
-
-  const confirmDeletePipeline = useCallback(async () => {
-    if (!pipelineToDelete || !canDeletePipeline) return;
-    const { id, name } = pipelineToDelete;
-    setPipelines(prev => prev.filter(p => p.id !== id));
-    setPipelineToDelete(null);
-    try {
-      await pipelineApi.delete(id);
-      notification.success(`Pipeline "${name}" deleted`);
-    } catch (e) {
-      // Revert — re-fetch
-      const res = await pipelineApi.getAll();
-      setPipelines(res.data || []);
-      notification.error(e.message || 'Failed to delete pipeline');
-    }
-  }, [pipelineToDelete, canDeletePipeline, notification]);
-
-  const handleDeleteRequest = useCallback((pipeline) => {
-    setPipelineToDelete(pipeline);
-  }, []);
 
   const toggleNamespace = (nsId) => setSelectedNamespaces(prev => prev.includes(nsId) ? prev.filter(id => id !== nsId) : [...prev, nsId]);
   const counts = { total: pipelines.length, running: pipelines.filter(p => p.status === 'RUNNING').length, errored: pipelines.filter(p => p.status === 'ERRORED').length, completed: pipelines.filter(p => p.status === 'COMPLETED').length };
@@ -368,9 +259,6 @@ const PipelineDashboard = () => {
               onDropPipeline={handleDropPipeline}
               dragOverNs={dragOverNs}
               setDragOverNs={setDragOverNs}
-              onDelete={handleDeleteRequest}
-              canDelete={canDeletePipeline}
-              canEditSettings={canEditSettings}
             />
           ))
         )}
@@ -383,19 +271,6 @@ const PipelineDashboard = () => {
             onImportSuccess={() => fetchAllData()}
           />
         )}
-
-        {/* Delete pipeline confirmation modal */}
-        <ConfirmationModal
-          isOpen={!!pipelineToDelete}
-          title="Delete Pipeline"
-          message={`Are you sure you want to delete pipeline "${pipelineToDelete?.name}"? This cannot be undone.`}
-          color={COLORS.status.error}
-          onClose={() => setPipelineToDelete(null)}
-          actions={[
-            { label: 'Cancel', variant: 'secondary', onClick: () => setPipelineToDelete(null) },
-            { label: 'Yes, delete', variant: 'danger', onClick: confirmDeletePipeline },
-          ]}
-        />
       </div>
     </ApiGuard>
   );
