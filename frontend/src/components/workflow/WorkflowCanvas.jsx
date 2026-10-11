@@ -429,7 +429,52 @@ const WorkflowCanvas = ({
           })()}
         </svg>
 
-        {/* Clickable Failure-Action Badges on Each Edge Midpoint */}
+        {/* '+' Icon on Trigger -> Primary Head Edge (Insert at Start of Chain) */}
+        {mode === 'builder' && primaryHead && (() => {
+          const x1 = TRIGGER_X + CARD_WIDTH / 2;
+          const y1 = TRIGGER_Y + 62;
+          const x2 = (primaryHead.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
+          const y2 = (primaryHead.positionY ?? 170) - 6;
+          const midX = (x1 + x2) / 2;
+          const midY = (y1 + y2) / 2;
+          const isAddTriggerSelected =
+            selectedItem?.type === 'add' && selectedItem?.afterPipelineId === '__TRIGGER__';
+
+          return (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onOpenAddStep) onOpenAddStep('__TRIGGER__');
+              }}
+              title="Add pipeline step at start of chain"
+              style={{
+                position: 'absolute',
+                left: midX,
+                top: midY,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 4,
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                background: isAddTriggerSelected ? COLORS.brand.primary : COLORS.background.primary,
+                color: isAddTriggerSelected ? '#fff' : COLORS.brand.primary,
+                border: `1.5px solid ${COLORS.brand.primary}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                cursor: 'pointer',
+                boxShadow: SHADOWS.sm,
+                transition: 'all 0.12s ease',
+              }}
+            >
+              <i className="fa-solid fa-plus" style={{ fontSize: 10, lineHeight: 1 }} />
+            </button>
+          );
+        })()}
+
+        {/* Clickable Failure-Action Badges & '+' Insert Icon on Each Edge Midpoint */}
         {edges.map((edge) => {
           const srcNode = nodes.find((n) => n.pipelineId === edge.sourcePipelineId);
           const tgtNode = nodes.find((n) => n.pipelineId === edge.targetPipelineId);
@@ -444,34 +489,73 @@ const WorkflowCanvas = ({
           const midX = (x1 + x2) / 2;
           const midY = (y1 + y2) / 2;
           const badgeCfg = EDGE_BADGE_MAP[edge.onFailureAction || 'STOP_WORKFLOW'];
+          const isAddEdgeSelected =
+            selectedItem?.type === 'add' && selectedItem?.afterPipelineId === edge.sourcePipelineId;
 
           return (
             <div
               key={`badge-${edge.sourcePipelineId}-${edge.targetPipelineId}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onSelectEdge) onSelectEdge(edge.sourcePipelineId, edge.targetPipelineId);
-              }}
-              title="Click to configure failure behavior on this link"
               style={{
                 position: 'absolute',
                 left: midX,
                 top: midY,
                 transform: 'translate(-50%, -50%)',
                 zIndex: 4,
-                padding: '2px 9px',
-                borderRadius: BORDER_RADIUS.pill,
-                background: badgeCfg.bg,
-                color: badgeCfg.color,
-                border: `1px solid ${badgeCfg.border}`,
-                fontSize: '10px',
-                fontWeight: FONT.weight.semibold,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                boxShadow: SHADOWS.sm,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
-              {badgeCfg.text}
+              {mode === 'builder' && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenAddStep) onOpenAddStep(edge.sourcePipelineId);
+                  }}
+                  title={`Add pipeline step after ${srcNode.pipelineName}`}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    background: isAddEdgeSelected ? COLORS.brand.primary : COLORS.background.primary,
+                    color: isAddEdgeSelected ? '#fff' : COLORS.brand.primary,
+                    border: `1.5px solid ${COLORS.brand.primary}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    cursor: 'pointer',
+                    boxShadow: SHADOWS.sm,
+                    flexShrink: 0,
+                    transition: 'all 0.12s ease',
+                  }}
+                >
+                  <i className="fa-solid fa-plus" style={{ fontSize: 10, lineHeight: 1 }} />
+                </button>
+              )}
+
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onSelectEdge) onSelectEdge(edge.sourcePipelineId, edge.targetPipelineId);
+                }}
+                title="Click to configure failure behavior on this link"
+                style={{
+                  padding: '2px 9px',
+                  borderRadius: BORDER_RADIUS.pill,
+                  background: badgeCfg.bg,
+                  color: badgeCfg.color,
+                  border: `1px solid ${badgeCfg.border}`,
+                  fontSize: '10px',
+                  fontWeight: FONT.weight.semibold,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: SHADOWS.sm,
+                }}
+              >
+                {badgeCfg.text}
+              </div>
             </div>
           );
         })}
@@ -545,7 +629,10 @@ const WorkflowCanvas = ({
             onClick={(e) => e.stopPropagation()}
           >
             <AddWorkflowStepPill
-              active={selectedItem?.type === 'add'}
+              active={
+                selectedItem?.type === 'add' &&
+                selectedItem?.afterPipelineId === (tailNode ? tailNode.pipelineId : null)
+              }
               onClick={() =>
                 onOpenAddStep && onOpenAddStep(tailNode ? tailNode.pipelineId : null)
               }

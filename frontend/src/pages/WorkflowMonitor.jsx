@@ -726,64 +726,6 @@ const WorkflowMonitor = () => {
               </div>
             )}
 
-            {/* Ordered Step List */}
-            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div
-                style={{
-                  fontSize: FONT.size.xs,
-                  fontWeight: FONT.weight.semibold,
-                  color: COLORS.text.tertiary,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.4px',
-                }}
-              >
-                Execution Sequence
-              </div>
-              {nodes.map((n, index) => {
-                const isSelected = selectedNode?.pipelineId === n.pipelineId;
-                const stepStatus = n.pipelineStatus;
-                return (
-                  <div
-                    key={n.pipelineId}
-                    onClick={() => setSelectedPipelineId(n.pipelineId)}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: BORDER_RADIUS.md,
-                      border: isSelected
-                        ? `1.5px solid ${COLORS.brand.primary}`
-                        : `1px solid ${COLORS.border.light}`,
-                      background: isSelected
-                        ? COLORS.accent.purpleLight
-                        : COLORS.background.primary,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: FONT.size.sm,
-                          fontWeight: FONT.weight.medium,
-                          color: COLORS.text.primary,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {index + 1}. {n.pipelineName}
-                      </div>
-                      <div style={{ fontSize: '11px', color: COLORS.text.secondary, marginTop: 2 }}>
-                        {(n.rowsProcessed || 0).toLocaleString()} rows · {Math.round(n.progress || 0)}%
-                      </div>
-                    </div>
-                    <StatusBadge status={stepStatus} />
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </div>
       ) : (

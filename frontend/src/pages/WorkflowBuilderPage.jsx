@@ -207,15 +207,19 @@ const WorkflowBuilderPage = () => {
       return;
     }
 
-    const predNode = attachAfterPipelineId
-      ? nodes.find((n) => n.pipelineId === attachAfterPipelineId)
-      : null;
+    const isInsertAtHead = attachAfterPipelineId === '__TRIGGER__';
+    const predNode =
+      attachAfterPipelineId && !isInsertAtHead
+        ? nodes.find((n) => n.pipelineId === attachAfterPipelineId)
+        : null;
 
-    const newPosY = predNode
-      ? (predNode.positionY ?? 165) + 145
-      : nodes.length === 0
-        ? 165
-        : Math.max(...nodes.map((n) => n.positionY ?? 165)) + 145;
+    const newPosY = isInsertAtHead
+      ? 165
+      : predNode
+        ? (predNode.positionY ?? 165) + 145
+        : nodes.length === 0
+          ? 165
+          : Math.max(...nodes.map((n) => n.positionY ?? 165)) + 145;
 
     const newNode = {
       pipelineId: pipelineSummary.id,
@@ -229,7 +233,16 @@ const WorkflowBuilderPage = () => {
     };
 
     let updatedEdges = [...edges];
-    if (attachAfterPipelineId) {
+    if (isInsertAtHead) {
+      const currentHead = topologyInfo.orderedNodes[0];
+      if (currentHead) {
+        updatedEdges.push({
+          sourcePipelineId: newNode.pipelineId,
+          targetPipelineId: currentHead.pipelineId,
+          onFailureAction: onFailureAction || 'STOP_WORKFLOW',
+        });
+      }
+    } else if (attachAfterPipelineId) {
       // If predecessor already had a successor, splice the new step in series
       const existingOut = updatedEdges.find((e) => e.sourcePipelineId === attachAfterPipelineId);
       updatedEdges = updatedEdges.filter((e) => e.sourcePipelineId !== attachAfterPipelineId);
@@ -247,7 +260,7 @@ const WorkflowBuilderPage = () => {
       }
     }
 
-    const nextNodes = [...nodes, newNode];
+    const nextNodes = isInsertAtHead ? [newNode, ...nodes] : [...nodes, newNode];
     const arranged = computeClientTopology(nextNodes, updatedEdges).orderedNodes.map((n, idx) => ({
       ...n,
       positionX: n.positionX ?? TRIGGER_X,
@@ -605,7 +618,7 @@ const WorkflowBuilderPage = () => {
             setInspectorState({ mode: 'inspect_edge', sourcePipelineId, targetPipelineId });
           }}
           onOpenAddStep={(defaultAfterPipelineId) => {
-            setSelectedCanvasItem({ type: 'add' });
+            setSelectedCanvasItem({ type: 'add', afterPipelineId: defaultAfterPipelineId });
             setInspectorState({ mode: 'add_step', defaultAfterPipelineId });
           }}
           onMoveNode={handleMoveNode}
@@ -630,7 +643,7 @@ const WorkflowBuilderPage = () => {
           onOpenAddStep={() => {
             const tail =
               topologyInfo.orderedNodes[topologyInfo.orderedNodes.length - 1]?.pipelineId || null;
-            setSelectedCanvasItem({ type: 'add' });
+            setSelectedCanvasItem({ type: 'add', afterPipelineId: tail });
             setInspectorState({ mode: 'add_step', defaultAfterPipelineId: tail });
           }}
           onCloseInspector={() => {
