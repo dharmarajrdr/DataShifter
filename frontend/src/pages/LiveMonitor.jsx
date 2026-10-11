@@ -4,10 +4,10 @@ import { ApiGuard, Button, Chip, Loader, MetricCard, PageHeader, ProgressBar, St
 import { FONT, SPACING } from '../constants/design';
 import { FCSE, FRBC, FRSC, FRWSC } from '../constants/layouts';
 import { MONITOR } from '../constants/literals';
-import { useEventSource } from '../hooks/useEventSource';
-import { monitorApi, pipelineApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { useEventSource } from '../hooks/useEventSource';
+import { monitorApi, pipelineApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'];
@@ -77,6 +77,19 @@ const LiveMonitor = () => {
   const [updateCount, setUpdateCount] = useState(0);
   const [error, setError] = useState(null);
 
+  const getHumanReadableCurrentTime = () => {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const amPm = hh >= 12 ? 'PM' : 'AM';
+    const dateStr = `${dd}-${mm}-${yyyy}`;
+    const timeStr = `${hh}:${min}${amPm}`;
+    return { dateStr, timeStr };
+  }
+
   const handleExportPipeline = async () => {
     if (!data?.status || NON_EXPORTABLE_STATES.includes(data.status)) {
       notification.warning('Pipeline must be validated before it can be exported.');
@@ -92,13 +105,8 @@ const LiveMonitor = () => {
       const link = document.createElement('a');
       link.href = url;
       const pipelineName = (data.pipelineName || 'pipeline').trim();
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const yyyy = now.getFullYear();
-      const hh = String(now.getHours()).padStart(2, '0');
-      const min = String(now.getMinutes()).padStart(2, '0');
-      link.download = `${pipelineName} ${dd}-${mm}-${yyyy} ${hh}:${min}.json`;
+      const { dateStr, timeStr } = getHumanReadableCurrentTime();
+      link.download = `${pipelineName} ${dateStr} ${timeStr}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
