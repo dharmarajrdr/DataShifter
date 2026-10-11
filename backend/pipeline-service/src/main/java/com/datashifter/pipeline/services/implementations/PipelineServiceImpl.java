@@ -346,6 +346,10 @@ public class PipelineServiceImpl implements PipelineService {
 
             case PAUSE:
                 UserContext.assertPermission(Permissions.PIPELINE_PAUSE);
+                workflowNodeRepository.findByPipelineIdWithWorkflow(id).ifPresent(node -> {
+                    throw new DatashifterException("Pipeline is locked to workflow '"
+                            + node.getWorkflow().getName() + "' and cannot be controlled independently. Pause the workflow instead.");
+                });
                 PipelineStateMachine.validateTransition(entity.getStatus(), PipelineStatus.PAUSED);
                 entity.setStatus(PipelineStatus.PAUSED);  // Update DB immediately
                 repository.save(entity);
@@ -356,6 +360,10 @@ public class PipelineServiceImpl implements PipelineService {
 
             case STOP:
                 UserContext.assertPermission(Permissions.PIPELINE_STOP);
+                workflowNodeRepository.findByPipelineIdWithWorkflow(id).ifPresent(node -> {
+                    throw new DatashifterException("Pipeline is locked to workflow '"
+                            + node.getWorkflow().getName() + "' and cannot be controlled independently. Stop the workflow instead.");
+                });
                 entity.setStatus(PipelineStatus.ERRORED);  // Update DB immediately
                 repository.save(entity);
                 kafkaTemplate.send(KafkaTopics.PIPELINE_COMMANDS,

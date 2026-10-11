@@ -521,18 +521,28 @@ public class WorkflowServiceImpl implements WorkflowService {
                 case STOP_PIPELINE -> {
                     log.warn("Workflow '{}': pipeline '{}' failed and edge action is STOP_PIPELINE for '{}'.",
                             workflow.getName(), pipelineId, targetPipelineId);
-                    for (WorkflowNode n : allNodes) {
-                        if (n.getPipelineId().equals(targetPipelineId)) {
-                            n.setLastRunOutcome(WorkflowNodeOutcome.STOPPED);
-                            nodeRepository.save(n);
-                        } else if (n.getLastRunOutcome() == WorkflowNodeOutcome.PENDING) {
-                            n.setLastRunOutcome(WorkflowNodeOutcome.SKIPPED);
-                            nodeRepository.save(n);
-                        }
+                    allNodes.stream()
+                            .filter(n -> n.getPipelineId().equals(targetPipelineId))
+                            .findFirst()
+                            .ifPresent(stoppedNode -> {
+                                stoppedNode.setLastRunOutcome(WorkflowNodeOutcome.STOPPED);
+                                nodeRepository.save(stoppedNode);
+                            });
+
+                    // Check if the stopped pipeline has a downstream successor in the chain
+                    List<WorkflowEdge> nextEdges = edgeRepository.findByWorkflow_IdAndSourcePipelineId(
+                            workflow.getId(), targetPipelineId);
+                    Optional<WorkflowEdge> nextEdgeOpt = nextEdges.stream().findFirst();
+                    if (nextEdgeOpt.isPresent()) {
+                        String downstreamPipelineId = nextEdgeOpt.get().getTargetPipelineId();
+                        log.info("Workflow '{}': skipping stopped pipeline '{}' and advancing to downstream pipeline '{}'.",
+                                workflow.getName(), targetPipelineId, downstreamPipelineId);
+                        triggerSuccessorPipeline(workflow, allNodes, downstreamPipelineId);
+                    } else {
+                        workflow.setStatus(WorkflowStatus.FAILED);
+                        workflow.setCurrentPipelineId(null);
+                        workflowRepository.save(workflow);
                     }
-                    workflow.setStatus(WorkflowStatus.FAILED);
-                    workflow.setCurrentPipelineId(null);
-                    workflowRepository.save(workflow);
                 }
                 case STOP_WORKFLOW -> {
                     log.warn("Workflow '{}': pipeline '{}' failed and edge action is STOP_WORKFLOW. Aborting remaining chain.",
