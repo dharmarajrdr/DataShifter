@@ -1,19 +1,12 @@
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS } from '../../constants/design';
 import StatusBadge from '../common/StatusBadge';
 
-const FAILURE_ACTION_LABELS = {
-  STOP_WORKFLOW: { label: 'On fail: Stop workflow', color: COLORS.status.errorText, bg: COLORS.status.errorLight },
-  STOP_PIPELINE: { label: 'On fail: Stop pipeline', color: COLORS.status.warningText, bg: COLORS.status.warningLight },
-  CONTINUE_PIPELINE: { label: 'On fail: Continue', color: COLORS.status.infoText, bg: COLORS.status.infoLight },
-};
-
 const WorkflowNodeCard = ({
   node,
   stepNumber,
   isTrigger = false,
   selected = false,
   isRunningNode = false,
-  incomingEdge = null,
   mode = 'builder', // 'builder' | 'monitor'
   onClick,
   onMouseDown,
@@ -129,7 +122,7 @@ const WorkflowNodeCard = ({
         icon: 'fa-solid fa-triangle-exclamation',
       };
     }
-    if (status === 'STOPPED' || status === 'SKIPPED') {
+    if (status === 'PAUSED' || status === 'STOPPED' || status === 'SKIPPED') {
       return {
         bg: COLORS.status.warningLight,
         color: COLORS.status.warningDark,
@@ -138,38 +131,26 @@ const WorkflowNodeCard = ({
         icon: 'fa-solid fa-ban',
       };
     }
-    // Builder / Ready theme variants matching Exlo reference screenshot (Purple / Amber / Teal)
-    if (stepNumber === 1 || !incomingEdge) {
+    if (status === 'DRAFT' || status === 'NOT_VALIDATED') {
       return {
-        bg: COLORS.accent.purpleLight,
-        color: COLORS.brand.primary,
-        borderColor: 'rgba(83, 74, 183, 0.55)',
-        glow: 'rgba(83, 74, 183, 0.16)',
-        icon: 'fa-solid fa-microchip',
+        bg: COLORS.background.tertiary,
+        color: COLORS.text.secondary,
+        borderColor: COLORS.border.medium,
+        glow: 'rgba(0, 0, 0, 0.08)',
+        icon: 'fa-solid fa-circle-dot',
       };
     }
-    if (incomingEdge?.onFailureAction === 'CONTINUE_PIPELINE') {
-      return {
-        bg: COLORS.accent.tealLight,
-        color: COLORS.status.success,
-        borderColor: 'rgba(29, 158, 117, 0.55)',
-        glow: 'rgba(29, 158, 117, 0.18)',
-        icon: 'fa-solid fa-diagram-project',
-      };
-    }
+    // VALIDATED (Ready to run)
     return {
-      bg: COLORS.status.warningLight,
-      color: COLORS.status.warning,
-      borderColor: 'rgba(217, 119, 6, 0.55)',
-      glow: 'rgba(217, 119, 6, 0.16)',
+      bg: COLORS.status.infoLight,
+      color: COLORS.status.infoDark,
+      borderColor: COLORS.status.info,
+      glow: 'rgba(24, 95, 165, 0.16)',
       icon: 'fa-solid fa-diagram-project',
     };
   };
 
   const iconCfg = getIconConfig();
-  const failureBadge = incomingEdge?.onFailureAction
-    ? FAILURE_ACTION_LABELS[incomingEdge.onFailureAction]
-    : null;
 
   return (
     <div
@@ -193,8 +174,8 @@ const WorkflowNodeCard = ({
         transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
       }}
     >
-      {/* Top-left remove step icon */}
-      {mode === 'builder' && onRemove && (
+      {/* Top-left remove step icon (shown only when step is selected) */}
+      {mode === 'builder' && selected && onRemove && (
         <button
           type="button"
           title="Remove step from workflow"
@@ -328,23 +309,6 @@ const WorkflowNodeCard = ({
             <span style={{ color: COLORS.text.tertiary }}>·</span>
             <span>{node.tableCount ?? 0} tables</span>
           </div>
-
-          {failureBadge && (
-            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: FONT.weight.medium,
-                  padding: '1px 7px',
-                  borderRadius: BORDER_RADIUS.pill,
-                  background: failureBadge.bg,
-                  color: failureBadge.color,
-                }}
-              >
-                {failureBadge.label}
-              </span>
-            </div>
-          )}
 
           {mode === 'monitor' && (
             <div style={{ marginTop: 8 }}>

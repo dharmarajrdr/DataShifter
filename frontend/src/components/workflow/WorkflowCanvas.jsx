@@ -364,7 +364,7 @@ const WorkflowCanvas = ({
             const tgtNode = nodes.find((n) => n.pipelineId === edge.targetPipelineId);
             if (!srcNode || !tgtNode) return null;
 
-            const srcHeight = mode === 'monitor' ? 104 : incomingByTarget[srcNode.pipelineId] ? 94 : CARD_HEIGHT;
+            const srcHeight = mode === 'monitor' ? 104 : CARD_HEIGHT;
             const x1 = (srcNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
             const y1 = (srcNode.positionY ?? 170) + srcHeight;
             const x2 = (tgtNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
@@ -396,8 +396,7 @@ const WorkflowCanvas = ({
                   ? (tailNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2
                   : TRIGGER_X + CARD_WIDTH / 2,
                 tailNode
-                  ? (tailNode.positionY ?? 170) +
-                      (incomingByTarget[tailNode.pipelineId] ? 94 : CARD_HEIGHT)
+                  ? (tailNode.positionY ?? 170) + CARD_HEIGHT
                   : TRIGGER_Y + 62,
                 addPillX + CARD_WIDTH / 2,
                 addPillY - 4
@@ -480,7 +479,7 @@ const WorkflowCanvas = ({
           const tgtNode = nodes.find((n) => n.pipelineId === edge.targetPipelineId);
           if (!srcNode || !tgtNode) return null;
 
-          const srcHeight = mode === 'monitor' ? 104 : incomingByTarget[srcNode.pipelineId] ? 94 : CARD_HEIGHT;
+          const srcHeight = mode === 'monitor' ? 104 : CARD_HEIGHT;
           const x1 = (srcNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
           const y1 = (srcNode.positionY ?? 170) + srcHeight;
           const x2 = (tgtNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;

@@ -507,8 +507,6 @@ const WorkflowInspectorPanel = ({
     const node = nodes.find((n) => n.pipelineId === inspectorState?.pipelineId);
     if (!node) return null;
 
-    const otherNodes = nodes.filter((n) => n.pipelineId !== node.pipelineId);
-
     return (
       <div
         style={{
@@ -598,28 +596,6 @@ const WorkflowInspectorPanel = ({
             )}
           </div>
 
-          {/* Predecessor Step */}
-          <div>
-            <label style={labelStyle}>Predecessor Pipeline (Runs Before This)</label>
-            <select
-              disabled={readOnly}
-              value={draftPredId}
-              onChange={(e) => {
-                const val = e.target.value;
-                setDraftPredId(val);
-                if (val && val === draftSuccId) setDraftSuccId('');
-              }}
-              style={inputStyle}
-            >
-              <option value="">None (Head of Chain)</option>
-              {otherNodes.map((n) => (
-                <option key={n.pipelineId} value={n.pipelineId}>
-                  {n.pipelineName}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Failure Action when Predecessor Fails */}
           {draftPredId && (
             <div>
@@ -627,28 +603,6 @@ const WorkflowInspectorPanel = ({
               {renderFailureActionPicker(draftFailAction, setDraftFailAction)}
             </div>
           )}
-
-          {/* Successor Step */}
-          <div>
-            <label style={labelStyle}>Successor Pipeline (Runs After This)</label>
-            <select
-              disabled={readOnly}
-              value={draftSuccId}
-              onChange={(e) => {
-                const val = e.target.value;
-                setDraftSuccId(val);
-                if (val && val === draftPredId) setDraftPredId('');
-              }}
-              style={inputStyle}
-            >
-              <option value="">None (End of Chain)</option>
-              {otherNodes.map((n) => (
-                <option key={n.pipelineId} value={n.pipelineId}>
-                  {n.pipelineName}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {!readOnly && (
