@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC } from '../constants/layouts';
+import { Button, ConfirmationModal, PageHeader, Toggle } from '../components/common';
+import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { FRBC, FRSC } from '../constants/layouts';
 import { SETTINGS } from '../constants/literals';
-import { PageHeader, Button, Toggle, Chip, ConfirmationModal, BarLoader } from '../components/common';
-import { settingsApi, connectionApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { connectionApi, settingsApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 const SectionTitle = ({ title, subtitle }) => (
@@ -66,10 +66,10 @@ const PipelineSettings = () => {
 
       // Fetch available tables from source and target connections
       if (res.data.sourceConnectionId) {
-        connectionApi.listTables(res.data.sourceConnectionId).then(r => setSourceTables(r.data || [])).catch(() => {});
+        connectionApi.listTables(res.data.sourceConnectionId).then(r => setSourceTables(r.data || [])).catch(() => { });
       }
       if (res.data.targetConnectionId) {
-        connectionApi.listTables(res.data.targetConnectionId).then(r => setTargetTables(r.data || [])).catch(() => {});
+        connectionApi.listTables(res.data.targetConnectionId).then(r => setTargetTables(r.data || [])).catch(() => { });
       }
     }).catch(err => {
       if (err?.response?.status === 403) {
@@ -247,6 +247,77 @@ const PipelineSettings = () => {
             <Button variant="secondary" size="sm" onClick={() => setShowAddTable(true)} style={{ marginBottom: SPACING.md }}>+ Add table pair</Button>
           )}
 
+
+          <Divider />
+
+          {/* ============================================================ */}
+          {/* PER-TABLE WRITE MODE */}
+          {/* ============================================================ */}
+          <SectionTitle title={SETTINGS.perTable.title} subtitle={SETTINGS.perTable.subtitle} />
+          {allTargetMappings.length === 0 ? (
+            <div style={{ padding: SPACING.lg, textAlign: 'center', color: COLORS.text.tertiary, fontSize: FONT.size.sm, border: `1px dashed ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md }}>
+              No table mappings configured yet.
+            </div>
+          ) : (
+            <div style={{ border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', background: COLORS.background.primary }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FONT.size.sm }}>
+                <thead>
+                  <tr style={{ background: COLORS.background.secondary }}>
+                    <th style={{ textAlign: 'left', padding: `${SPACING.xs} ${SPACING.sm}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Source → Target</th>
+                    <th style={{ textAlign: 'left', padding: `${SPACING.xs} ${SPACING.sm}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Write mode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allTargetMappings.map(row => (
+                    <tr key={row.ttmId} style={{ borderTop: `1px solid ${COLORS.border.light}` }}>
+                      <td style={{ padding: `${SPACING.xs} ${SPACING.sm}` }}>
+                        <span style={{ fontWeight: FONT.weight.medium }}>{row.sourceTable}</span>
+                        <span style={{ color: COLORS.text.tertiary }}> → </span>
+                        <span style={{ fontWeight: FONT.weight.medium }}>{row.targetTable}</span>
+                      </td>
+                      <td style={{ padding: `${SPACING.xs} ${SPACING.sm}` }}>
+                        <div style={{ ...FRSC, gap: SPACING.xs, flexWrap: 'wrap' }}>
+                          <select
+                            value={(row.currentMode === 'INSERT_ONLY' || row.currentMode === 'INSERT_IGNORE') ? 'INSERT' : row.currentMode}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === 'INSERT') {
+                                updateTableWriteMode(row.ttmId, 'INSERT_IGNORE');
+                              } else {
+                                updateTableWriteMode(row.ttmId, val);
+                              }
+                            }}
+                            style={{ padding: '4px 8px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs, background: '#fff' }}
+                          >
+                            <option value="INSERT">Insert only</option>
+                            <option value="UPSERT">Upsert</option>
+                            <option value="UPDATE_ONLY">Update only</option>
+                          </select>
+
+                          {(row.currentMode === 'INSERT_ONLY' || row.currentMode === 'INSERT_IGNORE') && (
+                            <div style={{ ...FRSC, gap: '4px' }}>
+                              <label style={{ fontSize: '11px', color: COLORS.text.secondary, whiteSpace: 'nowrap' }}>
+                                If PK exists:
+                              </label>
+                              <select
+                                value={row.currentMode === 'INSERT_ONLY' ? 'Fail' : 'Ignore'}
+                                onChange={e => updateTableWriteMode(row.ttmId, e.target.value === 'Fail' ? 'INSERT_ONLY' : 'INSERT_IGNORE')}
+                                style={{ padding: '4px 8px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs, background: '#fff' }}
+                              >
+                                <option value="Ignore">Ignore</option>
+                                <option value="Fail">Fail</option>
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           <Divider />
 
           {/* ============================================================ */}
@@ -333,75 +404,6 @@ const PipelineSettings = () => {
             <Toggle checked={settings.previewInflightRecords !== false} onChange={v => update('previewInflightRecords', v)} />
           </SettingRow>
 
-          <Divider />
-
-          {/* ============================================================ */}
-          {/* PER-TABLE WRITE MODE */}
-          {/* ============================================================ */}
-          <SectionTitle title={SETTINGS.perTable.title} subtitle={SETTINGS.perTable.subtitle} />
-          {allTargetMappings.length === 0 ? (
-            <div style={{ padding: SPACING.lg, textAlign: 'center', color: COLORS.text.tertiary, fontSize: FONT.size.sm, border: `1px dashed ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md }}>
-              No table mappings configured yet.
-            </div>
-          ) : (
-            <div style={{ border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', background: COLORS.background.primary }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FONT.size.sm }}>
-                <thead>
-                  <tr style={{ background: COLORS.background.secondary }}>
-                    <th style={{ textAlign: 'left', padding: `${SPACING.xs} ${SPACING.sm}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Source → Target</th>
-                    <th style={{ textAlign: 'left', padding: `${SPACING.xs} ${SPACING.sm}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Write mode</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allTargetMappings.map(row => (
-                    <tr key={row.ttmId} style={{ borderTop: `1px solid ${COLORS.border.light}` }}>
-                      <td style={{ padding: `${SPACING.xs} ${SPACING.sm}` }}>
-                        <span style={{ fontWeight: FONT.weight.medium }}>{row.sourceTable}</span>
-                        <span style={{ color: COLORS.text.tertiary }}> → </span>
-                        <span style={{ fontWeight: FONT.weight.medium }}>{row.targetTable}</span>
-                      </td>
-                      <td style={{ padding: `${SPACING.xs} ${SPACING.sm}` }}>
-                        <div style={{ ...FRSC, gap: SPACING.xs, flexWrap: 'wrap' }}>
-                          <select
-                            value={(row.currentMode === 'INSERT_ONLY' || row.currentMode === 'INSERT_IGNORE') ? 'INSERT' : row.currentMode}
-                            onChange={e => {
-                              const val = e.target.value;
-                              if (val === 'INSERT') {
-                                updateTableWriteMode(row.ttmId, 'INSERT_IGNORE');
-                              } else {
-                                updateTableWriteMode(row.ttmId, val);
-                              }
-                            }}
-                            style={{ padding: '4px 8px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs, background: '#fff' }}
-                          >
-                            <option value="INSERT">Insert only</option>
-                            <option value="UPSERT">Upsert</option>
-                            <option value="UPDATE_ONLY">Update only</option>
-                          </select>
-
-                          {(row.currentMode === 'INSERT_ONLY' || row.currentMode === 'INSERT_IGNORE') && (
-                            <div style={{ ...FRSC, gap: '4px' }}>
-                              <label style={{ fontSize: '11px', color: COLORS.text.secondary, whiteSpace: 'nowrap' }}>
-                                If PK exists:
-                              </label>
-                              <select
-                                value={row.currentMode === 'INSERT_ONLY' ? 'Fail' : 'Ignore'}
-                                onChange={e => updateTableWriteMode(row.ttmId, e.target.value === 'Fail' ? 'INSERT_ONLY' : 'INSERT_IGNORE')}
-                                style={{ padding: '4px 8px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs, background: '#fff' }}
-                              >
-                                <option value="Ignore">Ignore</option>
-                                <option value="Fail">Fail</option>
-                              </select>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
       </div>
 
