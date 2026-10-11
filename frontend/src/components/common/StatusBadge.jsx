@@ -14,6 +14,9 @@ const STATUS_MAP = {
   FAILED: { bg: COLORS.status.errorLight, color: COLORS.status.errorText },
   TESTING: { bg: COLORS.status.warningLight, color: COLORS.status.warningText },
   PENDING: { bg: COLORS.background.tertiary, color: COLORS.text.secondary },
+  READY: { bg: COLORS.status.infoLight, color: COLORS.status.infoText, label: 'Ready' },
+  STOPPED: { bg: COLORS.status.warningLight, color: COLORS.status.warningText, label: 'Stopped' },
+  SKIPPED: { bg: COLORS.background.tertiary, color: COLORS.text.secondary, label: 'Skipped' },
   OK: { bg: COLORS.status.successLight, color: COLORS.status.successText },
   ERROR: { bg: COLORS.status.errorLight, color: COLORS.status.errorText },
 };

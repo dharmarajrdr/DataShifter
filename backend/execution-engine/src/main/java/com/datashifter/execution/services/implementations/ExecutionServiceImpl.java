@@ -78,7 +78,9 @@ public class ExecutionServiceImpl implements ExecutionService {
             // 2. Build execution context (validates mappings, connects to DBs)
             ctx = buildContext(pipeline, executionLogId);
 
-            // 3. Publish RUNNING status
+            // 3. Persist and publish RUNNING status
+            pipeline.setStatus(PipelineStatus.RUNNING);
+            pipelineRepo.saveAndFlush(pipeline);
             publishStatus(ctx, PipelineStatus.VALIDATED, PipelineStatus.RUNNING, "Execution started");
 
             // 4. Table loop — sequential, user-defined order
@@ -87,7 +89,7 @@ public class ExecutionServiceImpl implements ExecutionService {
             // 5. If we reached here without pause/stop — completed
             log.info("=== Pipeline completed: {} | Rows: {} | Errors: {} ===", pipelineId, ctx.getTotalRowsProcessed().get(), ctx.getTotalErrors().get());
             pipeline.setStatus(PipelineStatus.COMPLETED);
-            pipelineRepo.save(pipeline);
+            pipelineRepo.saveAndFlush(pipeline);
 
             // Publish final progress with 100% and average throughput
             long avgRate = ctx.computeAvgRowsPerSec();
@@ -112,25 +114,32 @@ public class ExecutionServiceImpl implements ExecutionService {
         } catch (PipelinePausedException e) {
             log.info("Pipeline paused: {} at table {} chunk {}", pipelineId,
                     ctx != null ? ctx.getCurrentTableName() : "?", ctx != null ? ctx.getCurrentChunkNumber() : 0);
-            if (pipeline != null) { pipeline.setStatus(PipelineStatus.PAUSED); pipelineRepo.save(pipeline); }
+            if (pipeline != null) { pipeline.setStatus(PipelineStatus.PAUSED); pipelineRepo.saveAndFlush(pipeline); }
             if (ctx != null) publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.PAUSED, e.getMessage());
 
         } catch (PipelineStoppedException e) {
             log.info("Pipeline stopped by user: {}", pipelineId);
-            if (pipeline != null) { pipeline.setStatus(PipelineStatus.ERRORED); pipelineRepo.save(pipeline); }
+            if (pipeline != null) { pipeline.setStatus(PipelineStatus.ERRORED); pipelineRepo.saveAndFlush(pipeline); }
             if (ctx != null) publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, "Stopped by user");
 
         } catch (Exception e) {
             log.error("Pipeline failed: {} — {}", pipelineId, e.getMessage(), e);
-            if (pipeline != null) { pipeline.setStatus(PipelineStatus.ERRORED); pipelineRepo.save(pipeline); }
+            if (pipeline != null) { pipeline.setStatus(PipelineStatus.ERRORED); pipelineRepo.saveAndFlush(pipeline); }
             if (ctx != null) {
                 publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, e.getMessage());
             } else {
-                // Context build failed — update status directly via DB
+                // Context build failed — update status directly via DB and emit status event
                 pipelineRepo.findById(pipelineId).ifPresent(p -> {
                     p.setStatus(PipelineStatus.ERRORED);
-                    pipelineRepo.save(p);
+                    pipelineRepo.saveAndFlush(p);
                 });
+                kafkaTemplate.send(KafkaTopics.PIPELINE_STATUS, StatusChangeEvent.builder()
+                        .pipelineId(pipelineId)
+                        .previousStatus(PipelineStatus.RUNNING)
+                        .newStatus(PipelineStatus.ERRORED)
+                        .reason(e.getMessage())
+                        .timestamp(Instant.now())
+                        .build());
             }
         }
     }

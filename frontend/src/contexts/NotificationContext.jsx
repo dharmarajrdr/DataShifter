@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import PopupNotification from '../components/common/PopupNotification';
+import { sanitizeErrorMessage } from '../services/apiClient';
 
 const NotificationContext = createContext(null);
 
@@ -13,7 +14,8 @@ export const NotificationProvider = ({ children }) => {
   const notify = useCallback(
     ({ type = 'info', title, message, duration = 4000, position = 'bottom-right' }) => {
       const id = Date.now() + Math.random().toString(36).substring(2, 9);
-      const newNotification = { id, type, title, message, duration, position };
+      const safeMessage = typeof message === 'string' ? sanitizeErrorMessage(message, 500) : message;
+      const newNotification = { id, type, title, message: safeMessage, duration, position };
       setNotifications((prev) => [...prev, newNotification]);
       return id;
     },
@@ -91,5 +93,7 @@ export const useNotification = () => {
   }
   return context;
 };
+
+export const useNotify = useNotification;
 
 export default NotificationContext;

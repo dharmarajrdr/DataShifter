@@ -26,6 +26,8 @@ public class MonitorDtos {
         private List<TableProgressResponse> tables;
         private List<Map<String, Object>> inflightRecords;
         private List<String> validationErrors;
+        private String workflowId;
+        private String workflowName;
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -40,6 +42,8 @@ public class MonitorDtos {
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
     public static class ErrorLogResponse {
         private String id;
+        private String pipelineId;
+        private String pipelineName;
         private ErrorType errorType;
         private String sourceTable;
         private String targetTable;

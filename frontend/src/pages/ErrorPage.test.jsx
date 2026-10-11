@@ -106,4 +106,23 @@ describe('Reusable Error Pages', () => {
     });
     expect(container.textContent).toContain('NullPointerException at Line 42');
   });
+
+  test('never renders raw SQL queries or JDBC exceptions in the UI', () => {
+    const rawSqlError =
+      'Internal server error: JDBC exception executing SQL [select wn1_0.id,wn1_0.last_run_outcome from workflow_nodes wn1_0] [ERROR: column wn1_0.last_run_outcome does not exist]';
+    act(() => {
+      root.render(
+        <MemoryRouter>
+          <ServerErrorPage message={rawSqlError} details={rawSqlError} />
+        </MemoryRouter>
+      );
+    });
+
+    expect(container.textContent).toContain('500 SERVER ERROR');
+    expect(container.textContent).toContain('Internal server error');
+    expect(container.textContent).toContain('Something went wrong on our servers.');
+    expect(container.textContent).not.toContain('JDBC exception');
+    expect(container.textContent).not.toContain('select wn1_0.id');
+    expect(container.textContent).not.toContain('workflow_nodes');
+  });
 });

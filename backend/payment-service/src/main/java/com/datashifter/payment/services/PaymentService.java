@@ -205,7 +205,8 @@ public class PaymentService {
         return PlanResponse.builder()
                 .id(p.getId()).name(p.getName()).description(p.getDescription())
                 .priceMonthly(p.getPriceMonthly()).priceYearly(p.getPriceYearly()).priceHalfYearly(p.getPriceHalfYearly())
-                .currency(p.getCurrency()).maxPipelines(p.getMaxPipelines()).maxConnections(p.getMaxConnections())
+                .currency(p.getCurrency()).maxPipelines(p.getMaxPipelines()).maxWorkflows(p.getMaxWorkflows())
+                .maxConnections(p.getMaxConnections())
                 .maxRowsPerMonth(p.getMaxRowsPerMonth()).maxMembers(p.getMaxMembers())
                 .parallelPipelines(p.getParallelPipelines()).supportLevel(p.getSupportLevel())
                 .featured(p.getIsFeatured()).displayOrder(p.getDisplayOrder())
@@ -218,6 +219,10 @@ public class PaymentService {
         if (p.getMaxPipelines() != null) {
             list.add(p.getMaxPipelines() == -1 ? "Unlimited pipelines" :
                     p.getMaxPipelines() + (p.getMaxPipelines() == 1 ? " pipeline" : " pipelines"));
+        }
+        if (p.getMaxWorkflows() != null) {
+            list.add(p.getMaxWorkflows() == -1 ? "Unlimited workflows" :
+                    p.getMaxWorkflows() + (p.getMaxWorkflows() == 1 ? " workflow" : " workflows"));
         }
         if (p.getMaxConnections() != null) {
             list.add(p.getMaxConnections() == -1 ? "Unlimited connections" :

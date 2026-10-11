@@ -12,6 +12,7 @@ import com.datashifter.common.models.*;
 import com.datashifter.common.enums.Permissions;
 import com.datashifter.common.security.UserContext;
 import com.datashifter.common.services.SubscriptionLimitChecker;
+import com.datashifter.common.repositories.CommonWorkflowNodeRepository;
 import com.datashifter.pipeline.repositories.PipelineRepository;
 import com.datashifter.pipeline.services.interfaces.PipelineService;
 import com.datashifter.pipeline.statemachine.PipelineStateMachine;
@@ -45,6 +46,7 @@ public class PipelineServiceImpl implements PipelineService {
     private final MappingService mappingService;
     private final ObjectMapper objectMapper;
     private final com.datashifter.connector.repositories.ConnectionRepository connectionRepository;
+    private final CommonWorkflowNodeRepository workflowNodeRepository;
 
     // =========================================================================
     // CREATE — builds PipelineTable + TargetTableMapping entries
@@ -262,6 +264,10 @@ public class PipelineServiceImpl implements PipelineService {
         if (entity.getStatus() == PipelineStatus.RUNNING) {
             throw new DatashifterException("Cannot delete a running pipeline. Pause or stop it first.");
         }
+        workflowNodeRepository.findByPipelineIdWithWorkflow(id).ifPresent(node -> {
+            throw new DatashifterException("Cannot delete pipeline because it is linked to workflow '"
+                    + node.getWorkflow().getName() + "'. Remove it from the workflow first.");
+        });
         repository.deleteById(id);
     }
 
@@ -296,6 +302,10 @@ public class PipelineServiceImpl implements PipelineService {
             case START:
             case RESUME:
                 UserContext.assertPermission(Permissions.PIPELINE_RUN);
+                workflowNodeRepository.findByPipelineIdWithWorkflow(id).ifPresent(node -> {
+                    throw new DatashifterException("Pipeline is locked to workflow '"
+                            + node.getWorkflow().getName() + "' and cannot be executed independently. Run the workflow instead.");
+                });
                 if (entity.getStatus() != PipelineStatus.VALIDATED
                         && entity.getStatus() != PipelineStatus.PAUSED
                         && entity.getStatus() != PipelineStatus.COMPLETED
@@ -336,6 +346,10 @@ public class PipelineServiceImpl implements PipelineService {
 
             case PAUSE:
                 UserContext.assertPermission(Permissions.PIPELINE_PAUSE);
+                workflowNodeRepository.findByPipelineIdWithWorkflow(id).ifPresent(node -> {
+                    throw new DatashifterException("Pipeline is locked to workflow '"
+                            + node.getWorkflow().getName() + "' and cannot be controlled independently. Pause the workflow instead.");
+                });
                 PipelineStateMachine.validateTransition(entity.getStatus(), PipelineStatus.PAUSED);
                 entity.setStatus(PipelineStatus.PAUSED);  // Update DB immediately
                 repository.save(entity);
@@ -346,6 +360,10 @@ public class PipelineServiceImpl implements PipelineService {
 
             case STOP:
                 UserContext.assertPermission(Permissions.PIPELINE_STOP);
+                workflowNodeRepository.findByPipelineIdWithWorkflow(id).ifPresent(node -> {
+                    throw new DatashifterException("Pipeline is locked to workflow '"
+                            + node.getWorkflow().getName() + "' and cannot be controlled independently. Stop the workflow instead.");
+                });
                 entity.setStatus(PipelineStatus.ERRORED);  // Update DB immediately
                 repository.save(entity);
                 kafkaTemplate.send(KafkaTopics.PIPELINE_COMMANDS,
@@ -510,6 +528,10 @@ public class PipelineServiceImpl implements PipelineService {
                         .build())
                 .toList();
 
+        var nodeOpt = workflowNodeRepository.findByPipelineIdWithWorkflow(e.getId());
+        String workflowId = nodeOpt.map(n -> n.getWorkflow().getId()).orElse(null);
+        String workflowName = nodeOpt.map(n -> n.getWorkflow().getName()).orElse(null);
+
         return PipelineResponse.builder()
                 .id(e.getId()).name(e.getName()).description(e.getDescription())
                 .sourceConnectionId(e.getSourceConnectionId()).targetConnectionId(e.getTargetConnectionId())
@@ -520,6 +542,8 @@ public class PipelineServiceImpl implements PipelineService {
                 .previewInflightRecords(e.getPreviewInflightRecords())
                 .tables(tableResponses)
                 .validationErrors(mappingService.parseValidationErrors(e.getValidationErrors()))
+                .workflowId(workflowId)
+                .workflowName(workflowName)
                 .createdAt(e.getCreatedAt()).updatedAt(e.getUpdatedAt())
                 .build();
     }
@@ -539,6 +563,10 @@ public class PipelineServiceImpl implements PipelineService {
             }
         }
 
+        var nodeOpt = workflowNodeRepository.findByPipelineIdWithWorkflow(e.getId());
+        String workflowId = nodeOpt.map(n -> n.getWorkflow().getId()).orElse(null);
+        String workflowName = nodeOpt.map(n -> n.getWorkflow().getName()).orElse(null);
+
         return PipelineSummaryResponse.builder()
                 .id(e.getId()).name(e.getName()).status(e.getStatus())
                 .sourceConnectionId(e.getSourceConnectionId())
@@ -550,6 +578,8 @@ public class PipelineServiceImpl implements PipelineService {
                 .namespaceName(e.getNamespace() != null ? e.getNamespace().getName() : null)
                 .ownerName(createdBy != null ? createdBy.getFullName() : "Unknown")
                 .ownerColor(createdBy != null ? createdBy.getAvatarColor() : "#000000")
+                .workflowId(workflowId)
+                .workflowName(workflowName)
                 .build();
     }
 

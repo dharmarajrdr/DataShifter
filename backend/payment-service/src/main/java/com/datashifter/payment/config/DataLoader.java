@@ -26,35 +26,35 @@ public class DataLoader implements CommandLineRunner {
         planRepository.save(Plan.builder()
                 .name("Free").description("Get started with basic migrations")
                 .priceMonthly(0L).priceHalfYearly(0L).priceYearly(0L).currency("INR")
-                .maxPipelines(2).maxConnections(4).maxRowsPerMonth(50_000L)
+                .maxPipelines(2).maxWorkflows(1).maxConnections(4).maxRowsPerMonth(50_000L)
                 .maxMembers(2).parallelPipelines(1).supportLevel("COMMUNITY")
                 .displayOrder(0).isActive(true).isFeatured(false).build());
 
         planRepository.save(Plan.builder()
                 .name("Starter").description("For small teams getting started with data migration")
                 .priceMonthly(99900L).priceHalfYearly(499900L).priceYearly(899900L).currency("INR")
-                .maxPipelines(10).maxConnections(10).maxRowsPerMonth(5_000_000L)
+                .maxPipelines(10).maxWorkflows(3).maxConnections(10).maxRowsPerMonth(5_000_000L)
                 .maxMembers(5).parallelPipelines(2).supportLevel("EMAIL")
                 .displayOrder(1).isActive(true).isFeatured(false).build());
 
         planRepository.save(Plan.builder()
                 .name("Pro").description("For growing teams with complex migration needs")
                 .priceMonthly(249900L).priceHalfYearly(1249900L).priceYearly(2249900L).currency("INR")
-                .maxPipelines(50).maxConnections(50).maxRowsPerMonth(100_000_000L)
+                .maxPipelines(50).maxWorkflows(15).maxConnections(50).maxRowsPerMonth(100_000_000L)
                 .maxMembers(20).parallelPipelines(5).supportLevel("PRIORITY")
                 .displayOrder(2).isActive(true).isFeatured(true).build());
 
         planRepository.save(Plan.builder()
                 .name("Business").description("For large organizations running production migrations")
                 .priceMonthly(499900L).priceHalfYearly(2499900L).priceYearly(4499900L).currency("INR")
-                .maxPipelines(200).maxConnections(200).maxRowsPerMonth(1_000_000_000L)
+                .maxPipelines(200).maxWorkflows(50).maxConnections(200).maxRowsPerMonth(1_000_000_000L)
                 .maxMembers(50).parallelPipelines(10).supportLevel("DEDICATED")
                 .displayOrder(3).isActive(true).isFeatured(false).build());
 
         planRepository.save(Plan.builder()
                 .name("Enterprise").description("Unlimited everything with custom SLA and support")
                 .priceMonthly(999900L).priceHalfYearly(4999900L).priceYearly(8999900L).currency("INR")
-                .maxPipelines(-1).maxConnections(-1).maxRowsPerMonth(-1L)
+                .maxPipelines(-1).maxWorkflows(-1).maxConnections(-1).maxRowsPerMonth(-1L)
                 .maxMembers(-1).parallelPipelines(-1).supportLevel("DEDICATED_24x7")
                 .displayOrder(4).isActive(true).isFeatured(false).build());
 

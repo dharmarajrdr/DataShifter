@@ -28,6 +28,9 @@ import {
   SignupPage,
   UdfLibrary,
   UserProfile,
+  WorkflowBuilderPage,
+  WorkflowDashboard,
+  WorkflowMonitor,
 } from './pages';
 
 const App = () => (
@@ -71,6 +74,22 @@ const App = () => (
               <Route path=":pipelineId/mapping" element={<ColumnMappingBoard />} />
               <Route path=":pipelineId/errors" element={<ProtectedRoute permission="monitor:view_errors"><ErrorLogViewer /></ProtectedRoute>} />
               <Route path=":pipelineId/settings" element={<ProtectedRoute permission="settings:edit"><PipelineSettings /></ProtectedRoute>} />
+            </Route>
+            <Route
+              path="/workflows"
+              element={
+                <SubscriptionGuard>
+                  <ProtectedRoute permission="workflow:view">
+                    <Outlet />
+                  </ProtectedRoute>
+                </SubscriptionGuard>
+              }
+            >
+              <Route index element={<WorkflowDashboard />} />
+              <Route path="new" element={<ProtectedRoute permission="workflow:create"><WorkflowBuilderPage /></ProtectedRoute>} />
+              <Route path=":workflowId/edit" element={<ProtectedRoute permission="workflow:edit"><WorkflowBuilderPage /></ProtectedRoute>} />
+              <Route path=":workflowId/monitor" element={<ProtectedRoute permission="workflow:view"><WorkflowMonitor /></ProtectedRoute>} />
+              <Route path=":workflowId/errors" element={<ProtectedRoute permission="monitor:view_errors"><WorkflowMonitor /></ProtectedRoute>} />
             </Route>
             <Route path="/connections" element={<SubscriptionGuard><ProtectedRoute permission="connection:view"><ConnectionsManager /></ProtectedRoute></SubscriptionGuard>} />
             <Route path="/udfs" element={<SubscriptionGuard><ProtectedRoute permission="udf:view"><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />

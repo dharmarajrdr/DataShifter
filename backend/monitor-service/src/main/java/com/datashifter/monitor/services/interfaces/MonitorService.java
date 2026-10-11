@@ -10,7 +10,11 @@ public interface MonitorService {
 
     ErrorSummaryResponse getErrorSummary(String pipelineId, int page, int size);
 
+    ErrorSummaryResponse getWorkflowErrorSummary(String workflowId, String pipelineIdFilter, int page, int size);
+
     List<ExecutionLogResponse> getExecutionHistory(String pipelineId);
 
     void clearErrors(String pipelineId);
+
+    void clearWorkflowErrors(String workflowId);
 }

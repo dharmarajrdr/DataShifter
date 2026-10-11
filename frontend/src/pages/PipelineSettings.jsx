@@ -439,16 +439,37 @@ const PipelineSettings = () => {
             <div>
               <p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, color: COLORS.status.errorDark }}>Delete pipeline</p>
               <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>
-                {isRunning
-                  ? 'Pause or stop the pipeline before deleting it.'
-                  : 'Permanently delete this pipeline, its table mappings, transformations, and execution history. This cannot be undone.'}
+                {settings.workflowId ? (
+                  <>
+                    This pipeline is linked to workflow{' '}
+                    <span
+                      onClick={() => navigate(`/workflows/${settings.workflowId}/edit`)}
+                      style={{ color: COLORS.brand.primary, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      {settings.workflowName || 'Workflow'}
+                    </span>{' '}
+                    and cannot be deleted. Remove it from the workflow first.
+                  </>
+                ) : isRunning ? (
+                  'Pause or stop the pipeline before deleting it.'
+                ) : (
+                  'Permanently delete this pipeline, its table mappings, transformations, and execution history. This cannot be undone.'
+                )}
               </p>
             </div>
             <Button
               variant="danger"
               size="sm"
-              disabled={!canDeletePipeline || isRunning || deleting}
-              title={!canDeletePipeline ? 'You do not have permission to delete pipelines' : isRunning ? 'Cannot delete a running pipeline' : 'Delete this pipeline'}
+              disabled={!canDeletePipeline || isRunning || deleting || Boolean(settings.workflowId)}
+              title={
+                settings.workflowId
+                  ? `Cannot delete pipeline while linked to workflow '${settings.workflowName}'`
+                  : !canDeletePipeline
+                    ? 'You do not have permission to delete pipelines'
+                    : isRunning
+                      ? 'Cannot delete a running pipeline'
+                      : 'Delete this pipeline'
+              }
               onClick={() => setShowDeleteConfirm(true)}
             >
               {deleting ? 'Deleting...' : 'Delete Pipeline'}

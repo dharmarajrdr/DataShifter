@@ -136,13 +136,13 @@ public class GlobalExceptionHandler {
 
     /**
      * Catch-all for any unhandled exception — 500 Internal Server Error.
-     * Logs the full stack trace for debugging.
+     * Logs the full stack trace server-side without leaking internal SQL/stack details to clients.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<?>> handleGeneric(Exception ex) {
         log.error("Unhandled exception: {}", ex.getMessage(), ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Internal server error: " + ex.getMessage(), 500));
+                .body(ApiResponse.error("Something went wrong on our servers. Please try again in a moment.", 500));
     }
 }

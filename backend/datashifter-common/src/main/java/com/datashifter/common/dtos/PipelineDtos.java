@@ -79,6 +79,8 @@ public class PipelineDtos {
         private Boolean previewInflightRecords;
         private List<PipelineTableResponse> tables;
         private List<String> validationErrors;
+        private String workflowId;
+        private String workflowName;
         private Instant createdAt;
         private Instant updatedAt;
     }
@@ -99,6 +101,8 @@ public class PipelineDtos {
         private double progress;
         private long rowsProcessed;
         private long totalRows;
+        private String workflowId;
+        private String workflowName;
         private Instant createdAt;
 
         /** Pipeline creator/owner — populated from auth context in Phase 2 */

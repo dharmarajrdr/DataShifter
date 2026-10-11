@@ -46,6 +46,7 @@ public class SubscriptionLimitChecker {
                     .map(plan -> PlanLimits.builder()
                             .planName(plan.getName())
                             .maxPipelines(plan.getMaxPipelines() != null ? plan.getMaxPipelines() : -1)
+                            .maxWorkflows(plan.getMaxWorkflows() != null ? plan.getMaxWorkflows() : 1)
                             .maxConnections(plan.getMaxConnections() != null ? plan.getMaxConnections() : -1)
                             .maxRowsPerMonth(plan.getMaxRowsPerMonth() != null ? plan.getMaxRowsPerMonth() : -1L)
                             .maxMembers(plan.getMaxMembers() != null ? plan.getMaxMembers() : -1)
@@ -58,6 +59,7 @@ public class SubscriptionLimitChecker {
         return PlanLimits.builder()
                 .planName(plan.getName())
                 .maxPipelines(plan.getMaxPipelines() != null ? plan.getMaxPipelines() : -1)
+                .maxWorkflows(plan.getMaxWorkflows() != null ? plan.getMaxWorkflows() : -1)
                 .maxConnections(plan.getMaxConnections() != null ? plan.getMaxConnections() : -1)
                 .maxRowsPerMonth(plan.getMaxRowsPerMonth() != null ? plan.getMaxRowsPerMonth() : -1L)
                 .maxMembers(plan.getMaxMembers() != null ? plan.getMaxMembers() : -1)
@@ -73,6 +75,16 @@ public class SubscriptionLimitChecker {
             throw new DatashifterException(String.format(
                     "Pipeline limit reached. Your %s plan allows %d pipelines. Upgrade to create more.",
                     limits.getPlanName(), limits.getMaxPipelines()));
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void assertCanCreateWorkflow(String orgId, long currentCount) {
+        PlanLimits limits = getLimits(orgId);
+        if (limits.getMaxWorkflows() != -1 && currentCount >= limits.getMaxWorkflows()) {
+            throw new DatashifterException(String.format(
+                    "Workflow limit reached. Your %s plan allows %d %s. Upgrade to create more.",
+                    limits.getPlanName(), limits.getMaxWorkflows(), limits.getMaxWorkflows() == 1 ? "workflow" : "workflows"));
         }
     }
 
@@ -128,6 +140,7 @@ public class SubscriptionLimitChecker {
     public static class PlanLimits {
         private String planName;
         private int maxPipelines;
+        private int maxWorkflows;
         private int maxConnections;
         private long maxRowsPerMonth;
         private int maxMembers;
@@ -138,6 +151,7 @@ public class SubscriptionLimitChecker {
         public static final PlanLimits FREE_TIER = PlanLimits.builder()
                 .planName("Free")
                 .maxPipelines(2)
+                .maxWorkflows(1)
                 .maxConnections(4)
                 .maxRowsPerMonth(50_000L)
                 .maxMembers(2)

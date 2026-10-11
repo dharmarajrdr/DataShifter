@@ -4,13 +4,17 @@ import { FRSC } from '../../constants/layouts';
 const STATUS_COLORS = {
   RUNNING: COLORS.status.success,
   COMPLETED: COLORS.brand.primary,
+  READY: COLORS.status.info,
   ERRORED: COLORS.status.error,
+  FAILED: COLORS.status.error,
   PAUSED: COLORS.status.warning,
+  STOPPED: COLORS.text.tertiary,
 };
 
-const ProgressBar = ({ progress, status = 'RUNNING', height = '6px', showLabel = true }) => {
+const ProgressBar = ({ progress, value, status = 'RUNNING', height = '6px', showLabel = true }) => {
+  const numericProgress = Number(progress ?? value ?? 0);
   const barColor = STATUS_COLORS[status] || COLORS.brand.primary;
-  const formattedProgress = parseFloat(progress.toFixed(2));
+  const formattedProgress = parseFloat(numericProgress.toFixed(2));
   return (
     <div style={{ ...FRSC, gap: SPACING.xs, width: '100%' }}>
       <div style={{
@@ -21,7 +25,7 @@ const ProgressBar = ({ progress, status = 'RUNNING', height = '6px', showLabel =
         overflow: 'hidden',
       }}>
         <div style={{
-          width: `${progress}%`,
+          width: `${numericProgress}%`,
           height: '100%',
           background: barColor,
           borderRadius: '3px',

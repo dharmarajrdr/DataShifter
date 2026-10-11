@@ -126,7 +126,7 @@ async function request(method, path, body = null, options = {}) {
 
     if (!response.ok) {
       throw new ApiError(
-        json.message || `Request failed with status ${response.status}`,
+        sanitizeErrorMessage(json.message, response.status),
         response.status,
         json.info
       );
@@ -141,16 +141,56 @@ async function request(method, path, body = null, options = {}) {
     if (error.message == 'Failed to fetch') {
       throw new ApiError('Network error — is the backend running?', 500);
     }
-    throw new ApiError(error.message, error.status || 500);
+    throw new ApiError(sanitizeErrorMessage(error.message, error.status || 500), error.status || 500);
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
+const TECHNICAL_ERROR_PATTERNS = [
+  /jdbc\s+exception/i,
+  /executing\s+sql/i,
+  /\bsql\s*\[/i,
+  /\b(select|insert|update|delete|alter|create|drop)\s+[\s\S]*?\b(from|into|table|set|where)\b/i,
+  /psqlexception/i,
+  /sqlexception/i,
+  /ora-\d{4,5}/i,
+  /org\.(hibernate|springframework|postgresql|apache)/i,
+  /java\.(lang|sql|io|net|util)\./i,
+  /jakarta\.persistence/i,
+  /dataaccessexception/i,
+  /badsqlgrammarexception/i,
+  /column\s+["']?[\w.]+["']?\s+does\s+not\s+exist/i,
+  /relation\s+["']?[\w.]+["']?\s+does\s+not\s+exist/i,
+  /syntax\s+error\s+at\s+or\s+near/i,
+];
+
+/** Returns true if a message contains raw SQL queries, JDBC exceptions, or internal stack traces */
+export function isTechnicalOrSqlError(message) {
+  if (!message || typeof message !== 'string') return false;
+  return TECHNICAL_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+/** Strips SQL queries and internal server exception traces before displaying in UI */
+export function sanitizeErrorMessage(rawMessage, status = 500) {
+  if (!rawMessage || typeof rawMessage !== 'string') {
+    return status >= 500
+      ? 'Something went wrong on our servers. This might be a temporary issue while services restart or are under maintenance.'
+      : `Request failed with status ${status}`;
+  }
+  if (isTechnicalOrSqlError(rawMessage)) {
+    return 'Something went wrong on our servers. This might be a temporary issue while services restart or are under maintenance.';
+  }
+  if (status >= 500 && /^internal server error\s*:/i.test(rawMessage)) {
+    return 'Something went wrong on our servers. This might be a temporary issue while services restart or are under maintenance.';
+  }
+  return rawMessage;
+}
+
 /** Typed API error with status code and optional info */
 export class ApiError extends Error {
   constructor(message, status, info = null) {
-    super(message);
+    super(sanitizeErrorMessage(message, status));
     this.name = 'ApiError';
     this.status = status;
     this.info = info;
