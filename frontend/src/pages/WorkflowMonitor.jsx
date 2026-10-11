@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
+  ApiGuard,
   Button,
   MetricCard,
   ProgressBar,
@@ -25,6 +26,7 @@ const WorkflowMonitor = () => {
 
   const [workflow, setWorkflow] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState(null);
   const [updateCount, setUpdateCount] = useState(0);
@@ -42,6 +44,7 @@ const WorkflowMonitor = () => {
 
   const fetchWorkflow = useCallback(async () => {
     try {
+      setError(null);
       const res = await workflowApi.getById(workflowId);
       if (res.data) {
         setWorkflow(res.data);
@@ -51,11 +54,11 @@ const WorkflowMonitor = () => {
         );
       }
     } catch (err) {
-      notify.error(err.message || 'Failed to load workflow monitor');
+      setError(err);
     } finally {
       setLoading(false);
     }
-  }, [workflowId, notify]);
+  }, [workflowId]);
 
   const fetchErrors = useCallback(async () => {
     try {
@@ -236,6 +239,10 @@ const WorkflowMonitor = () => {
       notify.error(err.message || 'Failed to clear workflow error logs');
     }
   };
+
+  if (error && !workflow) {
+    return <ApiGuard error={error} loading={false} onRetry={fetchWorkflow} />;
+  }
 
   if (loading && !workflow) {
     return (

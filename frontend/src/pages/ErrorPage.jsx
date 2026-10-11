@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
 import Button from '../components/common/Button';
+import { isTechnicalOrSqlError } from '../services/apiClient';
 
 /* ================================================================
    SVG ILLUSTRATIONS
@@ -151,8 +152,15 @@ export const ErrorPage = ({
   const statusCode = Number(code || status) || 500;
   const config = STATUS_CONFIGS[statusCode] || STATUS_CONFIGS[500];
 
+  const rawDescription = message || description;
+  const isUnsafeDescription =
+    isTechnicalOrSqlError(rawDescription) ||
+    (statusCode >= 500 && typeof rawDescription === 'string' && /^internal server error\s*:/i.test(rawDescription));
+
   const displayTitle = title || config.title;
-  const displayDescription = message || description || config.description;
+  const displayDescription = (!isUnsafeDescription && rawDescription) ? rawDescription : config.description;
+  const rawDetailsStr = details ? (typeof details === 'object' ? JSON.stringify(details, null, 2) : String(details)) : null;
+  const safeDetails = rawDetailsStr && !isTechnicalOrSqlError(rawDetailsStr) ? rawDetailsStr : null;
   const Illustration = config.Illustration;
 
   return (
@@ -277,7 +285,7 @@ export const ErrorPage = ({
       </div>
 
       {/* Technical details accordion */}
-      {details && (
+      {safeDetails && (
         <div style={{ marginTop: SPACING.xl, maxWidth: '520px', width: '100%' }}>
           <button
             type="button"
@@ -314,7 +322,7 @@ export const ErrorPage = ({
                 overflow: 'auto',
               }}
             >
-              {typeof details === 'object' ? JSON.stringify(details, null, 2) : String(details)}
+              {safeDetails}
             </pre>
           )}
         </div>

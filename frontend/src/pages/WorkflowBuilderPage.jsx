@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ApiGuard from '../components/common/ApiGuard';
 import StatusBadge from '../components/common/StatusBadge';
 import WorkflowCanvas from '../components/workflow/WorkflowCanvas';
 import WorkflowInspectorPanel from '../components/workflow/WorkflowInspectorPanel';
@@ -116,6 +117,7 @@ const WorkflowBuilderPage = () => {
   const notify = useNotify();
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const [workflowMeta, setWorkflowMeta] = useState({
@@ -136,6 +138,7 @@ const WorkflowBuilderPage = () => {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const [nsRes, connRes, eligRes] = await Promise.all([
         namespaceApi.getAll().catch(() => ({ data: [] })),
@@ -173,11 +176,11 @@ const WorkflowBuilderPage = () => {
         });
       }
     } catch (err) {
-      notify.error(err.message || 'Failed to load workflow builder data');
+      setError(err);
     } finally {
       setLoading(false);
     }
-  }, [workflowId, isEditMode, notify]);
+  }, [workflowId, isEditMode]);
 
   useEffect(() => {
     loadData();
@@ -397,6 +400,10 @@ const WorkflowBuilderPage = () => {
       setSaving(false);
     }
   };
+
+  if (error) {
+    return <ApiGuard error={error} loading={false} onRetry={loadData} />;
+  }
 
   if (loading) {
     return (

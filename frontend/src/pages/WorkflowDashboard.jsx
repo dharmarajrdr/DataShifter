@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  ApiGuard,
   Button,
   ConfirmationModal,
   MetricCard,
@@ -22,6 +23,7 @@ const WorkflowDashboard = () => {
   const [workflows, setWorkflows] = useState([]);
   const [namespaces, setNamespaces] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNamespace, setSelectedNamespace] = useState('ALL');
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -29,6 +31,7 @@ const WorkflowDashboard = () => {
 
   const loadDashboard = useCallback(async () => {
     try {
+      setError(null);
       const [wfRes, nsRes] = await Promise.all([
         workflowApi.getAll(),
         namespaceApi.getAll().catch(() => ({ data: [] })),
@@ -36,11 +39,11 @@ const WorkflowDashboard = () => {
       setWorkflows(wfRes.data || []);
       setNamespaces(nsRes.data || []);
     } catch (err) {
-      notify.error(err.message || 'Failed to load workflows');
+      setError(err);
     } finally {
       setLoading(false);
     }
-  }, [notify]);
+  }, []);
 
   useEffect(() => {
     loadDashboard();
@@ -140,7 +143,8 @@ const WorkflowDashboard = () => {
   const failedCount = workflows.filter((w) => w.status === 'FAILED' || w.status === 'ERRORED').length;
 
   return (
-    <div>
+    <ApiGuard error={error} loading={loading} onRetry={loadDashboard}>
+      <div>
       <PageHeader
         title="Workflows"
         subtitle="Orchestrate multiple validated pipelines in sequential series execution"
@@ -554,7 +558,8 @@ const WorkflowDashboard = () => {
           { label: 'Delete Workflow', variant: 'danger', onClick: handleConfirmDelete },
         ]}
       />
-    </div>
+      </div>
+    </ApiGuard>
   );
 };
 
