@@ -50,3 +50,4 @@ public interface DatabaseTypeDialect {
                 .trim();
     }
 }
+

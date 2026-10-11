@@ -41,3 +41,4 @@ public class DatabaseTypeDialectFactory {
         return dialectMap.get(dbType);
     }
 }
+

@@ -247,3 +247,4 @@ public class ColumnDataTypeValidationStep implements PipelineValidationStep {
         return map;
     }
 }
+

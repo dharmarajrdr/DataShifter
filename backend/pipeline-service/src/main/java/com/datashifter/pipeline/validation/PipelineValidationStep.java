@@ -5,7 +5,8 @@ import java.util.List;
 /**
  * Represents a single step in the sequential pipeline validation chain.
  * Steps are executed in ascending {@link #getOrder()} order. If a step returns
- * any validation errors, the chain short-circuits and returns those errors immediately.
+ * any validation errors, the chain short-circuits and returns those errors
+ * immediately.
  */
 public interface PipelineValidationStep {
 

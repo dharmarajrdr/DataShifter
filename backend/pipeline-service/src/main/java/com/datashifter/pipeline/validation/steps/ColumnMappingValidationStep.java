@@ -118,3 +118,4 @@ public class ColumnMappingValidationStep implements PipelineValidationStep {
         return errors;
     }
 }
+

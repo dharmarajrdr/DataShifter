@@ -108,3 +108,4 @@ public class OracleTypeDialect implements DatabaseTypeDialect {
                 || "VARCHAR".equals(normalized);
     }
 }
+

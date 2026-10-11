@@ -118,3 +118,4 @@ public class PostgresTypeDialect implements DatabaseTypeDialect {
         return CanonicalDataType.UNKNOWN;
     }
 }
+
