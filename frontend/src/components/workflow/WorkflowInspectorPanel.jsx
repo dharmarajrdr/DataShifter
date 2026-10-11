@@ -104,8 +104,7 @@ const WorkflowInspectorPanel = ({
   // Sync local state when inspector mode/target changes
   useEffect(() => {
     if (mode === 'add_step') {
-      const firstAvail = availablePipelinesToAdd[0]?.id || '';
-      setSelectedPipelineId(firstAvail);
+      setSelectedPipelineId('');
       // Default predecessor: tail of the current chain (node with no outgoing edge)
       const tailNode = [...nodes]
         .reverse()
