@@ -53,6 +53,31 @@ const PipelineRow = ({ pipeline, navigate, onDragStart }) => {
         </div>
       </div>
       <div style={{ ...FRSC, gap: SPACING.sm, flexShrink: 0 }}>
+        {pipeline.workflowId && (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/workflows/${pipeline.workflowId}/monitor`);
+            }}
+            title={`Locked to workflow '${pipeline.workflowName}'. Click to view workflow.`}
+            style={{
+              fontSize: FONT.size.xs,
+              fontWeight: FONT.weight.medium,
+              padding: '3px 10px',
+              borderRadius: BORDER_RADIUS.pill,
+              background: COLORS.accent.purpleLight,
+              color: COLORS.accent.purpleText,
+              border: `1px solid ${COLORS.brand.primary}`,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <i className="fa-solid fa-lock" style={{ fontSize: 10 }} />
+            <span>Workflow: {pipeline.workflowName || 'Linked'}</span>
+          </span>
+        )}
         <StatusBadge status={pipeline.status} />
         {pipeline.progress >= 0 && pipeline.progress <= 100 && (
           <div style={{ width: 120 }}>

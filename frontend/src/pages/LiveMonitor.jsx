@@ -19,7 +19,13 @@ const StopIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="non
 const CheckIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 const RefreshIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 2.5v3.5h3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /><path d="M2.8 6C3.4 3.8 5.3 2.2 7.5 2.2c2.8 0 5 2.2 5 5s-2.2 5-5 5c-1.8 0-3.3-.9-4.2-2.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>;
 
-const getActions = (status) => {
+const getActions = (status, isLockedToWorkflow = false) => {
+  if (isLockedToWorkflow) {
+    if (status === 'DRAFT' || status === 'NOT_VALIDATED' || status === 'INVALID') {
+      return [{ action: 'VALIDATE', label: 'Validate', Icon: CheckIcon, variant: 'primary' }];
+    }
+    return [];
+  }
   switch (status) {
     case 'DRAFT':
     case 'NOT_VALIDATED':
@@ -196,7 +202,8 @@ const LiveMonitor = () => {
 
   const tColor = (s) => s === 'COMPLETED' ? 'purple' : s === 'RUNNING' ? 'teal' : 'default';
   const iCols = data.inflightRecords?.length > 0 ? Object.keys(data.inflightRecords[0]) : [];
-  const acts = getActions(data.status);
+  const isLockedToWorkflow = Boolean(data.workflowId);
+  const acts = getActions(data.status, isLockedToWorkflow);
 
   if (!canViewPipeline) {
     return (
@@ -245,6 +252,29 @@ const LiveMonitor = () => {
               </Button>
             </div>
             <div style={{ ...FRSC, gap: SPACING.sm, marginTop: SPACING.lg }}>
+              {isLockedToWorkflow && (
+                <span
+                  onClick={() => navigate(`/workflows/${data.workflowId}/monitor`)}
+                  title="This pipeline is locked to a workflow and can only be executed as part of that workflow."
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    padding: '5px 12px',
+                    borderRadius: '99px',
+                    background: '#EEEDFE',
+                    color: '#3C3489',
+                    border: '1px solid #534AB7',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <i className="fa-solid fa-lock" style={{ fontSize: '11px' }} />
+                  <span>Workflow: {data.workflowName || 'View Workflow'}</span>
+                  <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '10px' }} />
+                </span>
+              )}
               {data.status && data.status !== 'VALIDATED' && data.status !== 'NOT_VALIDATED' && data.status !== 'INVALID' && (
                 <StatusBadge status={data.status} />
               )}

@@ -25,6 +25,17 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
+    label: 'Workflows', permissions: [
+      { key: 'workflow:create', label: 'Create workflows' },
+      { key: 'workflow:view', label: 'View workflows' },
+      { key: 'workflow:edit', label: 'Edit workflows' },
+      { key: 'workflow:delete', label: 'Delete workflows' },
+      { key: 'workflow:run', label: 'Run workflows' },
+      { key: 'workflow:pause', label: 'Pause workflows' },
+      { key: 'workflow:stop', label: 'Stop workflows' },
+    ],
+  },
+  {
     label: 'Namespaces', permissions: [
       { key: 'namespace:create', label: 'Create namespaces' },
       { key: 'namespace:edit', label: 'Edit namespaces' },

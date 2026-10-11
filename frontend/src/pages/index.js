@@ -19,3 +19,6 @@ export { default as RolesPage } from './RolesPage';
 export { default as SignupPage } from './SignupPage';
 export { default as UdfLibrary } from './UdfLibrary';
 export { default as UserProfile } from './UserProfile';
+export { default as WorkflowBuilderPage } from './WorkflowBuilderPage';
+export { default as WorkflowDashboard } from './WorkflowDashboard';
+export { default as WorkflowMonitor } from './WorkflowMonitor';

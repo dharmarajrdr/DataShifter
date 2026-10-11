@@ -56,6 +56,9 @@ const getPlanFeatures = (plan) => {
   if (plan.maxPipelines !== undefined && plan.maxPipelines !== null) {
     f.push(plan.maxPipelines === -1 ? 'Unlimited pipelines' : `${plan.maxPipelines} pipeline${plan.maxPipelines === 1 ? '' : 's'}`);
   }
+  if (plan.maxWorkflows !== undefined && plan.maxWorkflows !== null) {
+    f.push(plan.maxWorkflows === -1 ? 'Unlimited workflows' : `${plan.maxWorkflows} workflow${plan.maxWorkflows === 1 ? '' : 's'}`);
+  }
   if (plan.maxConnections !== undefined && plan.maxConnections !== null) {
     f.push(plan.maxConnections === -1 ? 'Unlimited connections' : `${plan.maxConnections} connection${plan.maxConnections === 1 ? '' : 's'}`);
   }

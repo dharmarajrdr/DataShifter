@@ -19,6 +19,15 @@ export const PipelineIcon = ({ color = '#6B6B6B', size = 16 }) => (
   </svg>
 );
 
+export const WorkflowIcon = ({ color = '#6B6B6B', size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <rect x="2" y="1.5" width="4.5" height="4" rx="1" stroke={color} strokeWidth="1.3" />
+    <rect x="9.5" y="6" width="4.5" height="4" rx="1" stroke={color} strokeWidth="1.3" />
+    <rect x="2" y="10.5" width="4.5" height="4" rx="1" stroke={color} strokeWidth="1.3" />
+    <path d="M6.5 3.5H8a1.5 1.5 0 011.5 1.5v3h0M9.5 8H8a1.5 1.5 0 00-1.5 1.5v3" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
+
 export const ConnectionIcon = ({ color = '#6B6B6B', size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
     <ellipse cx="8" cy="4.5" rx="5.5" ry="2.5" stroke={color} strokeWidth="1.3" />

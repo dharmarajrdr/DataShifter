@@ -6,10 +6,11 @@ import { FCSS, FRBC, FRSC } from '../../constants/layouts';
 import { APP, NAV } from '../../constants/literals';
 import { useAuth } from '../../contexts/AuthContext';
 import { authApi } from '../../services/authApi';
-import { ConnectionIcon, LogoIcon, PipelineIcon, SettingsIcon } from './Icons';
+import { ConnectionIcon, LogoIcon, PipelineIcon, SettingsIcon, WorkflowIcon } from './Icons';
 
 const NAV_ITEMS = [
   { label: NAV.pipelines, path: '/pipelines', icon: PipelineIcon },
+  { label: NAV.workflows, path: '/workflows', icon: WorkflowIcon },
   { label: NAV.connections, path: '/connections', icon: ConnectionIcon },
   { label: NAV.udfs, path: '/udfs', icon: Code2 },
   { label: 'Settings', path: '/settings', icon: SettingsIcon },
