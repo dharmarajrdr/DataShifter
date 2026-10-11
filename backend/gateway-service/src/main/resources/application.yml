@@ -21,7 +21,7 @@ spring:
         - id: monitor-service
           uri: http://monitor-service:8083
           predicates:
-            - Path=/api/v1/pipelines/*/monitor,/api/v1/pipelines/*/monitor/**,/api/v1/pipelines/*/errors,/api/v1/pipelines/*/errors/**,/api/v1/pipelines/*/executions,/api/v1/pipelines/*/executions/**
+            - Path=/api/v1/pipelines/*/monitor,/api/v1/pipelines/*/monitor/**,/api/v1/pipelines/*/errors,/api/v1/pipelines/*/errors/**,/api/v1/pipelines/*/executions,/api/v1/pipelines/*/executions/**,/api/v1/workflows/*/errors,/api/v1/workflows/*/errors/**
 
         # Mappings + Settings — route to pipeline-service
         - id: pipeline-service-sub
@@ -32,7 +32,7 @@ spring:
         - id: pipeline-service
           uri: http://pipeline-service:8082
           predicates:
-            - Path=/api/v1/pipelines/**,/api/v1/namespaces/**
+            - Path=/api/v1/pipelines/**,/api/v1/namespaces/**,/api/v1/workflows/**
 
         - id: auth-service
           uri: http://auth-service:8086

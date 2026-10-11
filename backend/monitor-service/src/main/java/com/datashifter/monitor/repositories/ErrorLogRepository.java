@@ -17,4 +17,11 @@ public interface ErrorLogRepository extends JpaRepository<ErrorLog, String> {
 
     @Query("SELECT e.errorType, COUNT(e) FROM ErrorLog e WHERE e.pipelineId = ?1 GROUP BY e.errorType")
     List<Object[]> countByErrorType(String pipelineId);
+
+    Page<ErrorLog> findByPipelineIdIn(List<String> pipelineIds, Pageable pageable);
+    long countByPipelineIdIn(List<String> pipelineIds);
+    void deleteByPipelineIdIn(List<String> pipelineIds);
+
+    @Query("SELECT e.errorType, COUNT(e) FROM ErrorLog e WHERE e.pipelineId IN ?1 GROUP BY e.errorType")
+    List<Object[]> countByErrorTypeIn(List<String> pipelineIds);
 }

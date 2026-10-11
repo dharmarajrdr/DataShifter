@@ -126,11 +126,18 @@ public class ExecutionServiceImpl implements ExecutionService {
             if (ctx != null) {
                 publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, e.getMessage());
             } else {
-                // Context build failed — update status directly via DB
+                // Context build failed — update status directly via DB and emit status event
                 pipelineRepo.findById(pipelineId).ifPresent(p -> {
                     p.setStatus(PipelineStatus.ERRORED);
                     pipelineRepo.save(p);
                 });
+                kafkaTemplate.send(KafkaTopics.PIPELINE_STATUS, StatusChangeEvent.builder()
+                        .pipelineId(pipelineId)
+                        .previousStatus(PipelineStatus.RUNNING)
+                        .newStatus(PipelineStatus.ERRORED)
+                        .reason(e.getMessage())
+                        .timestamp(Instant.now())
+                        .build());
             }
         }
     }

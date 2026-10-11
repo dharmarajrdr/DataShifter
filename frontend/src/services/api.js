@@ -367,4 +367,57 @@ export const namespaceApi = {
     : apiClient.post(`/namespaces/pipelines/${pipelineId}/move`, { namespaceId }),
 };
 
+/* ----- WORKFLOWS (pipeline-service & monitor-service via gateway:8080) ----- */
+
+export const workflowApi = {
+
+  getAll: () => USE_MOCK
+    ? mockResponse([])
+    : apiClient.get('/workflows'),
+
+  getById: (id) => USE_MOCK
+    ? mockResponse(null)
+    : apiClient.get(`/workflows/${id}`),
+
+  create: (payload) => USE_MOCK
+    ? mockResponse({ id: 'wf-' + Date.now(), ...payload, status: 'DRAFT' })
+    : apiClient.post('/workflows', payload),
+
+  update: (id, payload) => USE_MOCK
+    ? mockResponse({ id, ...payload })
+    : apiClient.put(`/workflows/${id}`, payload),
+
+  saveCanvas: (id, payload) => USE_MOCK
+    ? mockResponse({ id, ...payload })
+    : apiClient.put(`/workflows/${id}/canvas`, payload),
+
+  addPipelines: (id, pipelineIds) => USE_MOCK
+    ? mockResponse({ id })
+    : apiClient.post(`/workflows/${id}/pipelines`, { pipelineIds }),
+
+  removePipeline: (id, pipelineId) => USE_MOCK
+    ? mockResponse({ id })
+    : apiClient.delete(`/workflows/${id}/pipelines/${pipelineId}`),
+
+  getEligiblePipelines: (workflowId) => USE_MOCK
+    ? mockResponse([])
+    : apiClient.get(`/workflows/eligible-pipelines${workflowId ? `?workflowId=${workflowId}` : ''}`),
+
+  delete: (id) => USE_MOCK
+    ? mockResponse(null)
+    : apiClient.delete(`/workflows/${id}`),
+
+  performAction: (id, action) => USE_MOCK
+    ? mockResponse({ id, status: action === 'START' ? 'RUNNING' : action === 'PAUSE' ? 'PAUSED' : 'STOPPED' })
+    : apiClient.post(`/workflows/${id}/actions`, { action }),
+
+  getErrors: (id, page = 0, size = 20, pipelineId = '') => USE_MOCK
+    ? mockResponse(MOCK_ERRORS)
+    : apiClient.get(`/workflows/${id}/errors?page=${page}&size=${size}${pipelineId ? `&pipelineId=${pipelineId}` : ''}`),
+
+  clearErrors: (id) => USE_MOCK
+    ? mockResponse(null)
+    : apiClient.delete(`/workflows/${id}/errors`),
+};
+
 export { authApi } from './authApi';

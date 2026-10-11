@@ -6,6 +6,10 @@ import com.datashifter.common.enums.PipelineStatus;
 import com.datashifter.common.models.ErrorLog;
 import com.datashifter.common.models.ExecutionLog;
 import com.datashifter.common.models.Pipeline;
+import com.datashifter.common.models.Workflow;
+import com.datashifter.common.models.WorkflowNode;
+import com.datashifter.common.repositories.CommonWorkflowNodeRepository;
+import com.datashifter.common.repositories.CommonWorkflowRepository;
 import com.datashifter.monitor.repositories.ErrorLogRepository;
 import com.datashifter.monitor.repositories.ExecutionLogRepository;
 import com.datashifter.monitor.repositories.PipelineRepository;
@@ -31,15 +35,22 @@ public class MonitorServiceImpl implements MonitorService {
     private final ErrorLogRepository errorLogRepo;
     private final StringRedisTemplate redisTemplate;
     private final PipelineRepository pipelineRepo;
+    private final CommonWorkflowRepository workflowRepo;
+    private final CommonWorkflowNodeRepository workflowNodeRepo;
     private final ObjectMapper objectMapper;
 
     @Override
+    @Transactional(readOnly = true)
     public LiveMonitorResponse getLiveMonitor(String pipelineId) {
         // Read live stats from Redis
         String statsKey = "pipeline:" + pipelineId + ":stats";
         Map<Object, Object> stats = redisTemplate.opsForHash().entries(statsKey);
 
         Pipeline pipeline = pipelineRepo.findById(pipelineId).orElseThrow(() -> new NoSuchElementException("Pipeline not found: " + pipelineId));
+
+        var nodeOpt = workflowNodeRepo.findByPipelineIdWithWorkflow(pipelineId);
+        String workflowId = nodeOpt.map(n -> n.getWorkflow().getId()).orElse(null);
+        String workflowName = nodeOpt.map(n -> n.getWorkflow().getName()).orElse(null);
 
         // In-flight records are delivered via SSE (Kafka → notification-service → browser).
         // On initial page load (before SSE connects), we return an empty list.
@@ -58,6 +69,8 @@ public class MonitorServiceImpl implements MonitorService {
                 .previewInflightRecords(pipeline.getPreviewInflightRecords() != null ? pipeline.getPreviewInflightRecords() : true)
                 .inflightRecords(List.of())
                 .validationErrors(parseValidationErrors(pipeline.getValidationErrors()))
+                .workflowId(workflowId)
+                .workflowName(workflowName)
                 .build();
     }
 
@@ -77,18 +90,72 @@ public class MonitorServiceImpl implements MonitorService {
 
         Page<ErrorLog> errorPage = errorLogRepo.findByPipelineId(pipelineId, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
 
-        List<ErrorLogResponse> errors = errorPage.getContent().stream()
-                .map(this::toErrorResponse)
-                .collect(Collectors.toList());
-
         String pipelineName = pipelineRepo.findById(pipelineId)
-                .map(p -> p.getName()).orElse(null);
+                .map(Pipeline::getName).orElse(null);
+        Map<String, String> nameMap = pipelineName != null ? Map.of(pipelineId, pipelineName) : Map.of();
+
+        List<ErrorLogResponse> errors = errorPage.getContent().stream()
+                .map(e -> toErrorResponse(e, nameMap))
+                .collect(Collectors.toList());
 
         return ErrorSummaryResponse.builder()
                 .totalErrors(total)
                 .errorsByType(errorsByType)
                 .errors(errors)
                 .pipelineName(pipelineName)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ErrorSummaryResponse getWorkflowErrorSummary(String workflowId, String pipelineIdFilter, int page, int size) {
+        Workflow workflow = workflowRepo.findById(workflowId)
+                .orElseThrow(() -> new NoSuchElementException("Workflow not found: " + workflowId));
+
+        List<WorkflowNode> nodes = workflowNodeRepo.findByWorkflow_Id(workflowId);
+        List<String> allPipelineIds = nodes.stream().map(WorkflowNode::getPipelineId).toList();
+        Map<String, String> pipelineNames = pipelineRepo.findAllById(allPipelineIds).stream()
+                .collect(Collectors.toMap(Pipeline::getId, Pipeline::getName, (a, b) -> a));
+
+        List<String> targetPipelineIds;
+        if (pipelineIdFilter != null && !pipelineIdFilter.isBlank() && allPipelineIds.contains(pipelineIdFilter)) {
+            targetPipelineIds = List.of(pipelineIdFilter);
+        } else {
+            targetPipelineIds = allPipelineIds;
+        }
+
+        if (targetPipelineIds.isEmpty()) {
+            return ErrorSummaryResponse.builder()
+                    .totalErrors(0)
+                    .errorsByType(List.of())
+                    .errors(List.of())
+                    .pipelineName(workflow.getName())
+                    .build();
+        }
+
+        long total = errorLogRepo.countByPipelineIdIn(targetPipelineIds);
+        List<Object[]> typeCounts = errorLogRepo.countByErrorTypeIn(targetPipelineIds);
+        List<ErrorTypeCount> errorsByType = typeCounts.stream()
+                .map(row -> ErrorTypeCount.builder()
+                        .type((ErrorType) row[0])
+                        .count((Long) row[1])
+                        .build())
+                .collect(Collectors.toList());
+
+        Page<ErrorLog> errorPage = errorLogRepo.findByPipelineIdIn(
+                targetPipelineIds,
+                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
+        );
+
+        List<ErrorLogResponse> errors = errorPage.getContent().stream()
+                .map(e -> toErrorResponse(e, pipelineNames))
+                .collect(Collectors.toList());
+
+        return ErrorSummaryResponse.builder()
+                .totalErrors(total)
+                .errorsByType(errorsByType)
+                .errors(errors)
+                .pipelineName(workflow.getName())
                 .build();
     }
 
@@ -101,9 +168,12 @@ public class MonitorServiceImpl implements MonitorService {
 
     /* --- Helpers --- */
 
-    private ErrorLogResponse toErrorResponse(ErrorLog e) {
+    private ErrorLogResponse toErrorResponse(ErrorLog e, Map<String, String> pipelineNames) {
         return ErrorLogResponse.builder()
-                .id(e.getId()).errorType(e.getErrorType())
+                .id(e.getId())
+                .pipelineId(e.getPipelineId())
+                .pipelineName(pipelineNames.getOrDefault(e.getPipelineId(), null))
+                .errorType(e.getErrorType())
                 .sourceTable(e.getSourceTable()).targetTable(e.getTargetTable())
                 .chunkNumber(e.getChunkNumber()).rowNumber(e.getRowNumber())
                 .errorMessage(e.getErrorMessage()).sourceRowData(e.getSourceRowData())
@@ -125,6 +195,19 @@ public class MonitorServiceImpl implements MonitorService {
         // Also reset error count in Redis stats
         String statsKey = "pipeline:" + pipelineId + ":stats";
         redisTemplate.opsForHash().put(statsKey, "errorsSkipped", "0");
+    }
+
+    @Override
+    @Transactional
+    public void clearWorkflowErrors(String workflowId) {
+        List<WorkflowNode> nodes = workflowNodeRepo.findByWorkflow_Id(workflowId);
+        List<String> pipelineIds = nodes.stream().map(WorkflowNode::getPipelineId).toList();
+        if (!pipelineIds.isEmpty()) {
+            errorLogRepo.deleteByPipelineIdIn(pipelineIds);
+            for (String pid : pipelineIds) {
+                redisTemplate.opsForHash().put("pipeline:" + pid + ":stats", "errorsSkipped", "0");
+            }
+        }
     }
 
     private String getStringFromMap(Map<Object, Object> map, String key) {
