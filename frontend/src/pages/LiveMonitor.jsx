@@ -91,8 +91,14 @@ const LiveMonitor = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      const sanitizedName = (data.pipelineName || 'pipeline').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-      link.download = `${sanitizedName}-config.json`;
+      const pipelineName = (data.pipelineName || 'pipeline').trim();
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      link.download = `${pipelineName} ${dd}-${mm}-${yyyy} ${hh}:${min}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

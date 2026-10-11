@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, Code2, Columns, FileCode2, Info, ShieldCheck, Trash2, Upload, Workflow, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { ApiGuard, Button, Chip, Loader, PageHeader, ConfirmationModal, BarLoader, SkeletonLoader } from '../components/common';
+import { ApiGuard, BarLoader, Button, Chip, ConfirmationModal, PageHeader, SkeletonLoader } from '../components/common';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
 import { FRBC, FREC, FRSC } from '../constants/layouts';
 import { useAuth } from '../contexts/AuthContext';
@@ -271,7 +271,7 @@ const UdfLibrary = () => {
             loadingComponent={
                 <div>
                     <BarLoader />
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SPACING.md, marginTop: SPACING.lg }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 1fr)', gap: SPACING.md, marginTop: SPACING.lg }}>
                         <SkeletonLoader variant="card" count={3} />
                     </div>
                 </div>
@@ -290,7 +290,7 @@ const UdfLibrary = () => {
                         <p style={{ fontSize: FONT.size.sm, marginBottom: SPACING.md }}>Upload a Java function to reuse custom business rules across pipelines.</p>
                         <Button onClick={() => setShowUpload(true)}>Upload your first UDF</Button>
                     </div>
-                ) : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SPACING.md }}>{udfs.map(udf => <UdfCard key={udf.id} udf={udf} canDelete={canDelete} deleting={deletingId === udf.id} onDelete={handleDeleteRequest} />)}</div>}
+                ) : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 1fr)', gap: SPACING.md }}>{udfs.map(udf => <UdfCard key={udf.id} udf={udf} canDelete={canDelete} deleting={deletingId === udf.id} onDelete={handleDeleteRequest} />)}</div>}
                 {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUploaded={udf => { setUdfs(prev => [udf, ...prev]); notification.success(`UDF "${udf.name}" uploaded successfully`); }} />}
 
                 {/* Delete Confirmation Modal */}
