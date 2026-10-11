@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
@@ -10,6 +10,7 @@ import WorkflowCanvas from '../components/workflow/WorkflowCanvas';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotify } from '../contexts/NotificationContext';
+import { useEventSource } from '../hooks/useEventSource';
 import { workflowApi } from '../services/api';
 
 const WorkflowMonitor = () => {
@@ -26,6 +27,7 @@ const WorkflowMonitor = () => {
   const [loading, setLoading] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState(null);
+  const [updateCount, setUpdateCount] = useState(0);
 
   // Aggregated error logs state
   const [errorSummary, setErrorSummary] = useState({
@@ -43,18 +45,17 @@ const WorkflowMonitor = () => {
       const res = await workflowApi.getById(workflowId);
       if (res.data) {
         setWorkflow(res.data);
-        if (!selectedPipelineId && res.data.nodes?.length > 0) {
-          setSelectedPipelineId(
-            res.data.currentPipelineId || res.data.nodes[0].pipelineId
-          );
-        }
+        setSelectedPipelineId(
+          (prev) =>
+            prev || res.data.currentPipelineId || res.data.nodes?.[0]?.pipelineId || null
+        );
       }
     } catch (err) {
       notify.error(err.message || 'Failed to load workflow monitor');
     } finally {
       setLoading(false);
     }
-  }, [workflowId, selectedPipelineId, notify]);
+  }, [workflowId, notify]);
 
   const fetchErrors = useCallback(async () => {
     try {
@@ -67,27 +68,174 @@ const WorkflowMonitor = () => {
         });
       }
     } catch (_) {
-      // Ignore error log polling failure silently
+      // Ignore error log fetch failure silently
     }
   }, [workflowId, errorFilterPipelineId]);
 
   useEffect(() => {
     fetchWorkflow();
+  }, [fetchWorkflow]);
+
+  useEffect(() => {
     fetchErrors();
-    const timer = setInterval(() => {
-      fetchWorkflow();
-      if (activeTab === 'errors') {
+  }, [fetchErrors]);
+
+  // Real-time SSE channels: workflow:{workflowId} + member pipeline channels
+  const sseChannels = useMemo(() => {
+    const ch = [`workflow:${workflowId}`];
+    (workflow?.nodes || []).forEach((n) => {
+      if (n.pipelineId) ch.push(`pipeline:${n.pipelineId}`);
+    });
+    return ch;
+  }, [workflowId, workflow?.nodes]);
+
+  const sseEnabled = Boolean(
+    workflow && (workflow.status === 'RUNNING' || workflow.status === 'PAUSED')
+  );
+
+  const { connected, reconnectCount, exhausted, retry } = useEventSource({
+    channels: sseChannels,
+    enabled: sseEnabled,
+    onProgress: (ev) => {
+      const d = ev?.payload;
+      if (!d || !d.pipelineId) return;
+      setUpdateCount((c) => c + 1);
+      setWorkflow((prev) => {
+        if (!prev || !prev.nodes) return prev;
+        const updatedNodes = prev.nodes.map((node) => {
+          if (node.pipelineId !== d.pipelineId) return node;
+          return {
+            ...node,
+            progress: d.overallProgress ?? node.progress ?? 0,
+            rowsProcessed: d.totalRowsProcessed ?? node.rowsProcessed ?? 0,
+            rowsPerSec: d.rowsPerSec ?? node.rowsPerSec ?? 0,
+            eta: d.eta ?? node.eta,
+            pipelineStatus: 'RUNNING',
+            lastRunOutcome: 'RUNNING',
+          };
+        });
+        const totalNodes = updatedNodes.length || 1;
+        const sumProgress = updatedNodes.reduce((acc, n) => {
+          if (n.lastRunOutcome === 'COMPLETED' || n.pipelineStatus === 'COMPLETED') {
+            return acc + 100;
+          }
+          return acc + (Number(n.progress) || 0);
+        }, 0);
+        const overallProgress = Math.min(100, Math.round((sumProgress / totalNodes) * 10) / 10);
+        const totalRowsProcessed = updatedNodes.reduce(
+          (acc, n) => acc + (Number(n.rowsProcessed) || 0),
+          0
+        );
+        return {
+          ...prev,
+          currentPipelineId: d.pipelineId,
+          overallProgress,
+          totalRowsProcessed,
+          nodes: updatedNodes,
+        };
+      });
+    },
+    onStatusChange: (ev) => {
+      const d = ev?.payload;
+      if (!d) return;
+      setUpdateCount((c) => c + 1);
+      if (d.workflowId) {
+        setWorkflow((prev) => {
+          if (!prev) return prev;
+          const outcomes = d.nodeOutcomes || {};
+          const updatedNodes = (prev.nodes || []).map((n) => {
+            const outcome = outcomes[n.pipelineId] || n.lastRunOutcome;
+            return {
+              ...n,
+              lastRunOutcome: outcome,
+              pipelineStatus:
+                outcome === 'COMPLETED'
+                  ? 'COMPLETED'
+                  : outcome === 'ERRORED'
+                  ? 'ERRORED'
+                  : outcome === 'RUNNING'
+                  ? 'RUNNING'
+                  : n.pipelineStatus,
+              progress: outcome === 'COMPLETED' ? 100 : n.progress,
+            };
+          });
+          return {
+            ...prev,
+            status: d.status || prev.status,
+            currentPipelineId:
+              d.currentPipelineId !== undefined ? d.currentPipelineId : prev.currentPipelineId,
+            overallProgress: d.status === 'COMPLETED' ? 100 : prev.overallProgress,
+            nodes: updatedNodes,
+          };
+        });
+        if (d.currentPipelineId) {
+          setSelectedPipelineId(d.currentPipelineId);
+        }
+        fetchWorkflow();
         fetchErrors();
+      } else if (d.pipelineId && d.newStatus) {
+        setWorkflow((prev) => {
+          if (!prev || !prev.nodes) return prev;
+          const updatedNodes = prev.nodes.map((node) => {
+            if (node.pipelineId !== d.pipelineId) return node;
+            const nextOutcome =
+              d.newStatus === 'COMPLETED'
+                ? 'COMPLETED'
+                : d.newStatus === 'ERRORED'
+                ? 'ERRORED'
+                : d.newStatus === 'RUNNING'
+                ? 'RUNNING'
+                : node.lastRunOutcome;
+            return {
+              ...node,
+              pipelineStatus: d.newStatus,
+              lastRunOutcome: nextOutcome,
+              progress: d.newStatus === 'COMPLETED' ? 100 : node.progress,
+            };
+          });
+          return { ...prev, nodes: updatedNodes };
+        });
+        if (d.newStatus === 'COMPLETED' || d.newStatus === 'ERRORED') {
+          fetchWorkflow();
+          fetchErrors();
+        }
       }
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [fetchWorkflow, fetchErrors, activeTab]);
+    },
+    onError: (ev) => {
+      const d = ev?.payload;
+      if (!d) return;
+      setUpdateCount((c) => c + 1);
+      setWorkflow((prev) => {
+        if (!prev) return prev;
+        const updatedNodes = (prev.nodes || []).map((n) =>
+          n.pipelineId === d.pipelineId
+            ? { ...n, errorsSkipped: (n.errorsSkipped || 0) + 1 }
+            : n
+        );
+        return {
+          ...prev,
+          totalErrorsSkipped: (prev.totalErrorsSkipped || 0) + 1,
+          nodes: updatedNodes,
+        };
+      });
+      setErrorSummary((prev) => ({
+        ...prev,
+        totalErrors: (prev.totalErrors || 0) + 1,
+      }));
+      fetchErrors();
+    },
+  });
 
   const handleAction = async (action) => {
     setActionBusy(true);
     try {
       const res = await workflowApi.performAction(workflowId, action);
-      if (res.data) setWorkflow(res.data);
+      if (res.data) {
+        setWorkflow(res.data);
+        if (res.data.currentPipelineId) {
+          setSelectedPipelineId(res.data.currentPipelineId);
+        }
+      }
       notify.success(`Workflow ${action.toLowerCase()} command sent`);
     } catch (err) {
       notify.error(err.message || `Failed to ${action.toLowerCase()} workflow`);
@@ -355,6 +503,111 @@ const WorkflowMonitor = () => {
           )}
         </div>
       )}
+
+      {/* Live SSE Connection Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: SPACING.md,
+          padding: `${SPACING.xs} ${SPACING.md}`,
+          background: COLORS.background.secondary,
+          borderRadius: BORDER_RADIUS.md,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
+          <span style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>Live SSE:</span>
+          {connected ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: COLORS.status.success,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: FONT.size.xs,
+                  color: COLORS.status.success,
+                  fontWeight: FONT.weight.medium,
+                }}
+              >
+                Connected
+              </span>
+            </div>
+          ) : exhausted ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: COLORS.status.error,
+                }}
+              />
+              <span style={{ fontSize: FONT.size.xs, color: COLORS.status.error }}>
+                Disconnected
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={retry}
+                style={{ fontSize: 11, padding: '2px 8px' }}
+              >
+                Retry
+              </Button>
+            </div>
+          ) : sseEnabled ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: COLORS.status.warning,
+                }}
+              />
+              <span style={{ fontSize: FONT.size.xs, color: COLORS.status.warningText }}>
+                {reconnectCount > 0 ? `Reconnecting (${reconnectCount}/5)...` : 'Connecting...'}
+              </span>
+            </div>
+          ) : (
+            <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>Inactive</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.xs }}>
+          {updateCount > 0 && (
+            <span style={{ fontSize: 11, color: COLORS.text.tertiary }}>
+              {updateCount} updates
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              fetchWorkflow();
+              fetchErrors();
+            }}
+            style={{
+              background: 'none',
+              border: `1px solid ${COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.sm,
+              width: 28,
+              height: 28,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: COLORS.text.secondary,
+            }}
+            title="Refresh"
+          >
+            <i className="fa-solid fa-rotate-right" style={{ fontSize: 12 }} />
+          </button>
+        </div>
+      </div>
 
       {/* KPI Metrics Row */}
       <div

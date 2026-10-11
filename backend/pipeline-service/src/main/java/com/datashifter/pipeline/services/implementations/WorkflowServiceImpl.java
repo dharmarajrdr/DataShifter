@@ -441,6 +441,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             }
         }
 
+        publishWorkflowStatus(workflow, nodes);
         return toFullResponse(workflow);
     }
 
@@ -500,6 +501,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                 workflow.setStatus(anyFailed ? WorkflowStatus.FAILED : WorkflowStatus.COMPLETED);
                 workflow.setCurrentPipelineId(null);
                 workflowRepository.save(workflow);
+                publishWorkflowStatus(workflow, allNodes);
                 log.info("Workflow '{}' finished with status {}", workflow.getName(), workflow.getStatus());
             }
         } else if (newStatus == PipelineStatus.ERRORED) {
@@ -513,6 +515,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                 workflow.setStatus(WorkflowStatus.FAILED);
                 workflow.setCurrentPipelineId(null);
                 workflowRepository.save(workflow);
+                publishWorkflowStatus(workflow, allNodes);
                 log.warn("Workflow '{}' failed at final pipeline '{}'", workflow.getName(), pipelineId);
                 return;
             }
@@ -553,6 +556,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                         workflow.setStatus(WorkflowStatus.FAILED);
                         workflow.setCurrentPipelineId(null);
                         workflowRepository.save(workflow);
+                        publishWorkflowStatus(workflow, allNodes);
                     }
                 }
                 case STOP_WORKFLOW -> {
@@ -567,6 +571,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                     workflow.setStatus(WorkflowStatus.FAILED);
                     workflow.setCurrentPipelineId(null);
                     workflowRepository.save(workflow);
+                    publishWorkflowStatus(workflow, allNodes);
                 }
             }
         }
@@ -584,6 +589,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             workflow.setStatus(WorkflowStatus.FAILED);
             workflow.setCurrentPipelineId(null);
             workflowRepository.save(workflow);
+            publishWorkflowStatus(workflow, allNodes);
             return;
         }
 
@@ -600,6 +606,28 @@ public class WorkflowServiceImpl implements WorkflowService {
                 PipelineJobEvent.builder()
                         .pipelineId(nextPipeline.getId())
                         .action("START")
+                        .timestamp(Instant.now())
+                        .build());
+
+        publishWorkflowStatus(workflow, allNodes);
+    }
+
+    private void publishWorkflowStatus(Workflow workflow, List<WorkflowNode> nodes) {
+        Map<String, String> outcomes = new HashMap<>();
+        if (nodes != null) {
+            for (WorkflowNode n : nodes) {
+                if (n.getPipelineId() != null && n.getLastRunOutcome() != null) {
+                    outcomes.put(n.getPipelineId(), n.getLastRunOutcome().name());
+                }
+            }
+        }
+        kafkaTemplate.send(KafkaTopics.WORKFLOW_STATUS,
+                WorkflowStatusEvent.builder()
+                        .workflowId(workflow.getId())
+                        .orgId(workflow.getOrgId())
+                        .status(workflow.getStatus())
+                        .currentPipelineId(workflow.getCurrentPipelineId())
+                        .nodeOutcomes(outcomes)
                         .timestamp(Instant.now())
                         .build());
     }

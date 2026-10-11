@@ -8,4 +8,5 @@ public final class KafkaTopics {
     public static final String PIPELINE_PROGRESS  = "pipeline.progress";
     public static final String PIPELINE_ERRORS    = "pipeline.errors";
     public static final String PIPELINE_STATUS    = "pipeline.status";
+    public static final String WORKFLOW_STATUS    = "workflow.status";
 }

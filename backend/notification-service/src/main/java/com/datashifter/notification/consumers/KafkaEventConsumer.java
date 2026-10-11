@@ -116,6 +116,29 @@ public class KafkaEventConsumer {
                 .build());
     }
 
+    /**
+     * Workflow status change events — emitted when a workflow starts, pauses,
+     * resumes, stops, transitions to the next pipeline, or finishes.
+     * Routed to: workflow:{id} + org:{orgId}
+     */
+    @KafkaListener(topics = KafkaTopics.WORKFLOW_STATUS, groupId = "notification-service")
+    public void handleWorkflowStatusChange(WorkflowStatusEvent event) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("workflowId", event.getWorkflowId());
+        payload.put("orgId", event.getOrgId());
+        payload.put("status", event.getStatus() != null ? event.getStatus().name() : null);
+        payload.put("currentPipelineId", event.getCurrentPipelineId());
+        payload.put("nodeOutcomes", event.getNodeOutcomes());
+
+        dispatcher.dispatch(SseEvent.builder()
+                .channel("workflow:" + event.getWorkflowId())
+                .orgChannel(event.getOrgId() != null ? "org:" + event.getOrgId() : null)
+                .eventType("STATUS_CHANGE")
+                .payload(payload)
+                .timestamp(event.getTimestamp() != null ? event.getTimestamp() : Instant.now())
+                .build());
+    }
+
     // =========================================================================
     // HELPERS
     // =========================================================================

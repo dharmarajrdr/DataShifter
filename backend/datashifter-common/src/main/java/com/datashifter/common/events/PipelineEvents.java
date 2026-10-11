@@ -2,6 +2,7 @@ package com.datashifter.common.events;
 
 import com.datashifter.common.enums.ErrorType;
 import com.datashifter.common.enums.PipelineStatus;
+import com.datashifter.common.enums.WorkflowStatus;
 import lombok.*;
 
 import java.time.Instant;
@@ -17,6 +18,7 @@ import java.util.Map;
  *   pipeline.progress      — execution-engine → monitor-service (chunk-level progress)
  *   pipeline.errors        — execution-engine → monitor-service (error events)
  *   pipeline.status        — execution-engine → pipeline-service (state transitions)
+ *   workflow.status        — pipeline-service → notification-service (workflow SSE updates)
  */
 public class PipelineEvents {
     private PipelineEvents() {}
@@ -89,6 +91,18 @@ public class PipelineEvents {
         private PipelineStatus previousStatus;
         private PipelineStatus newStatus;
         private String reason;
+        private Instant timestamp;
+    }
+
+    /* ===== workflow.status ===== */
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class WorkflowStatusEvent {
+        private String workflowId;
+        private String orgId;
+        private WorkflowStatus status;
+        private String currentPipelineId;
+        private Map<String, String> nodeOutcomes;
         private Instant timestamp;
     }
 }

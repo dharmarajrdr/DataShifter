@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
@@ -11,12 +11,13 @@ import {
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotify } from '../contexts/NotificationContext';
+import { useEventSource } from '../hooks/useEventSource';
 import { namespaceApi, workflowApi } from '../services/api';
 
 const WorkflowDashboard = () => {
   const navigate = useNavigate();
   const notify = useNotify();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
 
   const [workflows, setWorkflows] = useState([]);
   const [namespaces, setNamespaces] = useState([]);
@@ -43,9 +44,57 @@ const WorkflowDashboard = () => {
 
   useEffect(() => {
     loadDashboard();
-    const timer = setInterval(loadDashboard, 5000);
-    return () => clearInterval(timer);
-  }, [loadDashboard]);
+  }, [user?.orgId, loadDashboard]);
+
+  // Subscribe to SSE for org-wide workflow status updates when any workflow is active
+  const sseChannels = useMemo(() => {
+    const ch = [];
+    if (user?.orgId) ch.push(`org:${user.orgId}`);
+    workflows.forEach((w) => {
+      if (w.status === 'RUNNING' || w.status === 'PAUSED') {
+        ch.push(`workflow:${w.id}`);
+      }
+    });
+    return ch;
+  }, [user?.orgId, workflows]);
+
+  const sseEnabled = useMemo(
+    () => workflows.some((w) => w.status === 'RUNNING' || w.status === 'PAUSED'),
+    [workflows]
+  );
+
+  useEventSource({
+    channels: sseChannels,
+    enabled: sseEnabled,
+    onStatusChange: (ev) => {
+      const d = ev?.payload;
+      if (!d || !d.workflowId) return;
+      setWorkflows((prev) =>
+        prev.map((w) => {
+          if (w.id !== d.workflowId) return w;
+          const outcomes = d.nodeOutcomes || {};
+          const completedSteps = Object.values(outcomes).filter(
+            (o) => o === 'COMPLETED'
+          ).length;
+          const totalSteps = w.pipelineCount || 1;
+          const overallProgress =
+            d.status === 'COMPLETED'
+              ? 100
+              : Math.min(100, Math.round((completedSteps / totalSteps) * 1000) / 10);
+          return {
+            ...w,
+            status: d.status || w.status,
+            currentPipelineId:
+              d.currentPipelineId !== undefined ? d.currentPipelineId : w.currentPipelineId,
+            overallProgress,
+          };
+        })
+      );
+      if (d.status === 'COMPLETED' || d.status === 'FAILED' || d.status === 'STOPPED') {
+        loadDashboard();
+      }
+    },
+  });
 
   const handleAction = async (wf, action, e) => {
     e.stopPropagation();
@@ -256,7 +305,6 @@ const WorkflowDashboard = () => {
                 <th style={{ padding: '12px 16px' }}>Topology</th>
                 <th style={{ padding: '12px 16px' }}>Status</th>
                 <th style={{ padding: '12px 16px', width: 150 }}>Progress</th>
-                <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -379,7 +427,7 @@ const WorkflowDashboard = () => {
                       <ProgressBar value={wf.progress || 0} status={wf.status} />
                     </td>
 
-                    <td
+                    {/* <td
                       style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -482,7 +530,7 @@ const WorkflowDashboard = () => {
                           </Button>
                         )}
                       </div>
-                    </td>
+                    </td> */}
                   </tr>
                 );
               })}

@@ -11,7 +11,8 @@ export const NAV = {
   pipelines: 'Pipelines',
   workflows: 'Workflows',
   connections: 'Connections',
-  udfs: 'UDF library'
+  udfs: 'UDF library',
+  settings: 'Settings'
 };
 
 export const PIPELINE = {

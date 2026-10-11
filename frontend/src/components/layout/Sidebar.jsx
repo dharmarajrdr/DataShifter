@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { label: NAV.workflows, path: '/workflows', icon: WorkflowIcon },
   { label: NAV.connections, path: '/connections', icon: ConnectionIcon },
   { label: NAV.udfs, path: '/udfs', icon: Code2 },
-  { label: 'Settings', path: '/settings', icon: SettingsIcon },
+  { label: NAV.settings, path: '/settings', icon: SettingsIcon },
 ];
 
 const Sidebar = () => {
