@@ -109,8 +109,7 @@ public class MonitorServiceImpl implements MonitorService {
     @Override
     @Transactional(readOnly = true)
     public ErrorSummaryResponse getWorkflowErrorSummary(String workflowId, String pipelineIdFilter, int page, int size) {
-        Workflow workflow = workflowRepo.findById(workflowId)
-                .orElseThrow(() -> new NoSuchElementException("Workflow not found: " + workflowId));
+        Workflow workflow = findWorkflowForCurrentOrg(workflowId);
 
         List<WorkflowNode> nodes = workflowNodeRepo.findByWorkflow_Id(workflowId);
         List<String> allPipelineIds = nodes.stream().map(WorkflowNode::getPipelineId).toList();
@@ -168,6 +167,16 @@ public class MonitorServiceImpl implements MonitorService {
 
     /* --- Helpers --- */
 
+    private Workflow findWorkflowForCurrentOrg(String workflowId) {
+        String orgId = com.datashifter.common.security.UserContext.getCurrentOrgId();
+        if (orgId != null && !orgId.isBlank()) {
+            return workflowRepo.findByIdAndOrgId(workflowId, orgId)
+                    .orElseThrow(() -> new NoSuchElementException("Workflow not found: " + workflowId));
+        }
+        return workflowRepo.findById(workflowId)
+                .orElseThrow(() -> new NoSuchElementException("Workflow not found: " + workflowId));
+    }
+
     private ErrorLogResponse toErrorResponse(ErrorLog e, Map<String, String> pipelineNames) {
         return ErrorLogResponse.builder()
                 .id(e.getId())
@@ -200,6 +209,7 @@ public class MonitorServiceImpl implements MonitorService {
     @Override
     @Transactional
     public void clearWorkflowErrors(String workflowId) {
+        findWorkflowForCurrentOrg(workflowId);
         List<WorkflowNode> nodes = workflowNodeRepo.findByWorkflow_Id(workflowId);
         List<String> pipelineIds = nodes.stream().map(WorkflowNode::getPipelineId).toList();
         if (!pipelineIds.isEmpty()) {
