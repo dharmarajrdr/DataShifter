@@ -11,6 +11,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import { ForbiddenPage } from './ErrorPage';
 
 const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'];
+const NON_EXPORTABLE_STATES = ['DRAFT', 'NOT_VALIDATED', 'INVALID'];
 
 const PlayIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3.5 2l8 5-8 5V2z" fill="currentColor" /></svg>;
 const PauseIcon = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="3" y="2" width="3" height="10" rx=".8" fill="currentColor" /><rect x="8" y="2" width="3" height="10" rx=".8" fill="currentColor" /></svg>;
@@ -77,8 +78,8 @@ const LiveMonitor = () => {
   const [error, setError] = useState(null);
 
   const handleExportPipeline = async () => {
-    if (data?.status !== 'VALIDATED') {
-      notification.warning('Pipeline must be in VALIDATED state before it can be exported.');
+    if (!data?.status || NON_EXPORTABLE_STATES.includes(data.status)) {
+      notification.warning('Pipeline must be validated before it can be exported.');
       return;
     }
     setExportLoading(true);
@@ -249,8 +250,8 @@ const LiveMonitor = () => {
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={data.status !== 'VALIDATED' || exportLoading}
-                title={data.status !== 'VALIDATED' ? 'Export is available only after pipeline is validated' : 'Export pipeline configuration as JSON'}
+                disabled={!data.status || NON_EXPORTABLE_STATES.includes(data.status) || exportLoading}
+                title={!data.status || NON_EXPORTABLE_STATES.includes(data.status) ? 'Export is available only after pipeline is validated' : 'Export pipeline configuration as JSON'}
                 onClick={handleExportPipeline}
               >
                 {exportLoading ? 'Exporting...' : 'Export Pipeline'}

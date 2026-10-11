@@ -562,8 +562,10 @@ public class PipelineServiceImpl implements PipelineService {
     public PipelineExportDto exportPipeline(String id) {
         Pipeline pipeline = findEntity(id);
 
-        if (pipeline.getStatus() != PipelineStatus.VALIDATED) {
-            throw new DatashifterException("Export is only permitted when the pipeline is in VALIDATED state. Current status: " + pipeline.getStatus());
+        if (pipeline.getStatus() == PipelineStatus.DRAFT
+                || pipeline.getStatus() == PipelineStatus.NOT_VALIDATED
+                || pipeline.getStatus() == PipelineStatus.INVALID) {
+            throw new DatashifterException("Export is not permitted when the pipeline is in " + pipeline.getStatus() + " state.");
         }
 
         Connection sourceConn = connectionRepository.findById(pipeline.getSourceConnectionId()).orElse(null);
