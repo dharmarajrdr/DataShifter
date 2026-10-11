@@ -344,6 +344,7 @@ class WorkflowServiceTest {
         when(pipelineRepository.findById("p-3")).thenReturn(Optional.of(p3));
 
         // Case A: STOP_PIPELINE on p-1 -> p-2 stops p-2 and advances to p-3
+        wf.setCurrentPipelineId("p-1");
         workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
                 .pipelineId("p-1")
                 .newStatus(PipelineStatus.ERRORED)
@@ -356,6 +357,8 @@ class WorkflowServiceTest {
         assertEquals("p-3", wf.getCurrentPipelineId());
 
         // Case B: CONTINUE_PIPELINE on p-1 -> p-2 starts p-2 directly
+        wf.setStatus(WorkflowStatus.RUNNING);
+        wf.setCurrentPipelineId("p-1");
         e12.setOnFailureAction(WorkflowFailureAction.CONTINUE_PIPELINE);
         n2.setLastRunOutcome(WorkflowNodeOutcome.PENDING);
         when(pipelineRepository.findById("p-2")).thenReturn(Optional.of(p2));
@@ -368,5 +371,59 @@ class WorkflowServiceTest {
 
         assertEquals(WorkflowNodeOutcome.RUNNING, n2.getLastRunOutcome());
         assertEquals("p-2", wf.getCurrentPipelineId());
+
+        // Case C: STOP_WORKFLOW on p-1 -> p-2 halts entire workflow and skips remaining nodes
+        wf.setStatus(WorkflowStatus.RUNNING);
+        wf.setCurrentPipelineId("p-1");
+        e12.setOnFailureAction(WorkflowFailureAction.STOP_WORKFLOW);
+        n2.setLastRunOutcome(WorkflowNodeOutcome.PENDING);
+        n3.setLastRunOutcome(WorkflowNodeOutcome.PENDING);
+
+        workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
+                .pipelineId("p-1")
+                .newStatus(PipelineStatus.ERRORED)
+                .timestamp(Instant.now())
+                .build());
+
+        assertEquals(WorkflowStatus.FAILED, wf.getStatus());
+        assertNull(wf.getCurrentPipelineId());
+        assertEquals(WorkflowNodeOutcome.SKIPPED, n2.getLastRunOutcome());
+        assertEquals(WorkflowNodeOutcome.SKIPPED, n3.getLastRunOutcome());
+    }
+
+    @Test
+    @DisplayName("Phase 3: Supports PAUSE, RESUME, and STOP actions on an active workflow")
+    void pauseResumeAndStopWorkflow() {
+        Workflow wf = buildWorkflow("wf-1", "Controllable Workflow", WorkflowStatus.RUNNING);
+        wf.setCurrentPipelineId("p-1");
+        Pipeline p1 = buildPipeline("p-1", "Step 1", PipelineStatus.RUNNING);
+        Pipeline p2 = buildPipeline("p-2", "Step 2", PipelineStatus.VALIDATED);
+        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").positionY(80.0).lastRunOutcome(WorkflowNodeOutcome.RUNNING).build();
+        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").positionY(220.0).lastRunOutcome(WorkflowNodeOutcome.PENDING).build();
+        WorkflowEdge e12 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-1").targetPipelineId("p-2").build();
+
+        when(workflowRepository.findByIdAndOrgId("wf-1", orgId)).thenReturn(Optional.of(wf));
+        when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(n1, n2));
+        when(edgeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(e12));
+        when(pipelineRepository.findAllById(anyList())).thenReturn(List.of(p1, p2));
+        when(pipelineRepository.findById("p-1")).thenReturn(Optional.of(p1));
+
+        // 1. PAUSE
+        workflowService.performAction("wf-1", WorkflowActionRequest.builder().action(WorkflowAction.PAUSE).build());
+        assertEquals(WorkflowStatus.PAUSED, wf.getStatus());
+        assertEquals(PipelineStatus.PAUSED, p1.getStatus());
+
+        // 2. RESUME
+        workflowService.performAction("wf-1", WorkflowActionRequest.builder().action(WorkflowAction.RESUME).build());
+        assertEquals(WorkflowStatus.RUNNING, wf.getStatus());
+        assertEquals(PipelineStatus.RUNNING, p1.getStatus());
+
+        // 3. STOP
+        workflowService.performAction("wf-1", WorkflowActionRequest.builder().action(WorkflowAction.STOP).build());
+        assertEquals(WorkflowStatus.STOPPED, wf.getStatus());
+        assertNull(wf.getCurrentPipelineId());
+        assertEquals(WorkflowNodeOutcome.STOPPED, n1.getLastRunOutcome());
+        assertEquals(WorkflowNodeOutcome.SKIPPED, n2.getLastRunOutcome());
     }
 }
+

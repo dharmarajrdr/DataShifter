@@ -466,8 +466,13 @@ public class WorkflowServiceImpl implements WorkflowService {
         WorkflowNode currentNode = nodeOpt.get();
         Workflow workflow = currentNode.getWorkflow();
 
-        // Only orchestrate handoff when the workflow is actively RUNNING
+        // Only orchestrate handoff when the workflow is actively RUNNING on this pipeline
         if (workflow.getStatus() != WorkflowStatus.RUNNING) {
+            return;
+        }
+        if (workflow.getCurrentPipelineId() != null && !workflow.getCurrentPipelineId().equals(pipelineId)) {
+            log.debug("Ignoring status event for pipeline '{}' as workflow '{}' current pipeline is '{}'",
+                    pipelineId, workflow.getId(), workflow.getCurrentPipelineId());
             return;
         }
 
@@ -478,6 +483,9 @@ public class WorkflowServiceImpl implements WorkflowService {
         if (newStatus == PipelineStatus.COMPLETED) {
             currentNode.setLastRunOutcome(WorkflowNodeOutcome.COMPLETED);
             nodeRepository.save(currentNode);
+            allNodes.stream()
+                    .filter(n -> n.getPipelineId().equals(pipelineId))
+                    .forEach(n -> n.setLastRunOutcome(WorkflowNodeOutcome.COMPLETED));
 
             if (outgoingEdgeOpt.isPresent()) {
                 String nextPipelineId = outgoingEdgeOpt.get().getTargetPipelineId();
@@ -497,6 +505,9 @@ public class WorkflowServiceImpl implements WorkflowService {
         } else if (newStatus == PipelineStatus.ERRORED) {
             currentNode.setLastRunOutcome(WorkflowNodeOutcome.ERRORED);
             nodeRepository.save(currentNode);
+            allNodes.stream()
+                    .filter(n -> n.getPipelineId().equals(pipelineId))
+                    .forEach(n -> n.setLastRunOutcome(WorkflowNodeOutcome.ERRORED));
 
             if (outgoingEdgeOpt.isEmpty()) {
                 workflow.setStatus(WorkflowStatus.FAILED);
