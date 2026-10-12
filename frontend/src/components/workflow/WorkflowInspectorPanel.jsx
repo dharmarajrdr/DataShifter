@@ -436,24 +436,6 @@ const WorkflowInspectorPanel = ({
             )}
           </div>
 
-          {nodes.length > 0 && (
-            <div>
-              <label style={labelStyle}>Attach After Step</label>
-              <select
-                value={attachAfterId || ''}
-                onChange={(e) => setAttachAfterId(e.target.value)}
-                style={inputStyle}
-              >
-                {nodes.map((n, idx) => (
-                  <option key={n.pipelineId} value={n.pipelineId}>
-                    Step #{n.stepNumber || idx + 1}: {n.pipelineName}
-                  </option>
-                ))}
-                <option value="__TRIGGER__">At Start (Before Root Step)</option>
-              </select>
-            </div>
-          )}
-
           {attachAfterId &&
             attachAfterId !== '__TRIGGER__' &&
             edges.some((e) => e.sourcePipelineId === attachAfterId) && (

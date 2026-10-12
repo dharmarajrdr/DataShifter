@@ -12,7 +12,6 @@ const WorkflowNodeCard = ({
   onStartConnect,
   onCompleteConnect,
   onRemove,
-  onAddStepAfter,
   isConnecting = false,
 }) => {
   if (isTrigger) {
@@ -215,48 +214,6 @@ const WorkflowNodeCard = ({
           }}
         >
           <i className="fa-solid fa-xmark" style={{ fontSize: 10, lineHeight: 1 }} />
-        </button>
-      )}
-
-      {/* Top-right add parallel/successor step icon */}
-      {mode === 'builder' && onAddStepAfter && (
-        <button
-          type="button"
-          title={`Add parallel or successor step after ${node.pipelineName}`}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddStepAfter(node.pipelineId);
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = COLORS.brand.primary;
-            e.currentTarget.style.color = '#fff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = COLORS.background.primary;
-            e.currentTarget.style.color = COLORS.brand.primary;
-          }}
-          style={{
-            position: 'absolute',
-            top: -8,
-            right: -8,
-            width: 20,
-            height: 20,
-            borderRadius: '50%',
-            background: COLORS.background.primary,
-            border: `1.5px solid ${COLORS.brand.primary}`,
-            color: COLORS.brand.primary,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 0,
-            zIndex: 4,
-            cursor: 'pointer',
-            boxShadow: SHADOWS.sm,
-            transition: 'all 0.12s ease',
-          }}
-        >
-          <i className="fa-solid fa-plus" style={{ fontSize: 9, lineHeight: 1 }} />
         </button>
       )}
 

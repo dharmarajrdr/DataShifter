@@ -677,7 +677,6 @@ const WorkflowCanvas = ({
                 onStartConnect={handleStartConnect}
                 onCompleteConnect={handleCompleteConnect}
                 onRemove={onRemoveNode}
-                onAddStepAfter={(pid) => onOpenAddStep && onOpenAddStep(pid, 'PARALLEL')}
               />
             </div>
           );
