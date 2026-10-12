@@ -49,5 +49,6 @@ public class UdfFunction extends BaseEntity {
     private String returnType;
 
     @Column(name = "static_method", nullable = false)
-    private boolean staticMethod;
+    @Builder.Default
+    private boolean staticMethod = true;
 }

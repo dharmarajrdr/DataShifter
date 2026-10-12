@@ -38,7 +38,7 @@ class UdfExecutionManagerTest {
     private Path tempDir;
 
     public static class SampleUdf {
-        public void maskEmail(Row row) {
+        public static void maskEmail(Row row) {
             String email = (String) row.get("email");
             if (email != null && email.contains("@")) {
                 String[] parts = email.split("@");
@@ -46,9 +46,13 @@ class UdfExecutionManagerTest {
             }
         }
 
-        public String transformPhone(Row row) {
+        public static String transformPhone(Row row) {
             String phone = (String) row.get("phone");
             return phone != null ? "+1-" + phone : null;
+        }
+
+        public String instanceMethod(Row row) {
+            return "not-allowed";
         }
     }
 
@@ -72,8 +76,7 @@ class UdfExecutionManagerTest {
 
         UdfExecutionManager.LoadedUdfClass loadedClass = new UdfExecutionManager.LoadedUdfClass(
                 getClass().getClassLoader(),
-                SampleUdf.class,
-                SampleUdf.class.getDeclaredConstructor()
+                SampleUdf.class
         );
 
         UdfConfig configMask = UdfConfig.builder()
@@ -113,5 +116,12 @@ class UdfExecutionManagerTest {
         assertTrue(manager.getTotalExecutions() >= 2);
         assertEquals(0, manager.getTotalFailures());
         assertTrue(manager.getAverageLatencyMicros() >= 0);
+
+        // Verify instance method is rejected
+        com.datashifter.execution.exceptions.UdfStopPipelineException ex = assertThrows(
+                com.datashifter.execution.exceptions.UdfStopPipelineException.class,
+                () -> loadedClass.getMethod("instanceMethod", "sample-udf")
+        );
+        assertTrue(ex.getMessage().contains("must be 'public static'"));
     }
 }

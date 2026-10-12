@@ -31,8 +31,4 @@ public class PreparedUdf {
                 : UdfFailurePolicy.SKIP_ROW;
         this.defaultValue = config.getDefaultValue();
     }
-
-    public Object getInstance() {
-        return loadedClass.getInstance();
-    }
 }

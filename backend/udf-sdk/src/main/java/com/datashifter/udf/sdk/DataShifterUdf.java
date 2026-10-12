@@ -6,8 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a method as a DataShifter User Defined Function.
- * The annotated method must take exactly one parameter of type {@link Row}.
+ * Marks a {@code public static} method as a DataShifter User Defined Function.
+ * The annotated method must be {@code public static} and take exactly one parameter of type {@link Row}.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

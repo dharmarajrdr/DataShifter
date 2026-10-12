@@ -175,10 +175,16 @@ public class UdfReferenceValidationStep implements PipelineValidationStep {
                 return;
             }
 
-            boolean methodExists = udfDef.getFunctions().stream()
-                    .anyMatch(f -> className.equals(f.getClassName()) && methodName.equals(f.getMethodName()));
-            if (!methodExists) {
+            var matchedFnOpt = udfDef.getFunctions().stream()
+                    .filter(f -> className.equals(f.getClassName()) && methodName.equals(f.getMethodName()))
+                    .findFirst();
+            if (matchedFnOpt.isEmpty()) {
                 errors.add(String.format("%s: Column \"%s\" — Method '%s' does not exist in class '%s' of UDF '%s'.",
+                        targetTable, targetColName, methodName, className, udfName));
+                return;
+            }
+            if (!matchedFnOpt.get().isStaticMethod()) {
+                errors.add(String.format("%s: Column \"%s\" — Method '%s' in class '%s' of UDF '%s' must be 'public static'.",
                         targetTable, targetColName, methodName, className, udfName));
             }
         }

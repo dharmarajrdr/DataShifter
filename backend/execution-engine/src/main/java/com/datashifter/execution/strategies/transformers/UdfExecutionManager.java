@@ -183,7 +183,6 @@ public class UdfExecutionManager {
         totalExecutions.increment();
 
         DirectRow row = threadRow.get().reset(sourceRecord, targetColumn, input);
-        Object instance = prepared.getInstance();
         Method method = prepared.getMethod();
 
         WatchdogSlot slot = threadWatchdogSlot.get();
@@ -192,7 +191,7 @@ public class UdfExecutionManager {
         Object result;
         Thread currentThread = slot.thread;
         try {
-            Object invokedResult = method.invoke(instance, row);
+            Object invokedResult = method.invoke(null, row);
             if (!prepared.isVoidReturn()) {
                 result = invokedResult;
             } else if (targetColumn != null && row.has(targetColumn)) {
@@ -367,11 +366,16 @@ public class UdfExecutionManager {
                 throw new UdfStopPipelineException(
                         String.format("Class '%s' does not exist in UDF '%s'.", className, udfName));
             }
-            boolean methodExists = udfDef.getFunctions().stream()
-                    .anyMatch(f -> className.equals(f.getClassName()) && methodName.equals(f.getMethodName()));
-            if (!methodExists) {
+            var matchedFnOpt = udfDef.getFunctions().stream()
+                    .filter(f -> className.equals(f.getClassName()) && methodName.equals(f.getMethodName()))
+                    .findFirst();
+            if (matchedFnOpt.isEmpty()) {
                 throw new UdfStopPipelineException(
                         String.format("Method '%s' does not exist in class '%s' of UDF '%s'.", methodName, className, udfName));
+            }
+            if (!matchedFnOpt.get().isStaticMethod()) {
+                throw new UdfStopPipelineException(
+                        String.format("Method '%s' in class '%s' of UDF '%s' must be 'public static'.", methodName, className, udfName));
             }
         }
 
@@ -393,9 +397,7 @@ public class UdfExecutionManager {
                         getClass().getClassLoader()
                 );
                 Class<?> clazz = classLoader.loadClass(className);
-                Constructor<?> constructor = clazz.getDeclaredConstructor();
-                constructor.setAccessible(true);
-                return new LoadedUdfClass(classLoader, clazz, constructor);
+                return new LoadedUdfClass(classLoader, clazz);
             } catch (ClassNotFoundException e) {
                 throw new UdfStopPipelineException(
                         String.format("Class '%s' does not exist in UDF '%s'.", className, udfName.isEmpty() ? storageKey : udfName), e);
@@ -440,30 +442,16 @@ public class UdfExecutionManager {
     }
 
     /**
-     * Holds cached reflection metadata and thread-local instances for a loaded UDF class.
+     * Holds cached reflection metadata for a loaded UDF class.
      */
     static class LoadedUdfClass {
         private final ClassLoader classLoader;
         private final Class<?> clazz;
-        private final Constructor<?> constructor;
         private final Map<String, Method> methodCache = new ConcurrentHashMap<>();
-        private final ThreadLocal<Object> instanceThreadLocal;
 
-        public LoadedUdfClass(ClassLoader classLoader, Class<?> clazz, Constructor<?> constructor) {
+        public LoadedUdfClass(ClassLoader classLoader, Class<?> clazz) {
             this.classLoader = classLoader;
             this.clazz = clazz;
-            this.constructor = constructor;
-            this.instanceThreadLocal = ThreadLocal.withInitial(() -> {
-                try {
-                    return constructor.newInstance();
-                } catch (Exception e) {
-                    throw new DatashifterException("Failed to instantiate UDF class " + clazz.getName(), e);
-                }
-            });
-        }
-
-        public Object getInstance() {
-            return instanceThreadLocal.get();
         }
 
         public Method getMethod(String methodName) {
@@ -475,6 +463,11 @@ public class UdfExecutionManager {
                 for (Method m : clazz.getDeclaredMethods()) {
                     if (m.getName().equals(mName) && m.getParameterCount() == 1
                             && m.getParameterTypes()[0].getName().equals("com.datashifter.udf.sdk.Row")) {
+                        int mods = m.getModifiers();
+                        if (!java.lang.reflect.Modifier.isPublic(mods) || !java.lang.reflect.Modifier.isStatic(mods)) {
+                            throw new UdfStopPipelineException(String.format(
+                                    "Method '%s' in class '%s' must be 'public static'.", mName, clazz.getName()));
+                        }
                         m.setAccessible(true);
                         return m;
                     }
