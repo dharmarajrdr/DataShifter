@@ -496,6 +496,15 @@ const WorkflowMonitor = () => {
               Edit Chain
             </Button>
           )}
+
+          {(hasPermission('workflow:edit') || hasPermission('workflow:delete')) && (
+            <Button
+              variant="secondary"
+              onClick={() => navigate(`/workflows/${workflowId}/settings`)}
+            >
+              Settings
+            </Button>
+          )}
         </div>
       </div>
 

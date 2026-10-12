@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   ApiGuard,
   Button,
-  ConfirmationModal,
   MetricCard,
   PageHeader,
   ProgressBar,
@@ -11,13 +10,11 @@ import {
 } from '../components/common';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
 import { useAuth } from '../contexts/AuthContext';
-import { useNotify } from '../contexts/NotificationContext';
 import { useEventSource } from '../hooks/useEventSource';
 import { namespaceApi, workflowApi } from '../services/api';
 
 const WorkflowDashboard = () => {
   const navigate = useNavigate();
-  const notify = useNotify();
   const { user, hasPermission } = useAuth();
 
   const [workflows, setWorkflows] = useState([]);
@@ -26,8 +23,6 @@ const WorkflowDashboard = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNamespace, setSelectedNamespace] = useState('ALL');
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [actionBusyId, setActionBusyId] = useState(null);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -98,32 +93,6 @@ const WorkflowDashboard = () => {
       }
     },
   });
-
-  const handleAction = async (wf, action, e) => {
-    e.stopPropagation();
-    setActionBusyId(wf.id);
-    try {
-      await workflowApi.performAction(wf.id, action);
-      notify.success(`Workflow ${action.toLowerCase()} triggered`);
-      await loadDashboard();
-    } catch (err) {
-      notify.error(err.message || `Failed to ${action.toLowerCase()} workflow`);
-    } finally {
-      setActionBusyId(null);
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await workflowApi.delete(deleteTarget.id);
-      notify.success(`Workflow '${deleteTarget.name}' deleted`);
-      setDeleteTarget(null);
-      loadDashboard();
-    } catch (err) {
-      notify.error(err.message || 'Failed to delete workflow');
-    }
-  };
 
   const filtered = workflows.filter((w) => {
     const matchesSearch =
@@ -310,8 +279,6 @@ const WorkflowDashboard = () => {
           >
             {filtered.map((wf) => {
               const chainNames = wf.orderedPipelineNames || [];
-              const canRun = wf.singleChainReady && wf.status !== 'RUNNING';
-              const isBusy = actionBusyId === wf.id;
               const progressVal = wf.overallProgress ?? wf.progress ?? 0;
               const updatedDate = wf.updatedAt || wf.createdAt;
               const formattedDate = updatedDate
@@ -515,7 +482,7 @@ const WorkflowDashboard = () => {
                     </div>
                   </div>
 
-                  {/* Bottom Section: Progress, Owner & Quick Actions */}
+                  {/* Bottom Section: Progress & Owner */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div>
                       <div
@@ -583,116 +550,12 @@ const WorkflowDashboard = () => {
                         >
                           {wf.ownerName || 'Unknown'}
                         </span>
-                        {formattedDate && (
-                          <>
-                            <span style={{ color: COLORS.text.tertiary }}>·</span>
-                            <span style={{ color: COLORS.text.tertiary, flexShrink: 0 }}>
-                              {formattedDate}
-                            </span>
-                          </>
-                        )}
                       </div>
-
-                      <div
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {wf.status === 'RUNNING' ? (
-                          <>
-                            {hasPermission('workflow:pause') && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                disabled={isBusy}
-                                onClick={(e) => handleAction(wf, 'PAUSE', e)}
-                              >
-                                <i className="fa-solid fa-pause" />
-                              </Button>
-                            )}
-                            {hasPermission('workflow:stop') && (
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                disabled={isBusy}
-                                onClick={(e) => handleAction(wf, 'STOP', e)}
-                              >
-                                <i className="fa-solid fa-stop" />
-                              </Button>
-                            )}
-                          </>
-                        ) : wf.status === 'PAUSED' ? (
-                          <>
-                            {hasPermission('workflow:run') && (
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                disabled={isBusy}
-                                onClick={(e) => handleAction(wf, 'RESUME', e)}
-                              >
-                                <i className="fa-solid fa-play" />
-                              </Button>
-                            )}
-                            {hasPermission('workflow:stop') && (
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                disabled={isBusy}
-                                onClick={(e) => handleAction(wf, 'STOP', e)}
-                              >
-                                <i className="fa-solid fa-stop" />
-                              </Button>
-                            )}
-                          </>
-                        ) : (
-                          hasPermission('workflow:run') && (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              disabled={!canRun || isBusy}
-                              title={
-                                canRun
-                                  ? 'Start workflow execution'
-                                  : 'Workflow must have 1 connected chain of VALIDATED pipelines before running'
-                              }
-                              onClick={(e) => handleAction(wf, 'START', e)}
-                            >
-                              <i className="fa-solid fa-play" style={{ marginRight: 4 }} />
-                              {wf.status === 'COMPLETED' ||
-                              wf.status === 'FAILED' ||
-                              wf.status === 'STOPPED'
-                                ? 'Re-Run'
-                                : 'Run'}
-                            </Button>
-                          )
-                        )}
-
-                        {hasPermission('workflow:edit') && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={wf.status === 'RUNNING' || wf.status === 'PAUSED'}
-                            onClick={() => navigate(`/workflows/${wf.id}/edit`)}
-                            title="Edit workflow"
-                          >
-                            <i className="fa-solid fa-pen-to-square" />
-                          </Button>
-                        )}
-
-                        {hasPermission('workflow:delete') && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={wf.status === 'RUNNING' || wf.status === 'PAUSED'}
-                            onClick={() => setDeleteTarget(wf)}
-                            title="Delete workflow"
-                          >
-                            <i
-                              className="fa-solid fa-trash"
-                              style={{ color: COLORS.status.error }}
-                            />
-                          </Button>
-                        )}
-                      </div>
+                      {formattedDate && (
+                        <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, flexShrink: 0 }}>
+                          {formattedDate}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -700,22 +563,6 @@ const WorkflowDashboard = () => {
             })}
           </div>
         )}
-
-        <ConfirmationModal
-          isOpen={Boolean(deleteTarget)}
-          onClose={() => setDeleteTarget(null)}
-          title="Delete Workflow"
-          message={
-            deleteTarget
-              ? `Are you sure you want to delete workflow '${deleteTarget.name}'? All pipelines inside this workflow will be unlocked for standalone execution, and the pipelines themselves will NOT be deleted.`
-              : ''
-          }
-          variant="danger"
-          actions={[
-            { label: 'Cancel', variant: 'secondary', onClick: () => setDeleteTarget(null) },
-            { label: 'Delete Workflow', variant: 'danger', onClick: handleConfirmDelete },
-          ]}
-        />
       </div>
     </ApiGuard>
   );
