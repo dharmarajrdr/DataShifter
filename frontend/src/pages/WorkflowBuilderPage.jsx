@@ -177,16 +177,25 @@ export function computeClientTopology(nodes, edges) {
 }
 
 /**
- * Auto-layout DAG nodes by stageLevel, placing parallel branches side-by-side horizontally.
+ * Auto-layout DAG nodes by stageLevel, aligning child steps under their parent branch(es)
+ * and placing parallel sibling branches side-by-side horizontally.
  */
 export function layoutDagNodes(nodes, edges) {
   const topo = computeClientTopology(nodes, edges);
   const levelGroups = new Map();
+  const incomingMap = new Map();
 
   topo.orderedNodes.forEach((n) => {
     const lvl = n.stageLevel ?? 0;
     if (!levelGroups.has(lvl)) levelGroups.set(lvl, []);
     levelGroups.get(lvl).push(n);
+    incomingMap.set(n.pipelineId, []);
+  });
+
+  (edges || []).forEach((e) => {
+    if (incomingMap.has(e.targetPipelineId)) {
+      incomingMap.get(e.targetPipelineId).push(e.sourcePipelineId);
+    }
   });
 
   const maxCountInAnyLevel = Math.max(
@@ -199,16 +208,73 @@ export function layoutDagNodes(nodes, edges) {
   );
 
   const posMap = new Map();
-  levelGroups.forEach((group, lvl) => {
-    const count = group.length;
-    const startX = centerX - ((count - 1) * STAGE_X_GAP) / 2;
-    group.forEach((n, i) => {
-      posMap.set(n.pipelineId, {
-        positionX: Math.max(24, Math.round(startX + i * STAGE_X_GAP)),
+  const sortedLevels = Array.from(levelGroups.keys()).sort((a, b) => a - b);
+
+  sortedLevels.forEach((lvl) => {
+    const group = levelGroups.get(lvl) || [];
+    if (lvl === 0) {
+      const count = group.length;
+      const startX = centerX - ((count - 1) * STAGE_X_GAP) / 2;
+      group.forEach((n, i) => {
+        posMap.set(n.pipelineId, {
+          positionX: Math.round(startX + i * STAGE_X_GAP),
+          positionY: STAGE_Y_START + lvl * STAGE_Y_GAP,
+        });
+      });
+      return;
+    }
+
+    // Group nodes at this level by their parent signature so siblings from the same parent fan out around their parent
+    const siblingBuckets = new Map();
+    group.forEach((n) => {
+      const parents = (incomingMap.get(n.pipelineId) || [])
+        .filter((pid) => posMap.has(pid))
+        .sort();
+      const sig = parents.length > 0 ? parents.join('|') : `__root_${n.pipelineId}`;
+      if (!siblingBuckets.has(sig)) {
+        siblingBuckets.set(sig, { parents, items: [] });
+      }
+      siblingBuckets.get(sig).items.push(n);
+    });
+
+    const desiredCoords = [];
+    siblingBuckets.forEach(({ parents, items }) => {
+      const anchorX =
+        parents.length > 0
+          ? parents.reduce((sum, pid) => sum + (posMap.get(pid)?.positionX ?? centerX), 0) /
+            parents.length
+          : centerX;
+      const m = items.length;
+      const startX = anchorX - ((m - 1) * STAGE_X_GAP) / 2;
+      items.forEach((n, idx) => {
+        desiredCoords.push({
+          node: n,
+          x: startX + idx * STAGE_X_GAP,
+        });
+      });
+    });
+
+    desiredCoords.sort((a, b) => a.x - b.x);
+
+    // Resolve horizontal overlaps if multiple branches fan out at the same stage level
+    for (let i = 1; i < desiredCoords.length; i += 1) {
+      if (desiredCoords[i].x - desiredCoords[i - 1].x < STAGE_X_GAP) {
+        desiredCoords[i].x = desiredCoords[i - 1].x + STAGE_X_GAP;
+      }
+    }
+
+    desiredCoords.forEach(({ node, x }) => {
+      posMap.set(node.pipelineId, {
+        positionX: Math.round(x),
         positionY: STAGE_Y_START + lvl * STAGE_Y_GAP,
       });
     });
   });
+
+  // Ensure no node is clipped on the left margin
+  const allX = Array.from(posMap.values()).map((p) => p.positionX);
+  const minX = allX.length > 0 ? Math.min(...allX) : 32;
+  const shiftX = minX < 32 ? 32 - minX : 0;
 
   return topo.orderedNodes.map((n) => {
     const coords = posMap.get(n.pipelineId) || {
@@ -217,7 +283,7 @@ export function layoutDagNodes(nodes, edges) {
     };
     return {
       ...n,
-      positionX: coords.positionX,
+      positionX: coords.positionX + shiftX,
       positionY: coords.positionY,
     };
   });

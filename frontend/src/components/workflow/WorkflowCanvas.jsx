@@ -162,24 +162,13 @@ const WorkflowCanvas = ({
   const headNodes = nodes.filter((n) => !(incomingByTarget[n.pipelineId]?.length > 0));
   const primaryHead = headNodes[0] || null;
   const leafNodes = nodes.filter((n) => !(outgoingBySource[n.pipelineId]?.length > 0));
-  const defaultTailNode =
-    leafNodes.length > 0
-      ? leafNodes[leafNodes.length - 1]
-      : nodes.length > 0
-        ? nodes[nodes.length - 1]
-        : null;
 
   const triggerX = primaryHead ? (primaryHead.positionX ?? TRIGGER_X) : TRIGGER_X;
 
-  // Position for "+ Add Workflow Steps" pill centered below the deepest node
   const maxNodeY =
     nodes.length > 0 ? Math.max(...nodes.map((n) => n.positionY ?? 170)) : TRIGGER_Y;
-  const addPillX =
-    leafNodes.length === 1
-      ? (leafNodes[0].positionX ?? triggerX)
-      : triggerX;
-  const addPillY =
-    nodes.length > 0 ? maxNodeY + CARD_HEIGHT + 64 : TRIGGER_Y + CARD_HEIGHT + 58;
+  const maxAddPillY =
+    nodes.length > 0 ? maxNodeY + CARD_HEIGHT + 58 : TRIGGER_Y + CARD_HEIGHT + 58;
 
   const canvasWidth = Math.max(
     920,
@@ -189,7 +178,7 @@ const WorkflowCanvas = ({
   const canvasHeight = Math.max(
     680,
     ...nodes.map((n) => (n.positionY ?? 170) + 240),
-    addPillY + 120
+    maxAddPillY + 120
   );
 
   const buildBezierPath = (x1, y1, x2, y2) => {
@@ -440,32 +429,32 @@ const WorkflowCanvas = ({
             );
           })}
 
-          {/* Dashed Arrow(s) from Leaf Node(s) (or Trigger) to "+ Add Workflow Steps" Pill */}
+          {/* Dashed Arrow(s) from Each Leaf Node (or Trigger) to its own "+ Add Workflow Steps" Pill */}
           {mode === 'builder' &&
             (leafNodes.length > 0 ? (
-              leafNodes.map((leaf) => (
-                <path
-                  key={`leaf-to-add-${leaf.pipelineId}`}
-                  d={buildBezierPath(
-                    (leaf.positionX ?? triggerX) + CARD_WIDTH / 2,
-                    (leaf.positionY ?? 170) + CARD_HEIGHT,
-                    addPillX + CARD_WIDTH / 2,
-                    addPillY - 4
-                  )}
-                  stroke={COLORS.text.secondary}
-                  strokeWidth="1.5"
-                  strokeDasharray="4 3"
-                  fill="none"
-                  markerEnd="url(#wf-arrow)"
-                />
-              ))
+              leafNodes.map((leaf) => {
+                const leafCenterX = (leaf.positionX ?? triggerX) + CARD_WIDTH / 2;
+                const leafBottomY = (leaf.positionY ?? 170) + CARD_HEIGHT;
+                const pillTopY = leafBottomY + 58 - 4;
+                return (
+                  <path
+                    key={`leaf-to-add-${leaf.pipelineId}`}
+                    d={buildBezierPath(leafCenterX, leafBottomY, leafCenterX, pillTopY)}
+                    stroke={COLORS.text.secondary}
+                    strokeWidth="1.5"
+                    strokeDasharray="4 3"
+                    fill="none"
+                    markerEnd="url(#wf-arrow)"
+                  />
+                );
+              })
             ) : (
               <path
                 d={buildBezierPath(
                   triggerX + CARD_WIDTH / 2,
                   TRIGGER_Y + 62,
-                  addPillX + CARD_WIDTH / 2,
-                  addPillY - 4
+                  triggerX + CARD_WIDTH / 2,
+                  TRIGGER_Y + CARD_HEIGHT + 58 - 4
                 )}
                 stroke={COLORS.text.secondary}
                 strokeWidth="1.5"
@@ -682,30 +671,56 @@ const WorkflowCanvas = ({
           );
         })}
 
-        {/* "+ Add Workflow Steps" Pill Button */}
-        {mode === 'builder' && (
-          <div
-            style={{
-              position: 'absolute',
-              left: addPillX + CARD_WIDTH / 2,
-              top: addPillY,
-              transform: 'translateX(-50%)',
-              zIndex: 3,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <AddWorkflowStepPill
-              active={
-                selectedItem?.type === 'add' &&
-                selectedItem?.afterPipelineId === (defaultTailNode ? defaultTailNode.pipelineId : null)
-              }
-              onClick={() =>
-                onOpenAddStep &&
-                onOpenAddStep(defaultTailNode ? defaultTailNode.pipelineId : null, 'PARALLEL')
-              }
-            />
-          </div>
-        )}
+        {/* "+ Add Workflow Steps" Pill Button(s) — one per leaf branch (or one below Trigger when empty) */}
+        {mode === 'builder' &&
+          (leafNodes.length > 0 ? (
+            leafNodes.map((leaf) => {
+              const leafCenterX = (leaf.positionX ?? triggerX) + CARD_WIDTH / 2;
+              const pillTopY = (leaf.positionY ?? 170) + CARD_HEIGHT + 58;
+              return (
+                <div
+                  key={`add-pill-${leaf.pipelineId}`}
+                  style={{
+                    position: 'absolute',
+                    left: leafCenterX,
+                    top: pillTopY,
+                    transform: 'translateX(-50%)',
+                    zIndex: 3,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <AddWorkflowStepPill
+                    active={
+                      selectedItem?.type === 'add' &&
+                      selectedItem?.afterPipelineId === leaf.pipelineId
+                    }
+                    onClick={() =>
+                      onOpenAddStep && onOpenAddStep(leaf.pipelineId, 'PARALLEL')
+                    }
+                  />
+                </div>
+              );
+            })
+          ) : (
+            <div
+              style={{
+                position: 'absolute',
+                left: triggerX + CARD_WIDTH / 2,
+                top: TRIGGER_Y + CARD_HEIGHT + 58,
+                transform: 'translateX(-50%)',
+                zIndex: 3,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AddWorkflowStepPill
+                active={
+                  selectedItem?.type === 'add' &&
+                  selectedItem?.afterPipelineId === null
+                }
+                onClick={() => onOpenAddStep && onOpenAddStep(null, 'PARALLEL')}
+              />
+            </div>
+          ))}
       </div>
     </div>
   );
