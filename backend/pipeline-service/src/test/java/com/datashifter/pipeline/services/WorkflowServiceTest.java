@@ -160,29 +160,42 @@ class WorkflowServiceTest {
     }
 
     @Test
-    @DisplayName("Phase 2: Enforces Series-only connections (rejects 1->2 fan-out and circular links)")
-    void enforceSeriesOnlyAndCycleFreeTopology() {
-        Workflow wf = buildWorkflow("wf-1", "Series Workflow", WorkflowStatus.DRAFT);
+    @DisplayName("Phase 2: Allows parallel fan-out and fan-in DAG connections while rejecting circular links")
+    void allowParallelDagAndRejectCircularLinks() {
+        Workflow wf = buildWorkflow("wf-1", "Parallel DAG Workflow", WorkflowStatus.DRAFT);
+        Pipeline p1 = buildPipeline("p-1", "Step 1", PipelineStatus.VALIDATED);
+        Pipeline p2 = buildPipeline("p-2", "Step 2A", PipelineStatus.VALIDATED);
+        Pipeline p3 = buildPipeline("p-3", "Step 2B", PipelineStatus.VALIDATED);
+        Pipeline p4 = buildPipeline("p-4", "Step 3 Join", PipelineStatus.VALIDATED);
+
         when(workflowRepository.findByIdAndOrgId("wf-1", orgId)).thenReturn(Optional.of(wf));
+        lenient().when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of());
+        lenient().when(edgeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of());
+        lenient().when(pipelineRepository.findById("p-1")).thenReturn(Optional.of(p1));
+        lenient().when(pipelineRepository.findById("p-2")).thenReturn(Optional.of(p2));
+        lenient().when(pipelineRepository.findById("p-3")).thenReturn(Optional.of(p3));
+        lenient().when(pipelineRepository.findById("p-4")).thenReturn(Optional.of(p4));
+        lenient().when(nodeRepository.findByPipelineIdWithWorkflow(anyString())).thenReturn(Optional.empty());
 
         List<WorkflowNodeInput> nodes = List.of(
-                WorkflowNodeInput.builder().pipelineId("p-1").positionX(100.0).positionY(80.0).build(),
+                WorkflowNodeInput.builder().pipelineId("p-1").positionX(260.0).positionY(80.0).build(),
                 WorkflowNodeInput.builder().pipelineId("p-2").positionX(100.0).positionY(220.0).build(),
-                WorkflowNodeInput.builder().pipelineId("p-3").positionX(260.0).positionY(220.0).build()
+                WorkflowNodeInput.builder().pipelineId("p-3").positionX(420.0).positionY(220.0).build(),
+                WorkflowNodeInput.builder().pipelineId("p-4").positionX(260.0).positionY(360.0).build()
         );
 
-        // 1. Fan-out violation: p-1 -> p-2 AND p-1 -> p-3
-        SaveWorkflowCanvasRequest fanOutReq = SaveWorkflowCanvasRequest.builder()
+        // 1. Parallel Fan-out (p-1 -> p-2, p-1 -> p-3) and Fan-in Join (p-2 -> p-4, p-3 -> p-4) is allowed
+        SaveWorkflowCanvasRequest parallelDagReq = SaveWorkflowCanvasRequest.builder()
                 .nodes(nodes)
                 .edges(List.of(
                         WorkflowEdgeInput.builder().sourcePipelineId("p-1").targetPipelineId("p-2").build(),
-                        WorkflowEdgeInput.builder().sourcePipelineId("p-1").targetPipelineId("p-3").build()
+                        WorkflowEdgeInput.builder().sourcePipelineId("p-1").targetPipelineId("p-3").build(),
+                        WorkflowEdgeInput.builder().sourcePipelineId("p-2").targetPipelineId("p-4").build(),
+                        WorkflowEdgeInput.builder().sourcePipelineId("p-3").targetPipelineId("p-4").build()
                 ))
                 .build();
 
-        DatashifterException fanOutEx = assertThrows(DatashifterException.class,
-                () -> workflowService.saveCanvas("wf-1", fanOutReq));
-        assertTrue(fanOutEx.getMessage().contains("Series connection violation"));
+        assertDoesNotThrow(() -> workflowService.saveCanvas("wf-1", parallelDagReq));
 
         // 2. Cycle violation: p-1 -> p-2 -> p-1
         SaveWorkflowCanvasRequest cycleReq = SaveWorkflowCanvasRequest.builder()
@@ -341,11 +354,12 @@ class WorkflowServiceTest {
 
         when(nodeRepository.findByPipelineIdWithWorkflow("p-1")).thenReturn(Optional.of(n1));
         when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(n1, n2, n3));
-        when(edgeRepository.findByWorkflow_IdAndSourcePipelineId("wf-1", "p-1")).thenReturn(List.of(e12));
-        when(edgeRepository.findByWorkflow_IdAndSourcePipelineId("wf-1", "p-2")).thenReturn(List.of(e23));
+        when(edgeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(e12, e23));
+        lenient().when(edgeRepository.findByWorkflow_IdAndSourcePipelineId("wf-1", "p-1")).thenReturn(List.of(e12));
+        lenient().when(edgeRepository.findByWorkflow_IdAndSourcePipelineId("wf-1", "p-2")).thenReturn(List.of(e23));
         when(pipelineRepository.findById("p-1")).thenReturn(Optional.of(p1));
-        when(pipelineRepository.findById("p-2")).thenReturn(Optional.of(p2));
-        when(pipelineRepository.findById("p-3")).thenReturn(Optional.of(p3));
+        lenient().when(pipelineRepository.findById("p-2")).thenReturn(Optional.of(p2));
+        lenient().when(pipelineRepository.findById("p-3")).thenReturn(Optional.of(p3));
         when(pipelineRepository.findAllById(anyList())).thenReturn(List.of(p1, p2, p3));
 
         // Case A: STOP_PIPELINE on p-1 -> p-2 stops p-2 and advances to p-3
@@ -366,6 +380,7 @@ class WorkflowServiceTest {
         wf.setCurrentPipelineId("p-1");
         e12.setOnFailureAction(WorkflowFailureAction.CONTINUE_PIPELINE);
         p2.setStatus(PipelineStatus.VALIDATED);
+        p3.setStatus(PipelineStatus.VALIDATED);
 
         workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
                 .pipelineId("p-1")
@@ -410,7 +425,7 @@ class WorkflowServiceTest {
         when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(n1, n2));
         when(edgeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(e12));
         when(pipelineRepository.findAllById(anyList())).thenReturn(List.of(p1, p2));
-        when(pipelineRepository.findById("p-1")).thenReturn(Optional.of(p1));
+        lenient().when(pipelineRepository.findById("p-1")).thenReturn(Optional.of(p1));
 
         // 1. PAUSE
         workflowService.performAction("wf-1", WorkflowActionRequest.builder().action(WorkflowAction.PAUSE).build());
@@ -510,6 +525,130 @@ class WorkflowServiceTest {
         verify(kafkaTemplate).send(eq(KafkaTopics.PIPELINE_JOBS), jobCaptor.capture());
         assertEquals("p-2", jobCaptor.getValue().getPipelineId());
         assertEquals("RESUME", jobCaptor.getValue().getAction());
+    }
+
+    @Test
+    @DisplayName("Phase 5: Parallel fan-out triggers sibling branches concurrently and fan-in join waits for all predecessors")
+    void parallelFanOutAndFanInJoinExecution() {
+        Workflow wf = buildWorkflow("wf-1", "Diamond Parallel Workflow", WorkflowStatus.READY);
+        Pipeline p1 = buildPipeline("p-1", "Root Step", PipelineStatus.VALIDATED);
+        Pipeline p2 = buildPipeline("p-2", "Parallel Branch A", PipelineStatus.VALIDATED);
+        Pipeline p3 = buildPipeline("p-3", "Parallel Branch B", PipelineStatus.VALIDATED);
+        Pipeline p4 = buildPipeline("p-4", "Join Step", PipelineStatus.VALIDATED);
+
+        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").positionX(260.0).positionY(80.0).build();
+        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").positionX(100.0).positionY(220.0).build();
+        WorkflowNode n3 = WorkflowNode.builder().workflow(wf).pipelineId("p-3").positionX(420.0).positionY(220.0).build();
+        WorkflowNode n4 = WorkflowNode.builder().workflow(wf).pipelineId("p-4").positionX(260.0).positionY(360.0).build();
+
+        WorkflowEdge e12 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-1").targetPipelineId("p-2").onFailureAction(WorkflowFailureAction.STOP_WORKFLOW).build();
+        WorkflowEdge e13 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-1").targetPipelineId("p-3").onFailureAction(WorkflowFailureAction.STOP_WORKFLOW).build();
+        WorkflowEdge e24 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-2").targetPipelineId("p-4").onFailureAction(WorkflowFailureAction.STOP_WORKFLOW).build();
+        WorkflowEdge e34 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-3").targetPipelineId("p-4").onFailureAction(WorkflowFailureAction.STOP_WORKFLOW).build();
+
+        Query mockQuery = mock(Query.class);
+        when(entityManager.createQuery(anyString())).thenReturn(mockQuery);
+        when(mockQuery.setParameter(anyString(), any())).thenReturn(mockQuery);
+
+        when(workflowRepository.findByIdAndOrgId("wf-1", orgId)).thenReturn(Optional.of(wf));
+        when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(n1, n2, n3, n4));
+        when(edgeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(e12, e13, e24, e34));
+        when(pipelineRepository.findAllById(anyList())).thenReturn(List.of(p1, p2, p3, p4));
+        when(pipelineRepository.findByOrgId(orgId)).thenReturn(List.of(p1, p2, p3, p4));
+        lenient().when(pipelineRepository.findById("p-1")).thenReturn(Optional.of(p1));
+        lenient().when(pipelineRepository.findById("p-2")).thenReturn(Optional.of(p2));
+        lenient().when(pipelineRepository.findById("p-3")).thenReturn(Optional.of(p3));
+        lenient().when(pipelineRepository.findById("p-4")).thenReturn(Optional.of(p4));
+        lenient().when(nodeRepository.findByPipelineIdWithWorkflow("p-1")).thenReturn(Optional.of(n1));
+        lenient().when(nodeRepository.findByPipelineIdWithWorkflow("p-2")).thenReturn(Optional.of(n2));
+        lenient().when(nodeRepository.findByPipelineIdWithWorkflow("p-3")).thenReturn(Optional.of(n3));
+        lenient().when(nodeRepository.findByPipelineIdWithWorkflow("p-4")).thenReturn(Optional.of(n4));
+
+        // 1. Start workflow -> starts only root p-1
+        workflowService.performAction("wf-1", WorkflowActionRequest.builder().action(WorkflowAction.START).build());
+        assertEquals(PipelineStatus.RUNNING, p1.getStatus());
+        assertEquals(PipelineStatus.VALIDATED, p2.getStatus());
+        assertEquals(PipelineStatus.VALIDATED, p3.getStatus());
+
+        // 2. Root p-1 completes -> triggers BOTH p-2 and p-3 in parallel!
+        workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
+                .pipelineId("p-1")
+                .newStatus(PipelineStatus.COMPLETED)
+                .timestamp(Instant.now())
+                .build());
+        assertEquals(PipelineStatus.COMPLETED, p1.getStatus());
+        assertEquals(PipelineStatus.RUNNING, p2.getStatus(), "Branch A must start in parallel");
+        assertEquals(PipelineStatus.RUNNING, p3.getStatus(), "Branch B must start in parallel");
+        assertEquals(PipelineStatus.VALIDATED, p4.getStatus(), "Join step p-4 must wait");
+
+        // 3. Branch A (p-2) completes while Branch B (p-3) is still RUNNING -> p-4 must NOT start yet
+        workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
+                .pipelineId("p-2")
+                .newStatus(PipelineStatus.COMPLETED)
+                .timestamp(Instant.now())
+                .build());
+        assertEquals(PipelineStatus.COMPLETED, p2.getStatus());
+        assertEquals(PipelineStatus.RUNNING, p3.getStatus());
+        assertEquals(PipelineStatus.VALIDATED, p4.getStatus(), "Join step p-4 must still wait for p-3");
+        assertEquals(WorkflowStatus.RUNNING, wf.getStatus());
+
+        // 4. Branch B (p-3) completes -> now all predecessors of p-4 are COMPLETED -> p-4 starts!
+        workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
+                .pipelineId("p-3")
+                .newStatus(PipelineStatus.COMPLETED)
+                .timestamp(Instant.now())
+                .build());
+        assertEquals(PipelineStatus.COMPLETED, p3.getStatus());
+        assertEquals(PipelineStatus.RUNNING, p4.getStatus(), "Join step p-4 must start once both p-2 and p-3 complete");
+
+        // 5. Join step p-4 completes -> workflow completes
+        workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
+                .pipelineId("p-4")
+                .newStatus(PipelineStatus.COMPLETED)
+                .timestamp(Instant.now())
+                .build());
+        assertEquals(PipelineStatus.COMPLETED, p4.getStatus());
+        assertEquals(WorkflowStatus.COMPLETED, wf.getStatus());
+    }
+
+    @Test
+    @DisplayName("Phase 5: Parallel RERUN_FAILED_STAGE re-runs only the failed parallel branch while preserving completed sibling")
+    void parallelRerunFailedStageReRunsOnlyFailedBranch() {
+        Workflow wf = buildWorkflow("wf-1", "Parallel Rerun Workflow", WorkflowStatus.FAILED);
+        Pipeline p1 = buildPipeline("p-1", "Root Step", PipelineStatus.COMPLETED);
+        Pipeline p2 = buildPipeline("p-2", "Completed Sibling Branch", PipelineStatus.COMPLETED);
+        Pipeline p3 = buildPipeline("p-3", "Failed Sibling Branch", PipelineStatus.ERRORED);
+        Pipeline p4 = buildPipeline("p-4", "Join Step", PipelineStatus.VALIDATED);
+
+        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").positionX(260.0).positionY(80.0).build();
+        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").positionX(100.0).positionY(220.0).build();
+        WorkflowNode n3 = WorkflowNode.builder().workflow(wf).pipelineId("p-3").positionX(420.0).positionY(220.0).build();
+        WorkflowNode n4 = WorkflowNode.builder().workflow(wf).pipelineId("p-4").positionX(260.0).positionY(360.0).build();
+
+        WorkflowEdge e12 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-1").targetPipelineId("p-2").build();
+        WorkflowEdge e13 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-1").targetPipelineId("p-3").build();
+        WorkflowEdge e24 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-2").targetPipelineId("p-4").build();
+        WorkflowEdge e34 = WorkflowEdge.builder().workflow(wf).sourcePipelineId("p-3").targetPipelineId("p-4").build();
+
+        Query mockQuery = mock(Query.class);
+        when(entityManager.createQuery(anyString())).thenReturn(mockQuery);
+        when(mockQuery.setParameter(anyString(), any())).thenReturn(mockQuery);
+
+        when(workflowRepository.findByIdAndOrgId("wf-1", orgId)).thenReturn(Optional.of(wf));
+        when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(n1, n2, n3, n4));
+        when(edgeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(e12, e13, e24, e34));
+        when(pipelineRepository.findAllById(anyList())).thenReturn(List.of(p1, p2, p3, p4));
+        when(pipelineRepository.findByOrgId(orgId)).thenReturn(List.of(p1, p2, p3, p4));
+
+        workflowService.performAction("wf-1", WorkflowActionRequest.builder()
+                .action(WorkflowAction.RERUN_FAILED_STAGE)
+                .build());
+
+        assertEquals(WorkflowStatus.RUNNING, wf.getStatus());
+        assertEquals(PipelineStatus.COMPLETED, p1.getStatus(), "Root p-1 must remain COMPLETED");
+        assertEquals(PipelineStatus.COMPLETED, p2.getStatus(), "Completed sibling p-2 must remain COMPLETED");
+        assertEquals(PipelineStatus.RUNNING, p3.getStatus(), "Only failed branch p-3 must be restarted");
+        assertEquals(PipelineStatus.VALIDATED, p4.getStatus(), "Downstream join p-4 must remain VALIDATED");
     }
 }
 

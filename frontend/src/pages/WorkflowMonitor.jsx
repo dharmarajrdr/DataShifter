@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotify } from '../contexts/NotificationContext';
 import { useEventSource } from '../hooks/useEventSource';
 import { workflowApi } from '../services/api';
+import { computeClientTopology } from './WorkflowBuilderPage';
 
 const WorkflowMonitor = () => {
   const { workflowId } = useParams();
@@ -266,8 +267,10 @@ const WorkflowMonitor = () => {
     );
   }
 
-  const nodes = workflow.nodes || [];
+  const rawNodes = workflow.nodes || [];
   const edges = workflow.edges || [];
+  const clientTopo = computeClientTopology(rawNodes, edges);
+  const nodes = clientTopo.orderedNodes.length > 0 ? clientTopo.orderedNodes : rawNodes;
   const completedSteps = nodes.filter((n) => n.pipelineStatus === 'COMPLETED').length;
   const allValidated =
     nodes.length >= 1 &&
@@ -1100,32 +1103,40 @@ const WorkflowMonitor = () => {
 
       {/* Re-Run Workflow Options Modal */}
       {reRunModalOpen && (() => {
-        const erroredIndex = nodes.findIndex((n) => n.pipelineStatus === 'ERRORED');
-        const incompleteIndex = nodes.findIndex((n) => n.pipelineStatus !== 'COMPLETED');
-        const targetStageIndex =
-          erroredIndex !== -1 ? erroredIndex : incompleteIndex !== -1 ? incompleteIndex : 0;
-        const targetStageNode = nodes[targetStageIndex] || nodes[0] || null;
-        const targetStageLabel = targetStageNode
-          ? `Stage ${targetStageIndex + 1}: ${targetStageNode.pipelineName}`
-          : 'Stage 1';
+        const erroredNodes = nodes.filter((n) => n.pipelineStatus === 'ERRORED');
+        const incompleteNodes = nodes.filter((n) => n.pipelineStatus !== 'COMPLETED');
+        const targetStageNodes =
+          erroredNodes.length > 0
+            ? erroredNodes
+            : incompleteNodes.length > 0
+              ? [incompleteNodes[0]]
+              : nodes.length > 0
+                ? [nodes[0]]
+                : [];
+        const targetStageLabel =
+          targetStageNodes.length > 0
+            ? targetStageNodes
+                .map((n, i) => `Step #${n.stepNumber || i + 1} (${n.pipelineName})`)
+                .join(', ')
+            : 'Stage 1';
 
         const reRunOptions = [
           {
             value: 'START',
             title: '1. Restart workflow from beginning',
-            desc: 'Clears checkpoints across all stages and starts execution from Stage 1.',
+            desc: 'Clears checkpoints across all stages and starts execution from Step #1.',
             icon: 'fa-solid fa-rotate-left',
           },
           {
             value: 'RERUN_FAILED_STAGE',
             title: '2. Restart from last failed stage',
-            desc: `Keeps completed upstream stages intact and restarts ${targetStageLabel} from the beginning.`,
+            desc: `Keeps completed upstream & parallel sibling stages intact and restarts ${targetStageLabel} from the beginning.`,
             icon: 'fa-solid fa-forward-step',
           },
           {
             value: 'RERUN_FROM_CHECKPOINT',
             title: '3. Restart from last checkpoint',
-            desc: `Keeps completed upstream stages intact and resumes ${targetStageLabel} from its last completed chunk checkpoint.`,
+            desc: `Keeps completed upstream & parallel sibling stages intact and resumes ${targetStageLabel} from its last completed chunk checkpoint.`,
             icon: 'fa-solid fa-bookmark',
           },
         ];

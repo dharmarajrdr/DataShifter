@@ -8,12 +8,15 @@ import { BORDER_RADIUS, COLORS, FONT, HEADER_HEIGHT, SHADOWS } from '../constant
 import { useNotify } from '../contexts/NotificationContext';
 import { connectionApi, namespaceApi, workflowApi } from '../services/api';
 
-const TRIGGER_X = 260;
+const TRIGGER_X = 360;
+const STAGE_X_GAP = 360;
+const STAGE_Y_START = 165;
+const STAGE_Y_GAP = 155;
 
 /**
- * Compute topological order, chain count, and single-chain readiness on the client.
+ * Compute topological order, stage levels, chain count, and single-chain readiness for a DAG on the client.
  */
-function computeClientTopology(nodes, edges) {
+export function computeClientTopology(nodes, edges) {
   if (!nodes || nodes.length === 0) {
     return {
       orderedNodes: [],
@@ -24,40 +27,122 @@ function computeClientTopology(nodes, edges) {
   }
 
   const nodeMap = new Map(nodes.map((n) => [n.pipelineId, n]));
-  const nextMap = new Map();
-  const prevMap = new Map();
+  const outgoingMap = new Map();
+  const incomingMap = new Map();
+  const inDegree = new Map();
 
+  nodes.forEach((n) => {
+    outgoingMap.set(n.pipelineId, []);
+    incomingMap.set(n.pipelineId, []);
+    inDegree.set(n.pipelineId, 0);
+  });
+
+  const seenEdgeKeys = new Set();
   (edges || []).forEach((e) => {
-    if (nodeMap.has(e.sourcePipelineId) && nodeMap.has(e.targetPipelineId)) {
-      nextMap.set(e.sourcePipelineId, e.targetPipelineId);
-      prevMap.set(e.targetPipelineId, e.sourcePipelineId);
+    const key = `${e.sourcePipelineId}->${e.targetPipelineId}`;
+    if (
+      !seenEdgeKeys.has(key) &&
+      nodeMap.has(e.sourcePipelineId) &&
+      nodeMap.has(e.targetPipelineId)
+    ) {
+      seenEdgeKeys.add(key);
+      outgoingMap.get(e.sourcePipelineId).push(e.targetPipelineId);
+      incomingMap.get(e.targetPipelineId).push(e.sourcePipelineId);
+      inDegree.set(e.targetPipelineId, (inDegree.get(e.targetPipelineId) || 0) + 1);
     }
   });
+
+  const nodeComparator = (a, b) => {
+    const dy = (a.positionY ?? 0) - (b.positionY ?? 0);
+    if (Math.abs(dy) > 1e-3) return dy;
+    const dx = (a.positionX ?? 0) - (b.positionX ?? 0);
+    if (Math.abs(dx) > 1e-3) return dx;
+    return String(a.pipelineId).localeCompare(String(b.pipelineId));
+  };
 
   const heads = nodes
-    .filter((n) => !prevMap.has(n.pipelineId))
-    .sort((a, b) => (a.positionY ?? 0) - (b.positionY ?? 0));
+    .filter((n) => (inDegree.get(n.pipelineId) || 0) === 0)
+    .sort(nodeComparator);
 
-  const orderedNodes = [];
+  const stageLevelMap = new Map();
+  heads.forEach((h) => stageLevelMap.set(h.pipelineId, 0));
+
+  const queue = heads.map((h) => h.pipelineId);
   const visited = new Set();
+  const rawOrdered = [];
 
-  heads.forEach((head) => {
-    let curr = head.pipelineId;
-    while (curr && !visited.has(curr)) {
-      visited.add(curr);
-      const n = nodeMap.get(curr);
-      if (n) orderedNodes.push(n);
-      curr = nextMap.get(curr);
+  while (queue.length > 0) {
+    const currId = queue.shift();
+    if (visited.has(currId)) continue;
+    visited.add(currId);
+    const currNode = nodeMap.get(currId);
+    if (currNode) rawOrdered.push(currNode);
+
+    const currLevel = stageLevelMap.get(currId) ?? 0;
+    const neighbors = [...(outgoingMap.get(currId) || [])].sort((idA, idB) =>
+      nodeComparator(nodeMap.get(idA) || {}, nodeMap.get(idB) || {})
+    );
+
+    neighbors.forEach((nbrId) => {
+      const prevLevel = stageLevelMap.get(nbrId) ?? 0;
+      stageLevelMap.set(nbrId, Math.max(prevLevel, currLevel + 1));
+      const newDeg = (inDegree.get(nbrId) || 1) - 1;
+      inDegree.set(nbrId, newDeg);
+      if (newDeg <= 0 && !visited.has(nbrId)) {
+        queue.push(nbrId);
+      }
+    });
+  }
+
+  let extraChains = 0;
+  const remaining = nodes.filter((n) => !visited.has(n.pipelineId)).sort(nodeComparator);
+  remaining.forEach((n) => {
+    if (!visited.has(n.pipelineId)) {
+      extraChains += 1;
+      const bfs = [n.pipelineId];
+      while (bfs.length > 0) {
+        const cid = bfs.shift();
+        if (visited.has(cid)) continue;
+        visited.add(cid);
+        if (!stageLevelMap.has(cid)) stageLevelMap.set(cid, 0);
+        const cn = nodeMap.get(cid);
+        if (cn) rawOrdered.push(cn);
+        (outgoingMap.get(cid) || []).forEach((nbr) => {
+          if (!visited.has(nbr)) {
+            stageLevelMap.set(nbr, (stageLevelMap.get(cid) ?? 0) + 1);
+            bfs.push(nbr);
+          }
+        });
+      }
     }
   });
 
-  let extraChains = 0;
-  nodes.forEach((n) => {
-    if (!visited.has(n.pipelineId)) {
-      visited.add(n.pipelineId);
-      orderedNodes.push(n);
-      extraChains += 1;
-    }
+  // Group by stageLevel so parallel branches get clear labels (#2.1, #2.2, etc.)
+  const levelGroups = new Map();
+  rawOrdered.forEach((n) => {
+    const lvl = stageLevelMap.get(n.pipelineId) ?? 0;
+    if (!levelGroups.has(lvl)) levelGroups.set(lvl, []);
+    levelGroups.get(lvl).push(n);
+  });
+
+  levelGroups.forEach((group) => {
+    group.sort((a, b) => (a.positionX ?? 0) - (b.positionX ?? 0));
+  });
+
+  const orderedNodes = rawOrdered.map((n, idx) => {
+    const lvl = stageLevelMap.get(n.pipelineId) ?? 0;
+    const group = levelGroups.get(lvl) || [n];
+    const branchIdx = group.findIndex((item) => item.pipelineId === n.pipelineId);
+    const stepLabel =
+      group.length > 1 ? `${lvl + 1}.${branchIdx + 1}` : `${lvl + 1}`;
+    return {
+      ...n,
+      stageLevel: lvl,
+      parallelCount: group.length,
+      parallelIndex: branchIdx,
+      stepNumber: stepLabel,
+      topoIndex: idx + 1,
+    };
   });
 
   const chainCount = heads.length + extraChains;
@@ -65,7 +150,7 @@ function computeClientTopology(nodes, edges) {
 
   if (chainCount > 1) {
     validationErrors.push(
-      `Workflow has ${chainCount} disconnected chains. Link all pipelines into 1 chain before running.`
+      `Workflow has ${chainCount} disconnected chains. Link all pipelines into 1 connected workflow (with a single start pipeline) before running.`
     );
   }
 
@@ -92,20 +177,77 @@ function computeClientTopology(nodes, edges) {
 }
 
 /**
- * Check if adding source -> target creates a cycle.
+ * Auto-layout DAG nodes by stageLevel, placing parallel branches side-by-side horizontally.
+ */
+export function layoutDagNodes(nodes, edges) {
+  const topo = computeClientTopology(nodes, edges);
+  const levelGroups = new Map();
+
+  topo.orderedNodes.forEach((n) => {
+    const lvl = n.stageLevel ?? 0;
+    if (!levelGroups.has(lvl)) levelGroups.set(lvl, []);
+    levelGroups.get(lvl).push(n);
+  });
+
+  const maxCountInAnyLevel = Math.max(
+    1,
+    ...Array.from(levelGroups.values()).map((g) => g.length)
+  );
+  const centerX = Math.max(
+    TRIGGER_X,
+    Math.round(((maxCountInAnyLevel - 1) * STAGE_X_GAP) / 2) + 60
+  );
+
+  const posMap = new Map();
+  levelGroups.forEach((group, lvl) => {
+    const count = group.length;
+    const startX = centerX - ((count - 1) * STAGE_X_GAP) / 2;
+    group.forEach((n, i) => {
+      posMap.set(n.pipelineId, {
+        positionX: Math.max(24, Math.round(startX + i * STAGE_X_GAP)),
+        positionY: STAGE_Y_START + lvl * STAGE_Y_GAP,
+      });
+    });
+  });
+
+  return topo.orderedNodes.map((n) => {
+    const coords = posMap.get(n.pipelineId) || {
+      positionX: TRIGGER_X,
+      positionY: STAGE_Y_START,
+    };
+    return {
+      ...n,
+      positionX: coords.positionX,
+      positionY: coords.positionY,
+    };
+  });
+}
+
+/**
+ * Check if adding source -> target creates a cycle in a multi-edge DAG.
  */
 function createsCycle(edges, sourceId, targetId) {
   if (sourceId === targetId) return true;
-  const nextMap = new Map();
-  edges.forEach((e) => nextMap.set(e.sourcePipelineId, e.targetPipelineId));
-  nextMap.set(sourceId, targetId);
+  const adj = new Map();
+  edges.forEach((e) => {
+    if (!adj.has(e.sourcePipelineId)) adj.set(e.sourcePipelineId, []);
+    adj.get(e.sourcePipelineId).push(e.targetPipelineId);
+  });
+  if (!adj.has(sourceId)) adj.set(sourceId, []);
+  adj.get(sourceId).push(targetId);
 
-  let curr = targetId;
-  const seen = new Set([sourceId]);
-  while (curr) {
-    if (seen.has(curr)) return true;
-    seen.add(curr);
-    curr = nextMap.get(curr);
+  // Check if sourceId is reachable from targetId
+  const visited = new Set();
+  const stack = [targetId];
+  while (stack.length > 0) {
+    const curr = stack.pop();
+    if (curr === sourceId) return true;
+    if (visited.has(curr)) continue;
+    visited.add(curr);
+    const nexts = adj.get(curr) || [];
+    for (const nxt of nexts) {
+      stack.push(nxt);
+    }
   }
   return false;
 }
@@ -188,39 +330,24 @@ const WorkflowBuilderPage = () => {
 
   const topologyInfo = useMemo(() => computeClientTopology(nodes, edges), [nodes, edges]);
 
-  // Auto-arrange nodes vertically in topological order
+  // Auto-arrange nodes in DAG stages (parallel branches side-by-side horizontally)
   const handleAutoArrange = useCallback(() => {
-    const ordered = computeClientTopology(nodes, edges).orderedNodes;
-    setNodes(
-      ordered.map((n, idx) => ({
-        ...n,
-        positionX: TRIGGER_X,
-        positionY: 165 + idx * 145,
-      }))
-    );
-  }, [nodes, edges]);
+    setNodes((prevNodes) => layoutDagNodes(prevNodes, edges));
+  }, [edges]);
 
   // Add a new pipeline step from the right-hand Set Action inspector
-  const handleAddStep = (pipelineSummary, attachAfterPipelineId, onFailureAction) => {
+  const handleAddStep = (
+    pipelineSummary,
+    attachAfterPipelineId,
+    onFailureAction,
+    connectionMode = 'PARALLEL'
+  ) => {
     if (nodes.some((n) => n.pipelineId === pipelineSummary.id)) {
       notify.warning('This pipeline is already in the workflow.');
       return;
     }
 
     const isInsertAtHead = attachAfterPipelineId === '__TRIGGER__';
-    const predNode =
-      attachAfterPipelineId && !isInsertAtHead
-        ? nodes.find((n) => n.pipelineId === attachAfterPipelineId)
-        : null;
-
-    const newPosY = isInsertAtHead
-      ? 165
-      : predNode
-        ? (predNode.positionY ?? 165) + 145
-        : nodes.length === 0
-          ? 165
-          : Math.max(...nodes.map((n) => n.positionY ?? 165)) + 145;
-
     const newNode = {
       pipelineId: pipelineSummary.id,
       pipelineName: pipelineSummary.name,
@@ -228,44 +355,56 @@ const WorkflowBuilderPage = () => {
       targetName: connectionsMap[pipelineSummary.targetConnectionId] || 'Target',
       tableCount: pipelineSummary.tableCount ?? 0,
       pipelineStatus: pipelineSummary.status || 'VALIDATED',
-      positionX: predNode ? (predNode.positionX ?? TRIGGER_X) : TRIGGER_X,
-      positionY: newPosY,
+      positionX: TRIGGER_X,
+      positionY: STAGE_Y_START,
     };
 
     let updatedEdges = [...edges];
     if (isInsertAtHead) {
-      const currentHead = topologyInfo.orderedNodes[0];
-      if (currentHead) {
+      // Connect new root to all existing root nodes (nodes with no incoming edges)
+      const currentHeads = nodes.filter(
+        (n) => !edges.some((e) => e.targetPipelineId === n.pipelineId)
+      );
+      currentHeads.forEach((head) => {
         updatedEdges.push({
           sourcePipelineId: newNode.pipelineId,
-          targetPipelineId: currentHead.pipelineId,
+          targetPipelineId: head.pipelineId,
           onFailureAction: onFailureAction || 'STOP_WORKFLOW',
         });
-      }
-    } else if (attachAfterPipelineId) {
-      // If predecessor already had a successor, splice the new step in series
-      const existingOut = updatedEdges.find((e) => e.sourcePipelineId === attachAfterPipelineId);
-      updatedEdges = updatedEdges.filter((e) => e.sourcePipelineId !== attachAfterPipelineId);
-      updatedEdges.push({
-        sourcePipelineId: attachAfterPipelineId,
-        targetPipelineId: newNode.pipelineId,
-        onFailureAction: onFailureAction || 'STOP_WORKFLOW',
       });
-      if (existingOut) {
+    } else if (attachAfterPipelineId) {
+      const existingOutEdges = updatedEdges.filter(
+        (e) => e.sourcePipelineId === attachAfterPipelineId
+      );
+      if (connectionMode === 'SERIES' && existingOutEdges.length > 0) {
+        // Splice new step in series between attachAfterPipelineId and its current outgoing targets
+        updatedEdges = updatedEdges.filter(
+          (e) => e.sourcePipelineId !== attachAfterPipelineId
+        );
         updatedEdges.push({
-          sourcePipelineId: newNode.pipelineId,
-          targetPipelineId: existingOut.targetPipelineId,
-          onFailureAction: existingOut.onFailureAction || 'STOP_WORKFLOW',
+          sourcePipelineId: attachAfterPipelineId,
+          targetPipelineId: newNode.pipelineId,
+          onFailureAction: onFailureAction || 'STOP_WORKFLOW',
+        });
+        existingOutEdges.forEach((outEdge) => {
+          updatedEdges.push({
+            sourcePipelineId: newNode.pipelineId,
+            targetPipelineId: outEdge.targetPipelineId,
+            onFailureAction: outEdge.onFailureAction || 'STOP_WORKFLOW',
+          });
+        });
+      } else {
+        // PARALLEL mode (or leaf node): attach as a parallel outgoing branch from attachAfterPipelineId
+        updatedEdges.push({
+          sourcePipelineId: attachAfterPipelineId,
+          targetPipelineId: newNode.pipelineId,
+          onFailureAction: onFailureAction || 'STOP_WORKFLOW',
         });
       }
     }
 
     const nextNodes = isInsertAtHead ? [newNode, ...nodes] : [...nodes, newNode];
-    const arranged = computeClientTopology(nextNodes, updatedEdges).orderedNodes.map((n, idx) => ({
-      ...n,
-      positionX: n.positionX ?? TRIGGER_X,
-      positionY: 165 + idx * 145,
-    }));
+    const arranged = layoutDagNodes(nextNodes, updatedEdges);
 
     setNodes(arranged);
     setEdges(updatedEdges);
@@ -273,17 +412,26 @@ const WorkflowBuilderPage = () => {
     setInspectorState({ mode: 'inspect_node', pipelineId: newNode.pipelineId });
   };
 
-  // Connect two nodes via drag-and-drop on canvas
+  // Connect two nodes via drag-and-drop on canvas (supports 1->N fan-out and N->1 fan-in)
   const handleConnectNodes = (sourcePipelineId, targetPipelineId) => {
-    const filtered = edges.filter(
-      (e) => e.sourcePipelineId !== sourcePipelineId && e.targetPipelineId !== targetPipelineId
+    const alreadyExists = edges.some(
+      (e) =>
+        e.sourcePipelineId === sourcePipelineId &&
+        e.targetPipelineId === targetPipelineId
     );
-    if (createsCycle(filtered, sourcePipelineId, targetPipelineId)) {
+    if (alreadyExists) {
+      setSelectedCanvasItem({ type: 'edge', sourcePipelineId, targetPipelineId });
+      setInspectorState({ mode: 'inspect_edge', sourcePipelineId, targetPipelineId });
+      return;
+    }
+
+    if (createsCycle(edges, sourcePipelineId, targetPipelineId)) {
       notify.error('Circular pipeline connections are not allowed.');
       return;
     }
+
     const nextEdges = [
-      ...filtered,
+      ...edges,
       {
         sourcePipelineId,
         targetPipelineId,
@@ -295,85 +443,58 @@ const WorkflowBuilderPage = () => {
     setInspectorState({ mode: 'inspect_edge', sourcePipelineId, targetPipelineId });
   };
 
-  // Update node links and failure action from the right-hand inspector
-  const handleUpdateNodeLinks = (pipelineId, predId, succId, onFailureAction) => {
-    let nextEdges = edges.filter(
-      (e) =>
-        e.targetPipelineId !== pipelineId &&
-        e.sourcePipelineId !== pipelineId &&
-        (predId ? e.sourcePipelineId !== predId : true) &&
-        (succId ? e.targetPipelineId !== succId : true)
-    );
-
-    if (predId) {
-      if (createsCycle(nextEdges, predId, pipelineId)) {
-        notify.error('Cannot link: this would create a circular chain.');
-        return;
-      }
-      nextEdges.push({
-        sourcePipelineId: predId,
-        targetPipelineId: pipelineId,
-        onFailureAction: onFailureAction || 'STOP_WORKFLOW',
-      });
+  // Update incoming failure actions or links from the right-hand inspector
+  const handleUpdateNodeLinks = (pipelineId, incomingFailureActionsMap) => {
+    if (incomingFailureActionsMap && typeof incomingFailureActionsMap === 'object') {
+      setEdges((prev) =>
+        prev.map((e) => {
+          if (
+            e.targetPipelineId === pipelineId &&
+            incomingFailureActionsMap[e.sourcePipelineId]
+          ) {
+            return {
+              ...e,
+              onFailureAction: incomingFailureActionsMap[e.sourcePipelineId],
+            };
+          }
+          return e;
+        })
+      );
+      notify.success('Step failure rules updated');
     }
-
-    if (succId) {
-      if (createsCycle(nextEdges, pipelineId, succId)) {
-        notify.error('Cannot link: this would create a circular chain.');
-        return;
-      }
-      const existingAction =
-        edges.find((e) => e.sourcePipelineId === pipelineId && e.targetPipelineId === succId)
-          ?.onFailureAction || 'STOP_WORKFLOW';
-      nextEdges.push({
-        sourcePipelineId: pipelineId,
-        targetPipelineId: succId,
-        onFailureAction: existingAction,
-      });
-    }
-
-    setEdges(nextEdges);
-    notify.success('Step links updated');
   };
 
   const handleRemoveNode = (pipelineId) => {
-    const inEdge = edges.find((e) => e.targetPipelineId === pipelineId);
-    const outEdge = edges.find((e) => e.sourcePipelineId === pipelineId);
+    const inEdges = edges.filter((e) => e.targetPipelineId === pipelineId);
+    const outEdges = edges.filter((e) => e.sourcePipelineId === pipelineId);
 
     let nextEdges = edges.filter(
       (e) => e.sourcePipelineId !== pipelineId && e.targetPipelineId !== pipelineId
     );
 
-    // If a middle step in a chain (A -> B -> C) is removed, bridge A -> C automatically
-    if (
-      inEdge &&
-      outEdge &&
-      inEdge.sourcePipelineId !== outEdge.targetPipelineId &&
-      !nextEdges.some(
-        (e) =>
-          e.sourcePipelineId === inEdge.sourcePipelineId ||
-          e.targetPipelineId === outEdge.targetPipelineId
-      ) &&
-      !createsCycle(nextEdges, inEdge.sourcePipelineId, outEdge.targetPipelineId)
-    ) {
-      nextEdges = [
-        ...nextEdges,
-        {
-          sourcePipelineId: inEdge.sourcePipelineId,
-          targetPipelineId: outEdge.targetPipelineId,
-          onFailureAction: inEdge.onFailureAction || outEdge.onFailureAction || 'STOP_WORKFLOW',
-        },
-      ];
-    }
+    // Bridge each incoming predecessor to each outgoing successor if no edge/cycle exists
+    inEdges.forEach((inE) => {
+      outEdges.forEach((outE) => {
+        if (
+          inE.sourcePipelineId !== outE.targetPipelineId &&
+          !nextEdges.some(
+            (e) =>
+              e.sourcePipelineId === inE.sourcePipelineId &&
+              e.targetPipelineId === outE.targetPipelineId
+          ) &&
+          !createsCycle(nextEdges, inE.sourcePipelineId, outE.targetPipelineId)
+        ) {
+          nextEdges.push({
+            sourcePipelineId: inE.sourcePipelineId,
+            targetPipelineId: outE.targetPipelineId,
+            onFailureAction: inE.onFailureAction || outE.onFailureAction || 'STOP_WORKFLOW',
+          });
+        }
+      });
+    });
 
     const remainingNodes = nodes.filter((n) => n.pipelineId !== pipelineId);
-    const arranged = computeClientTopology(remainingNodes, nextEdges).orderedNodes.map(
-      (n, idx) => ({
-        ...n,
-        positionX: n.positionX ?? TRIGGER_X,
-        positionY: 165 + idx * 145,
-      })
-    );
+    const arranged = layoutDagNodes(remainingNodes, nextEdges);
 
     setNodes(arranged);
     setEdges(nextEdges);
@@ -620,9 +741,13 @@ const WorkflowBuilderPage = () => {
             setSelectedCanvasItem({ type: 'edge', sourcePipelineId, targetPipelineId });
             setInspectorState({ mode: 'inspect_edge', sourcePipelineId, targetPipelineId });
           }}
-          onOpenAddStep={(defaultAfterPipelineId) => {
+          onOpenAddStep={(defaultAfterPipelineId, defaultConnectionMode = 'PARALLEL') => {
             setSelectedCanvasItem({ type: 'add', afterPipelineId: defaultAfterPipelineId });
-            setInspectorState({ mode: 'add_step', defaultAfterPipelineId });
+            setInspectorState({
+              mode: 'add_step',
+              defaultAfterPipelineId,
+              defaultConnectionMode,
+            });
           }}
           onMoveNode={handleMoveNode}
           onConnectNodes={handleConnectNodes}
@@ -643,11 +768,17 @@ const WorkflowBuilderPage = () => {
           onUpdateNodeLinks={handleUpdateNodeLinks}
           onUpdateEdge={handleUpdateEdge}
           onDeleteEdge={handleDeleteEdge}
-          onOpenAddStep={() => {
-            const tail =
-              topologyInfo.orderedNodes[topologyInfo.orderedNodes.length - 1]?.pipelineId || null;
-            setSelectedCanvasItem({ type: 'add', afterPipelineId: tail });
-            setInspectorState({ mode: 'add_step', defaultAfterPipelineId: tail });
+          onOpenAddStep={(afterId, connMode = 'PARALLEL') => {
+            const targetAfter =
+              afterId !== undefined
+                ? afterId
+                : topologyInfo.orderedNodes[topologyInfo.orderedNodes.length - 1]?.pipelineId || null;
+            setSelectedCanvasItem({ type: 'add', afterPipelineId: targetAfter });
+            setInspectorState({
+              mode: 'add_step',
+              defaultAfterPipelineId: targetAfter,
+              defaultConnectionMode: connMode,
+            });
           }}
           onCloseInspector={() => {
             setSelectedCanvasItem({ type: 'trigger' });

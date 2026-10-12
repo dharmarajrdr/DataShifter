@@ -5,7 +5,7 @@ import WorkflowNodeCard from './WorkflowNodeCard';
 
 const CARD_WIDTH = 310;
 const CARD_HEIGHT = 56;
-const TRIGGER_X = 260;
+const TRIGGER_X = 360;
 const TRIGGER_Y = 44;
 
 const EDGE_BADGE_MAP = {
@@ -149,25 +149,43 @@ const WorkflowCanvas = ({
     };
   }, [draggingNode, connectingFrom, onSelectNode]);
 
-  // Determine head node (first node with no incoming edge) and tail node (last node with no outgoing edge)
+  // Build multi-edge maps for DAG
   const incomingByTarget = {};
   const outgoingBySource = {};
   edges.forEach((e) => {
-    incomingByTarget[e.targetPipelineId] = e;
-    outgoingBySource[e.sourcePipelineId] = e;
+    if (!incomingByTarget[e.targetPipelineId]) incomingByTarget[e.targetPipelineId] = [];
+    incomingByTarget[e.targetPipelineId].push(e);
+    if (!outgoingBySource[e.sourcePipelineId]) outgoingBySource[e.sourcePipelineId] = [];
+    outgoingBySource[e.sourcePipelineId].push(e);
   });
 
-  const headNodes = nodes.filter((n) => !incomingByTarget[n.pipelineId]);
+  const headNodes = nodes.filter((n) => !(incomingByTarget[n.pipelineId]?.length > 0));
   const primaryHead = headNodes[0] || null;
-  const tailNode =
-    nodes.length > 0
-      ? [...nodes].reverse().find((n) => !outgoingBySource[n.pipelineId]) || nodes[nodes.length - 1]
-      : null;
+  const leafNodes = nodes.filter((n) => !(outgoingBySource[n.pipelineId]?.length > 0));
+  const defaultTailNode =
+    leafNodes.length > 0
+      ? leafNodes[leafNodes.length - 1]
+      : nodes.length > 0
+        ? nodes[nodes.length - 1]
+        : null;
 
-  // Position for "+ Add Workflow Steps" pill
-  const addPillX = tailNode ? (tailNode.positionX ?? TRIGGER_X) : TRIGGER_X;
-  const addPillY = tailNode ? (tailNode.positionY ?? 170) + CARD_HEIGHT + 58 : TRIGGER_Y + CARD_HEIGHT + 58;
+  const triggerX = primaryHead ? (primaryHead.positionX ?? TRIGGER_X) : TRIGGER_X;
 
+  // Position for "+ Add Workflow Steps" pill centered below the deepest node
+  const maxNodeY =
+    nodes.length > 0 ? Math.max(...nodes.map((n) => n.positionY ?? 170)) : TRIGGER_Y;
+  const addPillX =
+    leafNodes.length === 1
+      ? (leafNodes[0].positionX ?? triggerX)
+      : triggerX;
+  const addPillY =
+    nodes.length > 0 ? maxNodeY + CARD_HEIGHT + 64 : TRIGGER_Y + CARD_HEIGHT + 58;
+
+  const canvasWidth = Math.max(
+    920,
+    ...nodes.map((n) => (n.positionX ?? TRIGGER_X) + CARD_WIDTH + 80),
+    triggerX + CARD_WIDTH + 80
+  );
   const canvasHeight = Math.max(
     680,
     ...nodes.map((n) => (n.positionY ?? 170) + 240),
@@ -227,7 +245,7 @@ const WorkflowCanvas = ({
             <button
               type="button"
               onClick={onAutoArrange}
-              title="Auto-align workflow chain vertically"
+              title="Auto-align workflow stages (series & parallel)"
               style={{
                 border: 'none',
                 background: 'transparent',
@@ -335,7 +353,7 @@ const WorkflowCanvas = ({
         onClick={() => onSelectTrigger && onSelectTrigger()}
         style={{
           position: 'relative',
-          minWidth: 860,
+          minWidth: canvasWidth,
           height: canvasHeight,
           transform: `scale(${zoom})`,
           transformOrigin: 'top left',
@@ -380,9 +398,9 @@ const WorkflowCanvas = ({
           {primaryHead && (
             <path
               d={buildBezierPath(
-                TRIGGER_X + CARD_WIDTH / 2,
+                triggerX + CARD_WIDTH / 2,
                 TRIGGER_Y + 62,
-                (primaryHead.positionX ?? TRIGGER_X) + CARD_WIDTH / 2,
+                (primaryHead.positionX ?? triggerX) + CARD_WIDTH / 2,
                 (primaryHead.positionY ?? 170) - 6
               )}
               stroke={COLORS.text.secondary}
@@ -392,16 +410,16 @@ const WorkflowCanvas = ({
             />
           )}
 
-          {/* Arrows for Series Edges */}
+          {/* Arrows for Series & Parallel DAG Edges */}
           {edges.map((edge) => {
             const srcNode = nodes.find((n) => n.pipelineId === edge.sourcePipelineId);
             const tgtNode = nodes.find((n) => n.pipelineId === edge.targetPipelineId);
             if (!srcNode || !tgtNode) return null;
 
             const srcHeight = mode === 'monitor' ? 78 : CARD_HEIGHT;
-            const x1 = (srcNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
+            const x1 = (srcNode.positionX ?? triggerX) + CARD_WIDTH / 2;
             const y1 = (srcNode.positionY ?? 170) + srcHeight;
-            const x2 = (tgtNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
+            const x2 = (tgtNode.positionX ?? triggerX) + CARD_WIDTH / 2;
             const y2 = (tgtNode.positionY ?? 170) - 6;
 
             const isEdgeSelected =
@@ -422,32 +440,46 @@ const WorkflowCanvas = ({
             );
           })}
 
-          {/* Arrow from Tail Node (or Trigger) to "+ Add Workflow Steps" Pill */}
-          {mode === 'builder' && (
-            <path
-              d={buildBezierPath(
-                tailNode
-                  ? (tailNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2
-                  : TRIGGER_X + CARD_WIDTH / 2,
-                tailNode
-                  ? (tailNode.positionY ?? 170) + CARD_HEIGHT
-                  : TRIGGER_Y + 62,
-                addPillX + CARD_WIDTH / 2,
-                addPillY - 4
-              )}
-              stroke={COLORS.text.secondary}
-              strokeWidth="1.5"
-              strokeDasharray="4 3"
-              fill="none"
-              markerEnd="url(#wf-arrow)"
-            />
-          )}
+          {/* Dashed Arrow(s) from Leaf Node(s) (or Trigger) to "+ Add Workflow Steps" Pill */}
+          {mode === 'builder' &&
+            (leafNodes.length > 0 ? (
+              leafNodes.map((leaf) => (
+                <path
+                  key={`leaf-to-add-${leaf.pipelineId}`}
+                  d={buildBezierPath(
+                    (leaf.positionX ?? triggerX) + CARD_WIDTH / 2,
+                    (leaf.positionY ?? 170) + CARD_HEIGHT,
+                    addPillX + CARD_WIDTH / 2,
+                    addPillY - 4
+                  )}
+                  stroke={COLORS.text.secondary}
+                  strokeWidth="1.5"
+                  strokeDasharray="4 3"
+                  fill="none"
+                  markerEnd="url(#wf-arrow)"
+                />
+              ))
+            ) : (
+              <path
+                d={buildBezierPath(
+                  triggerX + CARD_WIDTH / 2,
+                  TRIGGER_Y + 62,
+                  addPillX + CARD_WIDTH / 2,
+                  addPillY - 4
+                )}
+                stroke={COLORS.text.secondary}
+                strokeWidth="1.5"
+                strokeDasharray="4 3"
+                fill="none"
+                markerEnd="url(#wf-arrow)"
+              />
+            ))}
 
           {/* Active Drag-to-Connect Line */}
           {connectingFrom && (() => {
             const srcNode = nodes.find((n) => n.pipelineId === connectingFrom.sourcePipelineId);
             if (!srcNode) return null;
-            const x1 = (srcNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
+            const x1 = (srcNode.positionX ?? triggerX) + CARD_WIDTH / 2;
             const y1 = (srcNode.positionY ?? 170) + CARD_HEIGHT;
             return (
               <path
@@ -464,9 +496,9 @@ const WorkflowCanvas = ({
 
         {/* '+' Icon on Trigger -> Primary Head Edge (Insert at Start of Chain) */}
         {mode === 'builder' && primaryHead && (() => {
-          const x1 = TRIGGER_X + CARD_WIDTH / 2;
+          const x1 = triggerX + CARD_WIDTH / 2;
           const y1 = TRIGGER_Y + 62;
-          const x2 = (primaryHead.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
+          const x2 = (primaryHead.positionX ?? triggerX) + CARD_WIDTH / 2;
           const y2 = (primaryHead.positionY ?? 170) - 6;
           const midX = (x1 + x2) / 2;
           const midY = (y1 + y2) / 2;
@@ -478,7 +510,7 @@ const WorkflowCanvas = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (onOpenAddStep) onOpenAddStep('__TRIGGER__');
+                if (onOpenAddStep) onOpenAddStep('__TRIGGER__', 'SERIES');
               }}
               title="Add pipeline step at start of chain"
               style={{
@@ -514,9 +546,9 @@ const WorkflowCanvas = ({
           if (!srcNode || !tgtNode) return null;
 
           const srcHeight = mode === 'monitor' ? 78 : CARD_HEIGHT;
-          const x1 = (srcNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
+          const x1 = (srcNode.positionX ?? triggerX) + CARD_WIDTH / 2;
           const y1 = (srcNode.positionY ?? 170) + srcHeight;
-          const x2 = (tgtNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
+          const x2 = (tgtNode.positionX ?? triggerX) + CARD_WIDTH / 2;
           const y2 = (tgtNode.positionY ?? 170) - 6;
 
           const midX = (x1 + x2) / 2;
@@ -567,9 +599,9 @@ const WorkflowCanvas = ({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (onOpenAddStep) onOpenAddStep(edge.sourcePipelineId);
+                    if (onOpenAddStep) onOpenAddStep(edge.sourcePipelineId, 'PARALLEL');
                   }}
-                  title={`Add pipeline step after ${srcNode.pipelineName}`}
+                  title={`Add pipeline step after ${srcNode.pipelineName} (parallel or series)`}
                   style={{
                     width: 22,
                     height: 22,
@@ -598,7 +630,7 @@ const WorkflowCanvas = ({
         <div
           style={{
             position: 'absolute',
-            left: TRIGGER_X,
+            left: triggerX,
             top: TRIGGER_Y,
             zIndex: 2,
           }}
@@ -615,7 +647,7 @@ const WorkflowCanvas = ({
 
         {/* Pipeline Step Node Cards */}
         {nodes.map((node, index) => {
-          const posX = node.positionX ?? TRIGGER_X;
+          const posX = node.positionX ?? triggerX;
           const posY = node.positionY ?? 170 + index * 145;
           const isSelected =
             selectedItem?.type === 'node' && selectedItem?.pipelineId === node.pipelineId;
@@ -634,10 +666,10 @@ const WorkflowCanvas = ({
             >
               <WorkflowNodeCard
                 node={node}
-                stepNumber={index + 1}
+                stepNumber={node.stepNumber || index + 1}
                 selected={isSelected}
                 isRunningNode={isRunning}
-                incomingEdge={incomingByTarget[node.pipelineId]}
+                incomingEdge={incomingByTarget[node.pipelineId]?.[0]}
                 mode={mode}
                 isConnecting={Boolean(connectingFrom)}
                 onMouseDown={(e) => handleNodeMouseDown(node.pipelineId, e)}
@@ -645,6 +677,7 @@ const WorkflowCanvas = ({
                 onStartConnect={handleStartConnect}
                 onCompleteConnect={handleCompleteConnect}
                 onRemove={onRemoveNode}
+                onAddStepAfter={(pid) => onOpenAddStep && onOpenAddStep(pid, 'PARALLEL')}
               />
             </div>
           );
@@ -665,10 +698,11 @@ const WorkflowCanvas = ({
             <AddWorkflowStepPill
               active={
                 selectedItem?.type === 'add' &&
-                selectedItem?.afterPipelineId === (tailNode ? tailNode.pipelineId : null)
+                selectedItem?.afterPipelineId === (defaultTailNode ? defaultTailNode.pipelineId : null)
               }
               onClick={() =>
-                onOpenAddStep && onOpenAddStep(tailNode ? tailNode.pipelineId : null)
+                onOpenAddStep &&
+                onOpenAddStep(defaultTailNode ? defaultTailNode.pipelineId : null, 'PARALLEL')
               }
             />
           </div>
