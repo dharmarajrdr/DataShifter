@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ApiGuard,
@@ -147,7 +147,7 @@ const WorkflowDashboard = () => {
       <div>
         <PageHeader
           title="Workflows"
-          subtitle="Orchestrate multiple validated pipelines in sequential series execution"
+          subtitle="Orchestrate multiple validated pipelines in series and parallel execution"
           actions={
             hasPermission('workflow:create') && (
               <Button variant="primary" onClick={() => navigate('/workflows/new')}>
@@ -245,170 +245,358 @@ const WorkflowDashboard = () => {
           </div>
         </div>
 
-        {/* Workflows Table */}
-        <div
-          style={{
-            background: COLORS.background.primary,
-            border: `1px solid ${COLORS.border.light}`,
-            borderRadius: BORDER_RADIUS.lg,
-            boxShadow: SHADOWS.sm,
-            overflow: 'hidden',
-          }}
-        >
-          {loading ? (
-            <div style={{ padding: 48, textAlign: 'center', color: COLORS.text.secondary }}>
-              <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }} />
-              Loading workflows...
+        {/* Workflows Grid View */}
+        {loading ? (
+          <div
+            style={{
+              padding: 48,
+              textAlign: 'center',
+              color: COLORS.text.secondary,
+              background: COLORS.background.primary,
+              border: `1px solid ${COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.lg,
+              boxShadow: SHADOWS.sm,
+            }}
+          >
+            <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }} />
+            Loading workflows...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div
+            style={{
+              padding: 56,
+              textAlign: 'center',
+              background: COLORS.background.primary,
+              border: `1px solid ${COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.lg,
+              boxShadow: SHADOWS.sm,
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: COLORS.accent.purpleLight,
+                color: COLORS.brand.primary,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 12,
+              }}
+            >
+              <i className="fa-solid fa-diagram-project" style={{ fontSize: 20 }} />
             </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: 56, textAlign: 'center' }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  background: COLORS.accent.purpleLight,
-                  color: COLORS.brand.primary,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 12,
-                }}
-              >
-                <i className="fa-solid fa-diagram-project" style={{ fontSize: 20 }} />
-              </div>
-              <h3 style={{ margin: '0 0 6px', fontSize: FONT.size.lg, color: COLORS.text.primary }}>
-                No workflows found
-              </h3>
-              <p style={{ margin: '0 0 18px', fontSize: FONT.size.sm, color: COLORS.text.secondary }}>
-                Chain multiple validated pipelines together to migrate parent and child tables in sequence.
-              </p>
-              {hasPermission('workflow:create') && (
-                <Button variant="primary" onClick={() => navigate('/workflows/new')}>
-                  <i className="fa-solid fa-plus" style={{ marginRight: 6 }} />
-                  Create your first workflow
-                </Button>
-              )}
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr
+            <h3 style={{ margin: '0 0 6px', fontSize: FONT.size.lg, color: COLORS.text.primary }}>
+              No workflows found
+            </h3>
+            <p style={{ margin: '0 0 18px', fontSize: FONT.size.sm, color: COLORS.text.secondary }}>
+              Chain multiple validated pipelines together in series or parallel to orchestrate data migrations.
+            </p>
+            {hasPermission('workflow:create') && (
+              <Button variant="primary" onClick={() => navigate('/workflows/new')}>
+                <i className="fa-solid fa-plus" style={{ marginRight: 6 }} />
+                Create your first workflow
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+              gap: SPACING.md,
+            }}
+          >
+            {filtered.map((wf) => {
+              const chainNames = wf.orderedPipelineNames || [];
+              const canRun = wf.singleChainReady && wf.status !== 'RUNNING';
+              const isBusy = actionBusyId === wf.id;
+              const progressVal = wf.overallProgress ?? wf.progress ?? 0;
+              const updatedDate = wf.updatedAt || wf.createdAt;
+              const formattedDate = updatedDate
+                ? new Date(updatedDate).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })
+                : null;
+
+              return (
+                <div
+                  key={wf.id}
+                  onClick={() => navigate(`/workflows/${wf.id}/monitor`)}
                   style={{
-                    background: COLORS.background.secondary,
-                    borderBottom: `1px solid ${COLORS.border.light}`,
-                    textAlign: 'left',
-                    fontSize: FONT.size.xs,
-                    color: COLORS.text.secondary,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.4px',
+                    background: COLORS.background.primary,
+                    border: `1px solid ${COLORS.border.light}`,
+                    borderRadius: BORDER_RADIUS.lg,
+                    boxShadow: SHADOWS.sm,
+                    padding: 18,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: 14,
+                    cursor: 'pointer',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.brand.primary;
+                    e.currentTarget.style.boxShadow = SHADOWS.md;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.border.light;
+                    e.currentTarget.style.boxShadow = SHADOWS.sm;
                   }}
                 >
-                  <th style={{ padding: '12px 16px' }}>Workflow</th>
-                  <th style={{ padding: '12px 16px' }}>Pipeline Chain (Series Order)</th>
-                  <th style={{ padding: '12px 16px' }}>Status</th>
-                  <th style={{ padding: '12px 16px', width: 150 }}>Progress</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((wf) => {
-                  const chainNames = wf.orderedPipelineNames || [];
-                  const canRun = wf.singleChainReady && wf.status !== 'RUNNING';
-                  const isBusy = actionBusyId === wf.id;
-
-                  return (
-                    <tr
-                      key={wf.id}
-                      onClick={() => navigate(`/workflows/${wf.id}/monitor`)}
+                  {/* Top Section: Header, Description, Badges */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div
                       style={{
-                        borderBottom: `1px solid ${COLORS.border.light}`,
-                        cursor: 'pointer',
-                        transition: 'background 0.12s ease',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: 10,
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background = COLORS.background.secondary)
-                      }
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <td style={{ padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: FONT.size.md,
-                            fontWeight: FONT.weight.semibold,
-                            color: COLORS.text.primary,
-                          }}
-                        >
-                          {wf.name}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: FONT.size.xs,
-                            color: COLORS.text.tertiary,
-                            marginTop: 2,
+                            width: 36,
+                            height: 36,
+                            borderRadius: BORDER_RADIUS.md,
+                            background: COLORS.accent.purpleLight,
+                            color: COLORS.brand.primary,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 6,
+                            justifyContent: 'center',
+                            flexShrink: 0,
                           }}
                         >
-                          <span>{wf.namespaceName || 'Default'}</span>
-                          <span>·</span>
-                          <span>{wf.pipelineCount || 0} pipelines</span>
+                          <i className="fa-solid fa-diagram-project" style={{ fontSize: 15 }} />
                         </div>
-                      </td>
-
-                      <td style={{ padding: '14px 16px' }}>
-                        {chainNames.length === 0 ? (
-                          <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-                            No pipelines added
-                          </span>
-                        ) : (
+                        <div style={{ minWidth: 0 }}>
                           <div
                             style={{
+                              fontSize: FONT.size.md,
+                              fontWeight: FONT.weight.semibold,
+                              color: COLORS.text.primary,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                            title={wf.name}
+                          >
+                            {wf.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: FONT.size.xs,
+                              color: COLORS.text.tertiary,
+                              marginTop: 2,
                               display: 'flex',
                               alignItems: 'center',
                               gap: 6,
-                              flexWrap: 'wrap',
                             }}
                           >
-                            {chainNames.map((pName, idx) => (
-                              <React.Fragment key={`${wf.id}-p-${idx}`}>
-                                <span
-                                  style={{
-                                    fontSize: FONT.size.xs,
-                                    fontWeight: FONT.weight.medium,
-                                    padding: '3px 9px',
-                                    borderRadius: BORDER_RADIUS.sm,
-                                    background: COLORS.accent.purpleLight,
-                                    color: COLORS.accent.purpleText,
-                                  }}
-                                >
-                                  {pName}
+                            <span>{wf.namespaceName || 'Default'}</span>
+                            <span>·</span>
+                            <span>
+                              {wf.pipelineCount || 0}{' '}
+                              {(wf.pipelineCount || 0) === 1 ? 'pipeline' : 'pipelines'}
+                            </span>
+                            {wf.chainCount > 1 && (
+                              <>
+                                <span>·</span>
+                                <span style={{ color: COLORS.status.warningText }}>
+                                  {wf.chainCount} chains
                                 </span>
-                                {idx < chainNames.length - 1 && (
-                                  <i
-                                    className="fa-solid fa-arrow-right"
-                                    style={{ fontSize: 10, color: COLORS.text.tertiary }}
-                                  />
-                                )}
-                              </React.Fragment>
-                            ))}
+                              </>
+                            )}
                           </div>
-                        )}
-                      </td>
+                        </div>
+                      </div>
+                      <StatusBadge status={wf.status} />
+                    </div>
 
-                      <td style={{ padding: '14px 16px' }}>
-                        <StatusBadge status={wf.status} />
-                      </td>
+                    {wf.description && (
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: FONT.size.xs,
+                          color: COLORS.text.secondary,
+                          lineHeight: 1.4,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {wf.description}
+                      </p>
+                    )}
 
-                      <td style={{ padding: '14px 16px' }}>
-                        <ProgressBar value={wf.progress || 0} status={wf.status} />
-                      </td>
-
-                      {/* <td
-                      style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}
-                      onClick={(e) => e.stopPropagation()}
+                    {/* Member Pipeline Steps Preview */}
+                    <div
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: BORDER_RADIUS.md,
+                        background: COLORS.background.secondary,
+                        border: `1px solid ${COLORS.border.light}`,
+                        minHeight: 42,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {chainNames.length === 0 ? (
+                        <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
+                          <i className="fa-solid fa-circle-info" style={{ marginRight: 6 }} />
+                          No pipelines linked yet
+                        </span>
+                      ) : (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          {chainNames.slice(0, 4).map((pName, idx) => (
+                            <span
+                              key={`${wf.id}-p-${idx}`}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontSize: '11px',
+                                  fontWeight: FONT.weight.medium,
+                                  padding: '2px 8px',
+                                  borderRadius: BORDER_RADIUS.sm,
+                                  background: COLORS.background.primary,
+                                  border: `1px solid ${COLORS.border.medium}`,
+                                  color: COLORS.text.primary,
+                                  maxWidth: 150,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                                title={pName}
+                              >
+                                {pName}
+                              </span>
+                              {idx < Math.min(chainNames.length, 4) - 1 && (
+                                <i
+                                  className="fa-solid fa-arrow-right"
+                                  style={{ fontSize: 9, color: COLORS.text.tertiary }}
+                                />
+                              )}
+                            </span>
+                          ))}
+                          {chainNames.length > 4 && (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: FONT.weight.semibold,
+                                color: COLORS.brand.primary,
+                                background: COLORS.accent.purpleLight,
+                                padding: '2px 7px',
+                                borderRadius: BORDER_RADIUS.pill,
+                              }}
+                            >
+                              +{chainNames.length - 4} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Section: Progress, Owner & Quick Actions */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '11px',
+                          color: COLORS.text.secondary,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span>Execution Progress</span>
+                        <span style={{ fontWeight: FONT.weight.medium }}>
+                          {wf.singleChainReady ? 'Single Chain Ready' : 'Draft Topology'}
+                        </span>
+                      </div>
+                      <ProgressBar value={progressVal} status={wf.status} />
+                    </div>
+
+                    <div
+                      style={{
+                        paddingTop: 10,
+                        borderTop: `1px solid ${COLORS.border.light}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 7,
+                          fontSize: FONT.size.xs,
+                          color: COLORS.text.secondary,
+                          minWidth: 0,
+                        }}
+                      >
+                        <div
+                          title={wf.ownerName || 'Owner'}
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: '50%',
+                            background: wf.ownerColor || COLORS.brand.primary,
+                            color: '#fff',
+                            fontSize: '10px',
+                            fontWeight: FONT.weight.semibold,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {wf.ownerInitials || 'U'}
+                        </div>
+                        <span
+                          style={{
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {wf.ownerName || 'Unknown'}
+                        </span>
+                        {formattedDate && (
+                          <>
+                            <span style={{ color: COLORS.text.tertiary }}>·</span>
+                            <span style={{ color: COLORS.text.tertiary, flexShrink: 0 }}>
+                              {formattedDate}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      <div
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {wf.status === 'RUNNING' ? (
                           <>
                             {hasPermission('workflow:pause') && (
@@ -418,8 +606,7 @@ const WorkflowDashboard = () => {
                                 disabled={isBusy}
                                 onClick={(e) => handleAction(wf, 'PAUSE', e)}
                               >
-                                <i className="fa-solid fa-pause" style={{ marginRight: 4 }} />
-                                Pause
+                                <i className="fa-solid fa-pause" />
                               </Button>
                             )}
                             {hasPermission('workflow:stop') && (
@@ -429,8 +616,7 @@ const WorkflowDashboard = () => {
                                 disabled={isBusy}
                                 onClick={(e) => handleAction(wf, 'STOP', e)}
                               >
-                                <i className="fa-solid fa-stop" style={{ marginRight: 4 }} />
-                                Stop
+                                <i className="fa-solid fa-stop" />
                               </Button>
                             )}
                           </>
@@ -443,8 +629,7 @@ const WorkflowDashboard = () => {
                                 disabled={isBusy}
                                 onClick={(e) => handleAction(wf, 'RESUME', e)}
                               >
-                                <i className="fa-solid fa-play" style={{ marginRight: 4 }} />
-                                Resume
+                                <i className="fa-solid fa-play" />
                               </Button>
                             )}
                             {hasPermission('workflow:stop') && (
@@ -454,8 +639,7 @@ const WorkflowDashboard = () => {
                                 disabled={isBusy}
                                 onClick={(e) => handleAction(wf, 'STOP', e)}
                               >
-                                <i className="fa-solid fa-stop" style={{ marginRight: 4 }} />
-                                Stop
+                                <i className="fa-solid fa-stop" />
                               </Button>
                             )}
                           </>
@@ -473,7 +657,9 @@ const WorkflowDashboard = () => {
                               onClick={(e) => handleAction(wf, 'START', e)}
                             >
                               <i className="fa-solid fa-play" style={{ marginRight: 4 }} />
-                              {wf.status === 'COMPLETED' || wf.status === 'FAILED' || wf.status === 'STOPPED'
+                              {wf.status === 'COMPLETED' ||
+                              wf.status === 'FAILED' ||
+                              wf.status === 'STOPPED'
                                 ? 'Re-Run'
                                 : 'Run'}
                             </Button>
@@ -486,9 +672,9 @@ const WorkflowDashboard = () => {
                             variant="secondary"
                             disabled={wf.status === 'RUNNING' || wf.status === 'PAUSED'}
                             onClick={() => navigate(`/workflows/${wf.id}/edit`)}
+                            title="Edit workflow"
                           >
-                            <i className="fa-solid fa-pen-to-square" style={{ marginRight: 4 }} />
-                            Edit
+                            <i className="fa-solid fa-pen-to-square" />
                           </Button>
                         )}
 
@@ -507,14 +693,13 @@ const WorkflowDashboard = () => {
                           </Button>
                         )}
                       </div>
-                    </td> */}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <ConfirmationModal
           isOpen={Boolean(deleteTarget)}
