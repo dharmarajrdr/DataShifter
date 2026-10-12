@@ -9,6 +9,7 @@ const TRIGGER_X = 360;
 const TRIGGER_Y = 44;
 const CANVAS_PAD_X = 480;
 const CANVAS_PAD_Y = 320;
+const BASE_SCALE = 0.8;
 
 const EDGE_BADGE_MAP = {
   STOP_WORKFLOW: {
@@ -50,7 +51,8 @@ const WorkflowCanvas = ({
   const scrollContainerRef = useRef(null);
   const containerRef = useRef(null);
   const hasInitializedScroll = useRef(false);
-  const [zoom, setZoom] = useState(0.9);
+  const [zoom, setZoom] = useState(1);
+  const effectiveScale = zoom * BASE_SCALE;
   const [draggingNode, setDraggingNode] = useState(null); // { pipelineId, startMouseX, startMouseY, origX, origY, moved }
   const [connectingFrom, setConnectingFrom] = useState(null); // { sourcePipelineId, mouseX, mouseY }
 
@@ -75,8 +77,8 @@ const WorkflowCanvas = ({
       requestAnimationFrame(() => {
         const scrollEl = scrollContainerRef.current;
         if (!scrollEl) return;
-        const centerX = CANVAS_PAD_X + (x + width / 2) * zoom;
-        const centerY = CANVAS_PAD_Y + (y + height / 2) * zoom;
+        const centerX = CANVAS_PAD_X + (x + width / 2) * effectiveScale;
+        const centerY = CANVAS_PAD_Y + (y + height / 2) * effectiveScale;
         const targetLeft = Math.max(0, centerX - scrollEl.clientWidth / 2);
         const targetTop = Math.max(0, centerY - scrollEl.clientHeight / 2);
         scrollEl.scrollTo({
@@ -86,7 +88,7 @@ const WorkflowCanvas = ({
         });
       });
     },
-    [zoom]
+    [effectiveScale]
   );
 
   const centerOnNode = useCallback(
@@ -108,11 +110,11 @@ const WorkflowCanvas = ({
     const scrollEl = scrollContainerRef.current;
     if (!scrollEl) return;
     hasInitializedScroll.current = true;
-    const initialCenterX = CANVAS_PAD_X + (triggerX + CARD_WIDTH / 2) * zoom;
+    const initialCenterX = CANVAS_PAD_X + (triggerX + CARD_WIDTH / 2) * effectiveScale;
     const initialLeft = Math.max(0, initialCenterX - scrollEl.clientWidth / 2);
     const initialTop = Math.max(0, CANVAS_PAD_Y - 24);
     scrollEl.scrollTo({ left: initialLeft, top: initialTop, behavior: 'auto' });
-  }, [triggerX, zoom]);
+  }, [triggerX, effectiveScale]);
 
   const handleNodeMouseDown = (pipelineId, e) => {
     if (mode !== 'builder' || e.button !== 0) return;
@@ -134,8 +136,8 @@ const WorkflowCanvas = ({
     if (mode !== 'builder') return;
     e.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
-    const x = rect ? (e.clientX - rect.left) / zoom : 0;
-    const y = rect ? (e.clientY - rect.top) / zoom : 0;
+    const x = rect ? (e.clientX - rect.left) / effectiveScale : 0;
+    const y = rect ? (e.clientY - rect.top) / effectiveScale : 0;
     setConnectingFrom({ sourcePipelineId, mouseX: x, mouseY: y });
   };
 
@@ -157,8 +159,8 @@ const WorkflowCanvas = ({
     }
 
     if (draggingNode && onMoveNode) {
-      const dx = (e.clientX - draggingNode.startMouseX) / zoom;
-      const dy = (e.clientY - draggingNode.startMouseY) / zoom;
+      const dx = (e.clientX - draggingNode.startMouseX) / effectiveScale;
+      const dy = (e.clientY - draggingNode.startMouseY) / effectiveScale;
       const moved = Math.abs(dx) > 3 || Math.abs(dy) > 3 || draggingNode.moved;
       if (moved) {
         setDraggingNode((prev) => (prev ? { ...prev, moved: true } : null));
@@ -174,8 +176,8 @@ const WorkflowCanvas = ({
         prev
           ? {
               ...prev,
-              mouseX: (e.clientX - rect.left) / zoom,
-              mouseY: (e.clientY - rect.top) / zoom,
+              mouseX: (e.clientX - rect.left) / effectiveScale,
+              mouseY: (e.clientY - rect.top) / effectiveScale,
             }
           : null
       );
@@ -396,8 +398,8 @@ const WorkflowCanvas = ({
         onClick={() => onSelectTrigger && onSelectTrigger()}
         style={{
           position: 'relative',
-          width: canvasWidth * zoom + CANVAS_PAD_X * 2,
-          height: canvasHeight * zoom + CANVAS_PAD_Y * 2,
+          width: canvasWidth * effectiveScale + CANVAS_PAD_X * 2,
+          height: canvasHeight * effectiveScale + CANVAS_PAD_Y * 2,
         }}
       >
         {/* Scalable Canvas Surface */}
@@ -409,7 +411,7 @@ const WorkflowCanvas = ({
             top: CANVAS_PAD_Y,
             width: canvasWidth,
             height: canvasHeight,
-            transform: `scale(${zoom})`,
+            transform: `scale(${effectiveScale})`,
             transformOrigin: 'top left',
           }}
         >
