@@ -4,6 +4,7 @@ import { FRSC, FRBC } from '../constants/layouts';
 import { PageHeader, Button } from '../components/common';
 import { authApi } from '../services/authApi';
 import { useAuth } from '../contexts/AuthContext';
+import AiKeyManagerSection from '../components/ai/AiKeyManagerSection';
 
 const Field = ({ label, value, editable, onChange, type = 'text', hint }) => (
   <div style={{ marginBottom: SPACING.md }}>
@@ -135,6 +136,7 @@ const UserProfile = () => {
         <div style={{
           padding: SPACING.lg, background: COLORS.background.primary,
           border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.lg,
+          marginBottom: SPACING.lg,
         }}>
           <p style={{ fontSize: FONT.size.base, fontWeight: FONT.weight.medium, marginBottom: SPACING.md }}>Security</p>
           <div style={{ ...FRBC, marginBottom: SPACING.sm }}>
@@ -156,6 +158,9 @@ const UserProfile = () => {
             </div>
           )}
         </div>
+
+        {/* User-level LLM API Keys */}
+        <AiKeyManagerSection scope="USER" canEdit={true} />
       </div>
     </div>
   );

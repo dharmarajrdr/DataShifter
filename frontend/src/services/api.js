@@ -421,3 +421,4 @@ export const workflowApi = {
 };
 
 export { authApi } from './authApi';
+export { aiApi } from './aiApi';

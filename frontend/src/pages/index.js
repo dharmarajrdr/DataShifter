@@ -1,3 +1,4 @@
+export { default as BeetelAgentPage } from './BeetelAgentPage';
 export { default as BillingPage } from './BillingPage';
 export { default as ColumnMappingBoard } from './ColumnMappingBoard';
 export { default as ConnectionsManager } from './ConnectionsManager';

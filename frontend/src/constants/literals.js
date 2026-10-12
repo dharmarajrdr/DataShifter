@@ -12,7 +12,17 @@ export const NAV = {
   workflows: 'Workflows',
   connections: 'Connections',
   udfs: 'UDF library',
+  agent: 'Beetel AI',
   settings: 'Settings'
+};
+
+export const AGENT = {
+  name: 'Beetel',
+  title: 'Beetel AI',
+  subtitle: 'Agentic pipeline & workflow architect, debugger, and assistant',
+  newChat: '+ New conversation',
+  uploadMarkdown: 'Attach .md spec',
+  placeholder: 'Ask Beetel to generate a pipeline from Markdown, debug errors, or inspect workflows...',
 };
 
 export const PIPELINE = {

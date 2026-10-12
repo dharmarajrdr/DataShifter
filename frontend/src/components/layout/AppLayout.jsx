@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import BeetelSplitPanel from '../ai/BeetelSplitPanel';
 import { SIDEBAR_WIDTH, SPACING } from '../../constants/design';
 
 const AppLayout = () => (
@@ -15,7 +16,9 @@ const AppLayout = () => (
     }}>
       <Outlet />
     </div>
+    <BeetelSplitPanel />
   </div>
 );
 
 export default AppLayout;
+
