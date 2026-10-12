@@ -20,6 +20,8 @@ import com.datashifter.pipeline.services.interfaces.WorkflowService;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -52,7 +54,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional
-    public WorkflowResponse create(CreateWorkflowRequest req) {
+    @Tool(description = "Create a new DAG workflow orchestrating multiple pipelines with optional initial nodes and directed dependency edges.")
+    public WorkflowResponse create(
+            @ToolParam(description = "Workflow creation request with name, description, namespaceId, nodes, and edges") CreateWorkflowRequest req) {
         String orgId = UserContext.getCurrentOrgId();
         long currentCount = workflowRepository.countByOrgId(orgId);
         limitChecker.assertCanCreateWorkflow(orgId, currentCount);
@@ -90,7 +94,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional
-    public WorkflowResponse update(String id, UpdateWorkflowRequest req) {
+    @Tool(description = "Update a workflow's name, description, namespaceId, or DAG nodes and edges by workflow ID.")
+    public WorkflowResponse update(
+            @ToolParam(description = "The unique ID of the workflow to update") String id,
+            @ToolParam(description = "Updated workflow fields including name, description, namespaceId, nodes, and edges") UpdateWorkflowRequest req) {
         Workflow workflow = findEntity(id);
         assertNotRunningOrPaused(workflow, "Cannot update workflow while it is running or paused.");
 
@@ -124,7 +131,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional
-    public WorkflowResponse saveCanvas(String id, SaveWorkflowCanvasRequest req) {
+    @Tool(description = "Save the DAG canvas layout (pipeline nodes and directed dependency edges) for a workflow and validate DAG topology.")
+    public WorkflowResponse saveCanvas(
+            @ToolParam(description = "The unique ID of the workflow") String id,
+            @ToolParam(description = "Canvas state containing pipeline nodes (pipelineId, positionX, positionY) and directed edges (sourcePipelineId, targetPipelineId)") SaveWorkflowCanvasRequest req) {
         Workflow workflow = findEntity(id);
         assertNotRunningOrPaused(workflow, "Cannot modify workflow steps while the workflow is running or paused.");
 
@@ -139,7 +149,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional
-    public WorkflowResponse addPipelines(String id, AddWorkflowPipelinesRequest req) {
+    @Tool(description = "Add one or more validated pipelines as nodes to an existing workflow.")
+    public WorkflowResponse addPipelines(
+            @ToolParam(description = "The unique ID of the workflow") String id,
+            @ToolParam(description = "Request containing list of pipelineIds to add to the workflow") AddWorkflowPipelinesRequest req) {
         Workflow workflow = findEntity(id);
         assertNotRunningOrPaused(workflow, "Cannot add pipelines while the workflow is running or paused.");
 
@@ -182,7 +195,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional
-    public WorkflowResponse removePipeline(String id, String pipelineId) {
+    @Tool(description = "Remove a pipeline node and its connected edges from a workflow.")
+    public WorkflowResponse removePipeline(
+            @ToolParam(description = "The unique ID of the workflow") String id,
+            @ToolParam(description = "The unique ID of the pipeline to remove from the workflow") String pipelineId) {
         Workflow workflow = findEntity(id);
         assertNotRunningOrPaused(workflow, "Cannot remove a pipeline while the workflow is running or paused.");
 
@@ -214,12 +230,15 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional(readOnly = true)
-    public WorkflowResponse getById(String id) {
+    @Tool(description = "Get full details of a workflow by ID, including its status, DAG pipeline nodes, directed dependency edges, topological execution order, and any topology validation errors.")
+    public WorkflowResponse getById(
+            @ToolParam(description = "The unique ID of the workflow") String id) {
         return toFullResponse(findEntity(id));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Tool(description = "List all workflows in the current organization with their summary status, pipeline count, progress, and namespace.")
     public List<WorkflowSummaryResponse> getAll() {
         String orgId = UserContext.getCurrentOrgId();
         return workflowRepository.findByOrgIdOrderByCreatedAtDesc(orgId)
@@ -230,7 +249,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PipelineSummaryResponse> getEligiblePipelines(String workflowId) {
+    @Tool(description = "List all validated pipelines in the organization that are eligible to be added to a workflow (not locked to another workflow).")
+    public List<PipelineSummaryResponse> getEligiblePipelines(
+            @ToolParam(description = "Optional workflow ID when editing an existing workflow") String workflowId) {
         String orgId = UserContext.getCurrentOrgId();
         List<Pipeline> allPipelines = pipelineRepository.findByOrgId(orgId);
 
@@ -263,7 +284,9 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional
-    public void delete(String id) {
+    @Tool(description = "Delete a workflow by ID if it is not currently running or paused.")
+    public void delete(
+            @ToolParam(description = "The unique ID of the workflow to delete") String id) {
         Workflow workflow = findEntity(id);
         assertNotRunningOrPaused(workflow, "Cannot delete a running or paused workflow. Stop it first.");
         edgeRepository.deleteByWorkflow_Id(id);
@@ -277,7 +300,10 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional
-    public WorkflowResponse performAction(String id, WorkflowActionRequest request) {
+    @Tool(description = "Execute a lifecycle action on a workflow (START, PAUSE, RESUME, STOP, RERUN_FAILED_STAGE, RERUN_FROM_CHECKPOINT).")
+    public WorkflowResponse performAction(
+            @ToolParam(description = "The unique ID of the workflow") String id,
+            @ToolParam(description = "The workflow action request containing action (START, PAUSE, RESUME, STOP, RERUN_FAILED_STAGE, RERUN_FROM_CHECKPOINT)") WorkflowActionRequest request) {
         Workflow workflow = findEntity(id);
         if (request == null || request.getAction() == null) {
             throw new DatashifterException("Workflow action is required.");

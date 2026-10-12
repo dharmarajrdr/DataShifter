@@ -12,6 +12,8 @@ import com.datashifter.udf.storage.UdfArtifactStorage;
 import com.datashifter.udf.validation.UdfArtifactValidator;
 import com.datashifter.udf.validation.UdfFunctionDiscovery;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -116,6 +118,7 @@ public class UdfRegistryService {
     }
 
     @Transactional(readOnly = true)
+    @Tool(description = "List all registered User-Defined Functions (UDFs) and their discovered Java classes, method names, parameter types, and return types in the current organization.")
     public List<UdfResponse> getAll() {
         Map<String, UdfReferenceCounts> refCounts = fetchReferenceCounts();
         return repository.findByOrganizationIdOrderByUpdatedAtDesc(requireContext(UserContext.getCurrentOrgId(), "organization"))
@@ -123,7 +126,9 @@ public class UdfRegistryService {
     }
 
     @Transactional
-    public void delete(String id) {
+    @Tool(description = "Delete a registered User-Defined Function (UDF) by ID if it is not referenced in any pipeline column mapping.")
+    public void delete(
+            @ToolParam(description = "The unique ID of the UDF to delete") String id) {
         String organizationId = requireContext(UserContext.getCurrentOrgId(), "organization");
         UdfDefinition entity = repository.findById(id).orElseThrow(() -> new DatashifterException("UDF not found"));
         if (!organizationId.equals(entity.getOrganizationId())) throw new DatashifterException("UDF not found or access denied");

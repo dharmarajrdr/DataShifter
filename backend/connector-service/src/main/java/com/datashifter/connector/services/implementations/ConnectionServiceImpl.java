@@ -17,6 +17,8 @@ import com.datashifter.connector.spi.interfaces.ConnectionConfig;
 import com.datashifter.connector.spi.interfaces.DatabaseConnector;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,7 +42,9 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional
-    public ConnectionResponse create(CreateConnectionRequest request) {
+    @Tool(description = "Create a new database connection with name, dbType (POSTGRESQL, MYSQL, ORACLE, SQL_SERVER, SPANNER), host, port, databaseName, schemaName, username, and password.")
+    public ConnectionResponse create(
+            @ToolParam(description = "Connection creation parameters including name, dbType, host, port, databaseName, schemaName, username, and password") CreateConnectionRequest request) {
         // Enforce subscription limit
         String orgId = UserContext.getCurrentOrgId();
         long currentCount = repository.findByOrgId(orgId).size();
@@ -67,7 +71,10 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional
-    public ConnectionResponse update(String id, UpdateConnectionRequest request) {
+    @Tool(description = "Update an existing database connection's name, host, port, databaseName, schemaName, username, or password by connection ID.")
+    public ConnectionResponse update(
+            @ToolParam(description = "The unique ID of the database connection to update") String id,
+            @ToolParam(description = "Updated connection fields") UpdateConnectionRequest request) {
         Connection entity = findEntity(id);
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getHost() != null) entity.setHost(request.getHost());
@@ -83,7 +90,9 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional(readOnly = true)
-    public ConnectionResponse getById(String id) {
+    @Tool(description = "Get details, connectivity status, table count, and referenced pipelines for a specific database connection by ID.")
+    public ConnectionResponse getById(
+            @ToolParam(description = "The unique ID of the database connection") String id) {
         Connection entity = findEntity(id);
         List<String> pipelines = pipelineRepository.findPipelineNamesByConnectionId(id);
         return toResponse(entity, pipelines.size(), pipelines);
@@ -91,6 +100,7 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional(readOnly = true)
+    @Tool(description = "List all database connections configured in the current organization with their DB type, host, database name, status, and pipeline usage.")
     public List<ConnectionResponse> getAll() {
         String orgId = UserContext.getCurrentOrgId();
         List<Connection> connections = repository.findByOrgId(orgId);
@@ -122,7 +132,9 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional
-    public void delete(String id) {
+    @Tool(description = "Delete a database connection by ID if it is not referenced by any pipeline.")
+    public void delete(
+            @ToolParam(description = "The unique ID of the database connection to delete") String id) {
         Connection entity = findEntity(id);
         List<String> pipelineNames = pipelineRepository.findPipelineNamesByConnectionId(id);
         if (!pipelineNames.isEmpty()) {
@@ -138,7 +150,9 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional
-    public TestConnectionResponse testConnection(String id) {
+    @Tool(description = "Test connectivity and measure latency for a database connection by ID, updating its status and discovered table count.")
+    public TestConnectionResponse testConnection(
+            @ToolParam(description = "The unique ID of the database connection to test") String id) {
         Connection entity = findEntity(id);
         DatabaseConnector connector = connectorFactory.getConnector(entity.getDbType());
         ConnectionConfig config = buildConfig(entity);
@@ -165,7 +179,9 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<String> listTables(String connectionId) {
+    @Tool(description = "List all table names present in the database for a given connection ID.")
+    public List<String> listTables(
+            @ToolParam(description = "The unique ID of the database connection") String connectionId) {
         Connection entity = findEntity(connectionId);
         DatabaseConnector connector = connectorFactory.getConnector(entity.getDbType());
         return connector.listTables(buildConfig(entity));
@@ -173,7 +189,10 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional(readOnly = true)
-    public TableMetadata getTableMetadata(String connectionId, String tableName) {
+    @Tool(description = "Get table schema metadata (columns, data types, nullable flags, primary key flags, and row count) for a table in a database connection.")
+    public TableMetadata getTableMetadata(
+            @ToolParam(description = "The unique ID of the database connection") String connectionId,
+            @ToolParam(description = "The exact table name to inspect") String tableName) {
         Connection entity = findEntity(connectionId);
         DatabaseConnector connector = connectorFactory.getConnector(entity.getDbType());
         return connector.getTableMetadata(buildConfig(entity), tableName);
@@ -181,7 +200,10 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ForeignKeyMetadata> getForeignKeys(String connectionId, String tableName) {
+    @Tool(description = "Get foreign key constraints (column, referenced parent table, referenced parent column, constraint name) for a table in a database connection.")
+    public List<ForeignKeyMetadata> getForeignKeys(
+            @ToolParam(description = "The unique ID of the database connection") String connectionId,
+            @ToolParam(description = "The exact table name to inspect foreign keys for") String tableName) {
         Connection entity = findEntity(connectionId);
         DatabaseConnector connector = connectorFactory.getConnector(entity.getDbType());
         return connector.getForeignKeys(buildConfig(entity), tableName);

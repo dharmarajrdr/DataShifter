@@ -20,6 +20,8 @@ import com.datashifter.pipeline.statemachine.PipelineStateMachine;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -56,7 +58,9 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional
-    public PipelineResponse create(CreatePipelineRequest req) {
+    @Tool(description = "Create a new data migration pipeline with sourceConnectionId, targetConnectionId, chunkSize, defaultWriteMode (INSERT, UPSERT, REPLACE, INSERT_IGNORE), and initial source→target table pairs.")
+    public PipelineResponse create(
+            @ToolParam(description = "Pipeline creation parameters including name, description, namespaceId, sourceConnectionId, targetConnectionId, chunkSize, defaultWriteMode, and tables") CreatePipelineRequest req) {
         // Enforce subscription limit
         String orgId = UserContext.getCurrentOrgId();
         long currentCount = repository.findByOrgId(orgId).size();
@@ -139,7 +143,10 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional
-    public PipelineResponse update(String id, UpdatePipelineRequest req) {
+    @Tool(description = "Update an existing pipeline's settings (name, description, chunkSize, defaultWriteMode, ignoreExceptions, maxErrorThreshold, logSourceRow, sourcePoolSize, targetPoolSize, tableWriteModeOverrides) by pipeline ID.")
+    public PipelineResponse update(
+            @ToolParam(description = "The unique ID of the pipeline to update") String id,
+            @ToolParam(description = "Updated pipeline settings") UpdatePipelineRequest req) {
         Pipeline entity = findEntity(id);
 
         if (entity.getStatus() == PipelineStatus.RUNNING) {
@@ -190,7 +197,10 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional
-    public PipelineResponse addTablePair(String pipelineId, AddTablePairRequest request) {
+    @Tool(description = "Add a new sourceTable → targetTable mapping pair to an existing pipeline.")
+    public PipelineResponse addTablePair(
+            @ToolParam(description = "The unique ID of the pipeline") String pipelineId,
+            @ToolParam(description = "Request containing sourceTable and targetTable names") AddTablePairRequest request) {
         Pipeline pipeline = findEntity(pipelineId);
 
         // Check for duplicate
@@ -231,7 +241,10 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional
-    public PipelineResponse removeTablePair(String pipelineId, String pipelineTableId) {
+    @Tool(description = "Remove a source→target table pair from a pipeline by pipelineId and pipelineTableId.")
+    public PipelineResponse removeTablePair(
+            @ToolParam(description = "The unique ID of the pipeline") String pipelineId,
+            @ToolParam(description = "The unique ID of the pipelineTable entry to remove") String pipelineTableId) {
         Pipeline pipeline = findEntity(pipelineId);
 
         boolean removed = pipeline.getPipelineTables().removeIf(pt -> pt.getId().equals(pipelineTableId));
@@ -259,12 +272,15 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional(readOnly = true)
-    public PipelineResponse getById(String id) {
+    @Tool(description = "Get full details of a pipeline by ID, including source/target connection IDs, status, settings, table mappings, column mappings, transformations, filters, and validation errors.")
+    public PipelineResponse getById(
+            @ToolParam(description = "The unique ID of the pipeline") String id) {
         return toFullResponse(findEntity(id));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Tool(description = "List all pipelines in the current organization with their summary status, source/target connection IDs, progress, validation errors, and table counts.")
     public List<PipelineSummaryResponse> getAll() {
         String orgId = UserContext.getCurrentOrgId();
         return repository.findByOrgId(orgId).stream().map(this::toSummary).collect(Collectors.toList());
@@ -276,7 +292,9 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional
-    public void delete(String id) {
+    @Tool(description = "Delete a pipeline by ID if it is not currently running and not linked to a workflow.")
+    public void delete(
+            @ToolParam(description = "The unique ID of the pipeline to delete") String id) {
         Pipeline entity = findEntity(id);
         if (entity.getStatus() == PipelineStatus.RUNNING) {
             throw new DatashifterException("Cannot delete a running pipeline. Pause or stop it first.");
@@ -294,7 +312,10 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional
-    public PipelineResponse performAction(String id, PipelineActionRequest action) {
+    @Tool(description = "Perform an execution or lifecycle action on a pipeline (VALIDATE, START, PAUSE, RESUME, STOP) and return the updated pipeline state and any validation errors.")
+    public PipelineResponse performAction(
+            @ToolParam(description = "The unique ID of the pipeline") String id,
+            @ToolParam(description = "The action request containing action (VALIDATE, START, PAUSE, RESUME, STOP)") PipelineActionRequest action) {
         Pipeline entity = findEntity(id);
 
         switch (action.getAction()) {
@@ -410,7 +431,10 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional
-    public PipelineResponse updateMappings(String pipelineId, List<PipelineTableRequest> tables) {
+    @Tool(description = "Update all table pairs, column mappings, transformations (e.g., TRIM, UPPER, LOWER, CONCAT, REPLACE, TYPE_CAST, COALESCE, UDF), and row filters for a pipeline.")
+    public PipelineResponse updateMappings(
+            @ToolParam(description = "The unique ID of the pipeline") String pipelineId,
+            @ToolParam(description = "Full list of source→target table mapping definitions including columnMappings, transformations, and filters") List<PipelineTableRequest> tables) {
         Pipeline entity = findEntity(pipelineId);
         entity.getPipelineTables().clear();
 
@@ -620,7 +644,9 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional(readOnly = true)
-    public PipelineExportDto exportPipeline(String id) {
+    @Tool(description = "Export a validated or completed pipeline configuration as a portable JSON DTO including connections, table pairs, column mappings, transformations, and filters.")
+    public PipelineExportDto exportPipeline(
+            @ToolParam(description = "The unique ID of the pipeline to export") String id) {
         Pipeline pipeline = findEntity(id);
 
         if (pipeline.getStatus() == PipelineStatus.DRAFT
@@ -732,7 +758,9 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     @Transactional
-    public PipelineImportResultDto importPipeline(PipelineExportDto exportDto) {
+    @Tool(description = "Import and create a complete pipeline (including tables, column mappings, transformations, filters, and referenced connections) from a PipelineExportDto structure.")
+    public PipelineImportResultDto importPipeline(
+            @ToolParam(description = "Complete pipeline export DTO containing pipeline config and connection configs") PipelineExportDto exportDto) {
         List<String> errors = new java.util.ArrayList<>();
         List<String> warnings = new java.util.ArrayList<>();
         List<String> createdConnectionNames = new java.util.ArrayList<>();

@@ -12,6 +12,8 @@ import com.datashifter.pipeline.repositories.PipelineRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class NamespaceService {
     private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
+    @Tool(description = "List all pipeline/workflow namespaces in the current organization.")
     public List<NamespaceResponse> getAll() {
         String orgId = UserContext.getCurrentOrgId();
         return namespaceRepository.findByOrgId(orgId).stream()
@@ -34,12 +37,16 @@ public class NamespaceService {
     }
 
     @Transactional(readOnly = true)
-    public NamespaceResponse getById(String id) {
+    @Tool(description = "Get details of a specific namespace by ID.")
+    public NamespaceResponse getById(
+            @ToolParam(description = "The unique ID of the namespace") String id) {
         return toResponse(findEntity(id));
     }
 
     @Transactional
-    public NamespaceResponse create(CreateNamespaceRequest request) {
+    @Tool(description = "Create a new namespace with name, description, and optional hex color code.")
+    public NamespaceResponse create(
+            @ToolParam(description = "Namespace creation parameters: name, description, color") CreateNamespaceRequest request) {
         String orgId = UserContext.getCurrentOrgId();
         if (namespaceRepository.existsByOrgIdAndName(orgId, request.getName())) {
             throw new DatashifterException("Namespace already exists: " + request.getName());
@@ -57,7 +64,10 @@ public class NamespaceService {
     }
 
     @Transactional
-    public NamespaceResponse update(String id, UpdateNamespaceRequest request) {
+    @Tool(description = "Update an existing namespace's name, description, or color by ID.")
+    public NamespaceResponse update(
+            @ToolParam(description = "The unique ID of the namespace to update") String id,
+            @ToolParam(description = "Updated namespace name, description, or color") UpdateNamespaceRequest request) {
         Namespace ns = findEntity(id);
         String orgId = UserContext.getCurrentOrgId();
         if (request.getName() != null && !request.getName().equals(ns.getName())) {
@@ -73,7 +83,9 @@ public class NamespaceService {
     }
 
     @Transactional
-    public void delete(String id) {
+    @Tool(description = "Delete a namespace by ID and move its pipelines to the Default namespace.")
+    public void delete(
+            @ToolParam(description = "The unique ID of the namespace to delete") String id) {
         Namespace ns = findEntity(id);
         Namespace defaultNs = getOrCreateDefault();
         List<Pipeline> pipelines = pipelineRepository.findByNamespaceId(id);
@@ -84,7 +96,10 @@ public class NamespaceService {
     }
 
     @Transactional
-    public void movePipeline(String pipelineId, String namespaceId) {
+    @Tool(description = "Move a pipeline to a target namespace.")
+    public void movePipeline(
+            @ToolParam(description = "The unique ID of the pipeline to move") String pipelineId,
+            @ToolParam(description = "The unique ID of the destination namespace") String namespaceId) {
         Pipeline pipeline = pipelineRepository.findById(pipelineId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pipeline", pipelineId));
         String currentOrgId = UserContext.getCurrentOrgId();
