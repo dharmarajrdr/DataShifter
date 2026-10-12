@@ -278,7 +278,6 @@ const WorkflowDashboard = () => {
             }}
           >
             {filtered.map((wf) => {
-              const chainNames = wf.orderedPipelineNames || [];
               const progressVal = wf.overallProgress ?? wf.progress ?? 0;
               const updatedDate = wf.updatedAt || wf.createdAt;
               const formattedDate = updatedDate
@@ -371,14 +370,6 @@ const WorkflowDashboard = () => {
                               {wf.pipelineCount || 0}{' '}
                               {(wf.pipelineCount || 0) === 1 ? 'pipeline' : 'pipelines'}
                             </span>
-                            {wf.chainCount > 1 && (
-                              <>
-                                <span>·</span>
-                                <span style={{ color: COLORS.status.warningText }}>
-                                  {wf.chainCount} chains
-                                </span>
-                              </>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -401,85 +392,6 @@ const WorkflowDashboard = () => {
                         {wf.description}
                       </p>
                     )}
-
-                    {/* Member Pipeline Steps Preview */}
-                    <div
-                      style={{
-                        padding: '10px 12px',
-                        borderRadius: BORDER_RADIUS.md,
-                        background: COLORS.background.secondary,
-                        border: `1px solid ${COLORS.border.light}`,
-                        minHeight: 42,
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                    >
-                      {chainNames.length === 0 ? (
-                        <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-                          <i className="fa-solid fa-circle-info" style={{ marginRight: 6 }} />
-                          No pipelines linked yet
-                        </span>
-                      ) : (
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          {chainNames.slice(0, 4).map((pName, idx) => (
-                            <span
-                              key={`${wf.id}-p-${idx}`}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 5,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: '11px',
-                                  fontWeight: FONT.weight.medium,
-                                  padding: '2px 8px',
-                                  borderRadius: BORDER_RADIUS.sm,
-                                  background: COLORS.background.primary,
-                                  border: `1px solid ${COLORS.border.medium}`,
-                                  color: COLORS.text.primary,
-                                  maxWidth: 150,
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                                title={pName}
-                              >
-                                {pName}
-                              </span>
-                              {idx < Math.min(chainNames.length, 4) - 1 && (
-                                <i
-                                  className="fa-solid fa-arrow-right"
-                                  style={{ fontSize: 9, color: COLORS.text.tertiary }}
-                                />
-                              )}
-                            </span>
-                          ))}
-                          {chainNames.length > 4 && (
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: FONT.weight.semibold,
-                                color: COLORS.brand.primary,
-                                background: COLORS.accent.purpleLight,
-                                padding: '2px 7px',
-                                borderRadius: BORDER_RADIUS.pill,
-                              }}
-                            >
-                              +{chainNames.length - 4} more
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   {/* Bottom Section: Progress & Owner */}
@@ -497,10 +409,10 @@ const WorkflowDashboard = () => {
                       >
                         <span>Execution Progress</span>
                         <span style={{ fontWeight: FONT.weight.medium }}>
-                          {wf.singleChainReady ? 'Single Chain Ready' : 'Draft Topology'}
+                          {Math.round(progressVal)}%
                         </span>
                       </div>
-                      <ProgressBar value={progressVal} status={wf.status} />
+                      <ProgressBar value={progressVal} status={wf.status} showLabel={false} />
                     </div>
 
                     <div

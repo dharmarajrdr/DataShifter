@@ -66,6 +66,7 @@ const WorkflowInspectorPanel = ({
   onCloseInspector,
   onNavigatePipeline,
   readOnly = false,
+  isEditMode = false,
 }) => {
   const mode = inspectorState?.mode || 'workflow_meta';
 
@@ -1040,17 +1041,19 @@ const WorkflowInspectorPanel = ({
       </div>
 
       <div style={{ padding: 20, flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label style={labelStyle}>Workflow Name *</label>
-          <input
-            type="text"
-            disabled={readOnly}
-            placeholder="e.g., Core E-Commerce Migration"
-            value={workflowMeta?.name || ''}
-            onChange={(e) => onChangeWorkflowMeta && onChangeWorkflowMeta({ ...workflowMeta, name: e.target.value })}
-            style={inputStyle}
-          />
-        </div>
+        {!isEditMode && (
+          <div>
+            <label style={labelStyle}>Workflow Name *</label>
+            <input
+              type="text"
+              disabled={readOnly}
+              placeholder="e.g., Core E-Commerce Migration"
+              value={workflowMeta?.name || ''}
+              onChange={(e) => onChangeWorkflowMeta && onChangeWorkflowMeta({ ...workflowMeta, name: e.target.value })}
+              style={inputStyle}
+            />
+          </div>
+        )}
 
         <div>
           <label style={labelStyle}>Namespace</label>

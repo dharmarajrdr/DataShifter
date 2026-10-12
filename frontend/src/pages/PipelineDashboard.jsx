@@ -4,7 +4,7 @@ import { BarLoader, Button, MetricCard, PageHeader, ProgressBar, SkeletonLoader,
 import ApiGuard from '../components/common/ApiGuard';
 import CreateNamespaceModal from '../components/pipeline/CreateNamespaceModal';
 import ImportPipelineModal from '../components/pipeline/ImportPipelineModal';
-import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
+import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
 import { FRBC, FRSC } from '../constants/layouts';
 import { PIPELINE } from '../constants/literals';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,78 +15,296 @@ import { ForbiddenPage } from './ErrorPage';
 /* ================================================================
    OWNER AVATAR
    ================================================================ */
-const OwnerAvatar = ({ name, initials, color, size = 24 }) => (
+const OwnerAvatar = ({ name, initials, color, size = 22 }) => (
   <div title={name || 'Unknown'}
-    style={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, background: color || COLORS.brand.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(size * 0.42), fontWeight: 500, color: '#fff', cursor: 'default' }}>
+    style={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, background: color || COLORS.brand.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: FONT.weight.semibold, color: '#fff', cursor: 'default' }}>
     {initials || '?'}
   </div>
 );
 
 /* ================================================================
-   PIPELINE ROW — draggable
+   PIPELINE CARD — Grid View (draggable across namespaces)
    ================================================================ */
-const PipelineRow = ({ pipeline, navigate, onDragStart }) => {
-  const getOwnerInitials = (name) => {
-    if (!name) return '?';
+const PipelineCard = ({ pipeline, navigate, onDragStart }) => {
+  const getOwnerInitials = (name, existingInitials) => {
+    if (existingInitials) return existingInitials;
+    if (!name) return 'U';
     const parts = name.trim().split(' ');
     if (parts.length === 1) return parts[0][0].toUpperCase();
     return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return <div draggable
-    onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', pipeline.id); onDragStart(pipeline.id); setTimeout(() => { e.target.style.opacity = '0.4'; }, 0); }}
-    onDragEnd={(e) => { e.target.style.opacity = '1'; }}
-    style={{ background: COLORS.background.primary, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, padding: `${SPACING.sm} ${SPACING.md}`, marginBottom: SPACING.xs, cursor: 'grab', userSelect: 'none' }}>
-    <div style={{ ...FRBC }}>
-      <div style={{ ...FRSC, gap: SPACING.sm, flex: 1, minWidth: 0 }}>
-        <OwnerAvatar name={pipeline.ownerName} initials={getOwnerInitials(pipeline.ownerName)} color={pipeline.ownerColor} />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <p onClick={() => navigate(`/pipelines/${pipeline.id}/monitor`)}
-            style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, cursor: 'pointer', color: COLORS.text.primary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}
-            onMouseEnter={e => e.target.style.color = COLORS.brand.primary}
-            onMouseLeave={e => e.target.style.color = COLORS.text.primary}>
-            {pipeline.name}
-          </p>
-          <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px', margin: 0 }}>
-            {pipeline.sourceName || pipeline.source} → {pipeline.targetName || pipeline.target} · {pipeline.tableCount} tables
-            {pipeline.ownerName && <span style={{ color: COLORS.text.tertiary }}> · {pipeline.ownerName}</span>}
-          </p>
+  };
+
+  const progressVal =
+    pipeline.progress >= 0 && pipeline.progress <= 100 ? pipeline.progress : 0;
+  const formattedDate = pipeline.createdAt
+    ? new Date(pipeline.createdAt).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+
+  return (
+    <div
+      draggable
+      onClick={() => navigate(`/pipelines/${pipeline.id}/monitor`)}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', pipeline.id);
+        onDragStart(pipeline.id);
+        setTimeout(() => {
+          e.target.style.opacity = '0.4';
+        }, 0);
+      }}
+      onDragEnd={(e) => {
+        e.target.style.opacity = '1';
+      }}
+      style={{
+        background: COLORS.background.primary,
+        border: `1px solid ${COLORS.border.light}`,
+        borderRadius: BORDER_RADIUS.lg,
+        boxShadow: SHADOWS.sm,
+        padding: 18,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        gap: 14,
+        cursor: 'pointer',
+        userSelect: 'none',
+        transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = COLORS.brand.primary;
+        e.currentTarget.style.boxShadow = SHADOWS.md;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = COLORS.border.light;
+        e.currentTarget.style.boxShadow = SHADOWS.sm;
+      }}
+    >
+      {/* Top Section: Header, Source -> Target, Workflow Lock Badge */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 10,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: BORDER_RADIUS.md,
+                background: COLORS.accent.purpleLight,
+                color: COLORS.brand.primary,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <i className="fa-solid fa-arrow-right-arrow-left" style={{ fontSize: 14 }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: FONT.size.md,
+                  fontWeight: FONT.weight.semibold,
+                  color: COLORS.text.primary,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={pipeline.name}
+              >
+                {pipeline.name}
+              </div>
+              <div
+                style={{
+                  fontSize: FONT.size.xs,
+                  color: COLORS.text.tertiary,
+                  marginTop: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>{pipeline.namespaceName || 'Default'}</span>
+                <span>·</span>
+                <span>
+                  {pipeline.tableCount || 0}{' '}
+                  {(pipeline.tableCount || 0) === 1 ? 'table' : 'tables'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <StatusBadge status={pipeline.status} />
         </div>
-      </div>
-      <div style={{ ...FRSC, gap: SPACING.sm, flexShrink: 0 }}>
-        {pipeline.workflowId && (
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/workflows/${pipeline.workflowId}/monitor`);
-            }}
-            title={`Locked to workflow '${pipeline.workflowName}'. Click to view workflow.`}
+
+        {/* Source -> Target Connection & Workflow Badge */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
             style={{
-              fontSize: FONT.size.xs,
-              fontWeight: FONT.weight.medium,
-              padding: '3px 10px',
-              borderRadius: BORDER_RADIUS.pill,
-              background: COLORS.accent.purpleLight,
-              color: COLORS.accent.purpleText,
-              border: `1px solid ${COLORS.brand.primary}`,
-              cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 5,
+              gap: 6,
+              fontSize: FONT.size.xs,
+              color: COLORS.text.secondary,
+              background: COLORS.background.secondary,
+              border: `1px solid ${COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.sm,
+              padding: '4px 10px',
+              minWidth: 0,
+              maxWidth: '100%',
             }}
           >
-            <i className="fa-solid fa-lock" style={{ fontSize: 10 }} />
-            <span>Workflow: {pipeline.workflowName || 'Linked'}</span>
-          </span>
-        )}
-        <StatusBadge status={pipeline.status} />
-        {pipeline.progress >= 0 && pipeline.progress <= 100 && (
-          <div style={{ width: 120 }}>
-            <ProgressBar progress={pipeline.progress} height="4px" showLabel={true} />
+            <span
+              style={{
+                fontWeight: FONT.weight.medium,
+                color: COLORS.text.primary,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {pipeline.sourceName || pipeline.source || 'Source'}
+            </span>
+            <i
+              className="fa-solid fa-arrow-right"
+              style={{ fontSize: 10, color: COLORS.text.tertiary, flexShrink: 0 }}
+            />
+            <span
+              style={{
+                fontWeight: FONT.weight.medium,
+                color: COLORS.text.primary,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {pipeline.targetName || pipeline.target || 'Target'}
+            </span>
           </div>
-        )}
+
+          {pipeline.workflowId && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/workflows/${pipeline.workflowId}/monitor`);
+              }}
+              title={`Locked to workflow '${pipeline.workflowName}'. Click to view workflow.`}
+              style={{
+                fontSize: '11px',
+                fontWeight: FONT.weight.medium,
+                padding: '3px 9px',
+                borderRadius: BORDER_RADIUS.pill,
+                background: COLORS.accent.purpleLight,
+                color: COLORS.accent.purpleText,
+                border: `1px solid ${COLORS.brand.primary}`,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                maxWidth: '100%',
+              }}
+            >
+              <i className="fa-solid fa-lock" style={{ fontSize: 10 }} />
+              <span
+                style={{
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                Workflow: {pipeline.workflowName || 'Linked'}
+              </span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Section: Progress & Owner */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '11px',
+              color: COLORS.text.secondary,
+              marginBottom: 4,
+            }}
+          >
+            <span>Execution Progress</span>
+            <span style={{ fontWeight: FONT.weight.medium }}>
+              {Math.round(progressVal)}%
+            </span>
+          </div>
+          <ProgressBar value={progressVal} status={pipeline.status} showLabel={false} />
+        </div>
+
+        <div
+          style={{
+            paddingTop: 10,
+            borderTop: `1px solid ${COLORS.border.light}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              fontSize: FONT.size.xs,
+              color: COLORS.text.secondary,
+              minWidth: 0,
+            }}
+          >
+            <OwnerAvatar
+              name={pipeline.ownerName}
+              initials={getOwnerInitials(pipeline.ownerName, pipeline.ownerInitials)}
+              color={pipeline.ownerColor}
+            />
+            <span
+              style={{
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {pipeline.ownerName || 'Unknown'}
+            </span>
+          </div>
+          {formattedDate && (
+            <span
+              style={{
+                fontSize: FONT.size.xs,
+                color: COLORS.text.tertiary,
+                flexShrink: 0,
+              }}
+            >
+              {formattedDate}
+            </span>
+          )}
+        </div>
       </div>
     </div>
-  </div>
+  );
 };
 
 /* ================================================================
@@ -96,11 +314,11 @@ const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPip
   const [collapsed, setCollapsed] = useState(false);
   const isDropTarget = dragOverNs === namespace.id;
   return (
-    <div style={{ marginBottom: SPACING.md }}
+    <div style={{ marginBottom: SPACING.lg }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverNs(namespace.id); }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverNs(null); }}
       onDrop={(e) => { e.preventDefault(); const pid = e.dataTransfer.getData('text/plain'); if (pid) onDropPipeline(pid, namespace.id, namespace.name); setDragOverNs(null); }}>
-      <div style={{ ...FRBC, padding: `${SPACING.xs} ${SPACING.sm}`, cursor: 'pointer', marginBottom: collapsed ? 0 : SPACING.xs, borderRadius: BORDER_RADIUS.md, border: isDropTarget ? `2px dashed ${namespace.color || COLORS.brand.primary}` : '2px solid transparent', background: isDropTarget ? (namespace.color || COLORS.brand.primary) + '10' : 'transparent', transition: 'all 0.15s' }}>
+      <div style={{ ...FRBC, padding: `${SPACING.xs} ${SPACING.sm}`, cursor: 'pointer', marginBottom: collapsed ? 0 : SPACING.sm, borderRadius: BORDER_RADIUS.md, border: isDropTarget ? `2px dashed ${namespace.color || COLORS.brand.primary}` : '2px solid transparent', background: isDropTarget ? (namespace.color || COLORS.brand.primary) + '10' : 'transparent', transition: 'all 0.15s' }}>
         <div style={{ ...FRSC, gap: SPACING.xs }} onClick={() => setCollapsed(!collapsed)}>
           <span style={{ fontSize: '11px', color: COLORS.text.tertiary, width: '14px' }}><i className={collapsed ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down'} /></span>
           <div style={{ width: 10, height: 10, borderRadius: '2px', background: namespace.color || COLORS.brand.primary, flexShrink: 0 }} />
@@ -116,7 +334,15 @@ const NamespaceGroup = ({ namespace, pipelines, navigate, onDragStart, onDropPip
               Drop pipeline here
             </div>
           )}
-          {pipelines.map(p => <PipelineRow key={p.id} pipeline={p} navigate={navigate} onDragStart={onDragStart} />)}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+              gap: SPACING.md,
+            }}
+          >
+            {pipelines.map(p => <PipelineCard key={p.id} pipeline={p} navigate={navigate} onDragStart={onDragStart} />)}
+          </div>
         </div>
       )}
     </div>

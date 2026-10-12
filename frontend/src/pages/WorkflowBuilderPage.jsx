@@ -700,23 +700,35 @@ const WorkflowBuilderPage = () => {
 
           <div style={{ width: 1, height: 18, background: COLORS.border.light }} />
 
-          <input
-            type="text"
-            value={workflowMeta.name}
-            onChange={(e) => setWorkflowMeta((prev) => ({ ...prev, name: e.target.value }))}
-            placeholder="Enter workflow name..."
-            style={{
-              border: `1px solid ${COLORS.border.light}`,
-              borderRadius: BORDER_RADIUS.md,
-              padding: '5px 10px',
-              fontSize: FONT.size.md,
-              fontWeight: FONT.weight.medium,
-              color: COLORS.text.primary,
-              background: COLORS.background.secondary,
-              minWidth: 220,
-              outline: 'none',
-            }}
-          />
+          {isEditMode ? (
+            <span
+              style={{
+                fontSize: FONT.size.md,
+                fontWeight: FONT.weight.medium,
+                color: COLORS.text.primary,
+              }}
+            >
+              {workflowMeta.name}
+            </span>
+          ) : (
+            <input
+              type="text"
+              value={workflowMeta.name}
+              onChange={(e) => setWorkflowMeta((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="Enter workflow name..."
+              style={{
+                border: `1px solid ${COLORS.border.light}`,
+                borderRadius: BORDER_RADIUS.md,
+                padding: '5px 10px',
+                fontSize: FONT.size.md,
+                fontWeight: FONT.weight.medium,
+                color: COLORS.text.primary,
+                background: COLORS.background.secondary,
+                minWidth: 220,
+                outline: 'none',
+              }}
+            />
+          )}
 
           <StatusBadge status={topologyInfo.singleChainReady ? 'READY' : 'DRAFT'} />
         </div>
@@ -822,6 +834,7 @@ const WorkflowBuilderPage = () => {
         />
 
         <WorkflowInspectorPanel
+          isEditMode={isEditMode}
           inspectorState={inspectorState}
           workflowMeta={workflowMeta}
           onChangeWorkflowMeta={setWorkflowMeta}
