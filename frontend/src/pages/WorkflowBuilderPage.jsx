@@ -680,7 +680,7 @@ const WorkflowBuilderPage = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             type="button"
-            onClick={() => navigate('/workflows')}
+            onClick={() => navigate(isEditMode ? `/workflows/${workflowId}/monitor` : '/workflows')}
             style={{
               background: 'none',
               border: 'none',
@@ -759,7 +759,7 @@ const WorkflowBuilderPage = () => {
 
           <button
             type="button"
-            onClick={() => navigate('/workflows')}
+            onClick={() => navigate(isEditMode ? `/workflows/${workflowId}/monitor` : '/workflows')}
             style={{
               padding: '7px 18px',
               borderRadius: BORDER_RADIUS.md,
