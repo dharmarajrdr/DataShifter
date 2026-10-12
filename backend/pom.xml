@@ -30,6 +30,7 @@
         <module>notification-service</module>
         <module>payment-service</module>
         <module>udf-service</module>
+        <module>ai-service</module>
     </modules>
 
     <properties>

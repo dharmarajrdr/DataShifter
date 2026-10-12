@@ -49,6 +49,11 @@ spring:
           predicates:
             - Path=/api/v1/payments/**
 
+        - id: ai-service
+          uri: http://${AI_SERVICE_HOST:localhost}:8089
+          predicates:
+            - Path=/api/v1/ai/**
+
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
         - PreserveHostHeader
