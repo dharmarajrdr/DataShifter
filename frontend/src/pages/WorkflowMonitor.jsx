@@ -30,6 +30,7 @@ const WorkflowMonitor = () => {
   const [error, setError] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState('__TRIGGER__');
+  const [showRightPanel, setShowRightPanel] = useState(true);
   const [updateCount, setUpdateCount] = useState(0);
 
   // Aggregated error logs state
@@ -544,52 +545,85 @@ const WorkflowMonitor = () => {
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: 8,
           borderBottom: `1px solid ${COLORS.border.light}`,
           marginBottom: SPACING.md,
         }}
       >
-        <button
-          type="button"
-          onClick={() => setActiveTab('chain')}
-          style={{
-            padding: '10px 16px',
-            border: 'none',
-            borderBottom:
-              activeTab === 'chain'
-                ? `2px solid ${COLORS.brand.primary}`
-                : '2px solid transparent',
-            background: 'transparent',
-            color: activeTab === 'chain' ? COLORS.brand.primary : COLORS.text.secondary,
-            fontSize: FONT.size.sm,
-            fontWeight: FONT.weight.semibold,
-            cursor: 'pointer',
-          }}
-        >
-          <i className="fa-solid fa-diagram-project" style={{ marginRight: 6 }} />
-          Pipeline Chain Execution ({nodes.length})
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('chain')}
+            style={{
+              padding: '8px 14px',
+              border: 'none',
+              borderBottom:
+                activeTab === 'chain'
+                  ? `2px solid ${COLORS.brand.primary}`
+                  : '2px solid transparent',
+              background: 'transparent',
+              color: activeTab === 'chain' ? COLORS.brand.primary : COLORS.text.secondary,
+              fontSize: FONT.size.xs,
+              fontWeight: FONT.weight.semibold,
+              cursor: 'pointer',
+            }}
+          >
+            <i className="fa-solid fa-diagram-project" style={{ marginRight: 6 }} />
+            Pipeline Chain Execution ({nodes.length})
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('errors')}
-          style={{
-            padding: '10px 16px',
-            border: 'none',
-            borderBottom:
-              activeTab === 'errors'
-                ? `2px solid ${COLORS.brand.primary}`
-                : '2px solid transparent',
-            background: 'transparent',
-            color: activeTab === 'errors' ? COLORS.brand.primary : COLORS.text.secondary,
-            fontSize: FONT.size.sm,
-            fontWeight: FONT.weight.semibold,
-            cursor: 'pointer',
-          }}
-        >
-          <i className="fa-solid fa-bug" style={{ marginRight: 6 }} />
-          Aggregated Error Logs ({errorSummary.totalErrors || 0})
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('errors')}
+            style={{
+              padding: '8px 14px',
+              border: 'none',
+              borderBottom:
+                activeTab === 'errors'
+                  ? `2px solid ${COLORS.brand.primary}`
+                  : '2px solid transparent',
+              background: 'transparent',
+              color: activeTab === 'errors' ? COLORS.brand.primary : COLORS.text.secondary,
+              fontSize: FONT.size.xs,
+              fontWeight: FONT.weight.semibold,
+              cursor: 'pointer',
+            }}
+          >
+            <i className="fa-solid fa-bug" style={{ marginRight: 6 }} />
+            Aggregated Error Logs ({errorSummary.totalErrors || 0})
+          </button>
+        </div>
+
+        {activeTab === 'chain' && (
+          <button
+            type="button"
+            onClick={() => setShowRightPanel((prev) => !prev)}
+            title={showRightPanel ? 'Hide Step Execution Status' : 'Show Step Execution Status'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 10px',
+              marginBottom: 4,
+              borderRadius: BORDER_RADIUS.md,
+              border: `1px solid ${COLORS.border.light}`,
+              background: showRightPanel ? COLORS.accent.purpleLight : COLORS.background.primary,
+              color: showRightPanel ? COLORS.brand.primary : COLORS.text.secondary,
+              fontSize: FONT.size.xs,
+              fontWeight: FONT.weight.medium,
+              cursor: 'pointer',
+            }}
+          >
+            <i
+              className={
+                showRightPanel ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left'
+              }
+              style={{ fontSize: 10 }}
+            />
+            <span>{selectedNode ? 'Step Execution Status' : 'Workflow Details'}</span>
+          </button>
+        )}
       </div>
 
       {/* TAB 1: PIPELINE CHAIN MONITOR (No In-Flight Events Preview) */}
@@ -597,6 +631,7 @@ const WorkflowMonitor = () => {
         <div
           style={{
             display: 'flex',
+            position: 'relative',
             height: 620,
             border: `1px solid ${COLORS.border.light}`,
             borderRadius: BORDER_RADIUS.lg,
@@ -619,302 +654,362 @@ const WorkflowMonitor = () => {
               chainCount: workflow.chainCount || 0,
               singleChainReady: isSingleChainReady,
             }}
-            onSelectTrigger={() => setSelectedPipelineId('__TRIGGER__')}
-            onSelectNode={(pid) => setSelectedPipelineId(pid)}
+            onSelectTrigger={() => {
+              setSelectedPipelineId('__TRIGGER__');
+            }}
+            onSelectNode={(pid) => {
+              setSelectedPipelineId(pid);
+              setShowRightPanel(true);
+            }}
           />
 
-          {/* Right-Side Step Execution Detail Panel */}
-          <div
-            style={{
-              width: 360,
-              borderLeft: `1px solid ${COLORS.border.light}`,
-              background: COLORS.background.primary,
-              display: 'flex',
-              flexDirection: 'column',
-              overflowY: 'auto',
-            }}
-          >
-            <div
+          {/* Expand button on right edge when right panel is collapsed */}
+          {!showRightPanel && (
+            <button
+              type="button"
+              onClick={() => setShowRightPanel(true)}
+              title="Show Step Execution Status panel"
               style={{
-                padding: '16px 20px',
-                borderBottom: `1px solid ${COLORS.border.light}`,
+                position: 'absolute',
+                top: '50%',
+                right: 0,
+                transform: 'translateY(-50%)',
+                zIndex: 12,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 24,
+                height: 48,
+                borderTopLeftRadius: BORDER_RADIUS.md,
+                borderBottomLeftRadius: BORDER_RADIUS.md,
+                border: `1px solid ${COLORS.border.light}`,
+                borderRight: 'none',
+                background: COLORS.background.primary,
+                color: COLORS.brand.primary,
+                cursor: 'pointer',
+                boxShadow: SHADOWS.sm,
               }}
             >
-              <h3
+              <i className="fa-solid fa-angles-left" style={{ fontSize: 11 }} />
+            </button>
+          )}
+
+          {/* Right-Side Step Execution Detail Panel */}
+          {showRightPanel && (
+            <div
+              style={{
+                width: 360,
+                borderLeft: `1px solid ${COLORS.border.light}`,
+                background: COLORS.background.primary,
+                display: 'flex',
+                flexDirection: 'column',
+                overflowY: 'auto',
+                flexShrink: 0,
+              }}
+            >
+              <div
                 style={{
-                  margin: 0,
-                  fontSize: FONT.size.md,
-                  fontWeight: FONT.weight.semibold,
-                  color: COLORS.text.primary,
+                  padding: '14px 18px',
+                  borderBottom: `1px solid ${COLORS.border.light}`,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 8,
                 }}
               >
-                {selectedNode ? 'Step Execution Status' : 'Workflow Details'}
-              </h3>
-              <p
-                style={{
-                  margin: '2px 0 0',
-                  fontSize: FONT.size.xs,
-                  color: COLORS.text.secondary,
-                }}
-              >
-                {selectedNode
-                  ? 'Click any pipeline step in the chain to inspect its progress'
-                  : 'Single-chain readiness and pre-run checklist'}
-              </p>
-            </div>
-
-            {!selectedNode && (
-              <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div
-                  style={{
-                    padding: 14,
-                    borderRadius: BORDER_RADIUS.md,
-                    background: isSingleChainReady
-                      ? COLORS.status.successLight
-                      : COLORS.background.secondary,
-                    border: `1px solid ${
-                      isSingleChainReady ? COLORS.status.success : COLORS.border.light
-                    }`,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <i
-                      className={
-                        isSingleChainReady
-                          ? 'fa-solid fa-circle-check'
-                          : 'fa-solid fa-list-check'
-                      }
-                      style={{
-                        color: isSingleChainReady
-                          ? COLORS.status.successDark
-                          : COLORS.brand.primary,
-                        fontSize: 14,
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: FONT.size.sm,
-                        fontWeight: FONT.weight.semibold,
-                        color: isSingleChainReady
-                          ? COLORS.status.successText
-                          : COLORS.text.primary,
-                      }}
-                    >
-                      {isSingleChainReady ? 'Ready for Execution' : 'Pre-Run Checklist'}
-                    </span>
-                  </div>
-
-                  <div
+                <div>
+                  <h3
                     style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      fontSize: FONT.size.xs,
+                      margin: 0,
+                      fontSize: FONT.size.sm,
+                      fontWeight: FONT.weight.semibold,
+                      color: COLORS.text.primary,
                     }}
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        color: COLORS.text.secondary,
-                      }}
-                    >
+                    {selectedNode ? 'Step Execution Status' : 'Workflow Details'}
+                  </h3>
+                  <p
+                    style={{
+                      margin: '2px 0 0',
+                      fontSize: FONT.size.xs,
+                      color: COLORS.text.secondary,
+                    }}
+                  >
+                    {selectedNode
+                      ? 'Click any pipeline step in the chain to inspect its progress'
+                      : 'Single-chain readiness and pre-run checklist'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRightPanel(false)}
+                  title="Hide panel"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: COLORS.text.tertiary,
+                    padding: '2px 4px',
+                    borderRadius: BORDER_RADIUS.sm,
+                    flexShrink: 0,
+                  }}
+                >
+                  <i className="fa-solid fa-angles-right" style={{ fontSize: 12 }} />
+                </button>
+              </div>
+
+              {!selectedNode && (
+                <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div
+                    style={{
+                      padding: 14,
+                      borderRadius: BORDER_RADIUS.md,
+                      background: isSingleChainReady
+                        ? COLORS.status.successLight
+                        : COLORS.background.secondary,
+                      border: `1px solid ${
+                        isSingleChainReady ? COLORS.status.success : COLORS.border.light
+                      }`,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <i
                         className={
-                          nodes.length >= 1 ? 'fa-solid fa-check' : 'fa-solid fa-circle-dot'
+                          isSingleChainReady
+                            ? 'fa-solid fa-circle-check'
+                            : 'fa-solid fa-list-check'
                         }
                         style={{
-                          color:
-                            nodes.length >= 1 ? COLORS.status.success : COLORS.text.tertiary,
-                          width: 14,
+                          color: isSingleChainReady
+                            ? COLORS.status.successDark
+                            : COLORS.brand.primary,
+                          fontSize: 14,
                         }}
                       />
-                      <span>At least 1 pipeline step ({nodes.length} added)</span>
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        color: COLORS.text.secondary,
-                      }}
-                    >
-                      <i
-                        className={
-                          nodes.length >= 1 && (workflow.chainCount || 0) === 1
-                            ? 'fa-solid fa-check'
-                            : 'fa-solid fa-circle-dot'
-                        }
+                      <span
                         style={{
-                          color:
-                            nodes.length >= 1 && (workflow.chainCount || 0) === 1
-                              ? COLORS.status.success
-                              : COLORS.status.warning,
-                          width: 14,
+                          fontSize: FONT.size.sm,
+                          fontWeight: FONT.weight.semibold,
+                          color: isSingleChainReady
+                            ? COLORS.status.successText
+                            : COLORS.text.primary,
                         }}
-                      />
-                      <span>
-                        Single connected pipeline chain ({workflow.chainCount || 0}{' '}
-                        {(workflow.chainCount || 0) === 1 ? 'chain' : 'chains'})
+                      >
+                        {isSingleChainReady ? 'Ready for Execution' : 'Pre-Run Checklist'}
                       </span>
                     </div>
+
                     <div
                       style={{
                         display: 'flex',
-                        alignItems: 'center',
+                        flexDirection: 'column',
                         gap: 6,
-                        color: COLORS.text.secondary,
+                        fontSize: FONT.size.xs,
                       }}
                     >
-                      <i
-                        className={
-                          nodes.length >= 1 &&
-                          nodes.every(
-                            (n) =>
-                              !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
-                          )
-                            ? 'fa-solid fa-check'
-                            : 'fa-solid fa-circle-dot'
-                        }
+                      <div
                         style={{
-                          color:
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          color: COLORS.text.secondary,
+                        }}
+                      >
+                        <i
+                          className={
+                            nodes.length >= 1 ? 'fa-solid fa-check' : 'fa-solid fa-circle-dot'
+                          }
+                          style={{
+                            color:
+                              nodes.length >= 1 ? COLORS.status.success : COLORS.text.tertiary,
+                            width: 14,
+                          }}
+                        />
+                        <span>At least 1 pipeline step ({nodes.length} added)</span>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          color: COLORS.text.secondary,
+                        }}
+                      >
+                        <i
+                          className={
+                            nodes.length >= 1 && (workflow.chainCount || 0) === 1
+                              ? 'fa-solid fa-check'
+                              : 'fa-solid fa-circle-dot'
+                          }
+                          style={{
+                            color:
+                              nodes.length >= 1 && (workflow.chainCount || 0) === 1
+                                ? COLORS.status.success
+                                : COLORS.status.warning,
+                            width: 14,
+                          }}
+                        />
+                        <span>
+                          Single connected pipeline chain ({workflow.chainCount || 0}{' '}
+                          {(workflow.chainCount || 0) === 1 ? 'chain' : 'chains'})
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          color: COLORS.text.secondary,
+                        }}
+                      >
+                        <i
+                          className={
                             nodes.length >= 1 &&
                             nodes.every(
                               (n) =>
                                 !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
                             )
-                              ? COLORS.status.success
-                              : COLORS.status.error,
-                          width: 14,
+                              ? 'fa-solid fa-check'
+                              : 'fa-solid fa-circle-dot'
+                          }
+                          style={{
+                            color:
+                              nodes.length >= 1 &&
+                              nodes.every(
+                                (n) =>
+                                  !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
+                              )
+                                ? COLORS.status.success
+                                : COLORS.status.error,
+                            width: 14,
+                          }}
+                        />
+                        <span>All member pipelines in Validated status</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedNode && (
+                <div
+                  style={{
+                    padding: 18,
+                    borderBottom: `1px solid ${COLORS.border.light}`,
+                    background: COLORS.background.secondary,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: FONT.size.sm,
+                        fontWeight: FONT.weight.semibold,
+                        color: COLORS.text.primary,
+                      }}
+                    >
+                      {selectedNode.pipelineName}
+                    </span>
+                    <StatusBadge status={selectedNode.pipelineStatus} />
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: FONT.size.xs,
+                      color: COLORS.text.secondary,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {selectedNode.sourceName} <i className="fa-solid fa-arrow-right" />{' '}
+                    {selectedNode.targetName} · {selectedNode.tableCount} tables
+                  </div>
+
+                  <ProgressBar
+                    value={selectedNode.progress || 0}
+                    status={selectedNode.pipelineStatus}
+                  />
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 10,
+                      marginTop: 12,
+                      fontSize: FONT.size.xs,
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: BORDER_RADIUS.sm,
+                        background: COLORS.background.primary,
+                        border: `1px solid ${COLORS.border.light}`,
+                      }}
+                    >
+                      <div style={{ color: COLORS.text.tertiary }}>Rows Migrated</div>
+                      <div
+                        style={{
+                          fontWeight: FONT.weight.semibold,
+                          color: COLORS.text.primary,
+                          marginTop: 2,
                         }}
-                      />
-                      <span>All member pipelines in Validated status</span>
+                      >
+                        {(selectedNode.rowsProcessed || 0).toLocaleString()}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {selectedNode && (
-              <div
-                style={{
-                  padding: 18,
-                  borderBottom: `1px solid ${COLORS.border.light}`,
-                  background: COLORS.background.secondary,
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                    marginBottom: 8,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: FONT.size.md,
-                      fontWeight: FONT.weight.semibold,
-                      color: COLORS.text.primary,
-                    }}
-                  >
-                    {selectedNode.pipelineName}
-                  </span>
-                  <StatusBadge status={selectedNode.pipelineStatus} />
-                </div>
-
-                <div
-                  style={{
-                    fontSize: FONT.size.xs,
-                    color: COLORS.text.secondary,
-                    marginBottom: 12,
-                  }}
-                >
-                  {selectedNode.sourceName} <i className="fa-solid fa-arrow-right" />{' '}
-                  {selectedNode.targetName} · {selectedNode.tableCount} tables
-                </div>
-
-                <ProgressBar
-                  value={selectedNode.progress || 0}
-                  status={selectedNode.pipelineStatus}
-                />
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: 10,
-                    marginTop: 12,
-                    fontSize: FONT.size.xs,
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: BORDER_RADIUS.sm,
-                      background: COLORS.background.primary,
-                      border: `1px solid ${COLORS.border.light}`,
-                    }}
-                  >
-                    <div style={{ color: COLORS.text.tertiary }}>Rows Migrated</div>
                     <div
                       style={{
-                        fontWeight: FONT.weight.semibold,
-                        color: COLORS.text.primary,
-                        marginTop: 2,
+                        padding: '8px 10px',
+                        borderRadius: BORDER_RADIUS.sm,
+                        background: COLORS.background.primary,
+                        border: `1px solid ${COLORS.border.light}`,
                       }}
                     >
-                      {(selectedNode.rowsProcessed || 0).toLocaleString()}
+                      <div style={{ color: COLORS.text.tertiary }}>Throughput</div>
+                      <div
+                        style={{
+                          fontWeight: FONT.weight.semibold,
+                          color: COLORS.text.primary,
+                          marginTop: 2,
+                        }}
+                      >
+                        {(selectedNode.rowsPerSec || 0).toLocaleString()} rows/s
+                      </div>
                     </div>
                   </div>
-                  <div
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: BORDER_RADIUS.sm,
-                      background: COLORS.background.primary,
-                      border: `1px solid ${COLORS.border.light}`,
-                    }}
-                  >
-                    <div style={{ color: COLORS.text.tertiary }}>Throughput</div>
-                    <div
-                      style={{
-                        fontWeight: FONT.weight.semibold,
-                        color: COLORS.text.primary,
-                        marginTop: 2,
+
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => navigate(`/pipelines/${selectedNode.pipelineId}/monitor`)}
+                    >
+                      <i className="fa-solid fa-arrow-up-right-from-square" style={{ marginRight: 5 }} />
+                      Pipeline Monitor
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setErrorFilterPipelineId(selectedNode.pipelineId);
+                        setActiveTab('errors');
                       }}
                     >
-                      {(selectedNode.rowsPerSec || 0).toLocaleString()} rows/s
-                    </div>
+                      <i className="fa-solid fa-bug" style={{ marginRight: 5 }} />
+                      Step Errors ({selectedNode.errorsSkipped || 0})
+                    </Button>
                   </div>
                 </div>
-
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => navigate(`/pipelines/${selectedNode.pipelineId}/monitor`)}
-                  >
-                    <i className="fa-solid fa-arrow-up-right-from-square" style={{ marginRight: 5 }} />
-                    Pipeline Monitor
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setErrorFilterPipelineId(selectedNode.pipelineId);
-                      setActiveTab('errors');
-                    }}
-                  >
-                    <i className="fa-solid fa-bug" style={{ marginRight: 5 }} />
-                    Step Errors ({selectedNode.errorsSkipped || 0})
-                  </Button>
-                </div>
-              </div>
-            )}
-
-          </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         /* TAB 2: AGGREGATED WORKFLOW ERROR LOGS */
