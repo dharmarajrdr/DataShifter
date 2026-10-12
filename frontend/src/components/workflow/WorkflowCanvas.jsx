@@ -50,7 +50,7 @@ const WorkflowCanvas = ({
   const scrollContainerRef = useRef(null);
   const containerRef = useRef(null);
   const hasInitializedScroll = useRef(false);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.9);
   const [draggingNode, setDraggingNode] = useState(null); // { pipelineId, startMouseX, startMouseY, origX, origY, moved }
   const [connectingFrom, setConnectingFrom] = useState(null); // { sourcePipelineId, mouseX, mouseY }
 
