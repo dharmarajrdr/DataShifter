@@ -31,6 +31,7 @@ import {
   WorkflowBuilderPage,
   WorkflowDashboard,
   WorkflowMonitor,
+  WorkflowSettings,
 } from './pages';
 
 const App = () => (
@@ -90,6 +91,7 @@ const App = () => (
               <Route path=":workflowId/edit" element={<ProtectedRoute permission="workflow:edit"><WorkflowBuilderPage /></ProtectedRoute>} />
               <Route path=":workflowId/monitor" element={<ProtectedRoute permission="workflow:view"><WorkflowMonitor /></ProtectedRoute>} />
               <Route path=":workflowId/errors" element={<ProtectedRoute permission="monitor:view_errors"><WorkflowMonitor /></ProtectedRoute>} />
+              <Route path=":workflowId/settings" element={<ProtectedRoute anyOf={['workflow:edit', 'workflow:delete']}><WorkflowSettings /></ProtectedRoute>} />
             </Route>
             <Route path="/connections" element={<SubscriptionGuard><ProtectedRoute permission="connection:view"><ConnectionsManager /></ProtectedRoute></SubscriptionGuard>} />
             <Route path="/udfs" element={<SubscriptionGuard><ProtectedRoute permission="udf:view"><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />

@@ -22,3 +22,4 @@ export { default as UserProfile } from './UserProfile';
 export { default as WorkflowBuilderPage } from './WorkflowBuilderPage';
 export { default as WorkflowDashboard } from './WorkflowDashboard';
 export { default as WorkflowMonitor } from './WorkflowMonitor';
+export { default as WorkflowSettings } from './WorkflowSettings';

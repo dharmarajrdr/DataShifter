@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ApiGuard,
   Button,
-  ConfirmationModal,
   MetricCard,
   PageHeader,
   ProgressBar,
@@ -11,13 +10,11 @@ import {
 } from '../components/common';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../constants/design';
 import { useAuth } from '../contexts/AuthContext';
-import { useNotify } from '../contexts/NotificationContext';
 import { useEventSource } from '../hooks/useEventSource';
 import { namespaceApi, workflowApi } from '../services/api';
 
 const WorkflowDashboard = () => {
   const navigate = useNavigate();
-  const notify = useNotify();
   const { user, hasPermission } = useAuth();
 
   const [workflows, setWorkflows] = useState([]);
@@ -26,8 +23,6 @@ const WorkflowDashboard = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNamespace, setSelectedNamespace] = useState('ALL');
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [actionBusyId, setActionBusyId] = useState(null);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -99,32 +94,6 @@ const WorkflowDashboard = () => {
     },
   });
 
-  const handleAction = async (wf, action, e) => {
-    e.stopPropagation();
-    setActionBusyId(wf.id);
-    try {
-      await workflowApi.performAction(wf.id, action);
-      notify.success(`Workflow ${action.toLowerCase()} triggered`);
-      await loadDashboard();
-    } catch (err) {
-      notify.error(err.message || `Failed to ${action.toLowerCase()} workflow`);
-    } finally {
-      setActionBusyId(null);
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await workflowApi.delete(deleteTarget.id);
-      notify.success(`Workflow '${deleteTarget.name}' deleted`);
-      setDeleteTarget(null);
-      loadDashboard();
-    } catch (err) {
-      notify.error(err.message || 'Failed to delete workflow');
-    }
-  };
-
   const filtered = workflows.filter((w) => {
     const matchesSearch =
       w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -147,7 +116,7 @@ const WorkflowDashboard = () => {
       <div>
         <PageHeader
           title="Workflows"
-          subtitle="Orchestrate multiple validated pipelines in sequential series execution"
+          subtitle="Orchestrate multiple validated pipelines in series and parallel execution"
           actions={
             hasPermission('workflow:create') && (
               <Button variant="primary" onClick={() => navigate('/workflows/new')}>
@@ -245,292 +214,267 @@ const WorkflowDashboard = () => {
           </div>
         </div>
 
-        {/* Workflows Table */}
-        <div
-          style={{
-            background: COLORS.background.primary,
-            border: `1px solid ${COLORS.border.light}`,
-            borderRadius: BORDER_RADIUS.lg,
-            boxShadow: SHADOWS.sm,
-            overflow: 'hidden',
-          }}
-        >
-          {loading ? (
-            <div style={{ padding: 48, textAlign: 'center', color: COLORS.text.secondary }}>
-              <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }} />
-              Loading workflows...
+        {/* Workflows Grid View */}
+        {loading ? (
+          <div
+            style={{
+              padding: 48,
+              textAlign: 'center',
+              color: COLORS.text.secondary,
+              background: COLORS.background.primary,
+              border: `1px solid ${COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.lg,
+              boxShadow: SHADOWS.sm,
+            }}
+          >
+            <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }} />
+            Loading workflows...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div
+            style={{
+              padding: 56,
+              textAlign: 'center',
+              background: COLORS.background.primary,
+              border: `1px solid ${COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.lg,
+              boxShadow: SHADOWS.sm,
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: COLORS.accent.purpleLight,
+                color: COLORS.brand.primary,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 12,
+              }}
+            >
+              <i className="fa-solid fa-diagram-project" style={{ fontSize: 20 }} />
             </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: 56, textAlign: 'center' }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  background: COLORS.accent.purpleLight,
-                  color: COLORS.brand.primary,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 12,
-                }}
-              >
-                <i className="fa-solid fa-diagram-project" style={{ fontSize: 20 }} />
-              </div>
-              <h3 style={{ margin: '0 0 6px', fontSize: FONT.size.lg, color: COLORS.text.primary }}>
-                No workflows found
-              </h3>
-              <p style={{ margin: '0 0 18px', fontSize: FONT.size.sm, color: COLORS.text.secondary }}>
-                Chain multiple validated pipelines together to migrate parent and child tables in sequence.
-              </p>
-              {hasPermission('workflow:create') && (
-                <Button variant="primary" onClick={() => navigate('/workflows/new')}>
-                  <i className="fa-solid fa-plus" style={{ marginRight: 6 }} />
-                  Create your first workflow
-                </Button>
-              )}
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr
+            <h3 style={{ margin: '0 0 6px', fontSize: FONT.size.lg, color: COLORS.text.primary }}>
+              No workflows found
+            </h3>
+            <p style={{ margin: '0 0 18px', fontSize: FONT.size.sm, color: COLORS.text.secondary }}>
+              Chain multiple validated pipelines together in series or parallel to orchestrate data migrations.
+            </p>
+            {hasPermission('workflow:create') && (
+              <Button variant="primary" onClick={() => navigate('/workflows/new')}>
+                <i className="fa-solid fa-plus" style={{ marginRight: 6 }} />
+                Create your first workflow
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+              gap: SPACING.md,
+            }}
+          >
+            {filtered.map((wf) => {
+              const progressVal = wf.overallProgress ?? wf.progress ?? 0;
+              const updatedDate = wf.updatedAt || wf.createdAt;
+              const formattedDate = updatedDate
+                ? new Date(updatedDate).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })
+                : null;
+
+              return (
+                <div
+                  key={wf.id}
+                  onClick={() => navigate(`/workflows/${wf.id}/monitor`)}
                   style={{
-                    background: COLORS.background.secondary,
-                    borderBottom: `1px solid ${COLORS.border.light}`,
-                    textAlign: 'left',
-                    fontSize: FONT.size.xs,
-                    color: COLORS.text.secondary,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.4px',
+                    background: COLORS.background.primary,
+                    border: `1px solid ${COLORS.border.light}`,
+                    borderRadius: BORDER_RADIUS.lg,
+                    boxShadow: SHADOWS.sm,
+                    padding: 18,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: 14,
+                    cursor: 'pointer',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.brand.primary;
+                    e.currentTarget.style.boxShadow = SHADOWS.md;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = COLORS.border.light;
+                    e.currentTarget.style.boxShadow = SHADOWS.sm;
                   }}
                 >
-                  <th style={{ padding: '12px 16px' }}>Workflow</th>
-                  <th style={{ padding: '12px 16px' }}>Pipeline Chain (Series Order)</th>
-                  <th style={{ padding: '12px 16px' }}>Status</th>
-                  <th style={{ padding: '12px 16px', width: 150 }}>Progress</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((wf) => {
-                  const chainNames = wf.orderedPipelineNames || [];
-                  const canRun = wf.singleChainReady && wf.status !== 'RUNNING';
-                  const isBusy = actionBusyId === wf.id;
-
-                  return (
-                    <tr
-                      key={wf.id}
-                      onClick={() => navigate(`/workflows/${wf.id}/monitor`)}
+                  {/* Top Section: Header, Description, Badges */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div
                       style={{
-                        borderBottom: `1px solid ${COLORS.border.light}`,
-                        cursor: 'pointer',
-                        transition: 'background 0.12s ease',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: 10,
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background = COLORS.background.secondary)
-                      }
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <td style={{ padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: FONT.size.md,
-                            fontWeight: FONT.weight.semibold,
-                            color: COLORS.text.primary,
-                          }}
-                        >
-                          {wf.name}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: FONT.size.xs,
-                            color: COLORS.text.tertiary,
-                            marginTop: 2,
+                            width: 36,
+                            height: 36,
+                            borderRadius: BORDER_RADIUS.md,
+                            background: COLORS.accent.purpleLight,
+                            color: COLORS.brand.primary,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 6,
+                            justifyContent: 'center',
+                            flexShrink: 0,
                           }}
                         >
-                          <span>{wf.namespaceName || 'Default'}</span>
-                          <span>·</span>
-                          <span>{wf.pipelineCount || 0} pipelines</span>
+                          <i className="fa-solid fa-diagram-project" style={{ fontSize: 15 }} />
                         </div>
-                      </td>
-
-                      <td style={{ padding: '14px 16px' }}>
-                        {chainNames.length === 0 ? (
-                          <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-                            No pipelines added
-                          </span>
-                        ) : (
+                        <div style={{ minWidth: 0 }}>
                           <div
                             style={{
+                              fontSize: FONT.size.md,
+                              fontWeight: FONT.weight.semibold,
+                              color: COLORS.text.primary,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                            title={wf.name}
+                          >
+                            {wf.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: FONT.size.xs,
+                              color: COLORS.text.tertiary,
+                              marginTop: 2,
                               display: 'flex',
                               alignItems: 'center',
                               gap: 6,
-                              flexWrap: 'wrap',
                             }}
                           >
-                            {chainNames.map((pName, idx) => (
-                              <React.Fragment key={`${wf.id}-p-${idx}`}>
-                                <span
-                                  style={{
-                                    fontSize: FONT.size.xs,
-                                    fontWeight: FONT.weight.medium,
-                                    padding: '3px 9px',
-                                    borderRadius: BORDER_RADIUS.sm,
-                                    background: COLORS.accent.purpleLight,
-                                    color: COLORS.accent.purpleText,
-                                  }}
-                                >
-                                  {pName}
-                                </span>
-                                {idx < chainNames.length - 1 && (
-                                  <i
-                                    className="fa-solid fa-arrow-right"
-                                    style={{ fontSize: 10, color: COLORS.text.tertiary }}
-                                  />
-                                )}
-                              </React.Fragment>
-                            ))}
+                            <span>{wf.namespaceName || 'Default'}</span>
+                            <span>·</span>
+                            <span>
+                              {wf.pipelineCount || 0}{' '}
+                              {(wf.pipelineCount || 0) === 1 ? 'pipeline' : 'pipelines'}
+                            </span>
                           </div>
-                        )}
-                      </td>
-
-                      <td style={{ padding: '14px 16px' }}>
-                        <StatusBadge status={wf.status} />
-                      </td>
-
-                      <td style={{ padding: '14px 16px' }}>
-                        <ProgressBar value={wf.progress || 0} status={wf.status} />
-                      </td>
-
-                      {/* <td
-                      style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {wf.status === 'RUNNING' ? (
-                          <>
-                            {hasPermission('workflow:pause') && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                disabled={isBusy}
-                                onClick={(e) => handleAction(wf, 'PAUSE', e)}
-                              >
-                                <i className="fa-solid fa-pause" style={{ marginRight: 4 }} />
-                                Pause
-                              </Button>
-                            )}
-                            {hasPermission('workflow:stop') && (
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                disabled={isBusy}
-                                onClick={(e) => handleAction(wf, 'STOP', e)}
-                              >
-                                <i className="fa-solid fa-stop" style={{ marginRight: 4 }} />
-                                Stop
-                              </Button>
-                            )}
-                          </>
-                        ) : wf.status === 'PAUSED' ? (
-                          <>
-                            {hasPermission('workflow:run') && (
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                disabled={isBusy}
-                                onClick={(e) => handleAction(wf, 'RESUME', e)}
-                              >
-                                <i className="fa-solid fa-play" style={{ marginRight: 4 }} />
-                                Resume
-                              </Button>
-                            )}
-                            {hasPermission('workflow:stop') && (
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                disabled={isBusy}
-                                onClick={(e) => handleAction(wf, 'STOP', e)}
-                              >
-                                <i className="fa-solid fa-stop" style={{ marginRight: 4 }} />
-                                Stop
-                              </Button>
-                            )}
-                          </>
-                        ) : (
-                          hasPermission('workflow:run') && (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              disabled={!canRun || isBusy}
-                              title={
-                                canRun
-                                  ? 'Start workflow execution'
-                                  : 'Workflow must have 1 connected chain of VALIDATED pipelines before running'
-                              }
-                              onClick={(e) => handleAction(wf, 'START', e)}
-                            >
-                              <i className="fa-solid fa-play" style={{ marginRight: 4 }} />
-                              {wf.status === 'COMPLETED' || wf.status === 'FAILED' || wf.status === 'STOPPED'
-                                ? 'Re-Run'
-                                : 'Run'}
-                            </Button>
-                          )
-                        )}
-
-                        {hasPermission('workflow:edit') && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={wf.status === 'RUNNING' || wf.status === 'PAUSED'}
-                            onClick={() => navigate(`/workflows/${wf.id}/edit`)}
-                          >
-                            <i className="fa-solid fa-pen-to-square" style={{ marginRight: 4 }} />
-                            Edit
-                          </Button>
-                        )}
-
-                        {hasPermission('workflow:delete') && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={wf.status === 'RUNNING' || wf.status === 'PAUSED'}
-                            onClick={() => setDeleteTarget(wf)}
-                            title="Delete workflow"
-                          >
-                            <i
-                              className="fa-solid fa-trash"
-                              style={{ color: COLORS.status.error }}
-                            />
-                          </Button>
-                        )}
+                        </div>
                       </div>
-                    </td> */}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+                      <StatusBadge status={wf.status} />
+                    </div>
 
-        <ConfirmationModal
-          isOpen={Boolean(deleteTarget)}
-          onClose={() => setDeleteTarget(null)}
-          title="Delete Workflow"
-          message={
-            deleteTarget
-              ? `Are you sure you want to delete workflow '${deleteTarget.name}'? All pipelines inside this workflow will be unlocked for standalone execution, and the pipelines themselves will NOT be deleted.`
-              : ''
-          }
-          variant="danger"
-          actions={[
-            { label: 'Cancel', variant: 'secondary', onClick: () => setDeleteTarget(null) },
-            { label: 'Delete Workflow', variant: 'danger', onClick: handleConfirmDelete },
-          ]}
-        />
+                    {wf.description && (
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: FONT.size.xs,
+                          color: COLORS.text.secondary,
+                          lineHeight: 1.4,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {wf.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Bottom Section: Progress & Owner */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '11px',
+                          color: COLORS.text.secondary,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span>Execution Progress</span>
+                        <span style={{ fontWeight: FONT.weight.medium }}>
+                          {Math.round(progressVal)}%
+                        </span>
+                      </div>
+                      <ProgressBar value={progressVal} status={wf.status} showLabel={false} />
+                    </div>
+
+                    <div
+                      style={{
+                        paddingTop: 10,
+                        borderTop: `1px solid ${COLORS.border.light}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 7,
+                          fontSize: FONT.size.xs,
+                          color: COLORS.text.secondary,
+                          minWidth: 0,
+                        }}
+                      >
+                        <div
+                          title={wf.ownerName || 'Owner'}
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: '50%',
+                            background: wf.ownerColor || COLORS.brand.primary,
+                            color: '#fff',
+                            fontSize: '10px',
+                            fontWeight: FONT.weight.semibold,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {wf.ownerInitials || 'U'}
+                        </div>
+                        <span
+                          style={{
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {wf.ownerName || 'Unknown'}
+                        </span>
+                      </div>
+                      {formattedDate && (
+                        <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, flexShrink: 0 }}>
+                          {formattedDate}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </ApiGuard>
   );

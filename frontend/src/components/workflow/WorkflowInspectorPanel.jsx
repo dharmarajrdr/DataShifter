@@ -66,21 +66,21 @@ const WorkflowInspectorPanel = ({
   onCloseInspector,
   onNavigatePipeline,
   readOnly = false,
+  isEditMode = false,
 }) => {
   const mode = inspectorState?.mode || 'workflow_meta';
 
   // Local draft state for 'add_step'
   const [selectedPipelineId, setSelectedPipelineId] = useState('');
   const [attachAfterId, setAttachAfterId] = useState('');
+  const [connectionMode, setConnectionMode] = useState('PARALLEL'); // 'PARALLEL' | 'SERIES'
   const [addFailureAction, setAddFailureAction] = useState('STOP_WORKFLOW');
   const [searchQuery, setSearchQuery] = useState('');
   const [isPipelineDropdownOpen, setIsPipelineDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Local draft state for 'inspect_node'
-  const [draftPredId, setDraftPredId] = useState('');
-  const [draftSuccId, setDraftSuccId] = useState('');
-  const [draftFailAction, setDraftFailAction] = useState('STOP_WORKFLOW');
+  // Local draft state for 'inspect_node': map of { [sourcePipelineId]: onFailureAction }
+  const [draftFailActionsMap, setDraftFailActionsMap] = useState({});
 
   // Local draft state for 'inspect_edge'
   const [edgeFailAction, setEdgeFailAction] = useState('STOP_WORKFLOW');
@@ -105,21 +105,23 @@ const WorkflowInspectorPanel = ({
   useEffect(() => {
     if (mode === 'add_step') {
       setSelectedPipelineId('');
-      // Default predecessor: tail of the current chain (node with no outgoing edge)
+      // Default predecessor: specified defaultAfterPipelineId or last leaf node
       const tailNode = [...nodes]
         .reverse()
         .find((n) => !edges.some((e) => e.sourcePipelineId === n.pipelineId));
       setAttachAfterId(inspectorState?.defaultAfterPipelineId ?? (tailNode ? tailNode.pipelineId : ''));
+      setConnectionMode(inspectorState?.defaultConnectionMode || 'PARALLEL');
       setAddFailureAction('STOP_WORKFLOW');
       setSearchQuery('');
       setIsPipelineDropdownOpen(false);
     } else if (mode === 'inspect_node' && inspectorState?.pipelineId) {
       const pid = inspectorState.pipelineId;
-      const inEdge = edges.find((e) => e.targetPipelineId === pid);
-      const outEdge = edges.find((e) => e.sourcePipelineId === pid);
-      setDraftPredId(inEdge ? inEdge.sourcePipelineId : '');
-      setDraftSuccId(outEdge ? outEdge.targetPipelineId : '');
-      setDraftFailAction(inEdge?.onFailureAction || 'STOP_WORKFLOW');
+      const inEdges = edges.filter((e) => e.targetPipelineId === pid);
+      const map = {};
+      inEdges.forEach((e) => {
+        map[e.sourcePipelineId] = e.onFailureAction || 'STOP_WORKFLOW';
+      });
+      setDraftFailActionsMap(map);
     } else if (mode === 'inspect_edge' && inspectorState?.sourcePipelineId && inspectorState?.targetPipelineId) {
       const edge = edges.find(
         (e) =>
@@ -131,6 +133,7 @@ const WorkflowInspectorPanel = ({
   }, [
     mode,
     inspectorState?.defaultAfterPipelineId,
+    inspectorState?.defaultConnectionMode,
     inspectorState?.pipelineId,
     inspectorState?.sourcePipelineId,
     inspectorState?.targetPipelineId,
@@ -434,6 +437,80 @@ const WorkflowInspectorPanel = ({
             )}
           </div>
 
+          {attachAfterId &&
+            attachAfterId !== '__TRIGGER__' &&
+            edges.some((e) => e.sourcePipelineId === attachAfterId) && (
+              <div>
+                <label style={labelStyle}>Connection Mode</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[
+                    {
+                      value: 'PARALLEL',
+                      label: 'Run in Parallel',
+                      desc: 'Branch alongside existing successor(s)',
+                      icon: 'fa-solid fa-code-branch',
+                    },
+                    {
+                      value: 'SERIES',
+                      label: 'Insert in Series',
+                      desc: 'Splice before existing successor(s)',
+                      icon: 'fa-solid fa-arrow-down-short-wide',
+                    },
+                  ].map((opt) => {
+                    const active = connectionMode === opt.value;
+                    return (
+                      <div
+                        key={opt.value}
+                        onClick={() => setConnectionMode(opt.value)}
+                        style={{
+                          padding: '9px 10px',
+                          borderRadius: BORDER_RADIUS.md,
+                          border: active
+                            ? `1.5px solid ${COLORS.brand.primary}`
+                            : `1px solid ${COLORS.border.light}`,
+                          background: active
+                            ? COLORS.accent.purpleLight
+                            : COLORS.background.primary,
+                          cursor: 'pointer',
+                          transition: 'all 0.12s ease',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: FONT.size.xs,
+                            fontWeight: FONT.weight.semibold,
+                            color: active ? COLORS.accent.purpleText : COLORS.text.primary,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <i
+                            className={opt.icon}
+                            style={{
+                              fontSize: 12,
+                              color: active ? COLORS.brand.primary : COLORS.text.secondary,
+                            }}
+                          />
+                          <span>{opt.label}</span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            color: COLORS.text.secondary,
+                            marginTop: 3,
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {opt.desc}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
           {((attachAfterId && attachAfterId !== '__TRIGGER__') ||
             (attachAfterId === '__TRIGGER__' && nodes.length > 0)) && (
             <div>
@@ -479,7 +556,7 @@ const WorkflowInspectorPanel = ({
             onClick={() => {
               const chosen = eligiblePipelines.find((p) => p.id === selectedPipelineId);
               if (chosen && onAddStep) {
-                onAddStep(chosen, attachAfterId || null, addFailureAction);
+                onAddStep(chosen, attachAfterId || null, addFailureAction, connectionMode);
               }
             }}
             style={{
@@ -507,6 +584,9 @@ const WorkflowInspectorPanel = ({
     const node = nodes.find((n) => n.pipelineId === inspectorState?.pipelineId);
     if (!node) return null;
 
+    const incomingEdges = edges.filter((e) => e.targetPipelineId === node.pipelineId);
+    const outgoingEdges = edges.filter((e) => e.sourcePipelineId === node.pipelineId);
+
     return (
       <div
         style={{
@@ -533,7 +613,7 @@ const WorkflowInspectorPanel = ({
               Set Action
             </h3>
             <p style={{ margin: '2px 0 0', fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
-              Configure pipeline link order & failure behavior
+              Configure pipeline connections &amp; failure behavior
             </p>
           </div>
           <button
@@ -596,16 +676,138 @@ const WorkflowInspectorPanel = ({
             )}
           </div>
 
-          {/* Failure Action when Predecessor Fails */}
-          {draftPredId && (
+          {/* Quick Add Step After This Pipeline (Parallel or Series) */}
+          {!readOnly && onOpenAddStep && (
             <div>
-              <label style={labelStyle}>On Previous Pipeline Fails</label>
-              {renderFailureActionPicker(draftFailAction, setDraftFailAction)}
+              <label style={labelStyle}>Add Next Step After This Pipeline</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => onOpenAddStep(node.pipelineId, 'PARALLEL')}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: BORDER_RADIUS.md,
+                    border: `1px dashed ${COLORS.brand.primary}`,
+                    background: COLORS.accent.purpleLight,
+                    color: COLORS.accent.purpleText,
+                    fontSize: FONT.size.xs,
+                    fontWeight: FONT.weight.semibold,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <i className="fa-solid fa-code-branch" />
+                  + Parallel Step
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenAddStep(node.pipelineId, 'SERIES')}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: BORDER_RADIUS.md,
+                    border: `1px solid ${COLORS.border.medium}`,
+                    background: COLORS.background.primary,
+                    color: COLORS.text.primary,
+                    fontSize: FONT.size.xs,
+                    fontWeight: FONT.weight.semibold,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <i className="fa-solid fa-arrow-down" />
+                  + Series Step
+                </button>
+              </div>
             </div>
           )}
+
+          {/* Outgoing Successor Steps Summary */}
+          {outgoingEdges.length > 0 && (
+            <div>
+              <label style={labelStyle}>
+                Downstream Steps ({outgoingEdges.length}{' '}
+                {outgoingEdges.length > 1 ? 'Parallel Branches' : 'Step'})
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {outgoingEdges.map((outE) => {
+                  const succNode = nodes.find((n) => n.pipelineId === outE.targetPipelineId);
+                  return (
+                    <div
+                      key={`${outE.sourcePipelineId}->${outE.targetPipelineId}`}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: BORDER_RADIUS.sm,
+                        background: COLORS.background.secondary,
+                        border: `1px solid ${COLORS.border.light}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: FONT.size.xs,
+                      }}
+                    >
+                      <span style={{ fontWeight: FONT.weight.medium, color: COLORS.text.primary }}>
+                        <i
+                          className="fa-solid fa-arrow-turn-down"
+                          style={{ marginRight: 6, color: COLORS.brand.primary }}
+                        />
+                        {succNode?.pipelineName || outE.targetPipelineId}
+                      </span>
+                      {!readOnly && onDeleteEdge && (
+                        <button
+                          type="button"
+                          title="Detach link"
+                          onClick={() => onDeleteEdge(outE.sourcePipelineId, outE.targetPipelineId)}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: COLORS.status.error,
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            padding: 2,
+                          }}
+                        >
+                          <i className="fa-solid fa-link-slash" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Failure Action for Each Incoming Predecessor */}
+          {incomingEdges.map((inEdge) => {
+            const predNode = nodes.find((n) => n.pipelineId === inEdge.sourcePipelineId);
+            const currentVal =
+              draftFailActionsMap[inEdge.sourcePipelineId] ||
+              inEdge.onFailureAction ||
+              'STOP_WORKFLOW';
+            return (
+              <div key={`in-${inEdge.sourcePipelineId}`}>
+                <label style={labelStyle}>
+                  {incomingEdges.length > 1
+                    ? `If '${predNode?.pipelineName || 'Predecessor'}' Fails`
+                    : 'On Previous Pipeline Fails'}
+                </label>
+                {renderFailureActionPicker(currentVal, (val) =>
+                  setDraftFailActionsMap((prev) => ({
+                    ...prev,
+                    [inEdge.sourcePipelineId]: val,
+                  }))
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {!readOnly && (
+        {!readOnly && incomingEdges.length > 0 && (
           <div
             style={{
               padding: '14px 20px',
@@ -636,12 +838,7 @@ const WorkflowInspectorPanel = ({
               type="button"
               onClick={() => {
                 if (onUpdateNodeLinks) {
-                  onUpdateNodeLinks(
-                    node.pipelineId,
-                    draftPredId || null,
-                    draftSuccId || null,
-                    draftFailAction
-                  );
+                  onUpdateNodeLinks(node.pipelineId, draftFailActionsMap);
                 }
               }}
               style={{
@@ -844,17 +1041,19 @@ const WorkflowInspectorPanel = ({
       </div>
 
       <div style={{ padding: 20, flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label style={labelStyle}>Workflow Name *</label>
-          <input
-            type="text"
-            disabled={readOnly}
-            placeholder="e.g., Core E-Commerce Migration"
-            value={workflowMeta?.name || ''}
-            onChange={(e) => onChangeWorkflowMeta && onChangeWorkflowMeta({ ...workflowMeta, name: e.target.value })}
-            style={inputStyle}
-          />
-        </div>
+        {!isEditMode && (
+          <div>
+            <label style={labelStyle}>Workflow Name *</label>
+            <input
+              type="text"
+              disabled={readOnly}
+              placeholder="e.g., Core E-Commerce Migration"
+              value={workflowMeta?.name || ''}
+              onChange={(e) => onChangeWorkflowMeta && onChangeWorkflowMeta({ ...workflowMeta, name: e.target.value })}
+              style={inputStyle}
+            />
+          </div>
+        )}
 
         <div>
           <label style={labelStyle}>Namespace</label>

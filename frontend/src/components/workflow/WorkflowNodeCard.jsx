@@ -84,7 +84,7 @@ const WorkflowNodeCard = ({
               textOverflow: 'ellipsis',
             }}
           >
-            Executes linked pipeline chain in series
+            Executes linked pipelines in series &amp; parallel
           </div>
         </div>
       </div>
