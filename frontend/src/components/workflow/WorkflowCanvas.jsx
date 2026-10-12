@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS } from '../../constants/design';
 import AddWorkflowStepPill from './AddWorkflowStepPill';
 import WorkflowNodeCard from './WorkflowNodeCard';
@@ -7,6 +7,8 @@ const CARD_WIDTH = 310;
 const CARD_HEIGHT = 56;
 const TRIGGER_X = 360;
 const TRIGGER_Y = 44;
+const CANVAS_PAD_X = 480;
+const CANVAS_PAD_Y = 320;
 
 const EDGE_BADGE_MAP = {
   STOP_WORKFLOW: {
@@ -45,10 +47,72 @@ const WorkflowCanvas = ({
   onRemoveNode,
   onAutoArrange,
 }) => {
+  const scrollContainerRef = useRef(null);
   const containerRef = useRef(null);
+  const hasInitializedScroll = useRef(false);
   const [zoom, setZoom] = useState(1);
   const [draggingNode, setDraggingNode] = useState(null); // { pipelineId, startMouseX, startMouseY, origX, origY, moved }
   const [connectingFrom, setConnectingFrom] = useState(null); // { sourcePipelineId, mouseX, mouseY }
+
+  // Build multi-edge maps for DAG
+  const incomingByTarget = {};
+  const outgoingBySource = {};
+  edges.forEach((e) => {
+    if (!incomingByTarget[e.targetPipelineId]) incomingByTarget[e.targetPipelineId] = [];
+    incomingByTarget[e.targetPipelineId].push(e);
+    if (!outgoingBySource[e.sourcePipelineId]) outgoingBySource[e.sourcePipelineId] = [];
+    outgoingBySource[e.sourcePipelineId].push(e);
+  });
+
+  const headNodes = nodes.filter((n) => !(incomingByTarget[n.pipelineId]?.length > 0));
+  const primaryHead = headNodes[0] || null;
+  const leafNodes = nodes.filter((n) => !(outgoingBySource[n.pipelineId]?.length > 0));
+
+  const triggerX = primaryHead ? (primaryHead.positionX ?? TRIGGER_X) : TRIGGER_X;
+
+  const centerOnCanvasCoords = useCallback(
+    (x, y, width = CARD_WIDTH, height = CARD_HEIGHT, behavior = 'smooth') => {
+      requestAnimationFrame(() => {
+        const scrollEl = scrollContainerRef.current;
+        if (!scrollEl) return;
+        const centerX = CANVAS_PAD_X + (x + width / 2) * zoom;
+        const centerY = CANVAS_PAD_Y + (y + height / 2) * zoom;
+        const targetLeft = Math.max(0, centerX - scrollEl.clientWidth / 2);
+        const targetTop = Math.max(0, centerY - scrollEl.clientHeight / 2);
+        scrollEl.scrollTo({
+          left: targetLeft,
+          top: targetTop,
+          behavior,
+        });
+      });
+    },
+    [zoom]
+  );
+
+  const centerOnNode = useCallback(
+    (pipelineId, behavior = 'smooth') => {
+      const idx = nodes.findIndex((n) => n.pipelineId === pipelineId);
+      if (idx === -1) return;
+      const targetNode = nodes[idx];
+      const posX = targetNode.positionX ?? triggerX;
+      const posY = targetNode.positionY ?? 170 + idx * 145;
+      const cardH = mode === 'monitor' ? 78 : CARD_HEIGHT;
+      centerOnCanvasCoords(posX, posY, CARD_WIDTH, cardH, behavior);
+    },
+    [nodes, triggerX, mode, centerOnCanvasCoords]
+  );
+
+  // Initialize scroll position so the workflow chain starts centered horizontally near the top
+  useEffect(() => {
+    if (hasInitializedScroll.current) return;
+    const scrollEl = scrollContainerRef.current;
+    if (!scrollEl) return;
+    hasInitializedScroll.current = true;
+    const initialCenterX = CANVAS_PAD_X + (triggerX + CARD_WIDTH / 2) * zoom;
+    const initialLeft = Math.max(0, initialCenterX - scrollEl.clientWidth / 2);
+    const initialTop = Math.max(0, CANVAS_PAD_Y - 24);
+    scrollEl.scrollTo({ left: initialLeft, top: initialTop, behavior: 'auto' });
+  }, [triggerX, zoom]);
 
   const handleNodeMouseDown = (pipelineId, e) => {
     if (mode !== 'builder' || e.button !== 0) return;
@@ -120,8 +184,11 @@ const WorkflowCanvas = ({
 
   const handleMouseUp = () => {
     if (draggingNode) {
-      if (!draggingNode.moved && onSelectNode) {
-        onSelectNode(draggingNode.pipelineId);
+      if (!draggingNode.moved) {
+        centerOnNode(draggingNode.pipelineId, 'smooth');
+        if (onSelectNode) {
+          onSelectNode(draggingNode.pipelineId);
+        }
       }
       setDraggingNode(null);
     }
@@ -134,8 +201,11 @@ const WorkflowCanvas = ({
     if (!draggingNode && !connectingFrom) return;
     const handleWindowMouseUp = () => {
       setDraggingNode((prev) => {
-        if (prev && !prev.moved && onSelectNode) {
-          onSelectNode(prev.pipelineId);
+        if (prev && !prev.moved) {
+          centerOnNode(prev.pipelineId, 'smooth');
+          if (onSelectNode) {
+            onSelectNode(prev.pipelineId);
+          }
         }
         return null;
       });
@@ -147,23 +217,7 @@ const WorkflowCanvas = ({
       window.removeEventListener('mouseup', handleWindowMouseUp);
       window.removeEventListener('blur', handleWindowMouseUp);
     };
-  }, [draggingNode, connectingFrom, onSelectNode]);
-
-  // Build multi-edge maps for DAG
-  const incomingByTarget = {};
-  const outgoingBySource = {};
-  edges.forEach((e) => {
-    if (!incomingByTarget[e.targetPipelineId]) incomingByTarget[e.targetPipelineId] = [];
-    incomingByTarget[e.targetPipelineId].push(e);
-    if (!outgoingBySource[e.sourcePipelineId]) outgoingBySource[e.sourcePipelineId] = [];
-    outgoingBySource[e.sourcePipelineId].push(e);
-  });
-
-  const headNodes = nodes.filter((n) => !(incomingByTarget[n.pipelineId]?.length > 0));
-  const primaryHead = headNodes[0] || null;
-  const leafNodes = nodes.filter((n) => !(outgoingBySource[n.pipelineId]?.length > 0));
-
-  const triggerX = primaryHead ? (primaryHead.positionX ?? TRIGGER_X) : TRIGGER_X;
+  }, [draggingNode, connectingFrom, onSelectNode, centerOnNode]);
 
   const maxNodeY =
     nodes.length > 0 ? Math.max(...nodes.map((n) => n.positionY ?? 170)) : TRIGGER_Y;
@@ -191,6 +245,7 @@ const WorkflowCanvas = ({
 
   return (
     <div
+      ref={scrollContainerRef}
       style={{
         flex: 1,
         height: '100%',
@@ -336,18 +391,28 @@ const WorkflowCanvas = ({
         </div>
       </div>
 
-      {/* Scalable Canvas Surface */}
+      {/* Padded Scrollable Canvas Wrapper */}
       <div
-        ref={containerRef}
         onClick={() => onSelectTrigger && onSelectTrigger()}
         style={{
           position: 'relative',
-          minWidth: canvasWidth,
-          height: canvasHeight,
-          transform: `scale(${zoom})`,
-          transformOrigin: 'top left',
+          width: canvasWidth * zoom + CANVAS_PAD_X * 2,
+          height: canvasHeight * zoom + CANVAS_PAD_Y * 2,
         }}
       >
+        {/* Scalable Canvas Surface */}
+        <div
+          ref={containerRef}
+          style={{
+            position: 'absolute',
+            left: CANVAS_PAD_X,
+            top: CANVAS_PAD_Y,
+            width: canvasWidth,
+            height: canvasHeight,
+            transform: `scale(${zoom})`,
+            transformOrigin: 'top left',
+          }}
+        >
         {/* SVG Edges Layer */}
         <svg
           width="100%"
@@ -625,6 +690,7 @@ const WorkflowCanvas = ({
           }}
           onClick={(e) => {
             e.stopPropagation();
+            centerOnCanvasCoords(triggerX, TRIGGER_Y, CARD_WIDTH, CARD_HEIGHT, 'smooth');
             if (onSelectTrigger) onSelectTrigger();
           }}
         >
@@ -662,7 +728,10 @@ const WorkflowCanvas = ({
                 mode={mode}
                 isConnecting={Boolean(connectingFrom)}
                 onMouseDown={(e) => handleNodeMouseDown(node.pipelineId, e)}
-                onClick={() => onSelectNode && onSelectNode(node.pipelineId)}
+                onClick={() => {
+                  centerOnNode(node.pipelineId, 'smooth');
+                  if (onSelectNode) onSelectNode(node.pipelineId);
+                }}
                 onStartConnect={handleStartConnect}
                 onCompleteConnect={handleCompleteConnect}
                 onRemove={onRemoveNode}
@@ -694,9 +763,10 @@ const WorkflowCanvas = ({
                       selectedItem?.type === 'add' &&
                       selectedItem?.afterPipelineId === leaf.pipelineId
                     }
-                    onClick={() =>
-                      onOpenAddStep && onOpenAddStep(leaf.pipelineId, 'PARALLEL')
-                    }
+                    onClick={() => {
+                      centerOnCanvasCoords(leafCenterX - 90, pillTopY, 180, 34, 'smooth');
+                      if (onOpenAddStep) onOpenAddStep(leaf.pipelineId, 'PARALLEL');
+                    }}
                   />
                 </div>
               );
@@ -717,10 +787,20 @@ const WorkflowCanvas = ({
                   selectedItem?.type === 'add' &&
                   selectedItem?.afterPipelineId === null
                 }
-                onClick={() => onOpenAddStep && onOpenAddStep(null, 'PARALLEL')}
+                onClick={() => {
+                  centerOnCanvasCoords(
+                    triggerX + CARD_WIDTH / 2 - 90,
+                    TRIGGER_Y + CARD_HEIGHT + 58,
+                    180,
+                    34,
+                    'smooth'
+                  );
+                  if (onOpenAddStep) onOpenAddStep(null, 'PARALLEL');
+                }}
               />
             </div>
           ))}
+        </div>
       </div>
     </div>
   );

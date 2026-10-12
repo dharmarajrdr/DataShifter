@@ -595,35 +595,6 @@ const WorkflowMonitor = () => {
           </button>
         </div>
 
-        {activeTab === 'chain' && (
-          <button
-            type="button"
-            onClick={() => setShowRightPanel((prev) => !prev)}
-            title={showRightPanel ? 'Hide Step Execution Status' : 'Show Step Execution Status'}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              marginBottom: 4,
-              borderRadius: BORDER_RADIUS.md,
-              border: `1px solid ${COLORS.border.light}`,
-              background: showRightPanel ? COLORS.accent.purpleLight : COLORS.background.primary,
-              color: showRightPanel ? COLORS.brand.primary : COLORS.text.secondary,
-              fontSize: FONT.size.xs,
-              fontWeight: FONT.weight.medium,
-              cursor: 'pointer',
-            }}
-          >
-            <i
-              className={
-                showRightPanel ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left'
-              }
-              style={{ fontSize: 10 }}
-            />
-            <span>{selectedNode ? 'Step Execution Status' : 'Workflow Details'}</span>
-          </button>
-        )}
       </div>
 
       {/* TAB 1: PIPELINE CHAIN MONITOR (No In-Flight Events Preview) */}
@@ -767,9 +738,8 @@ const WorkflowMonitor = () => {
                       background: isSingleChainReady
                         ? COLORS.status.successLight
                         : COLORS.background.secondary,
-                      border: `1px solid ${
-                        isSingleChainReady ? COLORS.status.success : COLORS.border.light
-                      }`,
+                      border: `1px solid ${isSingleChainReady ? COLORS.status.success : COLORS.border.light
+                        }`,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -865,20 +835,20 @@ const WorkflowMonitor = () => {
                         <i
                           className={
                             nodes.length >= 1 &&
-                            nodes.every(
-                              (n) =>
-                                !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
-                            )
+                              nodes.every(
+                                (n) =>
+                                  !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
+                              )
                               ? 'fa-solid fa-check'
                               : 'fa-solid fa-circle-dot'
                           }
                           style={{
                             color:
                               nodes.length >= 1 &&
-                              nodes.every(
-                                (n) =>
-                                  !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
-                              )
+                                nodes.every(
+                                  (n) =>
+                                    !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
+                                )
                                 ? COLORS.status.success
                                 : COLORS.status.error,
                             width: 14,
@@ -1220,8 +1190,8 @@ const WorkflowMonitor = () => {
         const targetStageLabel =
           targetStageNodes.length > 0
             ? targetStageNodes
-                .map((n, i) => `Step #${n.stepNumber || i + 1} (${n.pipelineName})`)
-                .join(', ')
+              .map((n, i) => `Step #${n.stepNumber || i + 1} (${n.pipelineName})`)
+              .join(', ')
             : 'Stage 1';
 
         const reRunOptions = [
@@ -1333,9 +1303,8 @@ const WorkflowMonitor = () => {
                       style={{
                         padding: '12px 14px',
                         borderRadius: BORDER_RADIUS.md,
-                        border: `1.5px solid ${
-                          isSelected ? COLORS.brand.primary : COLORS.border.light
-                        }`,
+                        border: `1.5px solid ${isSelected ? COLORS.brand.primary : COLORS.border.light
+                          }`,
                         background: isSelected
                           ? COLORS.brand.light || '#EEF2FF'
                           : COLORS.background.secondary,
