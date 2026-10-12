@@ -9,10 +9,12 @@ import com.datashifter.connector.spi.interfaces.ConnectionConfig;
 import com.datashifter.connector.spi.interfaces.DatabaseConnector;
 import com.datashifter.common.utils.EncryptionUtil;
 import com.datashifter.pipeline.repositories.PipelineRepository;
-import lombok.RequiredArgsConstructor;
+import com.datashifter.pipeline.validation.PipelineValidationChain;
+import com.datashifter.pipeline.validation.PipelineValidationContext;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +22,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class MappingService {
 
@@ -28,6 +29,29 @@ public class MappingService {
     private final ConnectorFactory connectorFactory;
     private final com.datashifter.connector.repositories.ConnectionRepository connectionRepository;
     private final ObjectMapper objectMapper;
+    private final PipelineValidationChain validationChain;
+
+    public MappingService(
+            PipelineRepository pipelineRepository,
+            ConnectorFactory connectorFactory,
+            com.datashifter.connector.repositories.ConnectionRepository connectionRepository,
+            ObjectMapper objectMapper) {
+        this(pipelineRepository, connectorFactory, connectionRepository, objectMapper, new PipelineValidationChain());
+    }
+
+    @Autowired
+    public MappingService(
+            PipelineRepository pipelineRepository,
+            ConnectorFactory connectorFactory,
+            com.datashifter.connector.repositories.ConnectionRepository connectionRepository,
+            ObjectMapper objectMapper,
+            PipelineValidationChain validationChain) {
+        this.pipelineRepository = pipelineRepository;
+        this.connectorFactory = connectorFactory;
+        this.connectionRepository = connectionRepository;
+        this.objectMapper = objectMapper;
+        this.validationChain = validationChain != null ? validationChain : new PipelineValidationChain();
+    }
 
     @Transactional(readOnly = true)
     public MappingResponse getMappings(String pipelineId) {
@@ -149,89 +173,41 @@ public class MappingService {
 
     @Transactional(readOnly = true)
     public List<String> validatePipeline(Pipeline pipeline) {
-        List<String> errors = new ArrayList<>();
         if (pipeline.getPipelineTables() == null || pipeline.getPipelineTables().isEmpty()) {
-            errors.add("Pipeline has no tables configured");
-            return errors;
+            return List.of("Pipeline has no tables configured");
         }
 
-        Connection targetConn = connectionRepository.findById(pipeline.getTargetConnectionId()).orElse(null);
+        Connection targetConn = pipeline.getTargetConnectionId() != null
+                ? connectionRepository.findById(pipeline.getTargetConnectionId()).orElse(null)
+                : null;
         if (targetConn == null) {
-            errors.add("Target connection not found: " + pipeline.getTargetConnectionId());
-            return errors;
+            return List.of("Target connection not found: " + pipeline.getTargetConnectionId());
         }
 
         DatabaseConnector targetConnector = connectorFactory.getConnector(targetConn.getDbType());
         ConnectionConfig targetConfig = toConfig(targetConn);
 
-        Map<String, List<ColumnMetadata>> targetColumnCache = new HashMap<>();
+        Connection sourceConn = pipeline.getSourceConnectionId() != null
+                ? connectionRepository.findById(pipeline.getSourceConnectionId()).orElse(null)
+                : null;
+        DatabaseConnector sourceConnector = sourceConn != null
+                ? connectorFactory.getConnector(sourceConn.getDbType())
+                : null;
+        ConnectionConfig sourceConfig = sourceConn != null
+                ? toConfig(sourceConn)
+                : null;
 
-        for (PipelineTable pt : pipeline.getPipelineTables()) {
-            if (pt.getTargetTableMappings() == null || pt.getTargetTableMappings().isEmpty()) {
-                errors.add(String.format("Source table '%s' has no target table mapped", pt.getSourceTable()));
-                continue;
-            }
+        PipelineValidationContext context = PipelineValidationContext.builder()
+                .pipeline(pipeline)
+                .sourceConnection(sourceConn)
+                .targetConnection(targetConn)
+                .sourceConnector(sourceConnector)
+                .targetConnector(targetConnector)
+                .sourceConfig(sourceConfig)
+                .targetConfig(targetConfig)
+                .build();
 
-            for (TargetTableMapping ttm : pt.getTargetTableMappings()) {
-                String targetTable = ttm.getTargetTable();
-                if (targetTable == null || targetTable.isBlank()) {
-                    errors.add(String.format("Source table '%s' has an empty target table name", pt.getSourceTable()));
-                    continue;
-                }
-
-                List<ColumnMetadata> targetCols;
-                try {
-                    targetCols = targetColumnCache.computeIfAbsent(targetTable, t -> {
-                        try {
-                            return targetConnector.getColumns(targetConfig, t);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-                } catch (Exception e) {
-                    log.warn("Failed to fetch target columns for table {}: {}", targetTable, e.getMessage());
-                    errors.add(String.format("Unable to fetch schema for target table '%s'", targetTable));
-                    continue;
-                }
-
-                if (targetCols == null || targetCols.isEmpty()) {
-                    errors.add(String.format("Target table '%s' has no columns or does not exist", targetTable));
-                    continue;
-                }
-
-                Set<String> mappedTargetCols = new HashSet<>();
-                if (ttm.getColumnMappings() != null) {
-                    for (ColumnMapping cm : ttm.getColumnMappings()) {
-                        if (cm.getTargetColumn() != null && !cm.getTargetColumn().isBlank()) {
-                            mappedTargetCols.add(cm.getTargetColumn().trim().toLowerCase());
-                        }
-                    }
-                }
-
-                if (mappedTargetCols.isEmpty()) {
-                    errors.add(String.format("%s: At least one column must be mapped", targetTable));
-                }
-
-                for (ColumnMetadata col : targetCols) {
-                    boolean isMapped = mappedTargetCols.contains(col.getColumnName().toLowerCase());
-                    if (!col.isNullable() && !isMapped) {
-                        errors.add(String.format("%s: \"%s\" is %s — needs mapping",
-                                targetTable,
-                                col.getColumnName(),
-                                col.isPrimaryKey() ? "PK" : "NOT NULL"));
-                    } else if (col.isPrimaryKey() && !isMapped
-                            && (ttm.getWriteMode() == com.datashifter.common.enums.WriteMode.UPSERT
-                            || ttm.getWriteMode() == com.datashifter.common.enums.WriteMode.UPDATE_ONLY)) {
-                        errors.add(String.format("%s: Primary key \"%s\" must be mapped for %s write mode",
-                                targetTable,
-                                col.getColumnName(),
-                                ttm.getWriteMode()));
-                    }
-                }
-            }
-        }
-
-        return errors;
+        return validationChain.execute(context);
     }
 
     public List<String> parseValidationErrors(String json) {

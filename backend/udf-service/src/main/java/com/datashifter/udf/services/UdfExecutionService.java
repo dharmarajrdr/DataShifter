@@ -30,9 +30,8 @@ public class UdfExecutionService {
         Future<Map<String, Object>> future = executor.submit(() -> {
             try (URLClassLoader classLoader = new URLClassLoader(new URL[]{jarPath.toUri().toURL()}, getClass().getClassLoader())) {
                 Class<?> udfClass = classLoader.loadClass(className);
-                Object instance = udfClass.getDeclaredConstructor().newInstance();
                 
-                // Assuming method signature: void methodName(Row row) or Object methodName(Row row)
+                // Method signature must be public static and take a single Row parameter
                 java.lang.reflect.Method method = null;
                 for (java.lang.reflect.Method m : udfClass.getDeclaredMethods()) {
                     if (m.getName().equals(methodName) && m.getParameterCount() == 1 && m.getParameterTypes()[0].getName().equals("com.datashifter.udf.sdk.Row")) {
@@ -44,8 +43,12 @@ public class UdfExecutionService {
                 if (method == null) {
                     throw new DatashifterException("Method not found matching signature: " + methodName + "(Row)");
                 }
+                int modifiers = method.getModifiers();
+                if (!java.lang.reflect.Modifier.isPublic(modifiers) || !java.lang.reflect.Modifier.isStatic(modifiers)) {
+                    throw new DatashifterException("Method " + methodName + " in " + className + " must be 'public static'");
+                }
                 
-                method.invoke(instance, inputRow);
+                method.invoke(null, inputRow);
                 
                 return inputRow.toMap();
             }

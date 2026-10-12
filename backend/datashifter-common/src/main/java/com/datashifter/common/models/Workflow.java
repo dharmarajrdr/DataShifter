@@ -4,9 +4,6 @@ import com.datashifter.common.enums.WorkflowStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
-
 @Entity
 @Table(name = "workflows")
 @Getter
@@ -40,13 +37,5 @@ public class Workflow extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
-
-    @OneToMany(mappedBy = "workflow", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @Builder.Default
-    private Set<WorkflowNode> nodes = new LinkedHashSet<>();
-
-    @OneToMany(mappedBy = "workflow", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @Builder.Default
-    private Set<WorkflowEdge> edges = new LinkedHashSet<>();
 }
 

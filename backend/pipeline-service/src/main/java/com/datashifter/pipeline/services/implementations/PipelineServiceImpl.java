@@ -15,6 +15,7 @@ import com.datashifter.common.services.SubscriptionLimitChecker;
 import com.datashifter.common.repositories.CommonWorkflowNodeRepository;
 import com.datashifter.pipeline.repositories.PipelineRepository;
 import com.datashifter.pipeline.services.interfaces.PipelineService;
+import com.datashifter.pipeline.services.interfaces.WorkflowService;
 import com.datashifter.pipeline.statemachine.PipelineStateMachine;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class PipelineServiceImpl implements PipelineService {
     private final ObjectMapper objectMapper;
     private final com.datashifter.connector.repositories.ConnectionRepository connectionRepository;
     private final CommonWorkflowNodeRepository workflowNodeRepository;
+    private final WorkflowService workflowService;
 
     // =========================================================================
     // CREATE — builds PipelineTable + TargetTableMapping entries
@@ -157,18 +159,29 @@ public class PipelineServiceImpl implements PipelineService {
 
         // Per-table write mode overrides
         if (req.getTableWriteModeOverrides() != null && !req.getTableWriteModeOverrides().isEmpty()) {
+            boolean writeModeChanged = false;
             for (var override : req.getTableWriteModeOverrides()) {
-                entity.getPipelineTables().stream()
+                var ttmOpt = entity.getPipelineTables().stream()
                         .flatMap(pt -> pt.getTargetTableMappings().stream())
                         .filter(ttm -> ttm.getId().equals(override.getTargetTableMappingId()))
-                        .findFirst()
-                        .ifPresent(ttm -> ttm.setWriteMode(override.getWriteMode()));
+                        .findFirst();
+                if (ttmOpt.isPresent()) {
+                    TargetTableMapping ttm = ttmOpt.get();
+                    if (override.getWriteMode() != null && override.getWriteMode() != ttm.getWriteMode()) {
+                        ttm.setWriteMode(override.getWriteMode());
+                        writeModeChanged = true;
+                    }
+                }
             }
-            entity.setStatus(PipelineStatus.NOT_VALIDATED);
-            entity.setValidationErrors(null);
+            if (writeModeChanged) {
+                entity.setStatus(PipelineStatus.NOT_VALIDATED);
+                entity.setValidationErrors(null);
+            }
         }
 
-        return toFullResponse(repository.save(entity));
+        Pipeline saved = repository.save(entity);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     // =========================================================================
@@ -211,7 +224,9 @@ public class PipelineServiceImpl implements PipelineService {
         pipeline.setValidationErrors(null);
 
         log.info("Added table pair: {} → {} to pipeline {}", request.getSourceTable(), request.getTargetTable(), pipelineId);
-        return toFullResponse(repository.save(pipeline));
+        Pipeline saved = repository.save(pipeline);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     @Override
@@ -233,7 +248,9 @@ public class PipelineServiceImpl implements PipelineService {
         pipeline.setValidationErrors(null);
 
         log.info("Removed table pair {} from pipeline {}", pipelineTableId, pipelineId);
-        return toFullResponse(repository.save(pipeline));
+        Pipeline saved = repository.save(pipeline);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     // =========================================================================
@@ -319,9 +336,12 @@ public class PipelineServiceImpl implements PipelineService {
                         .filter(p -> p.getStatus() == PipelineStatus.RUNNING).count();
                 limitChecker.assertCanRunParallel(orgId2, runningCount);
 
-                // When starting or re-running from scratch (START), remove existing chunk_cursors and checkpoints
+                // When starting or re-running from scratch (START), remove existing chunk_cursors, error_logs, and checkpoints
                 if (action.getAction() == PipelineAction.START) {
                     int deletedCursors = entityManager.createQuery("DELETE FROM ChunkCursor c WHERE c.pipelineId = :pipelineId")
+                            .setParameter("pipelineId", id)
+                            .executeUpdate();
+                    entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
                             .setParameter("pipelineId", id)
                             .executeUpdate();
                     var checkpointKeys = redisTemplate.keys("pipeline:" + id + ":table:*:checkpoint");
@@ -329,7 +349,14 @@ public class PipelineServiceImpl implements PipelineService {
                         redisTemplate.delete(checkpointKeys);
                     }
                     redisTemplate.delete("pipeline:" + id + ":stats");
-                    log.info("Cleared {} chunk_cursors and Redis checkpoints for pipeline {} on START", deletedCursors, id);
+                    log.info("Cleared {} chunk_cursors, error_logs, and Redis checkpoints for pipeline {} on START", deletedCursors, id);
+                } else {
+                    entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
+                            .setParameter("pipelineId", id)
+                            .executeUpdate();
+                    if (redisTemplate.opsForHash() != null) {
+                        redisTemplate.opsForHash().put("pipeline:" + id + ":stats", "errorsSkipped", "0");
+                    }
                 }
 
                 PipelineStatus target = PipelineStatus.RUNNING;
@@ -372,7 +399,9 @@ public class PipelineServiceImpl implements PipelineService {
                 break;
         }
 
-        return toFullResponse(repository.save(entity));
+        Pipeline saved = repository.save(entity);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     // =========================================================================
@@ -419,7 +448,7 @@ public class PipelineServiceImpl implements PipelineService {
                                         cm.getTransformations().add(Transformation.builder()
                                                 .columnMapping(cm)
                                                 .functionName(trReq.getFunctionName())
-                                                .arguments(trReq.getArguments())
+                                                .arguments(sanitizeTransformationArguments(trReq.getFunctionName(), trReq.getArguments()))
                                                 .executionOrder(trReq.getExecutionOrder())
                                                 .build());
                                     }
@@ -451,7 +480,9 @@ public class PipelineServiceImpl implements PipelineService {
         entity.setStatus(PipelineStatus.NOT_VALIDATED);
         entity.setValidationErrors(null);
 
-        return toFullResponse(repository.save(entity));
+        Pipeline saved = repository.save(entity);
+        workflowService.syncWorkflowStatusForPipeline(saved.getId());
+        return toFullResponse(saved);
     }
 
     // =========================================================================
@@ -655,7 +686,7 @@ public class PipelineServiceImpl implements PipelineService {
                                                                 .sorted(Comparator.comparing(Transformation::getExecutionOrder))
                                                                 .map(tr -> TransformationConfigDto.builder()
                                                                         .functionName(tr.getFunctionName())
-                                                                        .arguments(tr.getArguments())
+                                                                        .arguments(formatExportArguments(tr))
                                                                         .executionOrder(tr.getExecutionOrder())
                                                                         .build())
                                                                 .toList())
@@ -888,7 +919,7 @@ public class PipelineServiceImpl implements PipelineService {
                                         cm.getTransformations().add(Transformation.builder()
                                                 .columnMapping(cm)
                                                 .functionName(trDto.getFunctionName())
-                                                .arguments(trDto.getArguments())
+                                                .arguments(normalizeImportArguments(trDto))
                                                 .executionOrder(trDto.getExecutionOrder() != null ? trDto.getExecutionOrder() : 0)
                                                 .build());
                                         transformationsCount++;
@@ -935,6 +966,73 @@ public class PipelineServiceImpl implements PipelineService {
                 .warnings(warnings)
                 .errors(List.of())
                 .build();
+    }
+
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
+    private Object formatExportArguments(Transformation tr) {
+        String rawArgs = tr.getArguments();
+        if (rawArgs == null || rawArgs.isBlank()) {
+            return rawArgs;
+        }
+        String trimmed = rawArgs.trim();
+        if (tr.getFunctionName() == com.datashifter.common.enums.TransformFunction.UDF || (trimmed.startsWith("{") && trimmed.endsWith("}"))) {
+            try {
+                Map<String, Object> parsed = JSON_MAPPER.readValue(
+                        trimmed, new com.fasterxml.jackson.core.type.TypeReference<java.util.LinkedHashMap<String, Object>>() {});
+                parsed.remove("udfId");
+                return parsed;
+            } catch (Exception e) {
+                log.warn("Failed to parse transformation arguments as JSON on export: {}", e.getMessage());
+            }
+        }
+        return rawArgs;
+    }
+
+    private String normalizeImportArguments(TransformationConfigDto trDto) {
+        Object rawArgs = trDto.getArguments();
+        if (rawArgs == null) {
+            return null;
+        }
+        if (rawArgs instanceof Map<?, ?> mapArgs) {
+            Map<String, Object> cleaned = new java.util.LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : mapArgs.entrySet()) {
+                String key = String.valueOf(entry.getKey());
+                if (!"udfId".equals(key)) {
+                    cleaned.put(key, entry.getValue());
+                }
+            }
+            try {
+                return JSON_MAPPER.writeValueAsString(cleaned);
+            } catch (Exception e) {
+                throw new DatashifterException("Invalid transformation arguments JSON: " + e.getMessage(), e);
+            }
+        }
+        if (rawArgs instanceof String strArgs) {
+            return sanitizeTransformationArguments(trDto.getFunctionName(), strArgs);
+        }
+        try {
+            return JSON_MAPPER.writeValueAsString(rawArgs);
+        } catch (Exception e) {
+            return String.valueOf(rawArgs);
+        }
+    }
+
+    private String sanitizeTransformationArguments(com.datashifter.common.enums.TransformFunction fn, String rawArgs) {
+        if (rawArgs == null || rawArgs.isBlank()) {
+            return rawArgs;
+        }
+        String trimmed = rawArgs.trim();
+        if (fn == com.datashifter.common.enums.TransformFunction.UDF || (trimmed.startsWith("{") && trimmed.endsWith("}"))) {
+            try {
+                Map<String, Object> parsed = JSON_MAPPER.readValue(
+                        trimmed, new com.fasterxml.jackson.core.type.TypeReference<java.util.LinkedHashMap<String, Object>>() {});
+                parsed.remove("udfId");
+                return JSON_MAPPER.writeValueAsString(parsed);
+            } catch (Exception ignored) {
+            }
+        }
+        return rawArgs;
     }
 
     @Override

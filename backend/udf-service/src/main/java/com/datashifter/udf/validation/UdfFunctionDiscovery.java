@@ -78,7 +78,7 @@ public class UdfFunctionDiscovery {
         }
         
         if (functions.isEmpty()) {
-            throw new DatashifterException("No public methods annotated with @DataShifterUdf were found");
+            throw new DatashifterException("No public static methods annotated with @DataShifterUdf were found");
         }
         return functions;
     }
@@ -94,7 +94,7 @@ public class UdfFunctionDiscovery {
 
             @Override
             public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-                if ((access & Opcodes.ACC_PUBLIC) == 0 || (access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE)) != 0) {
+                if ((access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE)) != 0) {
                     return null;
                 }
                 return new MethodVisitor(Opcodes.ASM9) {
@@ -117,6 +117,10 @@ public class UdfFunctionDiscovery {
 
                             @Override
                             public void visitEnd() {
+                                if ((access & Opcodes.ACC_PUBLIC) == 0 || (access & Opcodes.ACC_STATIC) == 0) {
+                                    throw new DatashifterException("Method " + name + " in " + className + " annotated with @DataShifterUdf must be 'public static'");
+                                }
+
                                 Type methodType = Type.getMethodType(descriptor);
                                 List<String> parameterTypes = List.of(methodType.getArgumentTypes()).stream()
                                         .map(Type::getClassName).toList();
@@ -127,7 +131,7 @@ public class UdfFunctionDiscovery {
                                         
                                 functions.add(new DiscoveredFunction(
                                         className, name, functionName, description, parameterTypes,
-                                        methodType.getReturnType().getClassName(), (access & Opcodes.ACC_STATIC) != 0));
+                                        methodType.getReturnType().getClassName(), true));
                             }
                         };
                     }

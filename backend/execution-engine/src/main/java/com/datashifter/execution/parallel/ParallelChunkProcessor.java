@@ -182,8 +182,7 @@ public class ParallelChunkProcessor {
 
                     } catch (Exception e) {
                         log.error("Worker error on chunk {}: {}", task.getChunkNumber(), e.getMessage(), e);
-                        ctx.incrementErrors(1);
-                        if (ctx.isErrorThresholdExceeded()) {
+                        if (!Boolean.TRUE.equals(ctx.getPipeline().getIgnoreExceptions()) || ctx.isErrorThresholdExceeded()) {
                             stopSignal.set(true);
                         }
                     }
@@ -225,7 +224,8 @@ public class ParallelChunkProcessor {
             throw new RuntimeException("PIPELINE_STOPPED");
         }
         if (ctx.isErrorThresholdExceeded()) {
-            throw new RuntimeException("Error threshold exceeded: " + ctx.getTotalErrors().get());
+            throw new RuntimeException("Error threshold exceeded: " + ctx.getTotalErrors().get()
+                    + " (max: " + ctx.getPipeline().getMaxErrorThreshold() + "). Pipeline stopped.");
         }
 
         log.info("Parallel processing complete: table={}, chunks={}, workers={}",
@@ -257,6 +257,7 @@ public class ParallelChunkProcessor {
                         .sourceTable(pt.getSourceTable())
                         .targetTable(ttc.getTargetTable())
                         .chunkNumber(task.getChunkNumber())
+                        .executionContext(ctx)
                         .build());
                 targetRecords = columnMapperService.mapBatchSimple(filtered, ttc.getColumnMappings());
             } finally {
@@ -333,25 +334,45 @@ public class ParallelChunkProcessor {
 
     private void handleWriteFailures(ExecutionContext ctx, PipelineTable pt,
                                       TargetTableMapping ttm, WriteResult result, long chunkNumber) {
-        boolean ignoreExceptions = ctx.getPipeline().getIgnoreExceptions();
-        boolean logSourceRow = ctx.getPipeline().getLogSourceRow();
+        boolean ignoreExceptions = Boolean.TRUE.equals(ctx.getPipeline().getIgnoreExceptions());
+        boolean logSourceRow = Boolean.TRUE.equals(ctx.getPipeline().getLogSourceRow());
 
-        ctx.incrementErrors(result.getFailureCount());
+        if (!ignoreExceptions) {
+            ctx.incrementErrors(1);
+            WriteResult.FailedRecord first = result.getFailedRecords().isEmpty() ? null : result.getFailedRecords().get(0);
+            kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
+                    .pipelineId(ctx.getPipelineId()).executionLogId(ctx.getExecutionLogId())
+                    .errorType(first != null ? resolveErrorType(first.getErrorType()) : ErrorType.WRITE_FAILED)
+                    .sourceTable(pt.getSourceTable()).targetTable(ttm.getTargetTable())
+                    .chunkNumber(chunkNumber).errorMessage(first != null ? first.getErrorMessage() : "Write failed")
+                    .sourceRowData(logSourceRow && first != null ? serializeRecord(first.getRecord()) : null)
+                    .pipelineStopped(true)
+                    .timestamp(Instant.now()).build());
+            throw new RuntimeException(String.format("Write failed: %d errors on %s → %s (chunk %d)",
+                    result.getFailureCount(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber));
+        }
+
+        int maxThreshold = ctx.getPipeline().getMaxErrorThreshold() != null
+                ? ctx.getPipeline().getMaxErrorThreshold() : 1000;
 
         for (WriteResult.FailedRecord failed : result.getFailedRecords()) {
+            long errorCount = ctx.incrementErrors(1);
+            boolean thresholdExceeded = maxThreshold > 0 && errorCount >= maxThreshold;
+
             kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
                     .pipelineId(ctx.getPipelineId()).executionLogId(ctx.getExecutionLogId())
                     .errorType(resolveErrorType(failed.getErrorType()))
                     .sourceTable(pt.getSourceTable()).targetTable(ttm.getTargetTable())
                     .chunkNumber(chunkNumber).errorMessage(failed.getErrorMessage())
                     .sourceRowData(logSourceRow ? serializeRecord(failed.getRecord()) : null)
-                    .pipelineStopped(!ignoreExceptions)
+                    .pipelineStopped(thresholdExceeded)
                     .timestamp(Instant.now()).build());
-        }
 
-        if (!ignoreExceptions) {
-            throw new RuntimeException(String.format("Write failed: %d errors on %s → %s (chunk %d)",
-                    result.getFailureCount(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber));
+            if (thresholdExceeded) {
+                throw new RuntimeException(String.format(
+                        "Error threshold exceeded: %d errors (max: %d). Pipeline stopped.",
+                        errorCount, maxThreshold));
+            }
         }
     }
 

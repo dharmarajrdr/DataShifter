@@ -8,6 +8,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.tools.Diagnostic;
@@ -43,6 +44,12 @@ public class UdfAnnotationProcessor extends AbstractProcessor {
                 }
 
                 ExecutableElement method = (ExecutableElement) element;
+                Set<Modifier> modifiers = method.getModifiers();
+                if (!modifiers.contains(Modifier.PUBLIC) || !modifiers.contains(Modifier.STATIC)) {
+                    error(element, "Method annotated with @DataShifterUdf must be 'public static'.");
+                    continue;
+                }
+
                 if (!isValidUdfSignature(method)) {
                     error(element, "Method annotated with @DataShifterUdf must take exactly one parameter of type com.datashifter.udf.sdk.Row.");
                     continue;

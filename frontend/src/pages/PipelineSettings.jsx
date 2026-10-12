@@ -206,6 +206,23 @@ const PipelineSettings = () => {
         <div style={{ maxWidth: '55%' }}>
 
           {/* ============================================================ */}
+          {/* GENERAL */}
+          {/* ============================================================ */}
+          <SectionTitle title={SETTINGS.general.title} subtitle={SETTINGS.general.subtitle} />
+          <div style={{ marginBottom: SPACING.md }}>
+            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: SPACING.xxs }}>{SETTINGS.general.name}</label>
+            <input value={settings.name} onChange={e => update('name', e.target.value)}
+              style={{ width: '100%', padding: `${SPACING.xs} 10px`, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.md, boxSizing: 'border-box' }} />
+          </div>
+          <div style={{ marginBottom: SPACING.md }}>
+            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: SPACING.xxs }}>{SETTINGS.general.description}</label>
+            <input value={settings.description} onChange={e => update('description', e.target.value)}
+              style={{ width: '100%', padding: `${SPACING.xs} 10px`, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.md, boxSizing: 'border-box' }} />
+          </div>
+
+          <Divider />
+
+          {/* ============================================================ */}
           {/* TABLE PAIRS */}
           {/* ============================================================ */}
           <SectionTitle title="Table pairs" subtitle="Source and target tables in this pipeline. Add or remove table pairs here." />
@@ -335,23 +352,6 @@ const PipelineSettings = () => {
               </table>
             </div>
           )}
-
-          <Divider />
-
-          {/* ============================================================ */}
-          {/* GENERAL */}
-          {/* ============================================================ */}
-          <SectionTitle title={SETTINGS.general.title} subtitle={SETTINGS.general.subtitle} />
-          <div style={{ marginBottom: SPACING.md }}>
-            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: SPACING.xxs }}>{SETTINGS.general.name}</label>
-            <input value={settings.name} onChange={e => update('name', e.target.value)}
-              style={{ width: '100%', padding: `${SPACING.xs} 10px`, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.md, boxSizing: 'border-box' }} />
-          </div>
-          <div style={{ marginBottom: SPACING.md }}>
-            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: SPACING.xxs }}>{SETTINGS.general.description}</label>
-            <input value={settings.description} onChange={e => update('description', e.target.value)}
-              style={{ width: '100%', padding: `${SPACING.xs} 10px`, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.md, boxSizing: 'border-box' }} />
-          </div>
 
           <Divider />
 

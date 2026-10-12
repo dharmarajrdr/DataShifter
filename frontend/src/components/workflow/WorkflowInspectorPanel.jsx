@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../../constants/design';
+import React, { useEffect, useRef, useState } from 'react';
+import { BORDER_RADIUS, COLORS, FONT, SHADOWS, SPACING } from '../../constants/design';
 import StatusBadge from '../common/StatusBadge';
 
 export const FAILURE_ACTION_OPTIONS = [
@@ -60,7 +60,6 @@ const WorkflowInspectorPanel = ({
   topologyInfo = { chainCount: 0, singleChainReady: false, validationErrors: [] },
   onAddStep,
   onUpdateNodeLinks,
-  onRemoveNode,
   onUpdateEdge,
   onDeleteEdge,
   onOpenAddStep,
@@ -75,6 +74,8 @@ const WorkflowInspectorPanel = ({
   const [attachAfterId, setAttachAfterId] = useState('');
   const [addFailureAction, setAddFailureAction] = useState('STOP_WORKFLOW');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isPipelineDropdownOpen, setIsPipelineDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   // Local draft state for 'inspect_node'
   const [draftPredId, setDraftPredId] = useState('');
@@ -88,11 +89,22 @@ const WorkflowInspectorPanel = ({
     (p) => !nodes.some((n) => n.pipelineId === p.id)
   );
 
+  // Close pipeline dropdown when clicking outside
+  useEffect(() => {
+    if (!isPipelineDropdownOpen) return;
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsPipelineDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isPipelineDropdownOpen]);
+
   // Sync local state when inspector mode/target changes
   useEffect(() => {
     if (mode === 'add_step') {
-      const firstAvail = availablePipelinesToAdd[0]?.id || '';
-      setSelectedPipelineId(firstAvail);
+      setSelectedPipelineId('');
       // Default predecessor: tail of the current chain (node with no outgoing edge)
       const tailNode = [...nodes]
         .reverse()
@@ -100,6 +112,7 @@ const WorkflowInspectorPanel = ({
       setAttachAfterId(inspectorState?.defaultAfterPipelineId ?? (tailNode ? tailNode.pipelineId : ''));
       setAddFailureAction('STOP_WORKFLOW');
       setSearchQuery('');
+      setIsPipelineDropdownOpen(false);
     } else if (mode === 'inspect_node' && inspectorState?.pipelineId) {
       const pid = inspectorState.pipelineId;
       const inEdge = edges.find((e) => e.targetPipelineId === pid);
@@ -115,7 +128,15 @@ const WorkflowInspectorPanel = ({
       );
       setEdgeFailAction(edge?.onFailureAction || 'STOP_WORKFLOW');
     }
-  }, [mode, inspectorState?.pipelineId, inspectorState?.sourcePipelineId, inspectorState?.targetPipelineId, nodes.length, edges.length]);
+  }, [
+    mode,
+    inspectorState?.defaultAfterPipelineId,
+    inspectorState?.pipelineId,
+    inspectorState?.sourcePipelineId,
+    inspectorState?.targetPipelineId,
+    nodes.length,
+    edges.length,
+  ]);
 
   const renderFailureActionPicker = (value, onChange) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -169,9 +190,12 @@ const WorkflowInspectorPanel = ({
   // MODE 1: ADD STEP ("Set Action")
   // =========================================================================
   if (mode === 'add_step') {
-    const filteredPipelines = availablePipelinesToAdd.filter((p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const selectedPipelineObj = availablePipelinesToAdd.find((p) => p.id === selectedPipelineId) || null;
+    const filteredPipelines = isPipelineDropdownOpen
+      ? availablePipelinesToAdd.filter((p) =>
+          p.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : [];
 
     return (
       <div
@@ -218,16 +242,9 @@ const WorkflowInspectorPanel = ({
         </div>
 
         <div style={{ padding: 20, flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <div>
+          <div ref={dropdownRef} style={{ position: 'relative' }}>
             <label style={labelStyle}>Select Validated Pipeline</label>
-            <input
-              type="text"
-              placeholder="Search validated pipelines..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ ...inputStyle, marginBottom: 8 }}
-            />
-            {filteredPipelines.length === 0 ? (
+            {availablePipelinesToAdd.length === 0 ? (
               <div
                 style={{
                   padding: 16,
@@ -243,71 +260,188 @@ const WorkflowInspectorPanel = ({
                 No unassigned <b>VALIDATED</b> pipelines found. Validate a pipeline first to import it into a workflow.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 210, overflowY: 'auto' }}>
-                {filteredPipelines.map((p) => {
-                  const isSelected = selectedPipelineId === p.id;
-                  return (
-                    <div
-                      key={p.id}
-                      onClick={() => setSelectedPipelineId(p.id)}
-                      style={{
-                        padding: '10px 12px',
-                        borderRadius: BORDER_RADIUS.md,
-                        border: isSelected ? `1.5px solid ${COLORS.brand.primary}` : `1px solid ${COLORS.border.light}`,
-                        background: isSelected ? COLORS.accent.purpleLight : COLORS.background.primary,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: FONT.size.sm,
-                            fontWeight: FONT.weight.semibold,
-                            color: isSelected ? COLORS.accent.purpleText : COLORS.text.primary,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {p.name}
-                        </div>
-                        <div style={{ fontSize: '11px', color: COLORS.text.secondary, marginTop: 2 }}>
-                          {p.tableCount ?? 0} tables · Validated
-                        </div>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsPipelineDropdownOpen((prev) => !prev)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: BORDER_RADIUS.md,
+                    border: isPipelineDropdownOpen
+                      ? `1.5px solid ${COLORS.brand.primary}`
+                      : `1px solid ${COLORS.border.medium}`,
+                    background: COLORS.background.primary,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    textAlign: 'left',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {selectedPipelineObj ? (
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: FONT.size.sm,
+                          fontWeight: FONT.weight.semibold,
+                          color: COLORS.text.primary,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {selectedPipelineObj.name}
                       </div>
-                      <StatusBadge status={p.status || 'VALIDATED'} />
+                      <div style={{ fontSize: '11px', color: COLORS.text.secondary, marginTop: 2 }}>
+                        {selectedPipelineObj.tableCount ?? 0} tables · Validated
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
+                  ) : (
+                    <span style={{ fontSize: FONT.size.sm, color: COLORS.text.tertiary }}>
+                      Select a validated pipeline...
+                    </span>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    {selectedPipelineObj && (
+                      <StatusBadge status={selectedPipelineObj.status || 'VALIDATED'} />
+                    )}
+                    <i
+                      className={`fa-solid fa-chevron-${isPipelineDropdownOpen ? 'up' : 'down'}`}
+                      style={{ fontSize: 11, color: COLORS.text.secondary }}
+                    />
+                  </div>
+                </button>
+
+                {isPipelineDropdownOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 6px)',
+                      left: 0,
+                      right: 0,
+                      background: COLORS.background.primary,
+                      border: `1px solid ${COLORS.border.medium}`,
+                      borderRadius: BORDER_RADIUS.md,
+                      boxShadow: SHADOWS.md,
+                      zIndex: 25,
+                      padding: 8,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Search validated pipelines..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{ ...inputStyle, padding: '7px 10px', fontSize: FONT.size.sm }}
+                    />
+                    {filteredPipelines.length === 0 ? (
+                      <div
+                        style={{
+                          padding: '12px 8px',
+                          fontSize: FONT.size.xs,
+                          color: COLORS.text.secondary,
+                          textAlign: 'center',
+                        }}
+                      >
+                        No matching pipelines found
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 4,
+                          maxHeight: 210,
+                          overflowY: 'auto',
+                        }}
+                      >
+                        {filteredPipelines.map((p) => {
+                          const isSelected = selectedPipelineId === p.id;
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => {
+                                setSelectedPipelineId(p.id);
+                                setIsPipelineDropdownOpen(false);
+                              }}
+                              style={{
+                                padding: '9px 10px',
+                                borderRadius: BORDER_RADIUS.sm,
+                                border: isSelected
+                                  ? `1.5px solid ${COLORS.brand.primary}`
+                                  : `1px solid transparent`,
+                                background: isSelected
+                                  ? COLORS.accent.purpleLight
+                                  : COLORS.background.primary,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isSelected) {
+                                  e.currentTarget.style.background = COLORS.background.secondary;
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isSelected) {
+                                  e.currentTarget.style.background = COLORS.background.primary;
+                                }
+                              }}
+                            >
+                              <div style={{ minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    fontSize: FONT.size.sm,
+                                    fontWeight: FONT.weight.semibold,
+                                    color: isSelected
+                                      ? COLORS.accent.purpleText
+                                      : COLORS.text.primary,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {p.name}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: '11px',
+                                    color: COLORS.text.secondary,
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  {p.tableCount ?? 0} tables · Validated
+                                </div>
+                              </div>
+                              <StatusBadge status={p.status || 'VALIDATED'} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {nodes.length > 0 && (
+          {((attachAfterId && attachAfterId !== '__TRIGGER__') ||
+            (attachAfterId === '__TRIGGER__' && nodes.length > 0)) && (
             <div>
-              <label style={labelStyle}>Attach After Step (Series Order)</label>
-              <select
-                value={attachAfterId}
-                onChange={(e) => setAttachAfterId(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">None (Start a separate chain while drafting)</option>
-                {nodes.map((n, idx) => (
-                  <option key={n.pipelineId} value={n.pipelineId}>
-                    Step #{idx + 1}: {n.pipelineName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {attachAfterId && (
-            <div>
-              <label style={labelStyle}>On Previous Pipeline Fails</label>
+              <label style={labelStyle}>
+                {attachAfterId === '__TRIGGER__'
+                  ? 'On This Pipeline Fails'
+                  : 'On Previous Pipeline Fails'}
+              </label>
               {renderFailureActionPicker(addFailureAction, setAddFailureAction)}
             </div>
           )}
@@ -372,8 +506,6 @@ const WorkflowInspectorPanel = ({
   if (mode === 'inspect_node') {
     const node = nodes.find((n) => n.pipelineId === inspectorState?.pipelineId);
     if (!node) return null;
-
-    const otherNodes = nodes.filter((n) => n.pipelineId !== node.pipelineId);
 
     return (
       <div
@@ -464,82 +596,11 @@ const WorkflowInspectorPanel = ({
             )}
           </div>
 
-          {/* Predecessor Step */}
-          <div>
-            <label style={labelStyle}>Predecessor Pipeline (Runs Before This)</label>
-            <select
-              disabled={readOnly}
-              value={draftPredId}
-              onChange={(e) => {
-                const val = e.target.value;
-                setDraftPredId(val);
-                if (val && val === draftSuccId) setDraftSuccId('');
-              }}
-              style={inputStyle}
-            >
-              <option value="">None (Head of Chain)</option>
-              {otherNodes.map((n) => (
-                <option key={n.pipelineId} value={n.pipelineId}>
-                  {n.pipelineName}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Failure Action when Predecessor Fails */}
           {draftPredId && (
             <div>
               <label style={labelStyle}>On Previous Pipeline Fails</label>
               {renderFailureActionPicker(draftFailAction, setDraftFailAction)}
-            </div>
-          )}
-
-          {/* Successor Step */}
-          <div>
-            <label style={labelStyle}>Successor Pipeline (Runs After This)</label>
-            <select
-              disabled={readOnly}
-              value={draftSuccId}
-              onChange={(e) => {
-                const val = e.target.value;
-                setDraftSuccId(val);
-                if (val && val === draftPredId) setDraftPredId('');
-              }}
-              style={inputStyle}
-            >
-              <option value="">None (End of Chain)</option>
-              {otherNodes.map((n) => (
-                <option key={n.pipelineId} value={n.pipelineId}>
-                  {n.pipelineName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {!readOnly && (
-            <div style={{ paddingTop: 10, borderTop: `1px solid ${COLORS.border.light}` }}>
-              <button
-                type="button"
-                onClick={() => onRemoveNode && onRemoveNode(node.pipelineId)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: BORDER_RADIUS.md,
-                  border: `1px solid ${COLORS.status.error}`,
-                  background: COLORS.status.errorLight,
-                  color: COLORS.status.errorText,
-                  fontSize: FONT.size.xs,
-                  fontWeight: FONT.weight.semibold,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                }}
-              >
-                <i className="fa-solid fa-link-slash" />
-                Remove Step from Workflow (Unlock Pipeline)
-              </button>
             </div>
           )}
         </div>

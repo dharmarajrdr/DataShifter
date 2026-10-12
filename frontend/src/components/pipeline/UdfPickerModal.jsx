@@ -49,7 +49,7 @@ const MethodDropdown = ({ functions, selectedMethodName, onSelect }) => {
           border: `1px solid ${isOpen ? COLORS.brand.primary : COLORS.border.medium}`,
           boxShadow: isOpen ? `0 0 0 3px ${COLORS.brand.primaryLight}` : 'none',
           fontSize: FONT.size.sm,
-          fontFamily: 'monospace',
+          fontFamily: FONT.family,
           color: COLORS.text.primary,
           background: COLORS.background.primary,
           cursor: 'pointer',
@@ -177,7 +177,7 @@ const MethodDropdown = ({ functions, selectedMethodName, onSelect }) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: `8px 12px`,
+                  padding: `6px 10px`,
                   cursor: 'pointer',
                   background: isSelected ? COLORS.brand.primaryLight : 'transparent',
                   transition: 'background-color 0.12s ease',
@@ -192,7 +192,7 @@ const MethodDropdown = ({ functions, selectedMethodName, onSelect }) => {
               >
                 <span
                   style={{
-                    fontFamily: 'monospace',
+                    fontFamily: FONT.family,
                     fontSize: FONT.size.sm,
                     color: isSelected ? COLORS.brand.primaryDark : COLORS.text.primary,
                     fontWeight: isSelected ? FONT.weight.semibold : FONT.weight.regular,
@@ -293,7 +293,7 @@ const UdfPickerModal = ({
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
 
-  const [selectedUdfId, setSelectedUdfId] = useState(initialConfig?.udfId || '');
+  const [selectedUdfId, setSelectedUdfId] = useState('');
   const [selectedMethodName, setSelectedMethodName] = useState(initialConfig?.methodName || '');
   const [failurePolicy, setFailurePolicy] = useState(initialConfig?.failurePolicy || 'SKIP_ROW');
   const [defaultValue, setDefaultValue] = useState(initialConfig?.defaultValue || '');
@@ -323,10 +323,14 @@ const UdfPickerModal = ({
         if (mounted) {
           const list = res.data || [];
           setUdfs(list);
-          if (list.length > 0 && !selectedUdfId) {
-            setSelectedUdfId(list[0].id);
-            if (list[0].functions?.length > 0) {
-              setSelectedMethodName(list[0].functions[0].methodName);
+          if (list.length > 0) {
+            const matched = list.find(u =>
+              (initialConfig?.udfName && u.name === initialConfig.udfName) ||
+              (initialConfig?.udfId && u.id === initialConfig.udfId)
+            ) || list[0];
+            setSelectedUdfId(matched.id);
+            if (!initialConfig?.methodName && matched.functions?.length > 0) {
+              setSelectedMethodName(matched.functions[0].methodName);
             }
           }
         }
@@ -361,7 +365,6 @@ const UdfPickerModal = ({
   const handleApply = () => {
     if (!selectedUdf || !selectedFunction) return;
     const config = {
-      udfId: selectedUdf.id,
       udfName: selectedUdf.name,
       version: selectedUdf.version || '1.0.0', // Pin exact version!
       className: selectedFunction.className,

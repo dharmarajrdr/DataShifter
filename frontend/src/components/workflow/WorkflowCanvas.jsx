@@ -1,10 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS } from '../../constants/design';
 import AddWorkflowStepPill from './AddWorkflowStepPill';
 import WorkflowNodeCard from './WorkflowNodeCard';
 
 const CARD_WIDTH = 310;
-const CARD_HEIGHT = 76;
+const CARD_HEIGHT = 56;
 const TRIGGER_X = 260;
 const TRIGGER_Y = 44;
 
@@ -42,6 +42,7 @@ const WorkflowCanvas = ({
   onOpenAddStep,
   onMoveNode,
   onConnectNodes,
+  onRemoveNode,
   onAutoArrange,
 }) => {
   const containerRef = useRef(null);
@@ -51,6 +52,7 @@ const WorkflowCanvas = ({
 
   const handleNodeMouseDown = (pipelineId, e) => {
     if (mode !== 'builder' || e.button !== 0) return;
+    e.preventDefault();
     e.stopPropagation();
     const targetNode = nodes.find((n) => n.pipelineId === pipelineId);
     if (!targetNode) return;
@@ -66,6 +68,7 @@ const WorkflowCanvas = ({
 
   const handleStartConnect = (sourcePipelineId, e) => {
     if (mode !== 'builder') return;
+    e.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
     const x = rect ? (e.clientX - rect.left) / zoom : 0;
     const y = rect ? (e.clientY - rect.top) / zoom : 0;
@@ -82,12 +85,19 @@ const WorkflowCanvas = ({
   };
 
   const handleMouseMove = (e) => {
+    // Safety guard: if primary mouse button is no longer pressed, end any active drag immediately
+    if ((draggingNode || connectingFrom) && typeof e.buttons === 'number' && (e.buttons & 1) === 0) {
+      setDraggingNode(null);
+      setConnectingFrom(null);
+      return;
+    }
+
     if (draggingNode && onMoveNode) {
       const dx = (e.clientX - draggingNode.startMouseX) / zoom;
       const dy = (e.clientY - draggingNode.startMouseY) / zoom;
       const moved = Math.abs(dx) > 3 || Math.abs(dy) > 3 || draggingNode.moved;
       if (moved) {
-        setDraggingNode((prev) => ({ ...prev, moved: true }));
+        setDraggingNode((prev) => (prev ? { ...prev, moved: true } : null));
         onMoveNode(
           draggingNode.pipelineId,
           Math.max(24, Math.round(draggingNode.origX + dx)),
@@ -96,11 +106,15 @@ const WorkflowCanvas = ({
       }
     } else if (connectingFrom && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setConnectingFrom((prev) => ({
-        ...prev,
-        mouseX: (e.clientX - rect.left) / zoom,
-        mouseY: (e.clientY - rect.top) / zoom,
-      }));
+      setConnectingFrom((prev) =>
+        prev
+          ? {
+              ...prev,
+              mouseX: (e.clientX - rect.left) / zoom,
+              mouseY: (e.clientY - rect.top) / zoom,
+            }
+          : null
+      );
     }
   };
 
@@ -115,6 +129,25 @@ const WorkflowCanvas = ({
       setConnectingFrom(null);
     }
   };
+
+  useEffect(() => {
+    if (!draggingNode && !connectingFrom) return;
+    const handleWindowMouseUp = () => {
+      setDraggingNode((prev) => {
+        if (prev && !prev.moved && onSelectNode) {
+          onSelectNode(prev.pipelineId);
+        }
+        return null;
+      });
+      setConnectingFrom(null);
+    };
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    window.addEventListener('blur', handleWindowMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      window.removeEventListener('blur', handleWindowMouseUp);
+    };
+  }, [draggingNode, connectingFrom, onSelectNode]);
 
   // Determine head node (first node with no incoming edge) and tail node (last node with no outgoing edge)
   const incomingByTarget = {};
@@ -290,7 +323,9 @@ const WorkflowCanvas = ({
             ? 'No pipeline steps added yet'
             : topologyInfo.singleChainReady
               ? `Single Chain Ready (${nodes.length} ${nodes.length === 1 ? 'step' : 'steps'})`
-              : `${topologyInfo.chainCount} Disconnected Chains — Link into 1 chain before running`}
+              : topologyInfo.chainCount > 1
+                ? `${topologyInfo.chainCount} Disconnected Chains — Link into 1 chain before running`
+                : `${topologyInfo.chainCount || 1} Not Validated Chains — Validate the chain before running`}
         </div>
       </div>
 
@@ -363,7 +398,7 @@ const WorkflowCanvas = ({
             const tgtNode = nodes.find((n) => n.pipelineId === edge.targetPipelineId);
             if (!srcNode || !tgtNode) return null;
 
-            const srcHeight = mode === 'monitor' ? 104 : incomingByTarget[srcNode.pipelineId] ? 94 : CARD_HEIGHT;
+            const srcHeight = mode === 'monitor' ? 78 : CARD_HEIGHT;
             const x1 = (srcNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
             const y1 = (srcNode.positionY ?? 170) + srcHeight;
             const x2 = (tgtNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
@@ -395,8 +430,7 @@ const WorkflowCanvas = ({
                   ? (tailNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2
                   : TRIGGER_X + CARD_WIDTH / 2,
                 tailNode
-                  ? (tailNode.positionY ?? 170) +
-                      (incomingByTarget[tailNode.pipelineId] ? 94 : CARD_HEIGHT)
+                  ? (tailNode.positionY ?? 170) + CARD_HEIGHT
                   : TRIGGER_Y + 62,
                 addPillX + CARD_WIDTH / 2,
                 addPillY - 4
@@ -428,13 +462,58 @@ const WorkflowCanvas = ({
           })()}
         </svg>
 
-        {/* Clickable Failure-Action Badges on Each Edge Midpoint */}
+        {/* '+' Icon on Trigger -> Primary Head Edge (Insert at Start of Chain) */}
+        {mode === 'builder' && primaryHead && (() => {
+          const x1 = TRIGGER_X + CARD_WIDTH / 2;
+          const y1 = TRIGGER_Y + 62;
+          const x2 = (primaryHead.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
+          const y2 = (primaryHead.positionY ?? 170) - 6;
+          const midX = (x1 + x2) / 2;
+          const midY = (y1 + y2) / 2;
+          const isAddTriggerSelected =
+            selectedItem?.type === 'add' && selectedItem?.afterPipelineId === '__TRIGGER__';
+
+          return (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onOpenAddStep) onOpenAddStep('__TRIGGER__');
+              }}
+              title="Add pipeline step at start of chain"
+              style={{
+                position: 'absolute',
+                left: midX,
+                top: midY,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 4,
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                background: isAddTriggerSelected ? COLORS.brand.primary : COLORS.background.primary,
+                color: isAddTriggerSelected ? '#fff' : COLORS.brand.primary,
+                border: `1.5px solid ${COLORS.brand.primary}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                cursor: 'pointer',
+                boxShadow: SHADOWS.sm,
+                transition: 'all 0.12s ease',
+              }}
+            >
+              <i className="fa-solid fa-plus" style={{ fontSize: 10, lineHeight: 1 }} />
+            </button>
+          );
+        })()}
+
+        {/* Clickable Failure-Action Badges & '+' Insert Icon on Each Edge Midpoint */}
         {edges.map((edge) => {
           const srcNode = nodes.find((n) => n.pipelineId === edge.sourcePipelineId);
           const tgtNode = nodes.find((n) => n.pipelineId === edge.targetPipelineId);
           if (!srcNode || !tgtNode) return null;
 
-          const srcHeight = mode === 'monitor' ? 104 : incomingByTarget[srcNode.pipelineId] ? 94 : CARD_HEIGHT;
+          const srcHeight = mode === 'monitor' ? 78 : CARD_HEIGHT;
           const x1 = (srcNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
           const y1 = (srcNode.positionY ?? 170) + srcHeight;
           const x2 = (tgtNode.positionX ?? TRIGGER_X) + CARD_WIDTH / 2;
@@ -443,34 +522,74 @@ const WorkflowCanvas = ({
           const midX = (x1 + x2) / 2;
           const midY = (y1 + y2) / 2;
           const badgeCfg = EDGE_BADGE_MAP[edge.onFailureAction || 'STOP_WORKFLOW'];
+          const isAddEdgeSelected =
+            selectedItem?.type === 'add' && selectedItem?.afterPipelineId === edge.sourcePipelineId;
 
           return (
             <div
               key={`badge-${edge.sourcePipelineId}-${edge.targetPipelineId}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onSelectEdge) onSelectEdge(edge.sourcePipelineId, edge.targetPipelineId);
-              }}
-              title="Click to configure failure behavior on this link"
               style={{
                 position: 'absolute',
                 left: midX,
                 top: midY,
                 transform: 'translate(-50%, -50%)',
                 zIndex: 4,
-                padding: '2px 9px',
-                borderRadius: BORDER_RADIUS.pill,
-                background: badgeCfg.bg,
-                color: badgeCfg.color,
-                border: `1px solid ${badgeCfg.border}`,
-                fontSize: '10px',
-                fontWeight: FONT.weight.semibold,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                boxShadow: SHADOWS.sm,
+                display: 'inline-flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 5,
               }}
             >
-              {badgeCfg.text}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onSelectEdge) onSelectEdge(edge.sourcePipelineId, edge.targetPipelineId);
+                }}
+                title="Click to configure failure behavior on this link"
+                style={{
+                  padding: '2px 9px',
+                  borderRadius: BORDER_RADIUS.pill,
+                  background: badgeCfg.bg,
+                  color: badgeCfg.color,
+                  border: `1px solid ${badgeCfg.border}`,
+                  fontSize: '10px',
+                  fontWeight: FONT.weight.semibold,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: SHADOWS.sm,
+                }}
+              >
+                {badgeCfg.text}
+              </div>
+
+              {mode === 'builder' && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenAddStep) onOpenAddStep(edge.sourcePipelineId);
+                  }}
+                  title={`Add pipeline step after ${srcNode.pipelineName}`}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    background: isAddEdgeSelected ? COLORS.brand.primary : COLORS.background.primary,
+                    color: isAddEdgeSelected ? '#fff' : COLORS.brand.primary,
+                    border: `1.5px solid ${COLORS.brand.primary}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    cursor: 'pointer',
+                    boxShadow: SHADOWS.sm,
+                    flexShrink: 0,
+                    transition: 'all 0.12s ease',
+                  }}
+                >
+                  <i className="fa-solid fa-plus" style={{ fontSize: 10, lineHeight: 1 }} />
+                </button>
+              )}
             </div>
           );
         })}
@@ -525,6 +644,7 @@ const WorkflowCanvas = ({
                 onClick={() => onSelectNode && onSelectNode(node.pipelineId)}
                 onStartConnect={handleStartConnect}
                 onCompleteConnect={handleCompleteConnect}
+                onRemove={onRemoveNode}
               />
             </div>
           );
@@ -543,7 +663,10 @@ const WorkflowCanvas = ({
             onClick={(e) => e.stopPropagation()}
           >
             <AddWorkflowStepPill
-              active={selectedItem?.type === 'add'}
+              active={
+                selectedItem?.type === 'add' &&
+                selectedItem?.afterPipelineId === (tailNode ? tailNode.pipelineId : null)
+              }
               onClick={() =>
                 onOpenAddStep && onOpenAddStep(tailNode ? tailNode.pipelineId : null)
               }

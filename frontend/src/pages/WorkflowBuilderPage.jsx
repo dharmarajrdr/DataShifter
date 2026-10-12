@@ -207,15 +207,19 @@ const WorkflowBuilderPage = () => {
       return;
     }
 
-    const predNode = attachAfterPipelineId
-      ? nodes.find((n) => n.pipelineId === attachAfterPipelineId)
-      : null;
+    const isInsertAtHead = attachAfterPipelineId === '__TRIGGER__';
+    const predNode =
+      attachAfterPipelineId && !isInsertAtHead
+        ? nodes.find((n) => n.pipelineId === attachAfterPipelineId)
+        : null;
 
-    const newPosY = predNode
-      ? (predNode.positionY ?? 165) + 145
-      : nodes.length === 0
-        ? 165
-        : Math.max(...nodes.map((n) => n.positionY ?? 165)) + 145;
+    const newPosY = isInsertAtHead
+      ? 165
+      : predNode
+        ? (predNode.positionY ?? 165) + 145
+        : nodes.length === 0
+          ? 165
+          : Math.max(...nodes.map((n) => n.positionY ?? 165)) + 145;
 
     const newNode = {
       pipelineId: pipelineSummary.id,
@@ -229,7 +233,16 @@ const WorkflowBuilderPage = () => {
     };
 
     let updatedEdges = [...edges];
-    if (attachAfterPipelineId) {
+    if (isInsertAtHead) {
+      const currentHead = topologyInfo.orderedNodes[0];
+      if (currentHead) {
+        updatedEdges.push({
+          sourcePipelineId: newNode.pipelineId,
+          targetPipelineId: currentHead.pipelineId,
+          onFailureAction: onFailureAction || 'STOP_WORKFLOW',
+        });
+      }
+    } else if (attachAfterPipelineId) {
       // If predecessor already had a successor, splice the new step in series
       const existingOut = updatedEdges.find((e) => e.sourcePipelineId === attachAfterPipelineId);
       updatedEdges = updatedEdges.filter((e) => e.sourcePipelineId !== attachAfterPipelineId);
@@ -247,7 +260,7 @@ const WorkflowBuilderPage = () => {
       }
     }
 
-    const nextNodes = [...nodes, newNode];
+    const nextNodes = isInsertAtHead ? [newNode, ...nodes] : [...nodes, newNode];
     const arranged = computeClientTopology(nextNodes, updatedEdges).orderedNodes.map((n, idx) => ({
       ...n,
       positionX: n.positionX ?? TRIGGER_X,
@@ -324,12 +337,46 @@ const WorkflowBuilderPage = () => {
   };
 
   const handleRemoveNode = (pipelineId) => {
-    setNodes((prev) => prev.filter((n) => n.pipelineId !== pipelineId));
-    setEdges((prev) =>
-      prev.filter(
-        (e) => e.sourcePipelineId !== pipelineId && e.targetPipelineId !== pipelineId
-      )
+    const inEdge = edges.find((e) => e.targetPipelineId === pipelineId);
+    const outEdge = edges.find((e) => e.sourcePipelineId === pipelineId);
+
+    let nextEdges = edges.filter(
+      (e) => e.sourcePipelineId !== pipelineId && e.targetPipelineId !== pipelineId
     );
+
+    // If a middle step in a chain (A -> B -> C) is removed, bridge A -> C automatically
+    if (
+      inEdge &&
+      outEdge &&
+      inEdge.sourcePipelineId !== outEdge.targetPipelineId &&
+      !nextEdges.some(
+        (e) =>
+          e.sourcePipelineId === inEdge.sourcePipelineId ||
+          e.targetPipelineId === outEdge.targetPipelineId
+      ) &&
+      !createsCycle(nextEdges, inEdge.sourcePipelineId, outEdge.targetPipelineId)
+    ) {
+      nextEdges = [
+        ...nextEdges,
+        {
+          sourcePipelineId: inEdge.sourcePipelineId,
+          targetPipelineId: outEdge.targetPipelineId,
+          onFailureAction: inEdge.onFailureAction || outEdge.onFailureAction || 'STOP_WORKFLOW',
+        },
+      ];
+    }
+
+    const remainingNodes = nodes.filter((n) => n.pipelineId !== pipelineId);
+    const arranged = computeClientTopology(remainingNodes, nextEdges).orderedNodes.map(
+      (n, idx) => ({
+        ...n,
+        positionX: n.positionX ?? TRIGGER_X,
+        positionY: 165 + idx * 145,
+      })
+    );
+
+    setNodes(arranged);
+    setEdges(nextEdges);
     setSelectedCanvasItem({ type: 'trigger' });
     setInspectorState({ mode: 'workflow_meta' });
   };
@@ -386,14 +433,17 @@ const WorkflowBuilderPage = () => {
         })),
       };
 
+      let savedId = workflowId;
       if (isEditMode) {
-        await workflowApi.update(workflowId, payload);
+        const updated = await workflowApi.update(workflowId, payload);
+        savedId = updated?.id || workflowId;
         notify.success('Workflow saved successfully');
       } else {
-        await workflowApi.create(payload);
+        const created = await workflowApi.create(payload);
+        savedId = created?.id;
         notify.success('Workflow created successfully');
       }
-      navigate('/workflows');
+      navigate(savedId ? `/workflows/${savedId}/monitor` : '/workflows');
     } catch (err) {
       notify.error(err.message || 'Failed to save workflow');
     } finally {
@@ -571,11 +621,12 @@ const WorkflowBuilderPage = () => {
             setInspectorState({ mode: 'inspect_edge', sourcePipelineId, targetPipelineId });
           }}
           onOpenAddStep={(defaultAfterPipelineId) => {
-            setSelectedCanvasItem({ type: 'add' });
+            setSelectedCanvasItem({ type: 'add', afterPipelineId: defaultAfterPipelineId });
             setInspectorState({ mode: 'add_step', defaultAfterPipelineId });
           }}
           onMoveNode={handleMoveNode}
           onConnectNodes={handleConnectNodes}
+          onRemoveNode={handleRemoveNode}
           onAutoArrange={handleAutoArrange}
         />
 
@@ -590,13 +641,12 @@ const WorkflowBuilderPage = () => {
           topologyInfo={topologyInfo}
           onAddStep={handleAddStep}
           onUpdateNodeLinks={handleUpdateNodeLinks}
-          onRemoveNode={handleRemoveNode}
           onUpdateEdge={handleUpdateEdge}
           onDeleteEdge={handleDeleteEdge}
           onOpenAddStep={() => {
             const tail =
               topologyInfo.orderedNodes[topologyInfo.orderedNodes.length - 1]?.pipelineId || null;
-            setSelectedCanvasItem({ type: 'add' });
+            setSelectedCanvasItem({ type: 'add', afterPipelineId: tail });
             setInspectorState({ mode: 'add_step', defaultAfterPipelineId: tail });
           }}
           onCloseInspector={() => {

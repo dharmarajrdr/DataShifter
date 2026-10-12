@@ -28,7 +28,7 @@ const WorkflowMonitor = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
-  const [selectedPipelineId, setSelectedPipelineId] = useState(null);
+  const [selectedPipelineId, setSelectedPipelineId] = useState('__TRIGGER__');
   const [updateCount, setUpdateCount] = useState(0);
 
   // Aggregated error logs state
@@ -41,6 +41,8 @@ const WorkflowMonitor = () => {
   const [errorFilterType, setErrorFilterType] = useState('');
   const [errorSearch, setErrorSearch] = useState('');
   const [expandedErrorId, setExpandedErrorId] = useState(null);
+  const [reRunModalOpen, setReRunModalOpen] = useState(false);
+  const [selectedReRunMode, setSelectedReRunMode] = useState('RERUN_FAILED_STAGE');
 
   const fetchWorkflow = useCallback(async () => {
     try {
@@ -49,8 +51,7 @@ const WorkflowMonitor = () => {
       if (res.data) {
         setWorkflow(res.data);
         setSelectedPipelineId(
-          (prev) =>
-            prev || res.data.currentPipelineId || res.data.nodes?.[0]?.pipelineId || null
+          (prev) => prev || res.data.currentPipelineId || '__TRIGGER__'
         );
       }
     } catch (err) {
@@ -180,7 +181,11 @@ const WorkflowMonitor = () => {
           });
           return { ...prev, nodes: updatedNodes };
         });
-        if (d.newStatus === 'COMPLETED' || d.newStatus === 'ERRORED') {
+        if (
+          ['COMPLETED', 'ERRORED', 'VALIDATED', 'NOT_VALIDATED', 'INVALID', 'DRAFT'].includes(
+            d.newStatus
+          )
+        ) {
           fetchWorkflow();
           fetchErrors();
         }
@@ -264,9 +269,24 @@ const WorkflowMonitor = () => {
   const nodes = workflow.nodes || [];
   const edges = workflow.edges || [];
   const completedSteps = nodes.filter((n) => n.pipelineStatus === 'COMPLETED').length;
-  const canStart = workflow.singleChainReady && workflow.status !== 'RUNNING';
-  const selectedNode =
-    nodes.find((n) => n.pipelineId === selectedPipelineId) || nodes[0] || null;
+  const allValidated =
+    nodes.length >= 1 &&
+    nodes.every((n) => !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus));
+  const isSingleChainReady =
+    Boolean(workflow.singleChainReady) && (workflow.chainCount || 0) === 1 && allValidated;
+  const effectiveStatus =
+    workflow.status === 'RUNNING' || workflow.status === 'PAUSED'
+      ? workflow.status
+      : !isSingleChainReady
+        ? 'DRAFT'
+        : workflow.status === 'DRAFT'
+          ? 'READY'
+          : workflow.status;
+  const canStart = isSingleChainReady && effectiveStatus !== 'RUNNING';
+  const isTriggerSelected = !selectedPipelineId || selectedPipelineId === '__TRIGGER__';
+  const selectedNode = isTriggerSelected
+    ? null
+    : nodes.find((n) => n.pipelineId === selectedPipelineId) || null;
 
   const filteredErrors = (errorSummary.errors || []).filter((err) => {
     if (errorFilterType && err.errorType !== errorFilterType) return false;
@@ -367,7 +387,7 @@ const WorkflowMonitor = () => {
             >
               {workflow.name}
             </h1>
-            <StatusBadge status={workflow.status} />
+            <StatusBadge status={effectiveStatus} />
           </div>
           <p
             style={{
@@ -382,7 +402,7 @@ const WorkflowMonitor = () => {
 
         {/* Workflow Execution Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {workflow.status === 'RUNNING' ? (
+          {effectiveStatus === 'RUNNING' ? (
             <>
               {hasPermission('workflow:pause') && (
                 <Button
@@ -405,7 +425,7 @@ const WorkflowMonitor = () => {
                 </Button>
               )}
             </>
-          ) : workflow.status === 'PAUSED' ? (
+          ) : effectiveStatus === 'PAUSED' ? (
             <>
               {hasPermission('workflow:run') && (
                 <Button
@@ -429,26 +449,44 @@ const WorkflowMonitor = () => {
               )}
             </>
           ) : (
-            hasPermission('workflow:run') && (
-              <Button
-                variant="primary"
-                disabled={!canStart || actionBusy}
-                onClick={() => handleAction('START')}
-              >
-                <i className="fa-solid fa-play" style={{ marginRight: 6 }} />
-                {workflow.status === 'COMPLETED' ||
-                  workflow.status === 'FAILED' ||
-                  workflow.status === 'STOPPED'
-                  ? 'Re-Run Workflow'
-                  : 'Start Workflow'}
-              </Button>
-            )
+            hasPermission('workflow:run') && (() => {
+              const isReRun =
+                effectiveStatus === 'COMPLETED' ||
+                effectiveStatus === 'FAILED' ||
+                effectiveStatus === 'STOPPED' ||
+                nodes.some(
+                  (n) => n.pipelineStatus === 'COMPLETED' || n.pipelineStatus === 'ERRORED'
+                ) ||
+                (workflow.totalRowsProcessed || 0) > 0;
+              return (
+                <Button
+                  variant="primary"
+                  disabled={!canStart || actionBusy}
+                  onClick={() => {
+                    if (isReRun) {
+                      const hasFailedOrIncomplete = nodes.some(
+                        (n) => n.pipelineStatus !== 'COMPLETED'
+                      );
+                      setSelectedReRunMode(
+                        hasFailedOrIncomplete ? 'RERUN_FAILED_STAGE' : 'START'
+                      );
+                      setReRunModalOpen(true);
+                    } else {
+                      handleAction('START');
+                    }
+                  }}
+                >
+                  <i className="fa-solid fa-play" style={{ marginRight: 6 }} />
+                  {isReRun ? 'Re-Run Workflow' : 'Start Workflow'}
+                </Button>
+              );
+            })()
           )}
 
           {hasPermission('workflow:edit') && (
             <Button
               variant="secondary"
-              disabled={workflow.status === 'RUNNING' || workflow.status === 'PAUSED'}
+              disabled={effectiveStatus === 'RUNNING' || effectiveStatus === 'PAUSED'}
               onClick={() => navigate(`/workflows/${workflowId}/edit`)}
             >
               <i className="fa-solid fa-diagram-project" style={{ marginRight: 6 }} />
@@ -561,12 +599,15 @@ const WorkflowMonitor = () => {
             mode="monitor"
             currentPipelineId={workflow.currentPipelineId}
             selectedItem={
-              selectedPipelineId ? { type: 'node', pipelineId: selectedPipelineId } : null
+              isTriggerSelected
+                ? { type: 'trigger' }
+                : { type: 'node', pipelineId: selectedPipelineId }
             }
             topologyInfo={{
               chainCount: workflow.chainCount || 0,
-              singleChainReady: workflow.singleChainReady,
+              singleChainReady: isSingleChainReady,
             }}
+            onSelectTrigger={() => setSelectedPipelineId('__TRIGGER__')}
             onSelectNode={(pid) => setSelectedPipelineId(pid)}
           />
 
@@ -595,7 +636,7 @@ const WorkflowMonitor = () => {
                   color: COLORS.text.primary,
                 }}
               >
-                Step Execution Status
+                {selectedNode ? 'Step Execution Status' : 'Workflow Details'}
               </h3>
               <p
                 style={{
@@ -604,9 +645,144 @@ const WorkflowMonitor = () => {
                   color: COLORS.text.secondary,
                 }}
               >
-                Click any pipeline step in the chain to inspect its progress
+                {selectedNode
+                  ? 'Click any pipeline step in the chain to inspect its progress'
+                  : 'Single-chain readiness and pre-run checklist'}
               </p>
             </div>
+
+            {!selectedNode && (
+              <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div
+                  style={{
+                    padding: 14,
+                    borderRadius: BORDER_RADIUS.md,
+                    background: isSingleChainReady
+                      ? COLORS.status.successLight
+                      : COLORS.background.secondary,
+                    border: `1px solid ${
+                      isSingleChainReady ? COLORS.status.success : COLORS.border.light
+                    }`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <i
+                      className={
+                        isSingleChainReady
+                          ? 'fa-solid fa-circle-check'
+                          : 'fa-solid fa-list-check'
+                      }
+                      style={{
+                        color: isSingleChainReady
+                          ? COLORS.status.successDark
+                          : COLORS.brand.primary,
+                        fontSize: 14,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: FONT.size.sm,
+                        fontWeight: FONT.weight.semibold,
+                        color: isSingleChainReady
+                          ? COLORS.status.successText
+                          : COLORS.text.primary,
+                      }}
+                    >
+                      {isSingleChainReady ? 'Ready for Execution' : 'Pre-Run Checklist'}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      fontSize: FONT.size.xs,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: COLORS.text.secondary,
+                      }}
+                    >
+                      <i
+                        className={
+                          nodes.length >= 1 ? 'fa-solid fa-check' : 'fa-solid fa-circle-dot'
+                        }
+                        style={{
+                          color:
+                            nodes.length >= 1 ? COLORS.status.success : COLORS.text.tertiary,
+                          width: 14,
+                        }}
+                      />
+                      <span>At least 1 pipeline step ({nodes.length} added)</span>
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: COLORS.text.secondary,
+                      }}
+                    >
+                      <i
+                        className={
+                          nodes.length >= 1 && (workflow.chainCount || 0) === 1
+                            ? 'fa-solid fa-check'
+                            : 'fa-solid fa-circle-dot'
+                        }
+                        style={{
+                          color:
+                            nodes.length >= 1 && (workflow.chainCount || 0) === 1
+                              ? COLORS.status.success
+                              : COLORS.status.warning,
+                          width: 14,
+                        }}
+                      />
+                      <span>
+                        Single connected pipeline chain ({workflow.chainCount || 0}{' '}
+                        {(workflow.chainCount || 0) === 1 ? 'chain' : 'chains'})
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: COLORS.text.secondary,
+                      }}
+                    >
+                      <i
+                        className={
+                          nodes.length >= 1 &&
+                          nodes.every(
+                            (n) =>
+                              !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
+                          )
+                            ? 'fa-solid fa-check'
+                            : 'fa-solid fa-circle-dot'
+                        }
+                        style={{
+                          color:
+                            nodes.length >= 1 &&
+                            nodes.every(
+                              (n) =>
+                                !['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
+                            )
+                              ? COLORS.status.success
+                              : COLORS.status.error,
+                          width: 14,
+                        }}
+                      />
+                      <span>All member pipelines in Validated status</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {selectedNode && (
               <div
@@ -726,64 +902,6 @@ const WorkflowMonitor = () => {
               </div>
             )}
 
-            {/* Ordered Step List */}
-            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div
-                style={{
-                  fontSize: FONT.size.xs,
-                  fontWeight: FONT.weight.semibold,
-                  color: COLORS.text.tertiary,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.4px',
-                }}
-              >
-                Execution Sequence
-              </div>
-              {nodes.map((n, index) => {
-                const isSelected = selectedNode?.pipelineId === n.pipelineId;
-                const stepStatus = n.pipelineStatus;
-                return (
-                  <div
-                    key={n.pipelineId}
-                    onClick={() => setSelectedPipelineId(n.pipelineId)}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: BORDER_RADIUS.md,
-                      border: isSelected
-                        ? `1.5px solid ${COLORS.brand.primary}`
-                        : `1px solid ${COLORS.border.light}`,
-                      background: isSelected
-                        ? COLORS.accent.purpleLight
-                        : COLORS.background.primary,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: FONT.size.sm,
-                          fontWeight: FONT.weight.medium,
-                          color: COLORS.text.primary,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {index + 1}. {n.pipelineName}
-                      </div>
-                      <div style={{ fontSize: '11px', color: COLORS.text.secondary, marginTop: 2 }}>
-                        {(n.rowsProcessed || 0).toLocaleString()} rows · {Math.round(n.progress || 0)}%
-                      </div>
-                    </div>
-                    <StatusBadge status={stepStatus} />
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </div>
       ) : (
@@ -932,7 +1050,7 @@ const WorkflowMonitor = () => {
                         <td style={{ padding: '10px 12px', color: COLORS.text.secondary }}>
                           Chunk #{err.chunkNumber ?? 0} · Row #{err.rowNumber ?? 0}
                         </td>
-                        <td style={{ padding: '10px 12px', color: COLORS.status.errorText }}>
+                        <td style={{ padding: '10px 12px', color: COLORS.status.errorText, wordBreak: 'break-word' }}>
                           {err.errorMessage}
                         </td>
                       </tr>
@@ -944,6 +1062,7 @@ const WorkflowMonitor = () => {
                               padding: '10px 16px',
                               background: COLORS.background.secondary,
                               borderBottom: `1px solid ${COLORS.border.light}`,
+                              maxWidth: 0,
                             }}
                           >
                             <div
@@ -959,7 +1078,9 @@ const WorkflowMonitor = () => {
                               style={{
                                 margin: 0,
                                 fontSize: '11px',
-                                overflowX: 'auto',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-all',
+                                overflowWrap: 'anywhere',
                                 color: COLORS.text.primary,
                               }}
                             >
@@ -976,6 +1097,217 @@ const WorkflowMonitor = () => {
           )}
         </div>
       )}
+
+      {/* Re-Run Workflow Options Modal */}
+      {reRunModalOpen && (() => {
+        const erroredIndex = nodes.findIndex((n) => n.pipelineStatus === 'ERRORED');
+        const incompleteIndex = nodes.findIndex((n) => n.pipelineStatus !== 'COMPLETED');
+        const targetStageIndex =
+          erroredIndex !== -1 ? erroredIndex : incompleteIndex !== -1 ? incompleteIndex : 0;
+        const targetStageNode = nodes[targetStageIndex] || nodes[0] || null;
+        const targetStageLabel = targetStageNode
+          ? `Stage ${targetStageIndex + 1}: ${targetStageNode.pipelineName}`
+          : 'Stage 1';
+
+        const reRunOptions = [
+          {
+            value: 'START',
+            title: '1. Restart workflow from beginning',
+            desc: 'Clears checkpoints across all stages and starts execution from Stage 1.',
+            icon: 'fa-solid fa-rotate-left',
+          },
+          {
+            value: 'RERUN_FAILED_STAGE',
+            title: '2. Restart from last failed stage',
+            desc: `Keeps completed upstream stages intact and restarts ${targetStageLabel} from the beginning.`,
+            icon: 'fa-solid fa-forward-step',
+          },
+          {
+            value: 'RERUN_FROM_CHECKPOINT',
+            title: '3. Restart from last checkpoint',
+            desc: `Keeps completed upstream stages intact and resumes ${targetStageLabel} from its last completed chunk checkpoint.`,
+            icon: 'fa-solid fa-bookmark',
+          },
+        ];
+
+        return (
+          <div
+            onClick={() => !actionBusy && setReRunModalOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.45)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: 16,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: 480,
+                background: COLORS.background.primary,
+                borderRadius: BORDER_RADIUS.lg,
+                boxShadow: SHADOWS.lg || '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
+                border: `1px solid ${COLORS.border.light}`,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: '16px 20px',
+                  borderBottom: `1px solid ${COLORS.border.light}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <i
+                    className="fa-solid fa-rotate-right"
+                    style={{ color: COLORS.brand.primary, fontSize: 15 }}
+                  />
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: FONT.size.lg,
+                      fontWeight: FONT.weight.semibold,
+                      color: COLORS.text.primary,
+                    }}
+                  >
+                    Re-Run Workflow
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={() => setReRunModalOpen(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: COLORS.text.tertiary,
+                    fontSize: 14,
+                    padding: 4,
+                  }}
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              </div>
+
+              <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p
+                  style={{
+                    margin: '0 0 4px',
+                    fontSize: FONT.size.xs,
+                    color: COLORS.text.secondary,
+                  }}
+                >
+                  Choose how you want to re-run <strong>{workflow.name}</strong>:
+                </p>
+
+                {reRunOptions.map((opt) => {
+                  const isSelected = selectedReRunMode === opt.value;
+                  return (
+                    <div
+                      key={opt.value}
+                      onClick={() => setSelectedReRunMode(opt.value)}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: BORDER_RADIUS.md,
+                        border: `1.5px solid ${
+                          isSelected ? COLORS.brand.primary : COLORS.border.light
+                        }`,
+                        background: isSelected
+                          ? COLORS.brand.light || '#EEF2FF'
+                          : COLORS.background.secondary,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="reRunMode"
+                        checked={isSelected}
+                        onChange={() => setSelectedReRunMode(opt.value)}
+                        style={{ marginTop: 3, cursor: 'pointer' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            fontSize: FONT.size.sm,
+                            fontWeight: FONT.weight.semibold,
+                            color: COLORS.text.primary,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <i
+                            className={opt.icon}
+                            style={{
+                              fontSize: 12,
+                              color: isSelected ? COLORS.brand.primary : COLORS.text.secondary,
+                            }}
+                          />
+                          <span>{opt.title}</span>
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: FONT.size.xs,
+                            color: COLORS.text.secondary,
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {opt.desc}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div
+                style={{
+                  padding: '12px 20px',
+                  borderTop: `1px solid ${COLORS.border.light}`,
+                  background: COLORS.background.secondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: 8,
+                }}
+              >
+                <Button
+                  variant="secondary"
+                  disabled={actionBusy}
+                  onClick={() => setReRunModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={actionBusy}
+                  onClick={async () => {
+                    setReRunModalOpen(false);
+                    await handleAction(selectedReRunMode);
+                  }}
+                >
+                  <i className="fa-solid fa-play" style={{ marginRight: 6 }} />
+                  Proceed
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

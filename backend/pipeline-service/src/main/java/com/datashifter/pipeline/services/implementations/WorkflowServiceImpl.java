@@ -175,7 +175,8 @@ public class WorkflowServiceImpl implements WorkflowService {
         }
 
         refreshDerivedStatus(workflow);
-        workflowRepository.save(workflow);
+        workflow = workflowRepository.save(workflow);
+        publishWorkflowStatus(workflow, nodeRepository.findByWorkflow_Id(id));
         return toFullResponse(workflow);
     }
 
@@ -202,7 +203,8 @@ public class WorkflowServiceImpl implements WorkflowService {
         nodeRepository.flush();
 
         refreshDerivedStatus(workflow);
-        workflowRepository.save(workflow);
+        workflow = workflowRepository.save(workflow);
+        publishWorkflowStatus(workflow, nodeRepository.findByWorkflow_Id(id));
         return toFullResponse(workflow);
     }
 
@@ -287,7 +289,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         TopologyAnalysis topology = analyzeTopology(nodes, edges, pipelineMap);
 
         switch (request.getAction()) {
-            case START -> {
+            case START, RERUN_FAILED_STAGE, RERUN_FROM_CHECKPOINT -> {
                 UserContext.assertPermission(Permissions.WORKFLOW_RUN);
                 if (workflow.getStatus() == WorkflowStatus.RUNNING) {
                     throw new DatashifterException("Workflow is already running.");
@@ -311,39 +313,92 @@ public class WorkflowServiceImpl implements WorkflowService {
                         .count();
                 limitChecker.assertCanRunParallel(orgId, runningCount);
 
-                // Reset all member pipelines' checkpoints and statuses for a clean workflow run
-                for (WorkflowNode node : topology.orderedNodes) {
+                WorkflowAction actionType = request.getAction();
+                int startIndex = 0;
+
+                if (actionType == WorkflowAction.RERUN_FAILED_STAGE
+                        || actionType == WorkflowAction.RERUN_FROM_CHECKPOINT) {
+                    // Find first ERRORED pipeline in chain, or first non-COMPLETED pipeline (if user re-validated after failure)
+                    int erroredIdx = -1;
+                    int firstIncompleteIdx = -1;
+                    for (int i = 0; i < topology.orderedNodes.size(); i++) {
+                        Pipeline p = pipelineMap.get(topology.orderedNodes.get(i).getPipelineId());
+                        if (p == null) continue;
+                        if (erroredIdx == -1 && p.getStatus() == PipelineStatus.ERRORED) {
+                            erroredIdx = i;
+                        }
+                        if (firstIncompleteIdx == -1 && p.getStatus() != PipelineStatus.COMPLETED) {
+                            firstIncompleteIdx = i;
+                        }
+                    }
+                    if (erroredIdx != -1) {
+                        startIndex = erroredIdx;
+                    } else if (firstIncompleteIdx != -1) {
+                        startIndex = firstIncompleteIdx;
+                    } else {
+                        startIndex = 0;
+                    }
+                }
+
+                for (int i = 0; i < topology.orderedNodes.size(); i++) {
+                    WorkflowNode node = topology.orderedNodes.get(i);
                     Pipeline p = pipelineMap.get(node.getPipelineId());
-                    if (p != null) {
+                    if (p == null) continue;
+
+                    if (actionType == WorkflowAction.START) {
+                        // Full restart from beginning: clear all checkpoints and reset all pipelines
+                        clearPipelineCheckpoints(p.getId());
+                        p.setStatus(PipelineStatus.VALIDATED);
+                        pipelineRepository.save(p);
+                    } else if (i < startIndex) {
+                        // Upstream stages already COMPLETED: preserve their COMPLETED status & stats
+                    } else if (i == startIndex) {
+                        // Target stage to restart/resume
+                        if (actionType == WorkflowAction.RERUN_FAILED_STAGE) {
+                            clearPipelineCheckpoints(p.getId());
+                        } else {
+                            entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
+                                    .setParameter("pipelineId", p.getId())
+                                    .executeUpdate();
+                            if (redisTemplate.opsForHash() != null) {
+                                redisTemplate.opsForHash().put("pipeline:" + p.getId() + ":stats", "errorsSkipped", "0");
+                            }
+                        }
+                        p.setStatus(PipelineStatus.VALIDATED);
+                        pipelineRepository.save(p);
+                    } else {
+                        // Downstream stages after target stage: clear checkpoints and reset to VALIDATED
                         clearPipelineCheckpoints(p.getId());
                         p.setStatus(PipelineStatus.VALIDATED);
                         pipelineRepository.save(p);
                     }
                 }
 
-                // Start the head pipeline of the single chain
-                WorkflowNode headNode = topology.orderedNodes.get(0);
-                Pipeline headPipeline = pipelineMap.get(headNode.getPipelineId());
-                if (headPipeline == null) {
-                    throw new DatashifterException("Head pipeline not found for workflow.");
+                WorkflowNode targetNode = topology.orderedNodes.get(startIndex);
+                Pipeline targetPipeline = pipelineMap.get(targetNode.getPipelineId());
+                if (targetPipeline == null) {
+                    throw new DatashifterException("Target pipeline not found for workflow execution.");
                 }
 
-                headPipeline.setStatus(PipelineStatus.RUNNING);
-                pipelineRepository.save(headPipeline);
+                targetPipeline.setStatus(PipelineStatus.RUNNING);
+                pipelineRepository.save(targetPipeline);
 
                 workflow.setStatus(WorkflowStatus.RUNNING);
-                workflow.setCurrentPipelineId(headPipeline.getId());
+                workflow.setCurrentPipelineId(targetPipeline.getId());
                 workflowRepository.save(workflow);
+
+                String jobAction = (actionType == WorkflowAction.RERUN_FROM_CHECKPOINT) ? "RESUME" : "START";
 
                 kafkaTemplate.send(KafkaTopics.PIPELINE_JOBS,
                         PipelineJobEvent.builder()
-                                .pipelineId(headPipeline.getId())
-                                .action("START")
+                                .pipelineId(targetPipeline.getId())
+                                .action(jobAction)
                                 .timestamp(Instant.now())
                                 .build());
 
-                log.info("Started workflow '{}' ({}) with head pipeline '{}' ({})",
-                        workflow.getName(), workflow.getId(), headPipeline.getName(), headPipeline.getId());
+                log.info("Workflow '{}' ({}) triggered action {} at stage {}/{} pipeline '{}' ({}) with jobAction={}",
+                        workflow.getName(), workflow.getId(), actionType, startIndex + 1,
+                        topology.orderedNodes.size(), targetPipeline.getName(), targetPipeline.getId(), jobAction);
             }
 
             case PAUSE -> {
@@ -606,6 +661,9 @@ public class WorkflowServiceImpl implements WorkflowService {
         entityManager.createQuery("DELETE FROM ChunkCursor c WHERE c.pipelineId = :pipelineId")
                 .setParameter("pipelineId", pipelineId)
                 .executeUpdate();
+        entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
+                .setParameter("pipelineId", pipelineId)
+                .executeUpdate();
         var checkpointKeys = redisTemplate.keys("pipeline:" + pipelineId + ":table:*:checkpoint");
         if (checkpointKeys != null && !checkpointKeys.isEmpty()) {
             redisTemplate.delete(checkpointKeys);
@@ -724,7 +782,25 @@ public class WorkflowServiceImpl implements WorkflowService {
         edgeRepository.flush();
 
         refreshDerivedStatus(workflow);
-        workflowRepository.save(workflow);
+        workflow = workflowRepository.save(workflow);
+        publishWorkflowStatus(workflow, nodeRepository.findByWorkflow_Id(workflow.getId()));
+    }
+
+    @Override
+    @Transactional
+    public void syncWorkflowStatusForPipeline(String pipelineId) {
+        nodeRepository.findByPipelineIdWithWorkflow(pipelineId).ifPresent(node -> {
+            Workflow workflow = node.getWorkflow();
+            WorkflowStatus prevStatus = workflow.getStatus();
+            refreshDerivedStatus(workflow);
+            workflow = workflowRepository.save(workflow);
+            List<WorkflowNode> allNodes = nodeRepository.findByWorkflow_Id(workflow.getId());
+            publishWorkflowStatus(workflow, allNodes);
+            if (prevStatus != workflow.getStatus()) {
+                log.info("Synced workflow '{}' ({}) status from {} to {} after pipeline {} update",
+                        workflow.getName(), workflow.getId(), prevStatus, workflow.getStatus(), pipelineId);
+            }
+        });
     }
 
     private Pipeline validatePipelineEligibleForWorkflow(String pipelineId, String currentWorkflowId) {
@@ -956,8 +1032,9 @@ public class WorkflowServiceImpl implements WorkflowService {
                     .build());
         }
 
+        WorkflowStatus effectiveStatus = resolveEffectiveStatus(w, topology);
         double overallProgress = nodeResponses.isEmpty() ? 0.0 : (totalProgressSum / nodeResponses.size());
-        if (w.getStatus() == WorkflowStatus.COMPLETED) {
+        if (effectiveStatus == WorkflowStatus.COMPLETED) {
             overallProgress = 100.0;
         }
 
@@ -979,7 +1056,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                 .namespaceName(w.getNamespace() != null ? w.getNamespace().getName() : null)
                 .name(w.getName())
                 .description(w.getDescription())
-                .status(w.getStatus())
+                .status(effectiveStatus)
                 .currentPipelineId(w.getCurrentPipelineId())
                 .singleChainReady(topology.singleChainReady)
                 .chainCount(topology.chainCount)
@@ -1002,6 +1079,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         List<WorkflowEdge> edges = edgeRepository.findByWorkflow_Id(w.getId());
         Map<String, Pipeline> pipelineMap = loadPipelinesMap(nodes);
         TopologyAnalysis topology = analyzeTopology(nodes, edges, pipelineMap);
+        WorkflowStatus effectiveStatus = resolveEffectiveStatus(w, topology);
 
         List<String> orderedNames = topology.orderedNodes.stream()
                 .map(n -> {
@@ -1025,7 +1103,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             }
         }
         double progress = topology.orderedNodes.isEmpty() ? 0.0 : (totalProgressSum / topology.orderedNodes.size());
-        if (w.getStatus() == WorkflowStatus.COMPLETED) {
+        if (effectiveStatus == WorkflowStatus.COMPLETED) {
             progress = 100.0;
         }
 
@@ -1037,7 +1115,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                 .description(w.getDescription())
                 .namespaceId(w.getNamespace() != null ? w.getNamespace().getId() : null)
                 .namespaceName(w.getNamespace() != null ? w.getNamespace().getName() : null)
-                .status(w.getStatus())
+                .status(effectiveStatus)
                 .pipelineCount(nodes.size())
                 .chainCount(topology.chainCount)
                 .singleChainReady(topology.singleChainReady)
@@ -1049,6 +1127,20 @@ public class WorkflowServiceImpl implements WorkflowService {
                 .createdAt(w.getCreatedAt())
                 .updatedAt(w.getUpdatedAt())
                 .build();
+    }
+
+    private WorkflowStatus resolveEffectiveStatus(Workflow w, TopologyAnalysis topology) {
+        WorkflowStatus status = w.getStatus();
+        if (status == WorkflowStatus.RUNNING || status == WorkflowStatus.PAUSED) {
+            return status;
+        }
+        if (!topology.singleChainReady) {
+            return WorkflowStatus.DRAFT;
+        }
+        if (status == WorkflowStatus.DRAFT) {
+            return WorkflowStatus.READY;
+        }
+        return status;
     }
 
     private String computeInitials(AppUser user) {

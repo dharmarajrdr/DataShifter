@@ -1,11 +1,4 @@
 import { BORDER_RADIUS, COLORS, FONT, SHADOWS } from '../../constants/design';
-import StatusBadge from '../common/StatusBadge';
-
-const FAILURE_ACTION_LABELS = {
-  STOP_WORKFLOW: { label: 'On fail: Stop workflow', color: COLORS.status.errorText, bg: COLORS.status.errorLight },
-  STOP_PIPELINE: { label: 'On fail: Stop pipeline', color: COLORS.status.warningText, bg: COLORS.status.warningLight },
-  CONTINUE_PIPELINE: { label: 'On fail: Continue', color: COLORS.status.infoText, bg: COLORS.status.infoLight },
-};
 
 const WorkflowNodeCard = ({
   node,
@@ -13,12 +6,12 @@ const WorkflowNodeCard = ({
   isTrigger = false,
   selected = false,
   isRunningNode = false,
-  incomingEdge = null,
   mode = 'builder', // 'builder' | 'monitor'
   onClick,
   onMouseDown,
   onStartConnect,
   onCompleteConnect,
+  onRemove,
   isConnecting = false,
 }) => {
   if (isTrigger) {
@@ -128,7 +121,7 @@ const WorkflowNodeCard = ({
         icon: 'fa-solid fa-triangle-exclamation',
       };
     }
-    if (status === 'STOPPED' || status === 'SKIPPED') {
+    if (status === 'PAUSED' || status === 'STOPPED' || status === 'SKIPPED') {
       return {
         bg: COLORS.status.warningLight,
         color: COLORS.status.warningDark,
@@ -137,38 +130,26 @@ const WorkflowNodeCard = ({
         icon: 'fa-solid fa-ban',
       };
     }
-    // Builder / Ready theme variants matching Exlo reference screenshot (Purple / Amber / Teal)
-    if (stepNumber === 1 || !incomingEdge) {
+    if (status === 'DRAFT' || status === 'NOT_VALIDATED') {
       return {
-        bg: COLORS.accent.purpleLight,
-        color: COLORS.brand.primary,
-        borderColor: 'rgba(83, 74, 183, 0.55)',
-        glow: 'rgba(83, 74, 183, 0.16)',
-        icon: 'fa-solid fa-microchip',
+        bg: COLORS.background.tertiary,
+        color: COLORS.text.secondary,
+        borderColor: COLORS.border.medium,
+        glow: 'rgba(0, 0, 0, 0.08)',
+        icon: 'fa-solid fa-circle-dot',
       };
     }
-    if (incomingEdge?.onFailureAction === 'CONTINUE_PIPELINE') {
-      return {
-        bg: COLORS.accent.tealLight,
-        color: COLORS.status.success,
-        borderColor: 'rgba(29, 158, 117, 0.55)',
-        glow: 'rgba(29, 158, 117, 0.18)',
-        icon: 'fa-solid fa-diagram-project',
-      };
-    }
+    // VALIDATED (Ready to run)
     return {
-      bg: COLORS.status.warningLight,
-      color: COLORS.status.warning,
-      borderColor: 'rgba(217, 119, 6, 0.55)',
-      glow: 'rgba(217, 119, 6, 0.16)',
+      bg: COLORS.status.infoLight,
+      color: COLORS.status.infoDark,
+      borderColor: COLORS.status.info,
+      glow: 'rgba(24, 95, 165, 0.16)',
       icon: 'fa-solid fa-diagram-project',
     };
   };
 
   const iconCfg = getIconConfig();
-  const failureBadge = incomingEdge?.onFailureAction
-    ? FAILURE_ACTION_LABELS[incomingEdge.onFailureAction]
-    : null;
 
   return (
     <div
@@ -192,6 +173,50 @@ const WorkflowNodeCard = ({
         transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
       }}
     >
+      {/* Top-left remove step icon (shown only when step is selected) */}
+      {mode === 'builder' && selected && onRemove && (
+        <button
+          type="button"
+          title="Remove step from workflow"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(node.pipelineId);
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = COLORS.status.error;
+            e.currentTarget.style.color = '#fff';
+            e.currentTarget.style.borderColor = COLORS.status.error;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = COLORS.background.primary;
+            e.currentTarget.style.color = COLORS.text.secondary;
+            e.currentTarget.style.borderColor = COLORS.border.medium;
+          }}
+          style={{
+            position: 'absolute',
+            top: -8,
+            left: -8,
+            width: 20,
+            height: 20,
+            borderRadius: '50%',
+            background: COLORS.background.primary,
+            border: `1.5px solid ${COLORS.border.medium}`,
+            color: COLORS.text.secondary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            zIndex: 4,
+            cursor: 'pointer',
+            boxShadow: SHADOWS.sm,
+            transition: 'all 0.12s ease',
+          }}
+        >
+          <i className="fa-solid fa-xmark" style={{ fontSize: 10, lineHeight: 1 }} />
+        </button>
+      )}
+
       {/* Top input connector port */}
       {mode === 'builder' && (
         <div
@@ -216,7 +241,15 @@ const WorkflowNodeCard = ({
         />
       )}
 
-      <div style={{ display: 'flex', alignItems: 'stretch', overflow: 'hidden', borderRadius: BORDER_RADIUS.lg }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          minHeight: 54,
+          overflow: 'hidden',
+          borderRadius: BORDER_RADIUS.lg,
+        }}
+      >
         {/* Left icon well */}
         <div
           style={{
@@ -246,60 +279,29 @@ const WorkflowNodeCard = ({
         </div>
 
         {/* Right content compartment */}
-        <div style={{ padding: '11px 14px', flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-            <span
-              style={{
-                fontSize: FONT.size.md,
-                fontWeight: FONT.weight.semibold,
-                color: COLORS.text.primary,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-              title={node.pipelineName}
-            >
-              {node.pipelineName}
-            </span>
-            <StatusBadge status={status} />
-          </div>
-
-          <div
+        <div
+          style={{
+            padding: '11px 14px',
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
+          <span
             style={{
-              fontSize: FONT.size.xs,
-              color: COLORS.text.secondary,
-              marginTop: 4,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
+              fontSize: FONT.size.md,
+              fontWeight: FONT.weight.semibold,
+              color: COLORS.text.primary,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
             }}
+            title={node.pipelineName}
           >
-            <span>{node.sourceName || 'Source'}</span>
-            <i className="fa-solid fa-arrow-right" style={{ fontSize: 9, color: COLORS.text.tertiary }} />
-            <span>{node.targetName || 'Target'}</span>
-            <span style={{ color: COLORS.text.tertiary }}>·</span>
-            <span>{node.tableCount ?? 0} tables</span>
-          </div>
-
-          {failureBadge && (
-            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: FONT.weight.medium,
-                  padding: '1px 7px',
-                  borderRadius: BORDER_RADIUS.pill,
-                  background: failureBadge.bg,
-                  color: failureBadge.color,
-                }}
-              >
-                {failureBadge.label}
-              </span>
-            </div>
-          )}
+            {node.pipelineName}
+          </span>
 
           {mode === 'monitor' && (
             <div style={{ marginTop: 8 }}>

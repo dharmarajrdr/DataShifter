@@ -7,6 +7,7 @@ import com.datashifter.common.events.PipelineEvents.ErrorEvent;
 import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.models.UdfDefinition;
 import com.datashifter.common.repositories.UdfDefinitionRepository;
+import com.datashifter.execution.contexts.ExecutionContext;
 import com.datashifter.execution.contexts.TransformationExecutionContext;
 import com.datashifter.execution.contexts.TransformationExecutionContextHolder;
 import com.datashifter.execution.exceptions.UdfExecutionException;
@@ -48,8 +49,6 @@ public class UdfExecutionManager {
 
     // Cache: storageKey -> LoadedUdfClass
     private final Map<String, LoadedUdfClass> classCache = new ConcurrentHashMap<>();
-    // Cache: udfId -> storageKey
-    private final Map<String, String> udfIdToStorageKey = new ConcurrentHashMap<>();
     // Cache: args JSON -> PreparedUdf
     private final Map<String, PreparedUdf> preparedCache = new ConcurrentHashMap<>();
 
@@ -118,28 +117,61 @@ public class UdfExecutionManager {
     }
 
     /**
+     * Clears the prepared UDF cache so subsequent pipeline runs resolve the latest UDF definition.
+     */
+    public void clearCache() {
+        preparedCache.clear();
+    }
+
+    /**
      * Prepares and caches the metadata, classloader, and method for a given UDF argument JSON.
      */
     public PreparedUdf prepare(String args) {
-        return preparedCache.computeIfAbsent(args, a -> {
-            try {
-                UdfConfig config = objectMapper.readValue(a, UdfConfig.class);
-                return prepare(config);
-            } catch (Exception e) {
-                throw new DatashifterException("Failed to prepare UDF from args: " + a, e);
-            }
-        });
+        PreparedUdf cached = preparedCache.get(args);
+        if (cached != null) {
+            return cached;
+        }
+        UdfConfig config;
+        try {
+            config = objectMapper.readValue(args, UdfConfig.class);
+        } catch (Exception e) {
+            String errMsg = "Invalid UDF configuration JSON: " + e.getMessage();
+            recordAndPublishPrepareFailure(null, errMsg);
+            throw new UdfStopPipelineException(errMsg, e);
+        }
+        PreparedUdf prepared = prepare(config);
+        preparedCache.put(args, prepared);
+        return prepared;
     }
 
     /**
      * Prepares and caches the metadata, classloader, and method for a given UdfConfig.
      */
     public PreparedUdf prepare(UdfConfig config) {
-        String storageKey = resolveStorageKey(config);
-        LoadedUdfClass loadedClass = getOrCreateLoadedClass(storageKey, config.getClassName());
-        Method method = loadedClass.getMethod(config.getMethodName());
-        method.setAccessible(true);
-        return new PreparedUdf(config, loadedClass, method);
+        try {
+            String udfName = config.getUdfName() != null ? config.getUdfName().trim() : "";
+            String className = config.getClassName() != null ? config.getClassName().trim() : "";
+            String methodName = config.getMethodName() != null ? config.getMethodName().trim() : "";
+
+            if (className.isEmpty()) {
+                throw new UdfStopPipelineException("UDF class name is required in UDF transformation configuration.");
+            }
+            if (methodName.isEmpty()) {
+                throw new UdfStopPipelineException("UDF method name is required in UDF transformation configuration for class '" + className + "'.");
+            }
+
+            String storageKey = resolveAndValidateUdf(config, udfName, className, methodName);
+            LoadedUdfClass loadedClass = getOrCreateLoadedClass(storageKey, className, udfName);
+            Method method = loadedClass.getMethod(methodName, udfName);
+            method.setAccessible(true);
+            return new PreparedUdf(config, loadedClass, method);
+        } catch (UdfStopPipelineException e) {
+            recordAndPublishPrepareFailure(config, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            recordAndPublishPrepareFailure(config, e.getMessage());
+            throw new UdfStopPipelineException(e.getMessage(), e);
+        }
     }
 
     /**
@@ -151,7 +183,6 @@ public class UdfExecutionManager {
         totalExecutions.increment();
 
         DirectRow row = threadRow.get().reset(sourceRecord, targetColumn, input);
-        Object instance = prepared.getInstance();
         Method method = prepared.getMethod();
 
         WatchdogSlot slot = threadWatchdogSlot.get();
@@ -160,7 +191,7 @@ public class UdfExecutionManager {
         Object result;
         Thread currentThread = slot.thread;
         try {
-            Object invokedResult = method.invoke(instance, row);
+            Object invokedResult = method.invoke(null, row);
             if (!prepared.isVoidReturn()) {
                 result = invokedResult;
             } else if (targetColumn != null && row.has(targetColumn)) {
@@ -239,8 +270,28 @@ public class UdfExecutionManager {
 
         log.error("UDF Failure on target {}: {}", targetColumn, errorMessage, error);
 
+        TransformationExecutionContext tCtx = TransformationExecutionContextHolder.get();
+        ExecutionContext execCtx = tCtx != null ? tCtx.getExecutionContext() : null;
+        boolean thresholdExceeded = false;
+        long currentErrors = 0;
+        int maxThreshold = 1000;
+
+        if (execCtx != null) {
+            currentErrors = execCtx.incrementErrors(1);
+            maxThreshold = execCtx.getPipeline().getMaxErrorThreshold() != null
+                    ? execCtx.getPipeline().getMaxErrorThreshold() : 1000;
+            thresholdExceeded = execCtx.isErrorThresholdExceeded();
+        }
+
         // Publish error event to monitoring / Kafka
-        publishErrorEvent(config, errorMessage, sourceRecord, policy == UdfFailurePolicy.STOP_PIPELINE);
+        publishErrorEvent(config, errorMessage, sourceRecord,
+                policy == UdfFailurePolicy.STOP_PIPELINE || thresholdExceeded);
+
+        if (thresholdExceeded) {
+            throw new UdfStopPipelineException(String.format(
+                    "Error threshold exceeded: %d errors (max: %d). Pipeline stopped. Last error: %s",
+                    currentErrors, maxThreshold, errorMessage), error);
+        }
 
         return switch (policy) {
             case DEFAULT_VALUE -> {
@@ -287,34 +338,57 @@ public class UdfExecutionManager {
         }
     }
 
-    private String resolveStorageKey(UdfConfig config) {
+    private void recordAndPublishPrepareFailure(UdfConfig config, String errorMessage) {
+        TransformationExecutionContext tCtx = TransformationExecutionContextHolder.get();
+        if (tCtx != null && tCtx.getExecutionContext() != null) {
+            tCtx.getExecutionContext().incrementErrors(1);
+        }
+        publishErrorEvent(config, errorMessage, null, true);
+    }
+
+    private String resolveAndValidateUdf(UdfConfig config, String udfName, String className, String methodName) {
         if (config.getStorageKey() != null && !config.getStorageKey().isBlank()) {
             return config.getStorageKey();
         }
 
-        if (config.getUdfId() != null) {
-            String cachedKey = udfIdToStorageKey.get(config.getUdfId());
-            if (cachedKey != null) {
-                return cachedKey;
-            }
+        if (udfName.isEmpty()) {
+            throw new UdfStopPipelineException("UDF name is required in UDF transformation configuration.");
+        }
 
-            Optional<UdfDefinition> defOpt = udfDefinitionRepository.findById(config.getUdfId());
-            if (defOpt.isPresent()) {
-                String key = defOpt.get().getStorageKey();
-                udfIdToStorageKey.put(config.getUdfId(), key);
-                return key;
+        UdfDefinition udfDef = udfDefinitionRepository.findFirstByNameOrderByUpdatedAtDesc(udfName)
+                .orElseThrow(() -> new UdfStopPipelineException(
+                        String.format("UDF '%s' does not exist.", udfName)));
+
+        if (udfDef.getFunctions() != null && !udfDef.getFunctions().isEmpty()) {
+            boolean classExists = udfDef.getFunctions().stream()
+                    .anyMatch(f -> className.equals(f.getClassName()));
+            if (!classExists) {
+                throw new UdfStopPipelineException(
+                        String.format("Class '%s' does not exist in UDF '%s'.", className, udfName));
+            }
+            var matchedFnOpt = udfDef.getFunctions().stream()
+                    .filter(f -> className.equals(f.getClassName()) && methodName.equals(f.getMethodName()))
+                    .findFirst();
+            if (matchedFnOpt.isEmpty()) {
+                throw new UdfStopPipelineException(
+                        String.format("Method '%s' does not exist in class '%s' of UDF '%s'.", methodName, className, udfName));
+            }
+            if (!matchedFnOpt.get().isStaticMethod()) {
+                throw new UdfStopPipelineException(
+                        String.format("Method '%s' in class '%s' of UDF '%s' must be 'public static'.", methodName, className, udfName));
             }
         }
 
-        throw new DatashifterException("Unable to resolve storage key for UDF: " + config.getUdfName() + " (" + config.getUdfId() + ")");
+        return udfDef.getStorageKey();
     }
 
-    private LoadedUdfClass getOrCreateLoadedClass(String storageKey, String className) {
+    private LoadedUdfClass getOrCreateLoadedClass(String storageKey, String className, String udfName) {
         String cacheKey = storageKey + "::" + className;
         return classCache.computeIfAbsent(cacheKey, k -> {
             Path jarPath = resolveJarPath(storageKey);
             if (!jarPath.toFile().exists()) {
-                throw new DatashifterException("UDF JAR file not found at: " + jarPath);
+                throw new UdfStopPipelineException(
+                        String.format("UDF '%s' artifact file not found at: %s", udfName.isEmpty() ? storageKey : udfName, jarPath));
             }
 
             try {
@@ -323,11 +397,13 @@ public class UdfExecutionManager {
                         getClass().getClassLoader()
                 );
                 Class<?> clazz = classLoader.loadClass(className);
-                Constructor<?> constructor = clazz.getDeclaredConstructor();
-                constructor.setAccessible(true);
-                return new LoadedUdfClass(classLoader, clazz, constructor);
+                return new LoadedUdfClass(classLoader, clazz);
+            } catch (ClassNotFoundException e) {
+                throw new UdfStopPipelineException(
+                        String.format("Class '%s' does not exist in UDF '%s'.", className, udfName.isEmpty() ? storageKey : udfName), e);
             } catch (Exception e) {
-                throw new DatashifterException("Failed to load UDF class " + className + " from " + jarPath + ": " + e.getMessage(), e);
+                throw new UdfStopPipelineException(
+                        String.format("Failed to load class '%s' from UDF '%s': %s", className, udfName.isEmpty() ? storageKey : udfName, e.getMessage()), e);
             }
         });
     }
@@ -366,42 +442,41 @@ public class UdfExecutionManager {
     }
 
     /**
-     * Holds cached reflection metadata and thread-local instances for a loaded UDF class.
+     * Holds cached reflection metadata for a loaded UDF class.
      */
     static class LoadedUdfClass {
         private final ClassLoader classLoader;
         private final Class<?> clazz;
-        private final Constructor<?> constructor;
         private final Map<String, Method> methodCache = new ConcurrentHashMap<>();
-        private final ThreadLocal<Object> instanceThreadLocal;
 
-        public LoadedUdfClass(ClassLoader classLoader, Class<?> clazz, Constructor<?> constructor) {
+        public LoadedUdfClass(ClassLoader classLoader, Class<?> clazz) {
             this.classLoader = classLoader;
             this.clazz = clazz;
-            this.constructor = constructor;
-            this.instanceThreadLocal = ThreadLocal.withInitial(() -> {
-                try {
-                    return constructor.newInstance();
-                } catch (Exception e) {
-                    throw new DatashifterException("Failed to instantiate UDF class " + clazz.getName(), e);
-                }
-            });
-        }
-
-        public Object getInstance() {
-            return instanceThreadLocal.get();
         }
 
         public Method getMethod(String methodName) {
+            return getMethod(methodName, "");
+        }
+
+        public Method getMethod(String methodName, String udfName) {
             return methodCache.computeIfAbsent(methodName, mName -> {
                 for (Method m : clazz.getDeclaredMethods()) {
                     if (m.getName().equals(mName) && m.getParameterCount() == 1
                             && m.getParameterTypes()[0].getName().equals("com.datashifter.udf.sdk.Row")) {
+                        int mods = m.getModifiers();
+                        if (!java.lang.reflect.Modifier.isPublic(mods) || !java.lang.reflect.Modifier.isStatic(mods)) {
+                            throw new UdfStopPipelineException(String.format(
+                                    "Method '%s' in class '%s' must be 'public static'.", mName, clazz.getName()));
+                        }
                         m.setAccessible(true);
                         return m;
                     }
                 }
-                throw new DatashifterException(String.format(
+                if (udfName != null && !udfName.isBlank()) {
+                    throw new UdfStopPipelineException(String.format(
+                            "Method '%s' does not exist in class '%s' of UDF '%s'.", mName, clazz.getName(), udfName));
+                }
+                throw new UdfStopPipelineException(String.format(
                         "Method '%s(Row)' not found in UDF class '%s'", mName, clazz.getName()));
             });
         }

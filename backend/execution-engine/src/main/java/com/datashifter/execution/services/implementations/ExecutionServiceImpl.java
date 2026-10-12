@@ -61,11 +61,13 @@ public class ExecutionServiceImpl implements ExecutionService {
     private final ChunkSizeTuner chunkSizeTuner;
     private final ParallelChunkProcessor parallelChunkProcessor;
     private final ParallelConfig parallelConfig;
+    private final com.datashifter.execution.strategies.transformers.UdfExecutionManager udfExecutionManager;
 
     @Override
     @Transactional
     public void execute(String pipelineId, String executionLogId) {
         log.info("=== Starting pipeline execution: {} ===", pipelineId);
+        udfExecutionManager.clearCache();
 
         Pipeline pipeline = null;
         ExecutionContext ctx = null;
@@ -307,11 +309,16 @@ public class ExecutionServiceImpl implements ExecutionService {
                             .sourceTable(pt.getSourceTable())
                             .targetTable(ttc.getTargetTable())
                             .chunkNumber(chunkNumber)
+                            .executionContext(ctx)
                             .build());
                     mappingResult = columnMapperService.mapBatch(filteredRecords, ttc.getColumnMappings());
                 } finally {
                     TransformationExecutionContextHolder.clear();
                 }
+
+                // Handle any non-UDF column transformation failures
+                handleMappingErrors(ctx, pt, ttm, mappingResult, chunkNumber);
+
                 List<Map<String, Object>> targetRecords = mappingResult.getTargetRecords();
                 long tw1 = System.currentTimeMillis();
 
@@ -353,19 +360,83 @@ public class ExecutionServiceImpl implements ExecutionService {
     }
 
     // =========================================================================
-    // WRITE RESULT HANDLING
+    // WRITE & MAPPING RESULT HANDLING
     // =========================================================================
+
+    private void handleMappingErrors(ExecutionContext ctx, PipelineTable pt,
+                                     TargetTableMapping ttm, ColumnMapperService.BatchMappingResult mappingResult,
+                                     long chunkNumber) {
+        if (mappingResult.getFailedRecords() == null || mappingResult.getFailedRecords().isEmpty()) {
+            return;
+        }
+
+        boolean ignoreExceptions = Boolean.TRUE.equals(ctx.getPipeline().getIgnoreExceptions());
+        boolean logSourceRow = Boolean.TRUE.equals(ctx.getPipeline().getLogSourceRow());
+        int maxThreshold = ctx.getPipeline().getMaxErrorThreshold() != null
+                ? ctx.getPipeline().getMaxErrorThreshold() : 1000;
+
+        for (ColumnMapperService.FailedMappingRecord failed : mappingResult.getFailedRecords()) {
+            // Skipped rows (from UDF SKIP_ROW) were already counted and published by UdfExecutionManager
+            if (failed.getTargetRecord() == null) {
+                continue;
+            }
+            String errMsg = failed.getColumnErrors().isEmpty()
+                    ? "Transformation error"
+                    : failed.getColumnErrors().get(0).getErrorMessage();
+
+            if (!ignoreExceptions) {
+                ctx.incrementErrors(1);
+                kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
+                        .pipelineId(ctx.getPipelineId())
+                        .executionLogId(ctx.getExecutionLogId())
+                        .errorType(ErrorType.TRANSFORMATION_FAILED)
+                        .sourceTable(pt.getSourceTable())
+                        .targetTable(ttm.getTargetTable())
+                        .chunkNumber(chunkNumber)
+                        .errorMessage(errMsg)
+                        .sourceRowData(logSourceRow ? serializeRecord(failed.getSourceRecord()) : null)
+                        .pipelineStopped(true)
+                        .timestamp(Instant.now())
+                        .build());
+                throw new DatashifterException(String.format(
+                        "Transformation failed on %s → %s at chunk %d: %s. Pipeline stopped (ignoreExceptions=false).",
+                        pt.getSourceTable(), ttm.getTargetTable(), chunkNumber, errMsg));
+            }
+
+            long errorCount = ctx.incrementErrors(1);
+            boolean thresholdExceeded = maxThreshold > 0 && errorCount >= maxThreshold;
+
+            kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
+                    .pipelineId(ctx.getPipelineId())
+                    .executionLogId(ctx.getExecutionLogId())
+                    .errorType(ErrorType.TRANSFORMATION_FAILED)
+                    .sourceTable(pt.getSourceTable())
+                    .targetTable(ttm.getTargetTable())
+                    .chunkNumber(chunkNumber)
+                    .errorMessage(errMsg)
+                    .sourceRowData(logSourceRow ? serializeRecord(failed.getSourceRecord()) : null)
+                    .pipelineStopped(thresholdExceeded)
+                    .timestamp(Instant.now())
+                    .build());
+
+            if (thresholdExceeded) {
+                throw new DatashifterException(String.format(
+                        "Error threshold exceeded: %d errors (max: %d). Pipeline stopped. Last error: %s",
+                        errorCount, maxThreshold, errMsg));
+            }
+        }
+    }
 
     private void handleWriteResult(ExecutionContext ctx, PipelineTable pt,
                                    TargetTableMapping ttm, WriteResult result, long chunkNumber) {
         if (result.getFailureCount() == 0) return;
 
-        long errorCount = ctx.incrementErrors(result.getFailureCount());
-        boolean ignoreExceptions = ctx.getPipeline().getIgnoreExceptions();
-        boolean logSourceRow = ctx.getPipeline().getLogSourceRow();
+        boolean ignoreExceptions = Boolean.TRUE.equals(ctx.getPipeline().getIgnoreExceptions());
+        boolean logSourceRow = Boolean.TRUE.equals(ctx.getPipeline().getLogSourceRow());
 
         // If NOT ignoring exceptions — publish only the first error, then stop immediately
         if (!ignoreExceptions) {
+            ctx.incrementErrors(1);
             WriteResult.FailedRecord first = result.getFailedRecords().isEmpty() ? null : result.getFailedRecords().get(0);
             String firstError = first != null
                     ? enrichErrorMessage(first.getErrorMessage(), first.getRecord(), pt.getSourceTable(), ttm.getTargetTable())
@@ -393,12 +464,19 @@ public class ExecutionServiceImpl implements ExecutionService {
                     result.getFailureCount(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber, firstError));
         }
 
-        // Ignoring exceptions — log each failed row individually
+        int maxThreshold = ctx.getPipeline().getMaxErrorThreshold() != null
+                ? ctx.getPipeline().getMaxErrorThreshold() : 1000;
+
+        // Ignoring exceptions — log each failed row individually up to maxErrorThreshold
         for (WriteResult.FailedRecord failed : result.getFailedRecords()) {
+            long errorCount = ctx.incrementErrors(1);
+            boolean thresholdExceeded = maxThreshold > 0 && errorCount >= maxThreshold;
+
             String rawError = failed.getErrorMessage();
             String enrichedMessage = enrichErrorMessage(rawError, failed.getRecord(), pt.getSourceTable(), ttm.getTargetTable());
 
-            log.error("WRITE ERROR: pipeline={}, table={} → {}, chunk={}, error={}", ctx.getPipelineId(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber, enrichedMessage);
+            log.error("WRITE ERROR: pipeline={}, table={} → {}, chunk={}, errorCount={}/{}, error={}",
+                    ctx.getPipelineId(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber, errorCount, maxThreshold, enrichedMessage);
 
             kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
                     .pipelineId(ctx.getPipelineId())
@@ -409,16 +487,15 @@ public class ExecutionServiceImpl implements ExecutionService {
                     .chunkNumber(chunkNumber)
                     .errorMessage(enrichedMessage)
                     .sourceRowData(logSourceRow ? serializeRecord(failed.getRecord()) : null)
-                    .pipelineStopped(false)
+                    .pipelineStopped(thresholdExceeded)
                     .timestamp(Instant.now())
                     .build());
-        }
 
-        // Threshold check
-        if (ctx.isErrorThresholdExceeded()) {
-            throw new DatashifterException(String.format(
-                    "Error threshold exceeded: %d errors (max: %d). Pipeline stopped.",
-                    errorCount, ctx.getPipeline().getMaxErrorThreshold()));
+            if (thresholdExceeded) {
+                throw new DatashifterException(String.format(
+                        "Error threshold exceeded: %d errors (max: %d). Pipeline stopped. First error: %s",
+                        errorCount, maxThreshold, enrichedMessage));
+            }
         }
     }
 
@@ -497,8 +574,8 @@ public class ExecutionServiceImpl implements ExecutionService {
                 .pipelineId(pipeline.getId())
                 .executionLogId(executionLogId)
                 .pipeline(pipeline)
-                .sourceConfig(toConnectionConfig(sourceConn, pipeline.getSourcePoolSize()))
-                .targetConfig(toConnectionConfig(targetConn, pipeline.getTargetPoolSize()))
+                .sourceConfig(toConnectionConfig(sourceConn, pipeline.getSourcePoolSize(), pipeline))
+                .targetConfig(toConnectionConfig(targetConn, pipeline.getTargetPoolSize(), pipeline))
                 .startedAt(Instant.now())
                 .build();
 
@@ -631,7 +708,7 @@ public class ExecutionServiceImpl implements ExecutionService {
         return lastVal != null ? lastVal.toString() : null;
     }
 
-    private ConnectionConfig toConnectionConfig(Connection conn, Integer poolSize) {
+    private ConnectionConfig toConnectionConfig(Connection conn, Integer poolSize, Pipeline pipeline) {
         return ConnectionConfig.builder()
                 .connectionId(conn.getId())
                 .dbType(conn.getDbType())
@@ -642,6 +719,8 @@ public class ExecutionServiceImpl implements ExecutionService {
                 .username(conn.getUsername())
                 .password(EncryptionUtil.decrypt(conn.getEncryptedPassword()))
                 .maxPoolSize(poolSize != null ? poolSize : 10)
+                .ignoreExceptions(pipeline != null && Boolean.TRUE.equals(pipeline.getIgnoreExceptions()))
+                .maxErrorThreshold(pipeline != null && pipeline.getMaxErrorThreshold() != null ? pipeline.getMaxErrorThreshold() : 1000)
                 .build();
     }
 

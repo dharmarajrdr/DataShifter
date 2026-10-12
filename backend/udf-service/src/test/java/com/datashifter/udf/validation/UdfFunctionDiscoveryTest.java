@@ -4,6 +4,11 @@ import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.udf.sdk.DataShifterUdf;
 import com.datashifter.udf.sdk.Row;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.ByteArrayOutputStream;
@@ -20,7 +25,7 @@ class UdfFunctionDiscoveryTest {
     private final UdfFunctionDiscovery discovery = new UdfFunctionDiscovery();
 
     @Test
-    void discoversOnlyPublicAnnotatedMethods() throws Exception {
+    void discoversPublicStaticAnnotatedMethods() throws Exception {
         MockMultipartFile file = jarFor(ValidFixture.class);
 
         List<UdfFunctionDiscovery.DiscoveredFunction> functions = discovery.discover(file);
@@ -35,13 +40,48 @@ class UdfFunctionDiscoveryTest {
     }
 
     @Test
-    void rejectsJarWithoutAnnotatedPublicMethods() throws Exception {
+    void rejectsJarWithoutAnnotatedPublicStaticMethods() throws Exception {
         DatashifterException error = assertThrows(DatashifterException.class, () -> discovery.discover(jarFor(InvalidFixture.class)));
-        assertEquals("No public methods annotated with @DataShifterUdf were found", error.getMessage());
+        assertEquals("No public static methods annotated with @DataShifterUdf were found", error.getMessage());
+    }
+
+    @Test
+    void rejectsInstanceMethodAnnotatedWithDataShifterUdf() throws Exception {
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "com/datashifter/fixtures/InstanceMethodFixture", null, "java/lang/Object", null);
+        MethodVisitor mv = cw.visitMethod(
+                Opcodes.ACC_PUBLIC, // non-static (instance method)
+                "normalizeEmail",
+                "(Lcom/datashifter/udf/sdk/Row;)Ljava/lang/String;",
+                null,
+                null
+        );
+        AnnotationVisitor av = mv.visitAnnotation(Type.getDescriptor(DataShifterUdf.class), true);
+        av.visit("name", "normalize-email");
+        av.visitEnd();
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(1, 2);
+        mv.visitEnd();
+        cw.visitEnd();
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (JarOutputStream jar = new JarOutputStream(output)) {
+            jar.putNextEntry(new JarEntry("com/datashifter/fixtures/InstanceMethodFixture.class"));
+            jar.write(cw.toByteArray());
+            jar.closeEntry();
+        }
+        MockMultipartFile file = new MockMultipartFile("file", "instance-udf.jar", "application/java-archive", output.toByteArray());
+
+        DatashifterException error = assertThrows(DatashifterException.class, () -> discovery.discover(file));
+        assertEquals(
+                "Method normalizeEmail in com.datashifter.fixtures.InstanceMethodFixture annotated with @DataShifterUdf must be 'public static'",
+                error.getMessage()
+        );
     }
 
     private MockMultipartFile jarFor(Class<?> fixture) throws IOException {
-           String resourceName = fixture.getName().replace('.', '/') + ".class";
+        String resourceName = fixture.getName().replace('.', '/') + ".class";
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(output);
                InputStream classBytes = fixture.getClassLoader().getResourceAsStream(resourceName)) {
@@ -60,9 +100,8 @@ class UdfFunctionDiscoveryTest {
             return age != null && age >= 18;
         }
 
-        @DataShifterUdf
-        private static String hidden(Row row) {
-            return "hidden";
+        public static String unannotatedHelper(Row row) {
+            return "helper";
         }
     }
 
