@@ -507,6 +507,24 @@ const BeetelAvatar = ({ size = 30, isSystem = false }) => (
   </div>
 );
 
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const formatMessageDateTime = (createdAt) => {
+  if (!createdAt) return null;
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return null;
+  const month = MONTHS_SHORT[d.getMonth()];
+  const day = String(d.getDate()).padStart(2, '0');
+  const rawHours = d.getHours();
+  const ampm = rawHours >= 12 ? 'PM' : 'AM';
+  const hours12 = String(rawHours % 12 || 12).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return {
+    dateLine: `${month}-${day}`,
+    timeLine: `${hours12}:${minutes} ${ampm}`,
+  };
+};
+
 const ShareConversationModal = ({
   open,
   onClose,
@@ -1520,6 +1538,8 @@ const BeetelChatWorkspace = ({
               );
             }
 
+            const msgTime = formatMessageDateTime(msg.createdAt);
+
             if (isError) {
               const prevUserMsg = [...messages.slice(0, msgIdx)]
                 .reverse()
@@ -1533,7 +1553,28 @@ const BeetelChatWorkspace = ({
                     gap: SPACING.xs,
                   }}
                 >
-                  <BeetelAvatar size={30} />
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    minWidth: '46px',
+                  }}>
+                    <BeetelAvatar size={30} />
+                    {msgTime && (
+                      <div style={{
+                        marginTop: '4px',
+                        fontSize: '9px',
+                        lineHeight: 1.25,
+                        color: COLORS.text.tertiary,
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        <div>{msgTime.dateLine}</div>
+                        <div>{msgTime.timeLine}</div>
+                      </div>
+                    )}
+                  </div>
                   <div style={{ width: compact ? '90%' : '82%' }}>
                     <BeetelErrorCard
                       content={msg.content}
@@ -1572,17 +1613,38 @@ const BeetelChatWorkspace = ({
                   gap: SPACING.xs,
                 }}
               >
-                {/* Sender Display Picture (DP) next to each message */}
-                {isUser ? (
-                  <UserAvatar
-                    initials={msg.senderInitials || (isCurrentUserSender ? currentUser?.displayInitials : null)}
-                    name={msg.senderName || (isCurrentUserSender ? currentUser?.fullName : 'Member')}
-                    color={msg.senderAvatarColor || (isCurrentUserSender ? currentUser?.avatarColor : COLORS.brand.primary)}
-                    size={30}
-                  />
-                ) : (
-                  <BeetelAvatar size={30} isSystem={isSystem} />
-                )}
+                {/* Sender Display Picture (DP) + date-time below it */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  flexShrink: 0,
+                  minWidth: '46px',
+                }}>
+                  {isUser ? (
+                    <UserAvatar
+                      initials={msg.senderInitials || (isCurrentUserSender ? currentUser?.displayInitials : null)}
+                      name={msg.senderName || (isCurrentUserSender ? currentUser?.fullName : 'Member')}
+                      color={msg.senderAvatarColor || (isCurrentUserSender ? currentUser?.avatarColor : COLORS.brand.primary)}
+                      size={30}
+                    />
+                  ) : (
+                    <BeetelAvatar size={30} isSystem={isSystem} />
+                  )}
+                  {msgTime && (
+                    <div style={{
+                      marginTop: '4px',
+                      fontSize: '9px',
+                      lineHeight: 1.25,
+                      color: COLORS.text.tertiary,
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      <div>{msgTime.dateLine}</div>
+                      <div>{msgTime.timeLine}</div>
+                    </div>
+                  )}
+                </div>
 
                 <div style={{
                   display: 'flex',
