@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Button, Toggle } from '../common';
+import React, { useState, useEffect } from 'react';
+import { Button, Toggle, MultiSelectDropdown } from '../common';
 import { COLORS, FONT, BORDER_RADIUS, SPACING } from '../../constants/design';
 import { FRBC } from '../../constants/layouts';
-import { notifyHubApi } from '../../services/api';
+import { notifyHubApi, pipelineApi, workflowApi, connectionApi, udfApi } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
 
 export const EVENT_CATALOG = [
@@ -90,6 +90,59 @@ const EventListenerModal = ({ listener, channels = [], templates = [], onClose, 
     }))
   );
 
+  // Parse existing targetResourceIds or filterResourceId
+  let initialTargetResources = ['ALL'];
+  if (listener?.targetResourceIdsJson) {
+    try {
+      const parsed = JSON.parse(listener.targetResourceIdsJson);
+      if (Array.isArray(parsed) && parsed.length > 0) initialTargetResources = parsed;
+    } catch (e) {}
+  } else if (listener?.filterResourceId) {
+    initialTargetResources = [listener.filterResourceId];
+  }
+
+  const [targetResourceIds, setTargetResourceIds] = useState(initialTargetResources);
+  const [availableResourcesMap, setAvailableResourcesMap] = useState({
+    PIPELINE: [],
+    WORKFLOW: [],
+    UDF: [],
+    CONNECTION: [],
+    SETUP: [],
+    BEETEL: [],
+  });
+
+  // Fetch all resources on mount
+  useEffect(() => {
+    Promise.all([
+      pipelineApi.getAll().catch(() => ({ data: [] })),
+      workflowApi.getAll().catch(() => ({ data: [] })),
+      connectionApi.getAll().catch(() => ({ data: [] })),
+      udfApi.getAll().catch(() => ({ data: [] })),
+    ]).then(([pipeRes, wfRes, connRes, udfRes]) => {
+      const pipes = Array.isArray(pipeRes) ? pipeRes : (pipeRes?.data || []);
+      const wfs = Array.isArray(wfRes) ? wfRes : (wfRes?.data || []);
+      const conns = Array.isArray(connRes) ? connRes : (connRes?.data || []);
+      const udfs = Array.isArray(udfRes) ? udfRes : (udfRes?.data || []);
+
+      setAvailableResourcesMap({
+        PIPELINE: pipes.map(p => ({ value: p.id, label: p.name, sublabel: `Pipeline • ${p.id}` })),
+        WORKFLOW: wfs.map(w => ({ value: w.id, label: w.name, sublabel: `Workflow • ${w.id}` })),
+        UDF: udfs.map(u => ({ value: u.id, label: u.name, sublabel: `UDF • ${u.id}` })),
+        CONNECTION: conns.map(c => ({ value: c.id, label: c.name, sublabel: `${c.type || 'Connection'} • ${c.id}` })),
+        SETUP: [
+          { value: 'ALL_SETTINGS', label: 'All System Settings', sublabel: 'General organization settings & defaults' },
+          { value: 'QUOTAS', label: 'Quotas & Rate Limits', sublabel: 'Platform resource thresholds and limits' },
+          { value: 'BILLING', label: 'Billing & Subscriptions', sublabel: 'Plan and invoice thresholds' },
+        ],
+        BEETEL: [
+          { value: 'ALL_AGENTS', label: 'All Beetel AI Agents', sublabel: 'Autonomous plan investigations & sessions' },
+          { value: 'INVESTIGATOR', label: 'Error Investigation Agent', sublabel: 'Automated error triaging agent' },
+          { value: 'OPTIMIZER', label: 'Pipeline Optimizer Agent', sublabel: 'Performance suggestions agent' },
+        ],
+      });
+    });
+  }, []);
+
   // Format standard readable listener name from event
   const formatEventName = (ev) => {
     if (!ev) return '';
@@ -114,12 +167,17 @@ const EventListenerModal = ({ listener, channels = [], templates = [], onClose, 
   const [enabled, setEnabled] = useState(listener ? listener.enabled : true);
   const [saving, setSaving] = useState(false);
 
-  // Auto-generate / update listener name whenever the event changes
+  // Auto-generate / update listener name and reset target resources if resourceType changes
   const handleEventChange = (newKey) => {
     setSelectedEventKey(newKey);
     const ev = allEvents.find(e => e.key === newKey);
     if (ev) {
       setName(formatEventName(ev));
+      // Reset target resources to ALL if resource type changes
+      const currentEv = allEvents.find(e => e.key === selectedEventKey);
+      if (currentEv?.resourceType !== ev.resourceType) {
+        setTargetResourceIds(['ALL']);
+      }
     }
   };
 
@@ -147,6 +205,7 @@ const EventListenerModal = ({ listener, channels = [], templates = [], onClose, 
         channelId,
         templateId: templateId || undefined,
         enabled,
+        targetResourceIds: targetResourceIds.length > 0 ? targetResourceIds : ['ALL'],
       };
 
       if (isEdit) {
@@ -234,6 +293,44 @@ const EventListenerModal = ({ listener, channels = [], templates = [], onClose, 
                 {currentEvent.description}
               </p>
             )}
+          </div>
+
+          {/* Resources to Listen to (MultiSelect Dropdown) */}
+          <div>
+            <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: '2px' }}>
+              Resources to Listen to *
+            </label>
+            <p style={{ margin: '0 0 6px', fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
+              Listen to all {currentEvent?.resourceType?.toLowerCase()}s or choose specific item(s) to monitor.
+            </p>
+            <MultiSelectDropdown
+              options={[
+                { value: 'ALL', label: `All ${currentEvent?.categoryName || 'Resources'} (*)`, sublabel: `Triggers on every ${currentEvent?.resourceType?.toLowerCase() || 'resource'}` },
+                ...(availableResourcesMap[currentEvent?.resourceType] || []),
+              ]}
+              value={targetResourceIds}
+              onChange={setTargetResourceIds}
+              placeholder={`Select ${currentEvent?.resourceType?.toLowerCase() || 'resource'}s to monitor...`}
+              searchPlaceholder={`Search specific ${currentEvent?.resourceType?.toLowerCase() || 'resource'}s...`}
+              emptyMessage={`No ${currentEvent?.resourceType?.toLowerCase() || 'resource'}s found.`}
+              dropUp={false}
+            />
+            <div style={{ margin: '6px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: COLORS.text.tertiary }}>
+              <span>
+                {targetResourceIds.includes('ALL')
+                  ? `Listening to ALL ${currentEvent?.resourceType?.toLowerCase()}s across the organization.`
+                  : `Listening to ${targetResourceIds.length} specific ${currentEvent?.resourceType?.toLowerCase()}(s).`}
+              </span>
+              {!targetResourceIds.includes('ALL') && (
+                <button
+                  type="button"
+                  onClick={() => setTargetResourceIds(['ALL'])}
+                  style={{ background: 'none', border: 'none', color: COLORS.brand.primary, cursor: 'pointer', padding: 0, fontSize: '11px' }}
+                >
+                  Listen to All {currentEvent?.resourceType?.toLowerCase()}s
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Listener Name & Enabled */}

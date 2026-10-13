@@ -369,6 +369,24 @@ const NotifyHubPage = () => {
                             <strong>Template:</strong>{' '}
                             {matchedTemplate ? matchedTemplate.name : 'Built-in Standard Format'}
                           </div>
+                          <div>
+                            <strong>Monitored Resources:</strong>{' '}
+                            {(() => {
+                              let resources = ['ALL'];
+                              if (l.targetResourceIdsJson) {
+                                try {
+                                  const parsed = JSON.parse(l.targetResourceIdsJson);
+                                  if (Array.isArray(parsed) && parsed.length > 0) resources = parsed;
+                                } catch (e) {}
+                              } else if (l.filterResourceId) {
+                                resources = [l.filterResourceId];
+                              }
+                              if (resources.includes('ALL')) {
+                                return <span style={{ color: COLORS.brand.primary }}>All {l.resourceType.toLowerCase()}s (*)</span>;
+                              }
+                              return <span>{resources.length} specific {l.resourceType.toLowerCase()}(s)</span>;
+                            })()}
+                          </div>
                         </div>
 
                         <div style={{ ...FRBC, paddingTop: SPACING.sm, borderTop: `1px solid ${COLORS.border.light}` }}>
