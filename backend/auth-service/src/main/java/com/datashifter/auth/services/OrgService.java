@@ -137,10 +137,11 @@ public class OrgService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
         if (request.getRoleId() != null) {
-            if (!roleRepository.existsById(request.getRoleId())) {
-                throw new ResourceNotFoundException("Role", request.getRoleId());
+            Role role = roleRepository.findById(request.getRoleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", request.getRoleId()));
+            if ( com.datashifter.common.enums.Permissions.AGENT_ROLE_NAME.equalsIgnoreCase(role.getName())) {
+                throw new DatashifterException("The 'Agent' role is reserved for the AI Agent and cannot be assigned to users");
             }
-            Role role = roleRepository.findById(request.getRoleId()).orElse(null);
             user.setRole(role);
         }
 

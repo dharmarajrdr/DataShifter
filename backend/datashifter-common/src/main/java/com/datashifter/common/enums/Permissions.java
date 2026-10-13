@@ -66,6 +66,9 @@ public final class Permissions {
         public static final String ORG_MANAGE_INVITES = "org:manage_invites";
         public static final String ORG_VIEW_AUDIT = "org:view_audit";
 
+        /** System role name reserved exclusively for the Beetel AI Agent */
+        public static final String AGENT_ROLE_NAME = "Agent";
+
         /** All permissions — for Admin role seed */
         public static final List<String> ALL = List.of(
                         PIPELINE_CREATE, PIPELINE_VIEW, PIPELINE_EDIT, PIPELINE_DELETE,
@@ -79,6 +82,19 @@ public final class Permissions {
                         SETTINGS_EDIT,
                         UDF_CREATE, UDF_VIEW, UDF_DELETE,
                         ORG_MANAGE_MEMBERS, ORG_MANAGE_ROLES, ORG_MANAGE_INVITES, ORG_VIEW_AUDIT);
+
+        /** Default Agent system role permissions — all platform resource permissions excluding org:* */
+        public static final List<String> AGENT = List.of(
+                        PIPELINE_CREATE, PIPELINE_VIEW, PIPELINE_EDIT, PIPELINE_DELETE,
+                        PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP,
+                        WORKFLOW_CREATE, WORKFLOW_VIEW, WORKFLOW_EDIT, WORKFLOW_DELETE,
+                        WORKFLOW_RUN, WORKFLOW_PAUSE, WORKFLOW_STOP,
+                        NAMESPACE_CREATE, NAMESPACE_EDIT, NAMESPACE_DELETE,
+                        CONNECTION_CREATE, CONNECTION_VIEW, CONNECTION_EDIT, CONNECTION_DELETE,
+                        CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
+                        MONITOR_VIEW, MONITOR_VIEW_ERRORS,
+                        SETTINGS_EDIT,
+                        UDF_CREATE, UDF_VIEW, UDF_DELETE);
 
         /** Default Editor permissions */
         public static final List<String> EDITOR = List.of(

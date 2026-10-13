@@ -2,6 +2,7 @@ package com.datashifter.auth.services;
 
 import com.datashifter.auth.repositories.*;
 import com.datashifter.common.dtos.AuthDtos.*;
+import com.datashifter.common.enums.Permissions;
 import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.exceptions.ResourceNotFoundException;
 import com.datashifter.common.models.*;
@@ -36,6 +37,9 @@ public class RoleService {
 
     @Transactional
     public RoleResponse create(String orgId, CreateRoleRequest request) {
+        if (request.getName() != null && Permissions.AGENT_ROLE_NAME.equalsIgnoreCase(request.getName().trim())) {
+            throw new DatashifterException("Role name 'Agent' is reserved for the system AI Agent");
+        }
         if (roleRepository.existsByOrgIdAndName(orgId, request.getName())) {
             throw new DatashifterException("Role already exists: " + request.getName());
         }
@@ -66,6 +70,9 @@ public class RoleService {
 
         if (request.getName() != null && !request.getName().equals(role.getName())) {
             if (role.getIsSystem()) throw new DatashifterException("Cannot rename system role: " + role.getName());
+            if (Permissions.AGENT_ROLE_NAME.equalsIgnoreCase(request.getName().trim())) {
+                throw new DatashifterException("Role name 'Agent' is reserved for the system AI Agent");
+            }
             if (roleRepository.existsByOrgIdAndName(role.getOrgId(), request.getName())) {
                 throw new DatashifterException("Role name taken: " + request.getName());
             }
@@ -74,9 +81,13 @@ public class RoleService {
         if (request.getDescription() != null) role.setDescription(request.getDescription());
 
         if (request.getPermissions() != null) {
+            boolean isAgentRole = Permissions.AGENT_ROLE_NAME.equalsIgnoreCase(role.getName());
             role.getPermissions().clear();
             roleRepository.saveAndFlush(role); // flush deletes before re-inserting
             for (String perm : request.getPermissions()) {
+                if (isAgentRole && perm != null && perm.startsWith("org:")) {
+                    continue;
+                }
                 role.getPermissions().add(RolePermission.builder()
                         .roleId(role.getId()).permission(perm).build());
             }

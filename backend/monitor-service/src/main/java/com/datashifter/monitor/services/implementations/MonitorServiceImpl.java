@@ -17,6 +17,8 @@ import com.datashifter.monitor.services.interfaces.MonitorService;
 import lombok.RequiredArgsConstructor;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -41,7 +43,9 @@ public class MonitorServiceImpl implements MonitorService {
 
     @Override
     @Transactional(readOnly = true)
-    public LiveMonitorResponse getLiveMonitor(String pipelineId) {
+    @Tool(description = "Get real-time monitoring metrics for a pipeline by ID, including status, rowsProcessed, rowsPerSec, avgRowsPerSec, errorsSkipped, ETA, overallProgress, and validationErrors.")
+    public LiveMonitorResponse getLiveMonitor(
+            @ToolParam(description = "The unique ID of the pipeline to monitor") String pipelineId) {
         // Read live stats from Redis
         String statsKey = "pipeline:" + pipelineId + ":stats";
         Map<Object, Object> stats = redisTemplate.opsForHash().entries(statsKey);
@@ -76,7 +80,11 @@ public class MonitorServiceImpl implements MonitorService {
 
     @Override
     @Transactional(readOnly = true)
-    public ErrorSummaryResponse getErrorSummary(String pipelineId, int page, int size) {
+    @Tool(description = "Get paginated error logs and error counts grouped by error type (TRANSFORMATION_ERROR, CONSTRAINT_VIOLATION, CONNECTION_TIMEOUT, DATA_TRUNCATION, UNKNOWN) for debugging a pipeline.")
+    public ErrorSummaryResponse getErrorSummary(
+            @ToolParam(description = "The unique ID of the pipeline") String pipelineId,
+            @ToolParam(description = "Zero-based page index (e.g., 0)") int page,
+            @ToolParam(description = "Number of error records per page (e.g., 20)") int size) {
         
         long total = errorLogRepo.countByPipelineId(pipelineId);
 
@@ -108,7 +116,12 @@ public class MonitorServiceImpl implements MonitorService {
 
     @Override
     @Transactional(readOnly = true)
-    public ErrorSummaryResponse getWorkflowErrorSummary(String workflowId, String pipelineIdFilter, int page, int size) {
+    @Tool(description = "Get aggregated error summary and detailed error logs across all pipelines (or a specific filtered pipeline) within a workflow for debugging workflow failures.")
+    public ErrorSummaryResponse getWorkflowErrorSummary(
+            @ToolParam(description = "The unique ID of the workflow") String workflowId,
+            @ToolParam(description = "Optional pipeline ID to filter errors within the workflow (null or empty for all)") String pipelineIdFilter,
+            @ToolParam(description = "Zero-based page index (e.g., 0)") int page,
+            @ToolParam(description = "Number of error records per page (e.g., 20)") int size) {
         Workflow workflow = findWorkflowForCurrentOrg(workflowId);
 
         List<WorkflowNode> nodes = workflowNodeRepo.findByWorkflow_Id(workflowId);
@@ -160,7 +173,9 @@ public class MonitorServiceImpl implements MonitorService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ExecutionLogResponse> getExecutionHistory(String pipelineId) {
+    @Tool(description = "Get historical execution run logs (status, startedAt, completedAt, totalRowsProcessed, totalErrors, durationMs) for a pipeline.")
+    public List<ExecutionLogResponse> getExecutionHistory(
+            @ToolParam(description = "The unique ID of the pipeline") String pipelineId) {
         return executionLogRepo.findByPipelineIdOrderByStartedAtDesc(pipelineId)
                 .stream().map(this::toExecutionResponse).collect(Collectors.toList());
     }
@@ -199,7 +214,9 @@ public class MonitorServiceImpl implements MonitorService {
 
     @Override
     @Transactional
-    public void clearErrors(String pipelineId) {
+    @Tool(description = "Clear all recorded error logs and reset skipped error counters for a pipeline.")
+    public void clearErrors(
+            @ToolParam(description = "The unique ID of the pipeline") String pipelineId) {
         errorLogRepo.deleteByPipelineId(pipelineId);
         // Also reset error count in Redis stats
         String statsKey = "pipeline:" + pipelineId + ":stats";
@@ -208,7 +225,9 @@ public class MonitorServiceImpl implements MonitorService {
 
     @Override
     @Transactional
-    public void clearWorkflowErrors(String workflowId) {
+    @Tool(description = "Clear all recorded error logs across all pipelines belonging to a workflow.")
+    public void clearWorkflowErrors(
+            @ToolParam(description = "The unique ID of the workflow") String workflowId) {
         findWorkflowForCurrentOrg(workflowId);
         List<WorkflowNode> nodes = workflowNodeRepo.findByWorkflow_Id(workflowId);
         List<String> pipelineIds = nodes.stream().map(WorkflowNode::getPipelineId).toList();

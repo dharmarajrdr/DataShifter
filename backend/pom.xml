@@ -30,15 +30,35 @@
         <module>notification-service</module>
         <module>payment-service</module>
         <module>udf-service</module>
+        <module>ai-service</module>
     </modules>
 
     <properties>
         <java.version>17</java.version>
         <spring-cloud.version>2023.0.0</spring-cloud.version>
+        <spring-ai.version>1.0.0-M6</spring-ai.version>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>com.datashifter</groupId>
                 <artifactId>datashifter-common</artifactId>
@@ -47,6 +67,21 @@
             <dependency>
                 <groupId>com.datashifter</groupId>
                 <artifactId>connector-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.datashifter</groupId>
+                <artifactId>pipeline-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.datashifter</groupId>
+                <artifactId>monitor-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.datashifter</groupId>
+                <artifactId>udf-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

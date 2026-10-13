@@ -24,9 +24,11 @@ SERVICES=(
   "execution-engine"
   "notification-service"
   "payment-service"
+  "udf-service"
+  "ai-service"
 )
 
-PORTS=(8080 8086 8081 8082 8083 8084 8085 8087)
+PORTS=(8080 8086 8081 8082 8083 8084 8085 8087 8088 8089)
 
 mkdir -p "$LOG_DIR" "$PID_DIR"
 

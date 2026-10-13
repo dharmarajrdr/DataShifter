@@ -11,6 +11,8 @@ import com.datashifter.connector.spi.interfaces.ConnectionConfig;
 import com.datashifter.connector.spi.interfaces.DatabaseConnector;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +43,9 @@ public class TableOrderService {
      * Parents (referenced tables) come before children (FK tables).
      */
     @Transactional(readOnly = true)
-    public SmartOrderResponse smartOrder(SmartOrderRequest request) {
+    @Tool(description = "Auto-detect foreign key dependencies among a list of tables in a database connection and return the topologically sorted migration order (parent tables before child tables), plus any cycle warnings.")
+    public SmartOrderResponse smartOrder(
+            @ToolParam(description = "Request containing connectionId and list of tableNames to topologically sort") SmartOrderRequest request) {
         Connection conn = connectionRepository.findById(request.getConnectionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Connection", request.getConnectionId()));
         DatabaseConnector connector = connectorFactory.getConnector(conn.getDbType());
@@ -122,7 +126,9 @@ public class TableOrderService {
      * Returns warnings for any child-before-parent violations.
      */
     @Transactional(readOnly = true)
-    public ValidateOrderResponse validateOrder(ValidateOrderRequest request) {
+    @Tool(description = "Validate a proposed table execution order against foreign key dependencies in a database connection and return warnings if any child table is ordered before its parent table.")
+    public ValidateOrderResponse validateOrder(
+            @ToolParam(description = "Request containing connectionId and ordered tableNames to validate") ValidateOrderRequest request) {
         Connection conn = connectionRepository.findById(request.getConnectionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Connection", request.getConnectionId()));
         DatabaseConnector connector = connectorFactory.getConnector(conn.getDbType());

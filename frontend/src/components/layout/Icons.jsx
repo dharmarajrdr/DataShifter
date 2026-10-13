@@ -116,3 +116,10 @@ export const UploadIcon = ({ color = '#6B6B6B', size = 16 }) => (
     <path d="M2.5 12.5h11c0.83 0 1.5-0.67 1.5-1.5v-2c0-0.83-0.67-1.5-1.5-1.5h-11c-0.83 0-1.5 0.67-1.5 1.5v2c0 0.83 0.67 1.5 1.5 1.5z" stroke={color} strokeWidth="1.3" />
   </svg>
 );
+
+export const BeetelIcon = ({ color = '#6B6B6B', size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <path d="M8 1.5L9.4 5.2L13.1 6.6L9.4 8L8 11.7L6.6 8L2.9 6.6L6.6 5.2L8 1.5Z" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
+    <path d="M12.5 10.5L13.1 12.1L14.7 12.7L13.1 13.3L12.5 14.9L11.9 13.3L10.3 12.7L11.9 12.1L12.5 10.5Z" stroke={color} strokeWidth="1.1" strokeLinejoin="round" />
+  </svg>
+);

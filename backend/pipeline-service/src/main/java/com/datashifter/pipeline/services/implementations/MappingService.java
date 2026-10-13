@@ -14,6 +14,8 @@ import com.datashifter.pipeline.validation.PipelineValidationContext;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +56,9 @@ public class MappingService {
     }
 
     @Transactional(readOnly = true)
-    public MappingResponse getMappings(String pipelineId) {
+    @Tool(description = "Get complete table pair mappings, live source and target column metadata, column mappings, transformations, filters, and validation errors for a pipeline by ID.")
+    public MappingResponse getMappings(
+            @ToolParam(description = "The unique ID of the pipeline to fetch column and table mappings for") String pipelineId) {
         Pipeline pipeline = pipelineRepository.findById(pipelineId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pipeline", pipelineId));
 

@@ -17,6 +17,7 @@ const SettingsTabs = ({ title, subtitle, actions }) => {
     { label: 'Organization', path: '/settings/org', show: true },
     { label: 'Members', path: '/settings/members', show: hasPermission('org:manage_members') || hasPermission('org:manage_invites') || !!user?.orgOwner },
     { label: 'Roles', path: '/settings/roles', show: hasPermission('org:manage_roles') },
+    { label: 'API Keys', path: '/settings/api-keys', show: true },
     { label: 'Billing', path: '/settings/billing', show: !!user?.orgOwner },
   ];
 

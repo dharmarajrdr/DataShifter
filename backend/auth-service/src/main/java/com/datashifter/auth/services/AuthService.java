@@ -366,11 +366,15 @@ public class AuthService {
         Role role = invite.getRoleId() != null
                 ? roleRepository.findById(invite.getRoleId()).orElse(null)
                 : roleRepository.findByOrgIdAndName(org.getId(), "Viewer").orElse(null);
+        if (role != null && Permissions.AGENT_ROLE_NAME.equalsIgnoreCase(role.getName())) {
+            role = roleRepository.findByOrgIdAndName(org.getId(), "Viewer").orElse(null);
+        }
+        final Role assignedRole = role;
 
         AppUser user = userRepository.findByAccount_IdAndOrganization_Id(account.getId(), org.getId())
                 .map(existing -> {
                     existing.setIsActive(true);
-                    existing.setRole(role);
+                    existing.setRole(assignedRole);
                     existing.setFullName(request.getFullName());
                     existing.setDisplayInitials(computeInitials(request.getFullName()));
                     return existing;
@@ -378,7 +382,7 @@ public class AuthService {
                 .orElseGet(() -> AppUser.builder()
                         .account(account)
                         .organization(org)
-                        .role(role)
+                        .role(assignedRole)
                         .fullName(request.getFullName())
                         .displayInitials(computeInitials(request.getFullName()))
                         .avatarColor(randomAvatarColor())
@@ -419,6 +423,18 @@ public class AuthService {
             viewer.getPermissions().add(RolePermission.builder().roleId(viewer.getId()).permission(perm).build());
         }
         roleRepository.save(viewer);
+
+        Role agent = Role.builder()
+                .orgId(orgId)
+                .name(Permissions.AGENT_ROLE_NAME)
+                .description("Controls what actions Beetel AI Agent can perform across the organization")
+                .isSystem(true)
+                .build();
+        roleRepository.save(agent);
+        for (String perm : Permissions.AGENT) {
+            agent.getPermissions().add(RolePermission.builder().roleId(agent.getId()).permission(perm).build());
+        }
+        roleRepository.save(agent);
 
         return admin;
     }

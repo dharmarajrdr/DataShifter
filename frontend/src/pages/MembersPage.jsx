@@ -101,7 +101,10 @@ const MembersPage = () => {
       setError(null);
       try {
         const rolesRes = await authApi.getRoles();
-        setRoles(rolesRes.data || []);
+        const assignableRoles = (rolesRes.data || []).filter(
+          (r) => String(r.name || '').toLowerCase() !== 'agent'
+        );
+        setRoles(assignableRoles);
         if (canManageInvites) {
           const invRes = await authApi.getInvitations();
           setInvitations(invRes.data || []);

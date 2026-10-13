@@ -306,6 +306,44 @@ services:
     volumes:
       - udfdata:/var/lib/datashifter/udfs
 
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: ai-service
+    ports:
+      - "8089:8089"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      DS_DB_URL: jdbc:postgresql://postgres:5432/datashifter_db
+      DS_DB_DRIVER: org.postgresql.Driver
+      DS_DB_USERNAME: datashifter
+      DS_DB_PASSWORD: datashifter_password
+      DS_REDIS_PORT: 6379
+      DS_REDIS_HOST: redis
+      DS_KAFKA_BOOTSTRAP: kafka:29092
+      DS_JWT_SECRET: super_secret_jwt_key_that_is_at_least_256_bits_long_for_security
+      DS_JWT_ACCESS_EXPIRY: 3600000
+      DS_JWT_REFRESH_EXPIRY: 86400000
+      DS_UDF_STORAGE_ROOT: /var/lib/datashifter/udfs
+      DS_UDF_MAX_FILE_SIZE_BYTES: 26214400
+      GROQ_API_KEYS: ${GROQ_API_KEYS:-}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+      OLLAMA_ENABLED: ${OLLAMA_ENABLED:-true}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:12b}
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
+    volumes:
+      - udfdata:/var/lib/datashifter/udfs
+
 volumes:
   pgdata:
   udfdata:
+
