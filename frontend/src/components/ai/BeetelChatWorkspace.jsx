@@ -128,7 +128,13 @@ const PlanConfirmationCard = ({ plan, onConfirm, onReject, busyPlanId }) => {
                     flexShrink: 0,
                     marginTop: '1px',
                   }}>
-                    {stepDone ? '✓' : stepFailed ? '!' : (step.stepNumber || idx + 1)}
+                    {stepDone ? (
+                      <i className="fa-solid fa-check" style={{ fontSize: '10px' }} />
+                    ) : stepFailed ? (
+                      <i className="fa-solid fa-exclamation" style={{ fontSize: '10px' }} />
+                    ) : (
+                      step.stepNumber || idx + 1
+                    )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ ...FRBC, gap: SPACING.xs }}>
@@ -332,21 +338,7 @@ const BeetelErrorCard = ({ content, onRetry, sending }) => {
         borderBottom: '1px solid #F5B7B1',
       }}>
         <div style={{ ...FRSC, gap: '6px' }}>
-          <span style={{
-            width: 18,
-            height: 18,
-            borderRadius: '50%',
-            background: '#A32D2D',
-            color: '#fff',
-            fontSize: '11px',
-            fontWeight: FONT.weight.bold,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            !
-          </span>
+          <i className="fa-solid fa-circle-exclamation" style={{ color: '#A32D2D', fontSize: '14px' }} />
           <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: '#791F1F' }}>
             {parsed.title}
           </span>
@@ -358,6 +350,8 @@ const BeetelErrorCard = ({ content, onRetry, sending }) => {
             disabled={sending}
             onClick={onRetry}
             style={{
+              ...FRSC,
+              gap: '5px',
               padding: '3px 10px',
               borderRadius: BORDER_RADIUS.full,
               border: '1px solid #D98880',
@@ -369,7 +363,8 @@ const BeetelErrorCard = ({ content, onRetry, sending }) => {
               opacity: sending ? 0.6 : 1,
             }}
           >
-            ↻ Retry
+            <i className="fa-solid fa-rotate-right" style={{ fontSize: '10px' }} />
+            <span>Retry</span>
           </button>
         )}
       </div>
@@ -626,13 +621,13 @@ const ShareConversationModal = ({
             style={{
               border: 'none',
               background: 'transparent',
-              fontSize: '16px',
+              fontSize: '14px',
               color: COLORS.text.tertiary,
               cursor: 'pointer',
               padding: '4px',
             }}
           >
-            ✕
+            <i className="fa-solid fa-xmark" />
           </button>
         </div>
 
@@ -1233,7 +1228,7 @@ const BeetelChatWorkspace = ({
                 <div
                   style={{
                     ...FRSC,
-                    gap: '4px',
+                    gap: '5px',
                     padding: '2px 8px',
                     borderRadius: BORDER_RADIUS.full,
                     background: '#E1F5EE',
@@ -1244,11 +1239,14 @@ const BeetelChatWorkspace = ({
                   }}
                   title={`Shared with ${(session.sharedMembers || []).map(m => m.fullName).join(', ')}`}
                 >
-                  <span>👥 Shared ({participants.length})</span>
+                  <i className="fa-solid fa-users" style={{ fontSize: '10px' }} />
+                  <span>Shared ({participants.length})</span>
                 </div>
               ) : (
                 <span
                   style={{
+                    ...FRSC,
+                    gap: '5px',
                     fontSize: '11px',
                     color: COLORS.text.secondary,
                     background: '#fff',
@@ -1258,7 +1256,8 @@ const BeetelChatWorkspace = ({
                   }}
                   title="This conversation is private to you until shared"
                 >
-                  🔒 Private
+                  <i className="fa-solid fa-lock" style={{ fontSize: '10px' }} />
+                  <span>Private</span>
                 </span>
               )}
 
@@ -1285,7 +1284,7 @@ const BeetelChatWorkspace = ({
                 onClick={() => setShareModalOpen(true)}
                 style={{
                   ...FRSC,
-                  gap: '4px',
+                  gap: '5px',
                   padding: '4px 9px',
                   borderRadius: BORDER_RADIUS.sm,
                   border: `1px solid ${COLORS.accent.purpleText}`,
@@ -1297,7 +1296,8 @@ const BeetelChatWorkspace = ({
                 }}
                 title="Share this conversation with members of your organization"
               >
-                <span>+ Share</span>
+                <i className="fa-solid fa-user-plus" style={{ fontSize: '10px' }} />
+                <span>Share</span>
               </button>
             </div>
           )}
@@ -1314,7 +1314,7 @@ const BeetelChatWorkspace = ({
             onClick={() => fileInputRef.current?.click()}
             style={{
               ...FRSC,
-              gap: '4px',
+              gap: '5px',
               padding: '4px 8px',
               borderRadius: BORDER_RADIUS.sm,
               border: `1px solid ${COLORS.border.medium}`,
@@ -1324,7 +1324,7 @@ const BeetelChatWorkspace = ({
               cursor: 'pointer',
             }}
           >
-            <span>📄</span>
+            <i className="fa-regular fa-file-lines" style={{ fontSize: '11px' }} />
             <span>{AGENT.uploadMarkdown}</span>
           </button>
         </div>
@@ -1496,7 +1496,7 @@ const BeetelChatWorkspace = ({
                       background: isUser ? 'rgba(255,255,255,0.16)' : '#fff',
                       fontSize: '11px',
                     }}>
-                      <span>📎</span>
+                      <i className="fa-solid fa-paperclip" style={{ fontSize: '11px' }} />
                       <span style={{ fontWeight: FONT.weight.medium }}>{msg.markdownAttachmentName}</span>
                     </div>
                   )}
@@ -1576,6 +1576,8 @@ const BeetelChatWorkspace = ({
             type="button"
             onClick={() => setMdFile(null)}
             style={{
+              ...FRSC,
+              gap: '4px',
               border: 'none',
               background: 'transparent',
               color: COLORS.accent.purpleText,
@@ -1584,7 +1586,8 @@ const BeetelChatWorkspace = ({
               fontWeight: FONT.weight.semibold,
             }}
           >
-            Remove ✕
+            <span>Remove</span>
+            <i className="fa-solid fa-xmark" style={{ fontSize: '11px' }} />
           </button>
         </div>
       )}

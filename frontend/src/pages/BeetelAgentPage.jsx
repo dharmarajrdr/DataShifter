@@ -191,16 +191,19 @@ const BeetelAgentPage = () => {
                           <span
                             title="Shared conversation (cannot be deleted)"
                             style={{
+                              ...FRSC,
+                              gap: '4px',
                               fontSize: '9px',
                               fontWeight: FONT.weight.semibold,
-                              padding: '1px 5px',
+                              padding: '1px 6px',
                               borderRadius: BORDER_RADIUS.full,
                               background: '#E1F5EE',
                               color: '#0F6E56',
                               flexShrink: 0,
                             }}
                           >
-                            👥 {memberCount}
+                            <i className="fa-solid fa-users" style={{ fontSize: '8px' }} />
+                            <span>{memberCount}</span>
                           </span>
                         )}
                       </div>
@@ -229,7 +232,7 @@ const BeetelAgentPage = () => {
                           padding: '2px 4px',
                         }}
                       >
-                        ✕
+                        <i className="fa-solid fa-xmark" />
                       </button>
                     )}
                   </div>
