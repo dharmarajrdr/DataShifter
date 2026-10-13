@@ -124,15 +124,18 @@ const NotifyHubPage = () => {
             onClick={() => setShowTestSendModal(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <span>🔔</span> Test & Send Alert
+            <i className="fa-solid fa-bell" style={{ fontSize: '13px' }} />
+            <span>Test & Send Alert</span>
           </Button>
 
           {activeTab === 'channels' && (
             <Button
               variant="primary"
               onClick={() => { setEditingChannel(null); setShowChannelModal(true); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              + New Channel
+              <i className="fa-solid fa-plus" style={{ fontSize: '12px' }} />
+              <span>New Channel</span>
             </Button>
           )}
 
@@ -140,8 +143,10 @@ const NotifyHubPage = () => {
             <Button
               variant="primary"
               onClick={() => { setEditingTemplate(null); setShowTemplateModal(true); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              + New Template
+              <i className="fa-solid fa-plus" style={{ fontSize: '12px' }} />
+              <span>New Template</span>
             </Button>
           )}
         </div>
@@ -270,6 +275,7 @@ const NotifyHubPage = () => {
                         <span style={{
                           padding: '2px 8px', borderRadius: BORDER_RADIUS.pill,
                           fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold,
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
                           background: ch.channelType === 'SLACK' ? '#4A154B15' :
                                       ch.channelType === 'EMAIL' ? '#2563EB15' :
                                       ch.channelType === 'TEAMS' ? '#6264A715' :
@@ -279,6 +285,13 @@ const NotifyHubPage = () => {
                                  ch.channelType === 'TEAMS' ? '#6264A7' :
                                  ch.channelType === 'CLIQ' ? '#0F6E56' : '#A32D2D',
                         }}>
+                          <i className={
+                            ch.channelType === 'SLACK' ? 'fa-brands fa-slack' :
+                            ch.channelType === 'EMAIL' ? 'fa-solid fa-envelope' :
+                            ch.channelType === 'TEAMS' ? 'fa-solid fa-people-group' :
+                            ch.channelType === 'CLIQ' ? 'fa-solid fa-comments' :
+                            'fa-solid fa-network-wired'
+                          } style={{ fontSize: '11px' }} />
                           {ch.channelType}
                         </span>
                         <h4 style={{ margin: 0, fontSize: FONT.size.base, fontWeight: FONT.weight.semibold }}>

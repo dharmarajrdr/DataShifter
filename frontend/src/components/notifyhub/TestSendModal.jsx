@@ -98,10 +98,10 @@ const TestSendModal = ({ channels = [], templates = [], pipelines = [], onClose,
             onClick={onClose}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '20px', color: COLORS.text.tertiary, padding: '4px 8px',
+              color: COLORS.text.tertiary, padding: '4px 8px',
             }}
           >
-            ✕
+            <i className="fa-solid fa-xmark" style={{ fontSize: '16px' }} />
           </button>
         </div>
 
@@ -140,6 +140,13 @@ const TestSendModal = ({ channels = [], templates = [], pipelines = [], onClose,
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontWeight: FONT.weight.medium, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <i className={
+                          ch.channelType === 'SLACK' ? 'fa-brands fa-slack' :
+                          ch.channelType === 'EMAIL' ? 'fa-solid fa-envelope' :
+                          ch.channelType === 'TEAMS' ? 'fa-solid fa-people-group' :
+                          ch.channelType === 'CLIQ' ? 'fa-solid fa-comments' :
+                          'fa-solid fa-network-wired'
+                        } style={{ marginRight: '6px', fontSize: '11px', color: COLORS.text.secondary }} />
                         {ch.name}
                       </p>
                       <span style={{ fontSize: '10px', color: COLORS.text.tertiary }}>

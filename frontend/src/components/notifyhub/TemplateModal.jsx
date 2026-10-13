@@ -132,10 +132,10 @@ const TemplateModal = ({ template, onClose, onSave }) => {
             onClick={onClose}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '20px', color: COLORS.text.tertiary, padding: '4px 8px',
+              color: COLORS.text.tertiary, padding: '4px 8px',
             }}
           >
-            ✕
+            <i className="fa-solid fa-xmark" style={{ fontSize: '16px' }} />
           </button>
         </div>
 

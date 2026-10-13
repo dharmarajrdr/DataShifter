@@ -199,10 +199,10 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
             onClick={onClose}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '20px', color: COLORS.text.tertiary, padding: '4px 8px',
+              color: COLORS.text.tertiary, padding: '4px 8px',
             }}
           >
-            ✕
+            <i className="fa-solid fa-xmark" style={{ fontSize: '16px' }} />
           </button>
         </div>
 
@@ -252,7 +252,13 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
               Channel Type
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: SPACING.xs }}>
-              {['SLACK', 'EMAIL', 'TEAMS', 'CLIQ', 'WEBHOOK'].map(type => {
+              {[
+                { type: 'SLACK', label: 'Slack', icon: 'fa-brands fa-slack' },
+                { type: 'EMAIL', label: 'Email', icon: 'fa-solid fa-envelope' },
+                { type: 'TEAMS', label: 'Teams', icon: 'fa-solid fa-people-group' },
+                { type: 'CLIQ', label: 'Cliq', icon: 'fa-solid fa-comments' },
+                { type: 'WEBHOOK', label: 'Webhook', icon: 'fa-solid fa-network-wired' },
+              ].map(({ type, label, icon }) => {
                 const selected = channelType === type;
                 return (
                   <button
@@ -268,10 +274,14 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
                       fontSize: FONT.size.sm,
                       fontWeight: selected ? FONT.weight.semibold : FONT.weight.regular,
                       cursor: 'pointer',
-                      textAlign: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '4px',
                     }}
                   >
-                    {type}
+                    <i className={icon} style={{ fontSize: '15px' }} />
+                    <span>{label}</span>
                   </button>
                 );
               })}
