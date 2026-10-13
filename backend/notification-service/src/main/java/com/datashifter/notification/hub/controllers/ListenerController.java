@@ -3,6 +3,8 @@ package com.datashifter.notification.hub.controllers;
 import com.datashifter.notification.hub.dto.ListenerRequest;
 import com.datashifter.notification.hub.models.NotificationListener;
 import com.datashifter.notification.hub.repositories.NotificationListenerRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,7 @@ import java.util.List;
 public class ListenerController {
 
     private final NotificationListenerRepository listenerRepository;
+    private final ObjectMapper objectMapper;
 
     private String resolveOrgId(String headerOrgId) {
         if (headerOrgId != null && !headerOrgId.isBlank()) {
@@ -45,6 +48,18 @@ public class ListenerController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    private String serializeTargetResources(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return "[\"ALL\"]";
+        }
+        try {
+            return objectMapper.writeValueAsString(ids);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize targetResourceIds", e);
+            return "[\"ALL\"]";
+        }
+    }
+
     @PostMapping
     public ResponseEntity<NotificationListener> createListener(
             @RequestHeader(value = "X-Org-Id", required = false) String orgId,
@@ -66,6 +81,7 @@ public class ListenerController {
                 .channelId(request.getChannelId())
                 .templateId(request.getTemplateId())
                 .filterResourceId(request.getFilterResourceId())
+                .targetResourceIdsJson(serializeTargetResources(request.getTargetResourceIds()))
                 .build();
 
         NotificationListener saved = listenerRepository.save(listener);
@@ -93,6 +109,9 @@ public class ListenerController {
                     existing.setChannelId(request.getChannelId());
                     existing.setTemplateId(request.getTemplateId());
                     existing.setFilterResourceId(request.getFilterResourceId());
+                    if (request.getTargetResourceIds() != null) {
+                        existing.setTargetResourceIdsJson(serializeTargetResources(request.getTargetResourceIds()));
+                    }
                     NotificationListener saved = listenerRepository.save(existing);
                     return ResponseEntity.ok(saved);
                 })

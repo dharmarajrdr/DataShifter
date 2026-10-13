@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS notification_listeners (
     is_enabled BOOLEAN DEFAULT TRUE,
     channel_id VARCHAR(36) NOT NULL,
     template_id VARCHAR(36),
-    filter_resource_id VARCHAR(100),    -- optional lock to specific resource item (e.g. pipeline-101)
+    filter_resource_id VARCHAR(100),    -- optional single resource id
+    target_resource_ids_json TEXT,      -- list of resources to listen to (or ["ALL"])
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

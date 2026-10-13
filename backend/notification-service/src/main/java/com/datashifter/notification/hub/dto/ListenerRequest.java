@@ -32,4 +32,6 @@ public class ListenerRequest {
     private String templateId;
 
     private String filterResourceId; // optional specific resource id
+
+    private java.util.List<String> targetResourceIds; // list of target resources to listen to (e.g. ["ALL"], or specific ids)
 }

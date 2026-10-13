@@ -49,6 +49,9 @@ public class NotificationListener {
     @Column(name = "filter_resource_id", length = 100)
     private String filterResourceId;
 
+    @Column(name = "target_resource_ids_json", columnDefinition = "TEXT")
+    private String targetResourceIdsJson;
+
     @Column(name = "created_at")
     private Instant createdAt;
 
