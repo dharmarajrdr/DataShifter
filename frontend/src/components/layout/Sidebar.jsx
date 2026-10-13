@@ -6,7 +6,7 @@ import { FCSS, FRBC, FRSC } from '../../constants/layouts';
 import { APP, NAV } from '../../constants/literals';
 import { useAuth } from '../../contexts/AuthContext';
 import { authApi } from '../../services/authApi';
-import { BeetelIcon, ConnectionIcon, LogoIcon, PipelineIcon, SettingsIcon, WorkflowIcon } from './Icons';
+import { BeetelIcon, ConnectionIcon, LogoIcon, NotifyHubIcon, PipelineIcon, SettingsIcon, WorkflowIcon } from './Icons';
 
 const NAV_ITEMS = [
   { label: NAV.pipelines, path: '/pipelines', icon: PipelineIcon },
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { label: NAV.connections, path: '/connections', icon: ConnectionIcon },
   { label: NAV.udfs, path: '/udfs', icon: Code2 },
   { label: NAV.agent, path: '/beetel', icon: BeetelIcon },
+  { label: NAV.notifyhub, path: '/notifyhub', icon: NotifyHubIcon },
   { label: NAV.settings, path: '/settings', icon: SettingsIcon },
 ];
 

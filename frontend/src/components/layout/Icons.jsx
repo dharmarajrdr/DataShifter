@@ -123,3 +123,9 @@ export const BeetelIcon = ({ color = '#6B6B6B', size = 16 }) => (
     <path d="M12.5 10.5L13.1 12.1L14.7 12.7L13.1 13.3L12.5 14.9L11.9 13.3L10.3 12.7L11.9 12.1L12.5 10.5Z" stroke={color} strokeWidth="1.1" strokeLinejoin="round" />
   </svg>
 );
+
+export const NotifyHubIcon = ({ color = '#6B6B6B', size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <path d="M8 1.5a4.5 4.5 0 00-4.5 4.5v3.25L2 11.5v1h12v-1l-1.5-2.25V6a4.5 4.5 0 00-4.5-4.5zM6.5 13.5a1.5 1.5 0 003 0" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);

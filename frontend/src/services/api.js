@@ -420,5 +420,60 @@ export const workflowApi = {
     : apiClient.delete(`/workflows/${id}/errors`),
 };
 
+/* ================================================================
+   NOTIFYHUB API
+   ================================================================ */
+
+export const notifyHubApi = {
+  // Channels
+  listChannels: (pipelineId) =>
+    apiClient.get(`/notifyhub/channels${pipelineId ? `?pipelineId=${pipelineId}` : ''}`),
+
+  getChannel: (id) =>
+    apiClient.get(`/notifyhub/channels/${id}`),
+
+  createChannel: (payload) =>
+    apiClient.post('/notifyhub/channels', payload),
+
+  updateChannel: (id, payload) =>
+    apiClient.put(`/notifyhub/channels/${id}`, payload),
+
+  deleteChannel: (id) =>
+    apiClient.delete(`/notifyhub/channels/${id}`),
+
+  getWebhookFields: () =>
+    apiClient.get('/notifyhub/channels/webhook/fields'),
+
+  // Templates
+  listTemplates: () =>
+    apiClient.get('/notifyhub/templates'),
+
+  getTemplate: (name) =>
+    apiClient.get(`/notifyhub/templates/${name}`),
+
+  createTemplate: (payload) =>
+    apiClient.post('/notifyhub/templates', payload),
+
+  updateTemplate: (id, payload) =>
+    apiClient.put(`/notifyhub/templates/${id}`, payload),
+
+  deleteTemplate: (id) =>
+    apiClient.delete(`/notifyhub/templates/${id}`),
+
+  previewTemplate: (payload) =>
+    apiClient.post('/notifyhub/templates/preview', payload),
+
+  getPlaceholders: () =>
+    apiClient.get('/notifyhub/templates/placeholders'),
+
+  // Send Alert & Audit Logs
+  sendNotification: (payload) =>
+    apiClient.post('/notifyhub/send', payload),
+
+  getLogs: (pipelineId) =>
+    apiClient.get(`/notifyhub/logs${pipelineId ? `?pipelineId=${pipelineId}` : ''}`),
+};
+
 export { authApi } from './authApi';
 export { aiApi } from './aiApi';
+
