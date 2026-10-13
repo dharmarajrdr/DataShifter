@@ -9,4 +9,5 @@ public final class KafkaTopics {
     public static final String PIPELINE_ERRORS    = "pipeline.errors";
     public static final String PIPELINE_STATUS    = "pipeline.status";
     public static final String WORKFLOW_STATUS    = "workflow.status";
+    public static final String PIPELINE_NOTIFICATIONS = "pipeline.notifications";
 }
