@@ -90,11 +90,23 @@ const EventListenerModal = ({ listener, channels = [], templates = [], onClose, 
     }))
   );
 
+  // Format standard readable listener name from event
+  const formatEventName = (ev) => {
+    if (!ev) return '';
+    // e.g. "on pipeline completed" -> "On Pipeline Completed"
+    return ev.label
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
+
+  const initialEvent = allEvents.find(e => e.key === (listener?.eventKey || 'pipeline.completed')) || allEvents[0];
+
   const [selectedEventKey, setSelectedEventKey] = useState(
-    listener?.eventKey || allEvents[0]?.key || 'pipeline.completed'
+    listener?.eventKey || initialEvent?.key || 'pipeline.completed'
   );
   const [name, setName] = useState(
-    listener?.name || ''
+    listener?.name || formatEventName(initialEvent)
   );
   const [description, setDescription] = useState(listener?.description || '');
   const [channelId, setChannelId] = useState(listener?.channelId || channels[0]?.id || '');
@@ -102,12 +114,12 @@ const EventListenerModal = ({ listener, channels = [], templates = [], onClose, 
   const [enabled, setEnabled] = useState(listener ? listener.enabled : true);
   const [saving, setSaving] = useState(false);
 
-  // Auto-generate name from event if not provided
+  // Auto-generate / update listener name whenever the event changes
   const handleEventChange = (newKey) => {
     setSelectedEventKey(newKey);
     const ev = allEvents.find(e => e.key === newKey);
-    if (!name || allEvents.some(e => e.label === name)) {
-      setName(ev ? `Alert ${ev.label}` : '');
+    if (ev) {
+      setName(formatEventName(ev));
     }
   };
 
