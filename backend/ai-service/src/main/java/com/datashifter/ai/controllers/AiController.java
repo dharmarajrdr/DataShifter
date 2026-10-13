@@ -80,8 +80,13 @@ public class AiController {
     }
 
     // =========================================================================
-    // CHAT SESSIONS & CONTEXT
+    // CHAT SESSIONS, SAME-ORG SHARING & CONTEXT
     // =========================================================================
+
+    @GetMapping("/org-members")
+    public ApiResponse<List<ChatParticipantDto>> listOrganizationMembers() {
+        return ApiResponse.success(beetelAgentService.listOrganizationMembers());
+    }
 
     @GetMapping("/sessions")
     public ApiResponse<List<ChatSessionResponse>> listSessions(
@@ -99,6 +104,15 @@ public class AiController {
     @GetMapping("/sessions/{id}")
     public ApiResponse<ChatSessionResponse> getSession(@PathVariable String id) {
         return ApiResponse.success(beetelAgentService.getSession(id));
+    }
+
+    @PostMapping("/sessions/{id}/share")
+    public ApiResponse<ChatSessionResponse> shareSession(
+            @PathVariable String id,
+            @RequestBody ShareChatSessionRequest request) {
+        return ApiResponse.success(
+                beetelAgentService.shareSession(id, request),
+                "Conversation shared with selected organization members");
     }
 
     @GetMapping("/sessions/{id}/messages")

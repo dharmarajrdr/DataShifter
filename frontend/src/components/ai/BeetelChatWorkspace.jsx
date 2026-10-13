@@ -4,6 +4,7 @@ import { FRSC, FRBC } from '../../constants/layouts';
 import { AGENT } from '../../constants/literals';
 import { Button } from '../common';
 import { BeetelIcon } from '../layout/Icons';
+import { useAuth } from '../../contexts/AuthContext';
 import { aiApi } from '../../services/aiApi';
 import { pipelineApi, workflowApi } from '../../services/api';
 import BeetelMarkdownRenderer from './BeetelMarkdownRenderer';
@@ -456,6 +457,391 @@ const BeetelErrorCard = ({ content, onRetry, sending }) => {
   );
 };
 
+const deriveInitialsFromName = (name) => {
+  if (!name || typeof name !== 'string') return 'U';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'U';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const UserAvatar = ({ initials, name, color, size = 30, style = {} }) => {
+  const displayInitials = initials || deriveInitialsFromName(name);
+  return (
+    <div
+      title={name || 'Organization Member'}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: color || COLORS.brand.primary,
+        color: '#fff',
+        fontSize: Math.max(10, Math.round(size * 0.38)),
+        fontWeight: FONT.weight.semibold,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        userSelect: 'none',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+        ...style,
+      }}
+    >
+      {displayInitials}
+    </div>
+  );
+};
+
+const BeetelAvatar = ({ size = 30, isSystem = false }) => (
+  <div
+    title={isSystem ? `${AGENT.name} Executor` : AGENT.name}
+    style={{
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      background: isSystem ? '#E1F5EE' : COLORS.accent.purpleLight,
+      border: `1px solid ${isSystem ? '#9FE1CB' : COLORS.border.light}`,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    }}
+  >
+    <BeetelIcon color={isSystem ? '#0F6E56' : COLORS.accent.purpleText} size={Math.round(size * 0.52)} />
+  </div>
+);
+
+const ShareConversationModal = ({
+  open,
+  onClose,
+  session,
+  onSessionUpdated,
+}) => {
+  const [orgMembers, setOrgMembers] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [shareError, setShareError] = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setSearch('');
+    setSelectedIds([]);
+    setShareError(null);
+    setLoadingMembers(true);
+    aiApi.listOrgMembers()
+      .then(res => setOrgMembers(res.data || []))
+      .catch(e => setShareError(e?.message || 'Failed to load organization members'))
+      .finally(() => setLoadingMembers(false));
+  }, [open]);
+
+  if (!open || !session) return null;
+
+  const ownerUserId = session.ownerUserId || session.owner?.userId;
+  const existingSharedIds = new Set((session.sharedMembers || []).map(m => m.userId));
+
+  const filteredMembers = orgMembers.filter(m => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return (
+      (m.fullName && m.fullName.toLowerCase().includes(q)) ||
+      (m.email && m.email.toLowerCase().includes(q)) ||
+      (m.roleName && m.roleName.toLowerCase().includes(q))
+    );
+  });
+
+  const toggleSelect = (userId) => {
+    setSelectedIds(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleGrantAccess = async () => {
+    if (selectedIds.length === 0 || submitting) return;
+    setSubmitting(true);
+    setShareError(null);
+    try {
+      const res = await aiApi.shareSession(session.id, selectedIds);
+      const updated = res?.data || res;
+      if (updated) {
+        onSessionUpdated(updated);
+      }
+      setSelectedIds([]);
+      onClose();
+    } catch (e) {
+      setShareError(e?.message || 'Failed to share conversation');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15, 23, 42, 0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1200,
+        padding: SPACING.md,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: '480px',
+          background: '#fff',
+          borderRadius: BORDER_RADIUS.lg,
+          border: `1px solid ${COLORS.border.light}`,
+          boxShadow: '0 16px 40px rgba(0,0,0,0.16)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: '82vh',
+        }}
+      >
+        {/* Modal Header */}
+        <div style={{
+          ...FRBC,
+          padding: `${SPACING.md} ${SPACING.lg}`,
+          borderBottom: `1px solid ${COLORS.border.light}`,
+          background: COLORS.background.secondary,
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: FONT.size.base, fontWeight: FONT.weight.semibold, color: COLORS.text.primary }}>
+              Share Conversation
+            </h3>
+            <p style={{ margin: '2px 0 0 0', fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
+              {session.title || 'Conversation'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              fontSize: '16px',
+              color: COLORS.text.tertiary,
+              cursor: 'pointer',
+              padding: '4px',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Notice Banner */}
+        <div style={{
+          padding: `${SPACING.sm} ${SPACING.lg}`,
+          background: '#FAEEDA',
+          borderBottom: '1px solid #F0D090',
+          fontSize: '11px',
+          color: '#854F0B',
+          lineHeight: 1.45,
+        }}>
+          <strong>Permanent Organization Access:</strong> Selected members from your organization can view and contribute to this conversation and approve execution plans. Once granted, access <strong>cannot be revoked</strong> and shared conversations <strong>cannot be deleted</strong>.
+        </div>
+
+        {/* Search Input */}
+        <div style={{ padding: `${SPACING.sm} ${SPACING.lg}`, borderBottom: `1px solid ${COLORS.border.light}` }}>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search organization members by name or email..."
+            style={{
+              width: '100%',
+              padding: '7px 10px',
+              borderRadius: BORDER_RADIUS.md,
+              border: `1px solid ${COLORS.border.light}`,
+              fontSize: FONT.size.xs,
+              boxSizing: 'border-box',
+              outline: 'none',
+            }}
+          />
+        </div>
+
+        {/* Member List */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: `${SPACING.xs} ${SPACING.lg}`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+        }}>
+          {loadingMembers ? (
+            <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, textAlign: 'center', padding: SPACING.md }}>
+              Loading organization members...
+            </p>
+          ) : filteredMembers.length === 0 ? (
+            <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, textAlign: 'center', padding: SPACING.md }}>
+              No matching members found in your organization.
+            </p>
+          ) : (
+            filteredMembers.map(member => {
+              const isOwner = member.userId === ownerUserId;
+              const isAlreadyShared = existingSharedIds.has(member.userId);
+              const isLocked = isOwner || isAlreadyShared;
+              const isChecked = isLocked || selectedIds.includes(member.userId);
+
+              return (
+                <div
+                  key={member.userId}
+                  onClick={() => {
+                    if (!isLocked) toggleSelect(member.userId);
+                  }}
+                  style={{
+                    ...FRBC,
+                    gap: SPACING.sm,
+                    padding: '8px 10px',
+                    borderRadius: BORDER_RADIUS.md,
+                    border: `1px solid ${
+                      isChecked && !isLocked
+                        ? COLORS.brand.primary
+                        : COLORS.border.light
+                    }`,
+                    background: isLocked
+                      ? COLORS.background.secondary
+                      : isChecked
+                      ? COLORS.accent.purpleLight
+                      : '#fff',
+                    cursor: isLocked ? 'default' : 'pointer',
+                  }}
+                >
+                  <div style={{ ...FRSC, gap: SPACING.sm, minWidth: 0, flex: 1 }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      disabled={isLocked}
+                      onChange={() => {
+                        if (!isLocked) toggleSelect(member.userId);
+                      }}
+                      style={{ cursor: isLocked ? 'not-allowed' : 'pointer' }}
+                    />
+                    <UserAvatar
+                      initials={member.displayInitials}
+                      name={member.fullName}
+                      color={member.avatarColor}
+                      size={30}
+                    />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ ...FRSC, gap: '6px' }}>
+                        <span style={{
+                          fontSize: FONT.size.xs,
+                          fontWeight: FONT.weight.semibold,
+                          color: COLORS.text.primary,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}>
+                          {member.fullName}
+                        </span>
+                        {member.roleName && (
+                          <span style={{
+                            fontSize: '10px',
+                            color: COLORS.text.tertiary,
+                            background: COLORS.background.secondary,
+                            padding: '1px 6px',
+                            borderRadius: BORDER_RADIUS.full,
+                          }}>
+                            {member.roleName}
+                          </span>
+                        )}
+                      </div>
+                      {member.email && (
+                        <p style={{
+                          margin: '1px 0 0 0',
+                          fontSize: '11px',
+                          color: COLORS.text.secondary,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}>
+                          {member.email}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {isOwner ? (
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: FONT.weight.semibold,
+                      padding: '2px 8px',
+                      borderRadius: BORDER_RADIUS.full,
+                      background: COLORS.accent.purpleLight,
+                      color: COLORS.accent.purpleText,
+                    }}>
+                      Owner
+                    </span>
+                  ) : isAlreadyShared ? (
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: FONT.weight.semibold,
+                      padding: '2px 8px',
+                      borderRadius: BORDER_RADIUS.full,
+                      background: '#E1F5EE',
+                      color: '#0F6E56',
+                    }}>
+                      Access Granted
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {shareError && (
+          <div style={{
+            margin: `0 ${SPACING.lg}`,
+            padding: '6px 10px',
+            borderRadius: BORDER_RADIUS.sm,
+            background: '#FCEBEB',
+            color: '#A32D2D',
+            fontSize: '11px',
+          }}>
+            {shareError}
+          </div>
+        )}
+
+        {/* Modal Footer */}
+        <div style={{
+          ...FRBC,
+          padding: `${SPACING.sm} ${SPACING.lg}`,
+          borderTop: `1px solid ${COLORS.border.light}`,
+          background: COLORS.background.secondary,
+        }}>
+          <span style={{ fontSize: '11px', color: COLORS.text.secondary }}>
+            {selectedIds.length > 0
+              ? `${selectedIds.length} member${selectedIds.length > 1 ? 's' : ''} selected`
+              : 'Select members to grant permanent access'}
+          </span>
+          <div style={{ ...FRSC, gap: SPACING.xs }}>
+            <Button size="sm" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={selectedIds.length === 0 || submitting}
+              onClick={handleGrantAccess}
+            >
+              {submitting ? 'Sharing...' : 'Grant Access'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const BeetelChatWorkspace = ({
   sessionId: externalSessionId = null,
   onSessionCreated = () => {},
@@ -464,6 +850,7 @@ const BeetelChatWorkspace = ({
   initialContextEntityName = null,
   compact = false,
 }) => {
+  const { user: currentUser } = useAuth();
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [contextType, setContextType] = useState(initialContextType || 'NONE');
@@ -478,6 +865,7 @@ const BeetelChatWorkspace = ({
   const [sending, setSending] = useState(false);
   const [busyPlanId, setBusyPlanId] = useState(null);
   const [error, setError] = useState(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -525,7 +913,7 @@ const BeetelChatWorkspace = ({
     }
   }, [contextType, contextEntityId, pipelines, workflows]);
 
-  // Load existing session messages if externalSessionId is selected
+  // Load existing session metadata + messages if externalSessionId is selected
   const loadSessionMessages = useCallback(async (sid) => {
     if (!sid) {
       setSession(null);
@@ -533,8 +921,12 @@ const BeetelChatWorkspace = ({
       return;
     }
     try {
-      const res = await aiApi.getSessionMessages(sid);
-      setMessages(res.data || []);
+      const res = await aiApi.getSession(sid);
+      const sessData = res?.data || res;
+      if (sessData) {
+        setSession(sessData);
+        setMessages(sessData.messages || []);
+      }
     } catch (e) {
       setError(e?.message || 'Failed to load conversation messages');
     }
@@ -586,6 +978,10 @@ const BeetelChatWorkspace = ({
     const optimisticUserMsg = {
       id: 'temp-user-' + Date.now(),
       role: 'USER',
+      senderUserId: currentUser?.id || null,
+      senderName: currentUser?.fullName || 'You',
+      senderInitials: currentUser?.displayInitials || deriveInitialsFromName(currentUser?.fullName),
+      senderAvatarColor: currentUser?.avatarColor || COLORS.brand.primary,
       content: textToSend.trim() || (mdFile ? `Uploaded Markdown specification: ${mdFile.name}` : ''),
       markdownAttachmentName: mdFile?.name || null,
       createdAt: new Date().toISOString(),
@@ -613,8 +1009,12 @@ const BeetelChatWorkspace = ({
         onSessionCreated(data.session);
       } else if (data?.sessionId) {
         const sessObj = {
+          ...(session || {}),
           id: data.sessionId,
-          title: textToSend.trim().slice(0, 48) || (attachedMd?.name ? `Spec: ${attachedMd.name}` : 'New Conversation'),
+          title: session?.title || textToSend.trim().slice(0, 48) || (attachedMd?.name ? `Spec: ${attachedMd.name}` : 'New Conversation'),
+          ownerUserId: session?.ownerUserId || currentUser?.id,
+          isShared: Boolean(session?.isShared),
+          sharedMembers: session?.sharedMembers || [],
           contextType,
           contextEntityId: contextEntityId || null,
           contextEntityName: contextEntityName || null,
@@ -698,6 +1098,12 @@ const BeetelChatWorkspace = ({
     },
   ];
 
+  const activeSessionId = externalSessionId || session?.id || null;
+  const participants = [
+    ...(session?.owner ? [session.owner] : []),
+    ...(session?.sharedMembers || []),
+  ];
+
   return (
     <div style={{
       display: 'flex',
@@ -708,7 +1114,7 @@ const BeetelChatWorkspace = ({
       borderRadius: compact ? 0 : BORDER_RADIUS.lg,
       overflow: 'hidden',
     }}>
-      {/* Context Bar */}
+      {/* Context & Sharing Bar */}
       <div style={{
         ...FRBC,
         flexWrap: 'wrap',
@@ -819,8 +1225,83 @@ const BeetelChatWorkspace = ({
           </select>
         </div>
 
-        {/* Upload .md Spec button */}
-        <div style={{ ...FRSC, gap: '6px' }}>
+        {/* Share & Upload .md Spec controls */}
+        <div style={{ ...FRSC, gap: '6px', flexWrap: 'wrap' }}>
+          {activeSessionId && (
+            <div style={{ ...FRSC, gap: '6px' }}>
+              {session?.isShared ? (
+                <div
+                  style={{
+                    ...FRSC,
+                    gap: '4px',
+                    padding: '2px 8px',
+                    borderRadius: BORDER_RADIUS.full,
+                    background: '#E1F5EE',
+                    border: '1px solid #9FE1CB',
+                    color: '#0F6E56',
+                    fontSize: '11px',
+                    fontWeight: FONT.weight.semibold,
+                  }}
+                  title={`Shared with ${(session.sharedMembers || []).map(m => m.fullName).join(', ')}`}
+                >
+                  <span>👥 Shared ({participants.length})</span>
+                </div>
+              ) : (
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: COLORS.text.secondary,
+                    background: '#fff',
+                    border: `1px solid ${COLORS.border.light}`,
+                    padding: '2px 8px',
+                    borderRadius: BORDER_RADIUS.full,
+                  }}
+                  title="This conversation is private to you until shared"
+                >
+                  🔒 Private
+                </span>
+              )}
+
+              {participants.length > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {participants.slice(0, 4).map((p, idx) => (
+                    <UserAvatar
+                      key={p.userId || idx}
+                      initials={p.displayInitials}
+                      name={`${p.fullName}${p.isOwner ? ' (Owner)' : ' (Shared)'}`}
+                      color={p.avatarColor}
+                      size={22}
+                      style={{
+                        marginLeft: idx === 0 ? 0 : '-6px',
+                        border: '1.5px solid #fff',
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShareModalOpen(true)}
+                style={{
+                  ...FRSC,
+                  gap: '4px',
+                  padding: '4px 9px',
+                  borderRadius: BORDER_RADIUS.sm,
+                  border: `1px solid ${COLORS.accent.purpleText}`,
+                  background: COLORS.accent.purpleLight,
+                  color: COLORS.accent.purpleText,
+                  fontSize: FONT.size.xs,
+                  fontWeight: FONT.weight.semibold,
+                  cursor: 'pointer',
+                }}
+                title="Share this conversation with members of your organization"
+              >
+                <span>+ Share</span>
+              </button>
+            </div>
+          )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -919,11 +1400,12 @@ const BeetelChatWorkspace = ({
                   key={msg.id}
                   style={{
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'flex-start',
+                    gap: SPACING.xs,
                   }}
                 >
-                  <div style={{ width: compact ? '94%' : '84%' }}>
+                  <BeetelAvatar size={30} />
+                  <div style={{ width: compact ? '90%' : '82%' }}>
                     <BeetelErrorCard
                       content={msg.content}
                       sending={sending}
@@ -934,17 +1416,47 @@ const BeetelChatWorkspace = ({
               );
             }
 
+            const isCurrentUserSender =
+              isUser &&
+              currentUser?.id &&
+              msg.senderUserId &&
+              String(msg.senderUserId) === String(currentUser.id);
+            const senderDisplayName = isUser
+              ? msg.senderName
+                ? isCurrentUserSender
+                  ? `${msg.senderName} (You)`
+                  : msg.senderName
+                : isCurrentUserSender
+                ? `${currentUser?.fullName || 'You'}`
+                : 'Organization Member'
+              : isSystem
+              ? `${AGENT.name} Executor`
+              : AGENT.name;
+
             return (
               <div
                 key={msg.id}
                 style={{
                   display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: isUser ? 'flex-end' : 'flex-start',
+                  flexDirection: isUser ? 'row-reverse' : 'row',
+                  alignItems: 'flex-start',
+                  gap: SPACING.xs,
                 }}
               >
+                {/* Sender Display Picture (DP) next to each message */}
+                {isUser ? (
+                  <UserAvatar
+                    initials={msg.senderInitials || (isCurrentUserSender ? currentUser?.displayInitials : null)}
+                    name={msg.senderName || (isCurrentUserSender ? currentUser?.fullName : 'Member')}
+                    color={msg.senderAvatarColor || (isCurrentUserSender ? currentUser?.avatarColor : COLORS.brand.primary)}
+                    size={30}
+                  />
+                ) : (
+                  <BeetelAvatar size={30} isSystem={isSystem} />
+                )}
+
                 <div style={{
-                  maxWidth: compact ? '92%' : '82%',
+                  maxWidth: compact ? '88%' : '78%',
                   padding: `${SPACING.sm} ${SPACING.md}`,
                   borderRadius: BORDER_RADIUS.lg,
                   background: isUser
@@ -955,22 +1467,24 @@ const BeetelChatWorkspace = ({
                   color: isUser ? '#fff' : COLORS.text.primary,
                   border: isUser ? 'none' : `1px solid ${COLORS.border.light}`,
                 }}>
-                  {!isUser && (
-                    <div style={{ ...FRBC, gap: SPACING.xs, marginBottom: '4px' }}>
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: FONT.weight.semibold,
-                        color: isSystem ? '#0F6E56' : COLORS.accent.purpleText,
-                      }}>
-                        {isSystem ? `${AGENT.name} Executor` : AGENT.name}
+                  <div style={{ ...FRBC, gap: SPACING.xs, marginBottom: '4px' }}>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: FONT.weight.semibold,
+                      color: isUser
+                        ? 'rgba(255,255,255,0.92)'
+                        : isSystem
+                        ? '#0F6E56'
+                        : COLORS.accent.purpleText,
+                    }}>
+                      {senderDisplayName}
+                    </span>
+                    {!isUser && msg.providerUsed && (
+                      <span style={{ fontSize: '10px', color: COLORS.text.tertiary }}>
+                        {msg.providerUsed}{msg.modelUsed ? ` · ${msg.modelUsed}` : ''}
                       </span>
-                      {msg.providerUsed && (
-                        <span style={{ fontSize: '10px', color: COLORS.text.tertiary }}>
-                          {msg.providerUsed}{msg.modelUsed ? ` · ${msg.modelUsed}` : ''}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {msg.markdownAttachmentName && (
                     <div style={{
@@ -1005,28 +1519,37 @@ const BeetelChatWorkspace = ({
 
         {sending && (
           <div style={{
-            alignSelf: 'flex-start',
-            padding: `${SPACING.xs} ${SPACING.md}`,
-            borderRadius: BORDER_RADIUS.lg,
-            background: COLORS.background.secondary,
-            border: `1px solid ${COLORS.border.light}`,
-            fontSize: FONT.size.xs,
-            color: COLORS.text.secondary,
+            display: 'flex',
+            alignItems: 'center',
+            gap: SPACING.xs,
           }}>
-            {AGENT.name} is analyzing context and tools...
+            <BeetelAvatar size={30} />
+            <div style={{
+              padding: `${SPACING.xs} ${SPACING.md}`,
+              borderRadius: BORDER_RADIUS.lg,
+              background: COLORS.background.secondary,
+              border: `1px solid ${COLORS.border.light}`,
+              fontSize: FONT.size.xs,
+              color: COLORS.text.secondary,
+            }}>
+              {AGENT.name} is analyzing context and tools...
+            </div>
           </div>
         )}
 
         {error && (
-          <div style={{ width: compact ? '94%' : '84%' }}>
-            <BeetelErrorCard
-              content={error}
-              sending={sending}
-              onRetry={() => {
-                const lastUser = [...messages].reverse().find(m => m.role === 'USER' && m.content);
-                if (lastUser) handleSend(lastUser.content);
-              }}
-            />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: SPACING.xs }}>
+            <BeetelAvatar size={30} />
+            <div style={{ width: compact ? '90%' : '82%' }}>
+              <BeetelErrorCard
+                content={error}
+                sending={sending}
+                onRetry={() => {
+                  const lastUser = [...messages].reverse().find(m => m.role === 'USER' && m.content);
+                  if (lastUser) handleSend(lastUser.content);
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -1107,6 +1630,17 @@ const BeetelChatWorkspace = ({
           {sending ? '...' : 'Send'}
         </Button>
       </form>
+
+      {/* Share Conversation Modal */}
+      <ShareConversationModal
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        session={session}
+        onSessionUpdated={(updatedSess) => {
+          setSession(updatedSess);
+          onSessionCreated(updatedSess);
+        }}
+      />
     </div>
   );
 };

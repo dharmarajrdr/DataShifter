@@ -16,10 +16,14 @@ import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.exceptions.ResourceNotFoundException;
 import com.datashifter.common.models.AiChatMessage;
 import com.datashifter.common.models.AiChatSession;
+import com.datashifter.common.models.AiChatSessionMember;
 import com.datashifter.common.models.AiExecutionPlan;
+import com.datashifter.common.models.AppUser;
 import com.datashifter.common.repositories.AiChatMessageRepository;
+import com.datashifter.common.repositories.AiChatSessionMemberRepository;
 import com.datashifter.common.repositories.AiChatSessionRepository;
 import com.datashifter.common.repositories.AiExecutionPlanRepository;
+import com.datashifter.common.repositories.CommonAppUserRepository;
 import com.datashifter.common.security.UserContext;
 import com.datashifter.connector.services.interfaces.ConnectionService;
 import com.datashifter.monitor.services.interfaces.MonitorService;
@@ -43,6 +47,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -55,8 +60,10 @@ public class BeetelAgentService {
     );
 
     private final AiChatSessionRepository sessionRepository;
+    private final AiChatSessionMemberRepository sessionMemberRepository;
     private final AiChatMessageRepository messageRepository;
     private final AiExecutionPlanRepository planRepository;
+    private final CommonAppUserRepository appUserRepository;
     private final LlmClientRouter llmClientRouter;
     private final BeetelReadOnlyToolFacade readOnlyToolFacade;
     private final List<BeetelCapability> capabilities;
@@ -75,8 +82,17 @@ public class BeetelAgentService {
     private String agentName;
 
     // =========================================================================
-    // SESSIONS
+    // SESSIONS & SAME-ORG SHARING
     // =========================================================================
+
+    @Transactional(readOnly = true)
+    public List<ChatParticipantDto> listOrganizationMembers() {
+        String orgId = UserContext.getCurrentOrgId();
+        return appUserRepository.findByOrganization_IdAndIsActiveTrueOrderByFullNameAsc(orgId)
+                .stream()
+                .map(u -> toParticipantDto(u, false, null))
+                .toList();
+    }
 
     @Transactional(readOnly = true)
     public List<ChatSessionResponse> listSessions(AiContextType contextType, String contextId) {
@@ -85,10 +101,10 @@ public class BeetelAgentService {
 
         List<AiChatSession> sessions;
         if (contextType != null && contextType != AiContextType.NONE && contextId != null && !contextId.isBlank()) {
-            sessions = sessionRepository.findByUserIdAndOrgIdAndContextTypeAndContextIdOrderByUpdatedAtDesc(
+            sessions = sessionRepository.findAccessibleSessionsByUserAndOrgAndContext(
                     userId, orgId, contextType, contextId);
         } else {
-            sessions = sessionRepository.findByUserIdAndOrgIdOrderByUpdatedAtDesc(userId, orgId);
+            sessions = sessionRepository.findAccessibleSessionsByUserAndOrg(userId, orgId);
         }
 
         return sessions.stream()
@@ -130,6 +146,62 @@ public class BeetelAgentService {
     }
 
     @Transactional
+    public ChatSessionResponse shareSession(String sessionId, ShareChatSessionRequest request) {
+        String currentUserId = UserContext.getCurrentUserId();
+        String currentOrgId = UserContext.getCurrentOrgId();
+
+        // Any member who already has access (owner or shared member in same org) can share with more org members
+        AiChatSession session = findAuthorizedSession(sessionId);
+
+        if (request == null || request.getMemberUserIds() == null || request.getMemberUserIds().isEmpty()) {
+            throw new DatashifterException("Please select at least one organization member to share with.");
+        }
+
+        Set<String> requestedIds = request.getMemberUserIds().stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(id -> !id.isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (requestedIds.isEmpty()) {
+            throw new DatashifterException("Please select at least one organization member to share with.");
+        }
+
+        // Strict same-organization check: verify ALL requested user IDs belong to currentOrgId
+        List<AppUser> orgUsers = appUserRepository.findByIdInAndOrganization_Id(requestedIds, currentOrgId);
+        Set<String> validOrgUserIds = orgUsers.stream()
+                .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
+                .map(AppUser::getId)
+                .collect(Collectors.toSet());
+
+        if (validOrgUserIds.size() != requestedIds.size()) {
+            throw new DatashifterException("Cannot share conversation with users outside your organization.");
+        }
+
+        Set<String> existingMemberIds = sessionMemberRepository.findBySessionIdOrderByCreatedAtAsc(sessionId)
+                .stream()
+                .map(AiChatSessionMember::getUserId)
+                .collect(Collectors.toSet());
+
+        for (String targetUserId : requestedIds) {
+            if (targetUserId.equals(session.getUserId()) || existingMemberIds.contains(targetUserId)) {
+                continue;
+            }
+            AiChatSessionMember member = AiChatSessionMember.builder()
+                    .sessionId(session.getId())
+                    .orgId(currentOrgId)
+                    .userId(targetUserId)
+                    .grantedByUserId(currentUserId)
+                    .build();
+            sessionMemberRepository.save(member);
+        }
+
+        session.setUpdatedAt(Instant.now());
+        session = sessionRepository.save(session);
+        return toSessionResponse(session, true);
+    }
+
+    @Transactional
     public ChatSessionResponse updateSessionContext(String sessionId, UpdateSessionContextRequest request) {
         AiChatSession session = findAuthorizedSession(sessionId);
         session.setContextType(request.getContextType() != null ? request.getContextType() : AiContextType.NONE);
@@ -142,6 +214,14 @@ public class BeetelAgentService {
     @Transactional
     public void deleteSession(String sessionId) {
         AiChatSession session = findAuthorizedSession(sessionId);
+        long sharedCount = sessionMemberRepository.countBySessionId(session.getId());
+        if (sharedCount > 0) {
+            throw new DatashifterException("Shared conversations cannot be deleted.");
+        }
+        String currentUserId = UserContext.getCurrentUserId();
+        if (!session.getUserId().equals(currentUserId)) {
+            throw new DatashifterException("Only the conversation owner can delete a private conversation.");
+        }
         sessionRepository.delete(session);
     }
 
@@ -155,6 +235,9 @@ public class BeetelAgentService {
             throw new DatashifterException("Message or markdown specification is required.");
         }
 
+        String currentUserId = UserContext.getCurrentUserId();
+        String currentOrgId = UserContext.getCurrentOrgId();
+
         AiChatSession session;
         if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
             session = findAuthorizedSession(request.getSessionId());
@@ -165,8 +248,8 @@ public class BeetelAgentService {
             }
         } else {
             session = AiChatSession.builder()
-                    .userId(UserContext.getCurrentUserId())
-                    .orgId(UserContext.getCurrentOrgId())
+                    .userId(currentUserId)
+                    .orgId(currentOrgId)
                     .title(deriveSessionTitle(request.getMessage(), request.getMarkdownFileName()))
                     .contextType(request.getContextType() != null ? request.getContextType() : AiContextType.NONE)
                     .contextId(request.getContextId())
@@ -184,9 +267,10 @@ public class BeetelAgentService {
 
         String userPromptText = buildUserPromptWithMarkdown(request);
 
-        // Save user message
+        // Save user message with sender identity
         AiChatMessage userMsg = AiChatMessage.builder()
                 .sessionId(session.getId())
+                .senderUserId(currentUserId)
                 .role("USER")
                 .content(request.getMessage() != null && !request.getMessage().isBlank()
                         ? request.getMessage().trim()
@@ -940,24 +1024,88 @@ public class BeetelAgentService {
     private AiChatSession findAuthorizedSession(String sessionId) {
         String userId = UserContext.getCurrentUserId();
         String orgId = UserContext.getCurrentOrgId();
-        return sessionRepository.findByIdAndUserIdAndOrgId(sessionId, userId, orgId)
+        AiChatSession session = sessionRepository.findByIdAndOrgId(sessionId, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("AiChatSession", sessionId));
+
+        boolean isOwner = session.getUserId().equals(userId);
+        boolean isSharedMember = !isOwner
+                && sessionMemberRepository.existsBySessionIdAndUserIdAndOrgId(sessionId, userId, orgId);
+
+        if (!isOwner && !isSharedMember) {
+            throw new ResourceNotFoundException("AiChatSession", sessionId);
+        }
+        return session;
+    }
+
+    private ChatParticipantDto toParticipantDto(AppUser u, boolean isOwner, Instant grantedAt) {
+        if (u == null) return null;
+        return ChatParticipantDto.builder()
+                .userId(u.getId())
+                .fullName(u.getFullName())
+                .email(u.getAccount() != null ? u.getAccount().getEmail() : null)
+                .displayInitials(u.getDisplayInitials() != null && !u.getDisplayInitials().isBlank()
+                        ? u.getDisplayInitials()
+                        : deriveInitials(u.getFullName()))
+                .avatarColor(u.getAvatarColor() != null && !u.getAvatarColor().isBlank()
+                        ? u.getAvatarColor()
+                        : "#534AB7")
+                .roleName(u.getRole() != null ? u.getRole().getName() : "Member")
+                .isOwner(isOwner)
+                .grantedAt(grantedAt)
+                .build();
+    }
+
+    private String deriveInitials(String fullName) {
+        if (fullName == null || fullName.isBlank()) return "U";
+        String[] parts = fullName.trim().split("\\s+");
+        if (parts.length == 1) {
+            return parts[0].substring(0, Math.min(2, parts[0].length())).toUpperCase();
+        }
+        return ("" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     }
 
     private ChatSessionResponse toSessionResponse(AiChatSession s, boolean includeMessages) {
-        List<ChatMessageResponse> msgResponses = null;
+        List<AiChatSessionMember> memberRows = sessionMemberRepository.findBySessionIdOrderByCreatedAtAsc(s.getId());
+        Set<String> userIdsToLoad = new LinkedHashSet<>();
+        userIdsToLoad.add(s.getUserId());
+        memberRows.forEach(m -> userIdsToLoad.add(m.getUserId()));
+
+        List<AiChatMessage> msgs = null;
         if (includeMessages) {
-            List<AiChatMessage> msgs = messageRepository.findBySessionIdOrderByCreatedAtAsc(s.getId());
+            msgs = messageRepository.findBySessionIdOrderByCreatedAtAsc(s.getId());
+            for (AiChatMessage m : msgs) {
+                if (m.getSenderUserId() != null && !m.getSenderUserId().isBlank()) {
+                    userIdsToLoad.add(m.getSenderUserId());
+                }
+            }
+        }
+
+        Map<String, AppUser> usersById = appUserRepository.findByIdInAndOrganization_Id(userIdsToLoad, s.getOrgId())
+                .stream()
+                .collect(Collectors.toMap(AppUser::getId, u -> u, (a, b) -> a));
+
+        ChatParticipantDto ownerDto = toParticipantDto(usersById.get(s.getUserId()), true, s.getCreatedAt());
+        List<ChatParticipantDto> sharedMemberDtos = memberRows.stream()
+                .map(row -> toParticipantDto(usersById.get(row.getUserId()), false, row.getCreatedAt()))
+                .filter(Objects::nonNull)
+                .toList();
+
+        List<ChatMessageResponse> msgResponses = null;
+        if (includeMessages && msgs != null) {
             Map<String, AiExecutionPlan> plansById = new HashMap<>();
             planRepository.findBySessionIdOrderByCreatedAtDesc(s.getId())
                     .forEach(p -> plansById.put(p.getId(), p));
             msgResponses = msgs.stream()
-                    .map(m -> toMessageResponse(m, plansById))
+                    .map(m -> toMessageResponse(m, plansById, usersById, s.getUserId()))
                     .toList();
         }
         return ChatSessionResponse.builder()
                 .id(s.getId())
                 .title(s.getTitle())
+                .ownerUserId(s.getUserId())
+                .owner(ownerDto)
+                .isShared(!sharedMemberDtos.isEmpty())
+                .sharedMembers(sharedMemberDtos)
                 .contextType(s.getContextType())
                 .contextId(s.getContextId())
                 .contextName(s.getContextName())
@@ -968,9 +1116,18 @@ public class BeetelAgentService {
     }
 
     private ChatMessageResponse toMessageResponse(AiChatMessage m, Map<String, AiExecutionPlan> plansById) {
+        return toMessageResponse(m, plansById, null, null);
+    }
+
+    private ChatMessageResponse toMessageResponse(
+            AiChatMessage m,
+            Map<String, AiExecutionPlan> plansById,
+            Map<String, AppUser> usersById,
+            String fallbackOwnerUserId
+    ) {
         ExecutionPlanResponse planDto = null;
         if (m.getPlanId() != null) {
-            AiExecutionPlan plan = plansById.get(m.getPlanId());
+            AiExecutionPlan plan = plansById != null ? plansById.get(m.getPlanId()) : null;
             if (plan == null) {
                 plan = planRepository.findById(m.getPlanId()).orElse(null);
             }
@@ -978,9 +1135,39 @@ public class BeetelAgentService {
                 planDto = toPlanResponse(plan);
             }
         }
+
+        String effectiveSenderId = m.getSenderUserId();
+        if ((effectiveSenderId == null || effectiveSenderId.isBlank()) && "USER".equalsIgnoreCase(m.getRole())) {
+            effectiveSenderId = fallbackOwnerUserId != null ? fallbackOwnerUserId : UserContext.getCurrentUserId();
+        }
+
+        String senderName = null;
+        String senderInitials = null;
+        String senderAvatarColor = null;
+
+        if (effectiveSenderId != null && !effectiveSenderId.isBlank()) {
+            AppUser sender = usersById != null ? usersById.get(effectiveSenderId) : null;
+            if (sender == null) {
+                sender = appUserRepository.findById(effectiveSenderId).orElse(null);
+            }
+            if (sender != null) {
+                senderName = sender.getFullName();
+                senderInitials = sender.getDisplayInitials() != null && !sender.getDisplayInitials().isBlank()
+                        ? sender.getDisplayInitials()
+                        : deriveInitials(sender.getFullName());
+                senderAvatarColor = sender.getAvatarColor() != null && !sender.getAvatarColor().isBlank()
+                        ? sender.getAvatarColor()
+                        : "#534AB7";
+            }
+        }
+
         return ChatMessageResponse.builder()
                 .id(m.getId())
                 .sessionId(m.getSessionId())
+                .senderUserId(effectiveSenderId)
+                .senderName(senderName)
+                .senderInitials(senderInitials)
+                .senderAvatarColor(senderAvatarColor)
                 .role(m.getRole())
                 .content(m.getContent())
                 .markdownFileName(m.getMarkdownFileName())

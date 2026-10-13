@@ -157,6 +157,8 @@ const BeetelAgentPage = () => {
             ) : (
               sessions.map(sess => {
                 const active = sess.id === selectedSessionId;
+                const isShared = Boolean(sess.isShared || (sess.sharedMembers && sess.sharedMembers.length > 0));
+                const memberCount = 1 + (sess.sharedMembers?.length || 0);
                 return (
                   <div
                     key={sess.id}
@@ -173,16 +175,35 @@ const BeetelAgentPage = () => {
                     }}
                   >
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{
-                        fontSize: FONT.size.xs,
-                        fontWeight: active ? FONT.weight.semibold : FONT.weight.medium,
-                        margin: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}>
-                        {sess.title || 'New Conversation'}
-                      </p>
+                      <div style={{ ...FRSC, gap: '5px' }}>
+                        <p style={{
+                          fontSize: FONT.size.xs,
+                          fontWeight: active ? FONT.weight.semibold : FONT.weight.medium,
+                          margin: 0,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          flex: 1,
+                        }}>
+                          {sess.title || 'New Conversation'}
+                        </p>
+                        {isShared && (
+                          <span
+                            title="Shared conversation (cannot be deleted)"
+                            style={{
+                              fontSize: '9px',
+                              fontWeight: FONT.weight.semibold,
+                              padding: '1px 5px',
+                              borderRadius: BORDER_RADIUS.full,
+                              background: '#E1F5EE',
+                              color: '#0F6E56',
+                              flexShrink: 0,
+                            }}
+                          >
+                            👥 {memberCount}
+                          </span>
+                        )}
+                      </div>
                       {sess.contextType && sess.contextType !== 'NONE' && (
                         <span style={{
                           display: 'inline-block',
@@ -194,21 +215,23 @@ const BeetelAgentPage = () => {
                         </span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteSession(e, sess.id)}
-                      title="Delete conversation"
-                      style={{
-                        border: 'none',
-                        background: 'transparent',
-                        color: COLORS.text.tertiary,
-                        fontSize: '11px',
-                        cursor: 'pointer',
-                        padding: '2px 4px',
-                      }}
-                    >
-                      ✕
-                    </button>
+                    {!isShared && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSession(e, sess.id)}
+                        title="Delete private conversation"
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          color: COLORS.text.tertiary,
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          padding: '2px 4px',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 );
               })

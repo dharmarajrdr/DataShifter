@@ -9,7 +9,8 @@ export const aiApi = {
   testKey: (id) => apiClient.post(`/ai/keys/${id}/test`, {}, { timeout: 60000 }),
   resetKeyHealth: (id) => apiClient.post(`/ai/keys/${id}/reset`, {}),
 
-  // Chat sessions & context
+  // Chat sessions, same-org sharing & context
+  listOrgMembers: () => apiClient.get('/ai/org-members'),
   listSessions: (contextType, contextId) => {
     const params = new URLSearchParams();
     if (contextType) params.set('contextType', contextType);
@@ -19,6 +20,7 @@ export const aiApi = {
   },
   createSession: (data = {}) => apiClient.post('/ai/sessions', data),
   getSession: (id) => apiClient.get(`/ai/sessions/${id}`),
+  shareSession: (id, memberUserIds) => apiClient.post(`/ai/sessions/${id}/share`, { memberUserIds }),
   getSessionMessages: (id) => apiClient.get(`/ai/sessions/${id}/messages`),
   updateSessionContext: (id, data) => apiClient.put(`/ai/sessions/${id}/context`, data),
   deleteSession: (id) => apiClient.delete(`/ai/sessions/${id}`),

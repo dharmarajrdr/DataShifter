@@ -151,9 +151,38 @@ public class AiDtos {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    public static class ChatParticipantDto {
+        private String userId;
+        private String fullName;
+        private String email;
+        private String displayInitials;
+        private String avatarColor;
+        private String roleName;
+        private boolean isOwner;
+        private Instant grantedAt;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ShareChatSessionRequest {
+        private List<String> memberUserIds;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class ChatSessionResponse {
         private String id;
         private String title;
+        private String ownerUserId;
+        private ChatParticipantDto owner;
+        private boolean isShared;
+        private List<ChatParticipantDto> sharedMembers;
         private AiContextType contextType;
         private String contextId;
         private String contextName;
@@ -178,6 +207,10 @@ public class AiDtos {
     public static class ChatMessageResponse {
         private String id;
         private String sessionId;
+        private String senderUserId;
+        private String senderName;
+        private String senderInitials;
+        private String senderAvatarColor;
         private String role;
         private String content;
         private String markdownFileName;

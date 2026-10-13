@@ -15,8 +15,11 @@ public class AiChatMessage extends BaseEntity {
     @Column(name = "session_id", nullable = false, length = 36)
     private String sessionId;
 
+    @Column(name = "sender_user_id", length = 36)
+    private String senderUserId;
+
     @Column(nullable = false, length = 32)
-    private String role; // USER, ASSISTANT, SYSTEM
+    private String role; // USER, ASSISTANT, SYSTEM, ERROR
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
