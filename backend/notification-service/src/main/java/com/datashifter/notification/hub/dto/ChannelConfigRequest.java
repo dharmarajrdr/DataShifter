@@ -18,6 +18,8 @@ public class ChannelConfigRequest {
 
     private java.util.List<String> allowedPipelineIds;
 
+    private java.util.List<String> allowedResources;
+
     @NotBlank(message = "Channel name is required")
     private String name;
 

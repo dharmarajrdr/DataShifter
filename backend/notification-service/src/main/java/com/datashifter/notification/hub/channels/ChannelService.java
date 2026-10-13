@@ -58,6 +58,15 @@ public class ChannelService {
             }
         }
 
+        String allowedResourcesJson = null;
+        if (request.getAllowedResources() != null && !request.getAllowedResources().isEmpty()) {
+            try {
+                allowedResourcesJson = objectMapper.writeValueAsString(request.getAllowedResources());
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to serialize allowedResources: {}", e.getMessage());
+            }
+        }
+
         NotificationChannelConfig channelConfig = NotificationChannelConfig.builder()
                 .orgId(orgId)
                 .pipelineId(request.getPipelineId())
@@ -66,6 +75,7 @@ public class ChannelService {
                 .enabled(request.isEnabled())
                 .configJson(configJson)
                 .allowedPipelinesJson(allowedPipelinesJson)
+                .allowedResourcesJson(allowedResourcesJson)
                 .build();
 
         // Validate config with specific channel implementation
@@ -94,12 +104,22 @@ public class ChannelService {
             }
         }
 
+        String allowedResourcesJson = null;
+        if (request.getAllowedResources() != null && !request.getAllowedResources().isEmpty()) {
+            try {
+                allowedResourcesJson = objectMapper.writeValueAsString(request.getAllowedResources());
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to serialize allowedResources: {}", e.getMessage());
+            }
+        }
+
         channelConfig.setName(request.getName());
         channelConfig.setPipelineId(request.getPipelineId());
         channelConfig.setChannelType(request.getChannelType());
         channelConfig.setEnabled(request.isEnabled());
         channelConfig.setConfigJson(configJson);
         channelConfig.setAllowedPipelinesJson(allowedPipelinesJson);
+        channelConfig.setAllowedResourcesJson(allowedResourcesJson);
 
         channelRegistry.getChannel(request.getChannelType()).ifPresent(ch -> ch.validateConfig(channelConfig));
 

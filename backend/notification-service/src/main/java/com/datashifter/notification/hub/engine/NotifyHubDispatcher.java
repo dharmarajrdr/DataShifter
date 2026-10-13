@@ -158,6 +158,32 @@ public class NotifyHubDispatcher {
                 if (request.getPipelineId() == null || !cfg.getPipelineId().equals(request.getPipelineId())) {
                     continue;
                 }
+            } else if (cfg.getAllowedResourcesJson() != null && !cfg.getAllowedResourcesJson().isBlank()) {
+                // Channel has a resource whitelist
+                boolean whitelisted = false;
+                try {
+                    List<?> allowed = new com.fasterxml.jackson.databind.ObjectMapper().readValue(cfg.getAllowedResourcesJson(), List.class);
+                    // Check if allows ALL, or resource category, or specific item ID
+                    if (allowed.contains("ALL") || allowed.contains("*")) {
+                        whitelisted = true;
+                    } else if (request.getPipelineId() != null && (allowed.contains("PIPELINE") || allowed.contains(request.getPipelineId()))) {
+                        whitelisted = true;
+                    } else {
+                        // Check against any resource keys in request metadata or parameters
+                        for (Object item : allowed) {
+                            String itemStr = String.valueOf(item);
+                            if (request.getParameters() != null && request.getParameters().containsValue(itemStr)) {
+                                whitelisted = true;
+                                break;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse allowedResourcesJson for channel {}: {}", cfg.getId(), e.getMessage());
+                }
+                if (!whitelisted) {
+                    continue;
+                }
             } else if (cfg.getAllowedPipelinesJson() != null && !cfg.getAllowedPipelinesJson().isBlank()) {
                 // Channel has a pipeline whitelist — only whitelisted pipelines can invoke it
                 if (request.getPipelineId() == null) {
