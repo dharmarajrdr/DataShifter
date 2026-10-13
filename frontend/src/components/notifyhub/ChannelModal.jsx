@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '../common';
 import { COLORS, FONT, BORDER_RADIUS, SPACING } from '../../constants/design';
 import { FRBC, FRSC, FCSS } from '../../constants/layouts';
-import { notifyHubApi } from '../../services/api';
+import { notifyHubApi, pipelineApi } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
 
 const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
@@ -27,7 +27,19 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
   const [singlePipelineId, setSinglePipelineId] = useState('');
   const [whitelistedPipelineIds, setWhitelistedPipelineIds] = useState([]);
 
-  const [saving, setSaving] = useState(false);
+  const [localPipelines, setLocalPipelines] = useState(pipelines || []);
+
+  useEffect(() => {
+    if (pipelines && pipelines.length > 0) {
+      setLocalPipelines(pipelines);
+    } else {
+      pipelineApi.getAll()
+        .then(res => {
+          if (res.data) setLocalPipelines(res.data);
+        })
+        .catch(() => {});
+    }
+  }, [pipelines]);
 
   useEffect(() => {
     // Load available webhook fields
@@ -524,29 +536,41 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
                   required
                 >
                   <option value="">Select pipeline to lock to...</option>
-                  {pipelines.map(p => (
+                  {localPipelines.map(p => (
                     <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
                   ))}
                 </select>
+                {localPipelines.length === 0 && (
+                  <p style={{ margin: '6px 0 0', fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
+                    No pipelines available in this organization yet.
+                  </p>
+                )}
               </div>
             )}
 
             {whitelistMode === 'WHITELIST' && (
               <div style={{
-                maxHeight: 120, overflowY: 'auto', background: COLORS.background.secondary,
+                maxHeight: 140, overflowY: 'auto', background: COLORS.background.secondary,
                 padding: SPACING.xs, borderRadius: BORDER_RADIUS.sm, border: `1px solid ${COLORS.border.light}`,
                 display: 'flex', flexDirection: 'column', gap: '4px',
               }}>
-                {pipelines.map(p => (
-                  <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: FONT.size.xs, cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={whitelistedPipelineIds.includes(p.id)}
-                      onChange={() => togglePipelineWhitelist(p.id)}
-                    />
-                    <span>{p.name} ({p.id})</span>
-                  </label>
-                ))}
+                {localPipelines.length === 0 ? (
+                  <p style={{ margin: 0, padding: SPACING.xs, fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
+                    No pipelines found in this organization to whitelist.
+                  </p>
+                ) : (
+                  localPipelines.map(p => (
+                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: FONT.size.xs, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={whitelistedPipelineIds.includes(p.id)}
+                        onChange={() => togglePipelineWhitelist(p.id)}
+                      />
+                      <span style={{ fontWeight: FONT.weight.medium }}>{p.name}</span>
+                      <span style={{ color: COLORS.text.tertiary }}>({p.id})</span>
+                    </label>
+                  ))
+                )}
               </div>
             )}
           </div>

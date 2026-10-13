@@ -42,7 +42,7 @@ const NotifyHubPage = () => {
         notifyHubApi.listChannels().catch(() => ({ data: [] })),
         notifyHubApi.listTemplates().catch(() => ({ data: [] })),
         notifyHubApi.getLogs().catch(() => ({ data: [] })),
-        pipelineApi.list().catch(() => ({ data: [] })),
+        pipelineApi.getAll().catch(() => ({ data: [] })),
       ]);
 
       setChannels(chRes.data || []);
