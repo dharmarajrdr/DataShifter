@@ -17,6 +17,7 @@ import {
   LoginPage,
   MembersPage,
   OnboardPage,
+  OrgApiKeysPage,
   OrgSettingsPage,
   PipelineDashboard,
   ForbiddenPage,
@@ -101,6 +102,7 @@ const App = () => (
             <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
             <Route path="/settings/members" element={<SubscriptionGuard><ProtectedRoute anyOf={['org:manage_members', 'org:manage_invites']}><MembersPage /></ProtectedRoute></SubscriptionGuard>} />
             <Route path="/settings/roles" element={<SubscriptionGuard><ProtectedRoute permission="org:manage_roles"><RolesPage /></ProtectedRoute></SubscriptionGuard>} />
+            <Route path="/settings/api-keys" element={<SubscriptionGuard><OrgApiKeysPage /></SubscriptionGuard>} />
             <Route path="/profile" element={<UserProfile />} />
 
             {/* Dedicated error pages */}

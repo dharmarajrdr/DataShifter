@@ -11,6 +11,7 @@ export { default as LoginPage } from './LoginPage';
 export { default as MembersPage } from './MembersPage';
 export { default as MonitoringLanding } from './MonitoringLanding';
 export { default as OnboardPage } from './OnboardPage';
+export { default as OrgApiKeysPage } from './OrgApiKeysPage';
 export { default as OrgSettingsPage } from './OrgSettingsPage';
 export { default as PipelineDashboard } from './PipelineDashboard';
 export { default as PipelineSettings } from './PipelineSettings';

@@ -6,7 +6,6 @@ import { FRBC, FRSC } from '../constants/layouts';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { authApi } from '../services/authApi';
-import AiKeyManagerSection from '../components/ai/AiKeyManagerSection';
 
 const inputStyle = {
   width: '100%',
@@ -380,11 +379,6 @@ const OrgSettingsPage = () => {
               </div>
             )}
           </form>
-
-          {/* Organization-wide LLM API Keys */}
-          <div style={{ marginTop: SPACING.xl }}>
-            <AiKeyManagerSection scope="ORG" canEdit={canEditOrg} />
-          </div>
         </div>
       </div>
     </ApiGuard>

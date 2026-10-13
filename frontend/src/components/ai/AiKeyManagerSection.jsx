@@ -3,7 +3,7 @@ import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../../constants/design';
 import { FRBC, FRSC } from '../../constants/layouts';
 import { AGENT } from '../../constants/literals';
 import { aiApi } from '../../services/aiApi';
-import { Button } from '../common';
+import { Button, BarLoader, SkeletonLoader } from '../common';
 
 const GROQ_MODELS = [
   'openai/gpt-oss-120b',
@@ -31,7 +31,7 @@ const inputStyle = {
   outline: 'none',
 };
 
-const AiKeyManagerSection = ({ scope = 'USER', canEdit = true }) => {
+const AiKeyManagerSection = ({ scope = 'USER', canEdit = true, style = {} }) => {
   const [poolStatus, setPoolStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -152,7 +152,14 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true }) => {
       border: `1px solid ${COLORS.border.light}`,
       borderRadius: BORDER_RADIUS.lg,
       marginTop: SPACING.lg,
+      overflow: 'hidden',
+      ...style,
     }}>
+      {(loading || saving || Boolean(testingId)) && (
+        <div style={{ margin: `-${SPACING.lg} -${SPACING.lg} ${SPACING.md} -${SPACING.lg}` }}>
+          <BarLoader />
+        </div>
+      )}
       <div style={{ ...FRBC, marginBottom: SPACING.sm }}>
         <div style={{ width: '75%' }}>
           <div style={{ ...FRSC, gap: SPACING.xs }}>
@@ -338,7 +345,12 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true }) => {
 
       {/* Configured Keys List */}
       {loading ? (
-        <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary }}>Loading keys...</p>
+        <SkeletonLoader
+          variant="table-row"
+          count={2}
+          height="54px"
+          style={{ borderRadius: BORDER_RADIUS.md }}
+        />
       ) : keys.length === 0 ? (
         <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, margin: 0 }}>
           No {scope === 'USER' ? 'personal' : 'organization'} LLM keys configured yet.
