@@ -5,7 +5,7 @@ import { FRBC, FRSC, FCSS } from '../../constants/layouts';
 import { notifyHubApi } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
 
-const TestSendModal = ({ channels = [], templates = [], pipelines = [], onClose, onSent }) => {
+const TestSendModal = ({ channel: initialChannel = null, channels = [], templates = [], pipelines = [], onClose, onSent }) => {
   const notification = useNotification();
 
   const [pipelineId, setPipelineId] = useState('');
@@ -15,8 +15,10 @@ const TestSendModal = ({ channels = [], templates = [], pipelines = [], onClose,
   const [errorType, setErrorType] = useState('DATABASE_TIMEOUT');
   const [actionUrl, setActionUrl] = useState('http://localhost:3000/pipelines');
 
-  // Multi-select channel configuration IDs
-  const [selectedChannelIds, setSelectedChannelIds] = useState(channels.map(c => c.id));
+  // Channel configuration IDs (default to initialChannel if provided, else all channels)
+  const [selectedChannelIds, setSelectedChannelIds] = useState(
+    initialChannel ? [initialChannel.id] : channels.map(c => c.id)
+  );
   const [sending, setSending] = useState(false);
 
   const toggleChannel = (id) => {
@@ -88,10 +90,12 @@ const TestSendModal = ({ channels = [], templates = [], pipelines = [], onClose,
         }}>
           <div>
             <h3 style={{ margin: 0, fontSize: FONT.size.xl, fontWeight: FONT.weight.semibold, color: COLORS.text.primary }}>
-              Send Test Notification
+              {initialChannel ? `Test Channel: ${initialChannel.name}` : 'Send Test Notification'}
             </h3>
             <p style={{ margin: '4px 0 0', fontSize: FONT.size.sm, color: COLORS.text.secondary }}>
-              Select template, context parameters, and choose exact recipient channels.
+              {initialChannel
+                ? `Send a test notification alert through ${initialChannel.name} (${initialChannel.channelType}).`
+                : 'Select template, context parameters, and choose exact recipient channels.'}
             </p>
           </div>
           <button
@@ -110,11 +114,14 @@ const TestSendModal = ({ channels = [], templates = [], pipelines = [], onClose,
           {/* Target Channel Configurations Selector */}
           <div>
             <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.semibold, marginBottom: '4px' }}>
-              Select Destination Channels ({selectedChannelIds.length} selected) *
+              Target Channel Configuration{initialChannel ? '' : ` (${selectedChannelIds.length} selected) *`}
             </label>
             <p style={{ margin: '0 0 8px', fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
-              Choose which team or pipeline channel configuration should receive this alert.
+              {initialChannel
+                ? `Dispatching to: ${initialChannel.name}`
+                : 'Choose which team or pipeline channel configuration should receive this alert.'}
             </p>
+            {!initialChannel && (
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: SPACING.xs,
               maxHeight: 160, overflowY: 'auto', background: COLORS.background.secondary,
@@ -157,6 +164,28 @@ const TestSendModal = ({ channels = [], templates = [], pipelines = [], onClose,
                 );
               })}
             </div>
+            )}
+            {initialChannel && (
+              <div style={{
+                background: COLORS.background.secondary,
+                padding: `${SPACING.xs} ${SPACING.sm}`,
+                borderRadius: BORDER_RADIUS.md,
+                border: `1px solid ${COLORS.border.light}`,
+                display: 'flex', alignItems: 'center', gap: '8px',
+                fontSize: FONT.size.sm,
+              }}>
+                <span style={{
+                  padding: '2px 8px', borderRadius: BORDER_RADIUS.pill,
+                  fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold,
+                  background: COLORS.brand.primary + '15',
+                  color: COLORS.brand.primary,
+                }}>
+                  {initialChannel.channelType}
+                </span>
+                <span style={{ fontWeight: FONT.weight.medium }}>{initialChannel.name}</span>
+                <span style={{ color: COLORS.text.tertiary, fontSize: FONT.size.xs }}>({initialChannel.id.slice(0, 8)}...)</span>
+              </div>
+            )}
           </div>
 
           {/* Template & Pipeline Selection */}

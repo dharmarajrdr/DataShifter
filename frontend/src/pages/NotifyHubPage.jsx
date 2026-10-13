@@ -24,6 +24,7 @@ const NotifyHubPage = () => {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [showTestSendModal, setShowTestSendModal] = useState(false);
+  const [testingChannel, setTestingChannel] = useState(null);
 
   // Delete confirmations
   const [itemToDelete, setItemToDelete] = useState(null);
@@ -128,15 +129,6 @@ const NotifyHubPage = () => {
           >
             <i className={`fa-solid fa-arrows-rotate ${loading ? 'fa-spin' : ''}`} style={{ fontSize: '13px' }} />
             <span>Refresh</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => setShowTestSendModal(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <i className="fa-solid fa-bell" style={{ fontSize: '13px' }} />
-            <span>Test & Send Alert</span>
           </Button>
 
           {activeTab === 'channels' && (
@@ -338,6 +330,16 @@ const NotifyHubPage = () => {
                       </span>
 
                       <div style={{ display: 'flex', gap: SPACING.xs }}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => { setTestingChannel(ch); setShowTestSendModal(true); }}
+                          title={`Test sending an alert to ${ch.name}`}
+                          style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <i className="fa-solid fa-paper-plane" style={{ fontSize: '11px' }} />
+                          Test
+                        </Button>
                         <Button
                           variant="secondary"
                           size="sm"
@@ -544,10 +546,11 @@ const NotifyHubPage = () => {
 
       {showTestSendModal && (
         <TestSendModal
+          channel={testingChannel}
           channels={channels}
           templates={templates}
           pipelines={pipelines}
-          onClose={() => setShowTestSendModal(false)}
+          onClose={() => { setShowTestSendModal(false); setTestingChannel(null); }}
           onSent={() => { setActiveTab('logs'); loadData(); }}
         />
       )}
