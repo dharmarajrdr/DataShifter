@@ -70,7 +70,7 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true }) => {
       setModelName(poolStatus?.defaultOllamaModel || 'llama3.1');
     } else {
       setBaseUrl('https://api.groq.com/openai');
-      setModelName(poolStatus?.defaultGroqModel || 'llama-3.3-70b-versatile');
+      setModelName(poolStatus?.defaultGroqModel || 'openai/gpt-oss-120b');
     }
   };
 

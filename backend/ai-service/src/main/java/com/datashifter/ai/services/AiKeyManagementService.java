@@ -40,7 +40,7 @@ public class AiKeyManagementService {
     @Value("${datashifter.ai.groq.base-url:https://api.groq.com/openai}")
     private String defaultGroqBaseUrl;
 
-    @Value("${datashifter.ai.groq.default-model:llama-3.3-70b-versatile}")
+    @Value("${datashifter.ai.groq.default-model:openai/gpt-oss-120b}")
     private String defaultGroqModel;
 
     @Value("${datashifter.ai.groq.cooldown-seconds:120}")

@@ -36,6 +36,12 @@ public class LlmClientRouter {
             String keyLabel
     ) {}
 
+    private static final List<String> GROQ_FALLBACK_MODELS = List.of(
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.8-27b"
+    );
+
     /**
      * Executes a prompt with Spring AI ChatClient, automatically rotating through
      * the resolved key pool (User -> Org -> System) if a key fails or hits rate limits.
@@ -67,41 +73,56 @@ public class LlmClientRouter {
                 continue;
             }
 
-            try {
-                log.info("Invoking LLM via {} [{}] (scope={}, model={})",
-                        candidate.provider(), candidate.label(), candidate.scope(), candidate.modelName());
+            List<String> modelsToTry = buildModelsToTry(candidate);
+            String lastCandidateError = null;
 
-                ChatModel chatModel = buildChatModel(candidate);
-                var requestSpec = ChatClient.create(chatModel)
-                        .prompt()
-                        .system(systemPrompt);
+            for (String modelName : modelsToTry) {
+                try {
+                    log.info("Invoking LLM via {} [{}] (scope={}, model={})",
+                            candidate.provider(), candidate.label(), candidate.scope(), modelName);
 
-                if (historyMessages != null && !historyMessages.isEmpty()) {
-                    requestSpec = requestSpec.messages(historyMessages);
+                    ChatModel chatModel = buildChatModel(candidate, modelName);
+                    var requestSpec = ChatClient.create(chatModel)
+                            .prompt()
+                            .system(systemPrompt);
+
+                    if (historyMessages != null && !historyMessages.isEmpty()) {
+                        requestSpec = requestSpec.messages(historyMessages);
+                    }
+
+                    requestSpec = requestSpec.user(userPrompt);
+
+                    if (toolBeans != null && !toolBeans.isEmpty()) {
+                        requestSpec = requestSpec.tools(toolBeans.toArray());
+                    }
+
+                    String responseText = requestSpec.call().content();
+                    keyManagementService.recordKeySuccess(candidate);
+
+                    return new LlmInvocationResult(
+                            responseText != null ? responseText : "",
+                            candidate.provider().name(),
+                            modelName,
+                            candidate.scope().name(),
+                            candidate.label()
+                    );
+                } catch (Exception ex) {
+                    String errMsg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
+                    lastCandidateError = errMsg;
+                    if (isModelNotFoundError(errMsg)) {
+                        log.warn("Model '{}' not found on candidate '{}', trying next fallback model...",
+                                modelName, candidate.label());
+                        continue;
+                    }
+                    break;
                 }
+            }
 
-                requestSpec = requestSpec.user(userPrompt);
-
-                if (toolBeans != null && !toolBeans.isEmpty()) {
-                    requestSpec = requestSpec.tools(toolBeans.toArray());
-                }
-
-                String responseText = requestSpec.call().content();
-                keyManagementService.recordKeySuccess(candidate);
-
-                return new LlmInvocationResult(
-                        responseText != null ? responseText : "",
-                        candidate.provider().name(),
-                        candidate.modelName(),
-                        candidate.scope().name(),
-                        candidate.label()
-                );
-            } catch (Exception ex) {
-                String errMsg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
+            if (lastCandidateError != null) {
                 log.warn("LLM invocation failed on candidate '{}' ({}): {}",
-                        candidate.label(), candidate.provider(), errMsg);
-                keyManagementService.recordKeyFailure(candidate, errMsg);
-                attemptErrors.add(candidate.label() + ": " + errMsg);
+                        candidate.label(), candidate.provider(), lastCandidateError);
+                keyManagementService.recordKeyFailure(candidate, lastCandidateError);
+                attemptErrors.add(candidate.label() + ": " + lastCandidateError);
             }
         }
 
@@ -113,39 +134,71 @@ public class LlmClientRouter {
      */
     public Map<String, Object> testCandidate(ResolvedLlmCandidate candidate) {
         long start = System.currentTimeMillis();
-        try {
-            ChatModel chatModel = buildChatModel(candidate);
-            String reply = ChatClient.create(chatModel)
-                    .prompt()
-                    .user("Reply with the single word: OK")
-                    .call()
-                    .content();
-            long latencyMs = System.currentTimeMillis() - start;
-            keyManagementService.recordKeySuccess(candidate);
-            return Map.of(
-                    "success", true,
-                    "latencyMs", latencyMs,
-                    "model", candidate.modelName(),
-                    "provider", candidate.provider().name(),
-                    "reply", reply != null ? reply.trim() : "OK"
-            );
-        } catch (Exception ex) {
-            String errMsg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
-            keyManagementService.recordKeyFailure(candidate, errMsg);
-            return Map.of(
-                    "success", false,
-                    "provider", candidate.provider().name(),
-                    "model", candidate.modelName(),
-                    "message", errMsg
-            );
+        List<String> modelsToTry = buildModelsToTry(candidate);
+        String lastErr = null;
+
+        for (String modelName : modelsToTry) {
+            try {
+                ChatModel chatModel = buildChatModel(candidate, modelName);
+                String reply = ChatClient.create(chatModel)
+                        .prompt()
+                        .user("Reply with the single word: OK")
+                        .call()
+                        .content();
+                long latencyMs = System.currentTimeMillis() - start;
+                keyManagementService.recordKeySuccess(candidate);
+                return Map.of(
+                        "success", true,
+                        "latencyMs", latencyMs,
+                        "model", modelName,
+                        "provider", candidate.provider().name(),
+                        "reply", reply != null ? reply.trim() : "OK"
+                );
+            } catch (Exception ex) {
+                String errMsg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
+                lastErr = errMsg;
+                if (isModelNotFoundError(errMsg)) {
+                    continue;
+                }
+                break;
+            }
         }
+
+        keyManagementService.recordKeyFailure(candidate, lastErr);
+        return Map.of(
+                "success", false,
+                "provider", candidate.provider().name(),
+                "model", candidate.modelName(),
+                "message", lastErr != null ? lastErr : "Unknown error"
+        );
     }
 
-    private ChatModel buildChatModel(ResolvedLlmCandidate candidate) {
+    private List<String> buildModelsToTry(ResolvedLlmCandidate candidate) {
+        List<String> models = new ArrayList<>();
+        if (candidate.modelName() != null && !candidate.modelName().isBlank()) {
+            models.add(candidate.modelName().trim());
+        }
+        if (candidate.provider() == AiProviderType.GROQ) {
+            for (String fallback : GROQ_FALLBACK_MODELS) {
+                if (!models.contains(fallback)) {
+                    models.add(fallback);
+                }
+            }
+        }
+        return models;
+    }
+
+    private boolean isModelNotFoundError(String errMsg) {
+        if (errMsg == null) return false;
+        String lower = errMsg.toLowerCase();
+        return lower.contains("model_not_found") || (lower.contains("404") && lower.contains("model"));
+    }
+
+    private ChatModel buildChatModel(ResolvedLlmCandidate candidate, String modelName) {
         if (candidate.provider() == AiProviderType.OLLAMA) {
             OllamaApi ollamaApi = new OllamaApi(candidate.baseUrl());
             OllamaOptions options = OllamaOptions.builder()
-                    .model(candidate.modelName())
+                    .model(modelName)
                     .temperature(0.2)
                     .build();
             return OllamaChatModel.builder()
@@ -158,7 +211,7 @@ public class LlmClientRouter {
         String baseUrl = normalizeOpenAiBaseUrl(candidate.baseUrl());
         OpenAiApi openAiApi = new OpenAiApi(baseUrl, candidate.apiKey());
         OpenAiChatOptions options = OpenAiChatOptions.builder()
-                .model(candidate.modelName())
+                .model(modelName)
                 .temperature(0.2)
                 .build();
         return OpenAiChatModel.builder()

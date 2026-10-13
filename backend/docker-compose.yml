@@ -335,7 +335,7 @@ services:
       DS_UDF_STORAGE_ROOT: /var/lib/datashifter/udfs
       DS_UDF_MAX_FILE_SIZE_BYTES: 26214400
       GROQ_API_KEYS: ${GROQ_API_KEYS:-}
-      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
       OLLAMA_ENABLED: ${OLLAMA_ENABLED:-true}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
