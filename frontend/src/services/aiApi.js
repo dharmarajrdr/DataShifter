@@ -19,9 +19,15 @@ export const aiApi = {
     return apiClient.get(`/ai/sessions${qs ? `?${qs}` : ''}`);
   },
   createSession: (data = {}) => apiClient.post('/ai/sessions', data),
-  getSession: (id) => apiClient.get(`/ai/sessions/${id}`),
+  getSession: (id, limit = 15) => apiClient.get(`/ai/sessions/${id}?limit=${limit}`),
   shareSession: (id, memberUserIds) => apiClient.post(`/ai/sessions/${id}/share`, { memberUserIds }),
-  getSessionMessages: (id) => apiClient.get(`/ai/sessions/${id}/messages`),
+  getSessionMessages: (id, { beforeMessageId, limit = 15 } = {}) => {
+    const params = new URLSearchParams();
+    if (beforeMessageId) params.set('beforeMessageId', beforeMessageId);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString();
+    return apiClient.get(`/ai/sessions/${id}/messages${qs ? `?${qs}` : ''}`);
+  },
   updateSessionContext: (id, data) => apiClient.put(`/ai/sessions/${id}/context`, data),
   deleteSession: (id) => apiClient.delete(`/ai/sessions/${id}`),
 

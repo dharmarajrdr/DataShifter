@@ -192,6 +192,7 @@ public class AiDtos {
         private Instant createdAt;
         private Instant updatedAt;
         private List<ChatMessageResponse> messages;
+        private boolean hasMoreMessages;
 
         public String getContextEntityId() {
             return contextId;
@@ -200,6 +201,16 @@ public class AiDtos {
         public String getContextEntityName() {
             return contextName;
         }
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ChatMessagePageResponse {
+        private List<ChatMessageResponse> messages;
+        private boolean hasMoreMessages;
     }
 
     @Getter

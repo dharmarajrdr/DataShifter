@@ -102,8 +102,10 @@ public class AiController {
     }
 
     @GetMapping("/sessions/{id}")
-    public ApiResponse<ChatSessionResponse> getSession(@PathVariable String id) {
-        return ApiResponse.success(beetelAgentService.getSession(id));
+    public ApiResponse<ChatSessionResponse> getSession(
+            @PathVariable String id,
+            @RequestParam(required = false, defaultValue = "15") Integer limit) {
+        return ApiResponse.success(beetelAgentService.getSession(id, limit));
     }
 
     @PostMapping("/sessions/{id}/share")
@@ -116,9 +118,11 @@ public class AiController {
     }
 
     @GetMapping("/sessions/{id}/messages")
-    public ApiResponse<List<ChatMessageResponse>> getSessionMessages(@PathVariable String id) {
-        ChatSessionResponse session = beetelAgentService.getSession(id);
-        return ApiResponse.success(session.getMessages() != null ? session.getMessages() : List.of());
+    public ApiResponse<ChatMessagePageResponse> getSessionMessages(
+            @PathVariable String id,
+            @RequestParam(required = false) String beforeMessageId,
+            @RequestParam(required = false, defaultValue = "15") Integer limit) {
+        return ApiResponse.success(beetelAgentService.getSessionMessagesPage(id, beforeMessageId, limit));
     }
 
     @PutMapping("/sessions/{id}/context")

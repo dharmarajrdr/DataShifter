@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../../constants/design';
 import { FRSC, FRBC } from '../../constants/layouts';
 import { AGENT } from '../../constants/literals';
@@ -9,6 +9,8 @@ import { aiApi } from '../../services/aiApi';
 import { pipelineApi, workflowApi, connectionApi, udfApi } from '../../services/api';
 import BeetelMarkdownRenderer from './BeetelMarkdownRenderer';
 import { ErrorPage } from '../../pages/ErrorPage';
+
+const MESSAGE_BATCH_SIZE = 15;
 
 const SAMPLE_MD_SPEC = `# Orders & Customers Migration Specification
 
@@ -908,6 +910,8 @@ const BeetelChatWorkspace = ({
   const [preferredProvider, setPreferredProvider] = useState(''); // '' = Auto, 'OLLAMA', 'GROQ'
   const [mdFile, setMdFile] = useState(null); // { name, content, size }
   const [loadingSession, setLoadingSession] = useState(Boolean(externalSessionId));
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [busyPlanId, setBusyPlanId] = useState(null);
   const [error, setError] = useState(null);
@@ -915,7 +919,11 @@ const BeetelChatWorkspace = ({
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const fileInputRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const shouldScrollToBottomRef = useRef(true);
+  const prependScrollSnapshotRef = useRef(null);
+  const isFetchingOlderRef = useRef(false);
 
   // Sync when route/context props change (e.g. in split panel)
   useEffect(() => {
@@ -978,11 +986,15 @@ const BeetelChatWorkspace = ({
     }
   }, [contextType, contextEntityId, pipelines, workflows, connections, udfs]);
 
-  // Load existing session metadata + messages if externalSessionId is selected
+  // Load existing session metadata + latest 15 messages if externalSessionId is selected
   const loadSessionMessages = useCallback(async (sid) => {
+    isFetchingOlderRef.current = false;
+    setLoadingOlderMessages(false);
+    prependScrollSnapshotRef.current = null;
     if (!sid) {
       setSession(null);
       setMessages([]);
+      setHasMoreMessages(false);
       setSessionAccessDenied(false);
       setLoadingSession(false);
       setError(null);
@@ -992,11 +1004,13 @@ const BeetelChatWorkspace = ({
       setLoadingSession(true);
       setSessionAccessDenied(false);
       setError(null);
-      const res = await aiApi.getSession(sid);
+      const res = await aiApi.getSession(sid, MESSAGE_BATCH_SIZE);
       const sessData = res?.data || res;
       if (sessData) {
+        shouldScrollToBottomRef.current = true;
         setSession(sessData);
         setMessages(sessData.messages || []);
+        setHasMoreMessages(Boolean(sessData.hasMoreMessages));
         if (sessData.contextType) {
           setContextType(sessData.contextType);
           setContextEntityId(sessData.contextEntityId || '');
@@ -1023,9 +1037,69 @@ const BeetelChatWorkspace = ({
     loadSessionMessages(externalSessionId);
   }, [externalSessionId, loadSessionMessages]);
 
-  useEffect(() => {
-    if (messagesEndRef.current && typeof messagesEndRef.current.scrollIntoView === 'function') {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  const loadOlderMessages = useCallback(async () => {
+    const activeId = externalSessionId || session?.id;
+    const oldestMsg = messages.find(m => m.id && !String(m.id).startsWith('temp-'));
+    if (!activeId || !oldestMsg || !hasMoreMessages || isFetchingOlderRef.current || loadingSession) {
+      return;
+    }
+    isFetchingOlderRef.current = true;
+    setLoadingOlderMessages(true);
+    try {
+      const res = await aiApi.getSessionMessages(activeId, {
+        beforeMessageId: oldestMsg.id,
+        limit: MESSAGE_BATCH_SIZE,
+      });
+      const pageData = res?.data || res;
+      const olderBatch = Array.isArray(pageData?.messages)
+        ? pageData.messages
+        : Array.isArray(pageData)
+        ? pageData
+        : [];
+      setHasMoreMessages(Boolean(pageData?.hasMoreMessages));
+      if (olderBatch.length > 0) {
+        const container = messagesContainerRef.current;
+        if (container) {
+          prependScrollSnapshotRef.current = {
+            prevScrollHeight: container.scrollHeight,
+            prevScrollTop: container.scrollTop,
+          };
+        }
+        shouldScrollToBottomRef.current = false;
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const uniqueOlder = olderBatch.filter(m => !existingIds.has(m.id));
+          return [...uniqueOlder, ...prev];
+        });
+      }
+    } catch {
+      // Keep current messages intact if older batch fails to load
+    } finally {
+      isFetchingOlderRef.current = false;
+      setLoadingOlderMessages(false);
+    }
+  }, [externalSessionId, session?.id, messages, hasMoreMessages, loadingSession]);
+
+  const handleMessagesScroll = useCallback((e) => {
+    const el = e.currentTarget;
+    if (el.scrollTop <= 48 && hasMoreMessages && !isFetchingOlderRef.current && !loadingSession) {
+      loadOlderMessages();
+    }
+  }, [hasMoreMessages, loadingSession, loadOlderMessages]);
+
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current;
+    if (prependScrollSnapshotRef.current && container) {
+      const { prevScrollHeight, prevScrollTop } = prependScrollSnapshotRef.current;
+      prependScrollSnapshotRef.current = null;
+      const heightDiff = container.scrollHeight - prevScrollHeight;
+      container.scrollTop = prevScrollTop + heightDiff;
+      return;
+    }
+    if (shouldScrollToBottomRef.current) {
+      if (messagesEndRef.current && typeof messagesEndRef.current.scrollIntoView === 'function') {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   }, [messages, sending]);
 
@@ -1061,6 +1135,7 @@ const BeetelChatWorkspace = ({
 
     setSending(true);
     setError(null);
+    shouldScrollToBottomRef.current = true;
 
     const optimisticUserMsg = {
       id: 'temp-user-' + Date.now(),
@@ -1111,6 +1186,7 @@ const BeetelChatWorkspace = ({
       }
       const assistantMsg = data?.assistantMessage || (data?.role ? data : null);
       if (assistantMsg) {
+        shouldScrollToBottomRef.current = true;
         setMessages(prev => [...prev, assistantMsg]);
       }
     } catch (e) {
@@ -1127,6 +1203,7 @@ const BeetelChatWorkspace = ({
       const res = await aiApi.confirmPlan(planId);
       const msgData = res?.data || res;
       const updatedPlan = msgData?.plan || msgData;
+      shouldScrollToBottomRef.current = true;
       setMessages(prev => {
         const updated = prev.map(m => (m.plan?.id === planId ? { ...m, plan: updatedPlan } : m));
         if (msgData?.role && msgData?.content) {
@@ -1148,6 +1225,7 @@ const BeetelChatWorkspace = ({
       const res = await aiApi.rejectPlan(planId);
       const msgData = res?.data || res;
       const updatedPlan = msgData?.plan || msgData;
+      shouldScrollToBottomRef.current = true;
       setMessages(prev => {
         const updated = prev.map(m => (m.plan?.id === planId ? { ...m, plan: updatedPlan } : m));
         if (msgData?.role && msgData?.content) {
@@ -1499,17 +1577,21 @@ const BeetelChatWorkspace = ({
           </button>
         </div>
       </div>
-      {(loadingSession || sending || Boolean(busyPlanId)) && <BarLoader />}
+      {(loadingSession || loadingOlderMessages || sending || Boolean(busyPlanId)) && <BarLoader />}
 
       {/* Messages Area */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: SPACING.md,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: SPACING.md,
-      }}>
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: SPACING.md,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: SPACING.md,
+        }}
+      >
         {loadingSession ? (
           <SpinnerLoader
             size="md"
@@ -1563,7 +1645,23 @@ const BeetelChatWorkspace = ({
             </div>
           </div>
         ) : (
-          messages.map((msg, msgIdx) => {
+          <>
+            {loadingOlderMessages && (
+              <div
+                style={{
+                  ...FRSC,
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '6px 0',
+                  color: COLORS.text.secondary,
+                  fontSize: FONT.size.xs,
+                }}
+              >
+                <SpinnerLoader size={14} height="auto" style={{ width: 'auto', padding: 0 }} />
+                <span>Loading older messages...</span>
+              </div>
+            )}
+            {messages.map((msg, msgIdx) => {
             const isUser = msg.role === 'USER';
             const isSystem = msg.role === 'SYSTEM';
             const isError = msg.role === 'ERROR';
@@ -1785,7 +1883,8 @@ const BeetelChatWorkspace = ({
                 </div>
               </div>
             );
-          })
+          })}
+          </>
         )}
 
         {sending && (
@@ -1923,7 +2022,12 @@ const BeetelChatWorkspace = ({
         onSessionUpdated={(updatedSess) => {
           setSession(updatedSess);
           if (Array.isArray(updatedSess.messages)) {
-            setMessages(updatedSess.messages);
+            shouldScrollToBottomRef.current = true;
+            setMessages(prev => {
+              const existingIds = new Set(prev.map(m => m.id));
+              const newOnes = updatedSess.messages.filter(m => !existingIds.has(m.id));
+              return newOnes.length > 0 ? [...prev, ...newOnes] : prev;
+            });
           }
           onSessionCreated(updatedSess);
         }}

@@ -40,6 +40,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class BeetelAgentService {
+
+    private static final int DEFAULT_MESSAGE_PAGE_SIZE = 15;
 
     private static final Pattern PLAN_BLOCK_PATTERN = Pattern.compile(
             "<BEETEL_PLAN>\\s*(\\{[\\s\\S]*?\\})\\s*</BEETEL_PLAN>",
@@ -142,8 +145,72 @@ public class BeetelAgentService {
 
     @Transactional(readOnly = true)
     public ChatSessionResponse getSession(String sessionId) {
+        return getSession(sessionId, DEFAULT_MESSAGE_PAGE_SIZE);
+    }
+
+    @Transactional(readOnly = true)
+    public ChatSessionResponse getSession(String sessionId, Integer limit) {
         AiChatSession session = findAuthorizedSession(sessionId);
-        return toSessionResponse(session, true);
+        int safeLimit = (limit != null && limit > 0 && limit <= 100) ? limit : DEFAULT_MESSAGE_PAGE_SIZE;
+        return toSessionResponse(session, true, safeLimit);
+    }
+
+    @Transactional(readOnly = true)
+    public ChatMessagePageResponse getSessionMessagesPage(String sessionId, String beforeMessageId, Integer limit) {
+        AiChatSession session = findAuthorizedSession(sessionId);
+        int safeLimit = (limit != null && limit > 0 && limit <= 100) ? limit : DEFAULT_MESSAGE_PAGE_SIZE;
+
+        List<AiChatMessage> fetched;
+        if (beforeMessageId != null && !beforeMessageId.isBlank()) {
+            AiChatMessage anchor = messageRepository.findById(beforeMessageId.trim()).orElse(null);
+            if (anchor == null || !session.getId().equals(anchor.getSessionId())) {
+                return ChatMessagePageResponse.builder()
+                        .messages(List.of())
+                        .hasMoreMessages(false)
+                        .build();
+            }
+            fetched = messageRepository.findOlderMessages(
+                    session.getId(),
+                    anchor.getCreatedAt(),
+                    anchor.getId(),
+                    PageRequest.of(0, safeLimit + 1)
+            );
+        } else {
+            fetched = messageRepository.findLatestMessages(
+                    session.getId(),
+                    PageRequest.of(0, safeLimit + 1)
+            );
+        }
+
+        boolean hasMore = fetched.size() > safeLimit;
+        List<AiChatMessage> pageMessages = new ArrayList<>(
+                hasMore ? fetched.subList(0, safeLimit) : fetched
+        );
+        Collections.reverse(pageMessages);
+
+        Set<String> userIdsToLoad = new LinkedHashSet<>();
+        userIdsToLoad.add(session.getUserId());
+        for (AiChatMessage m : pageMessages) {
+            if (m.getSenderUserId() != null && !m.getSenderUserId().isBlank()) {
+                userIdsToLoad.add(m.getSenderUserId());
+            }
+        }
+        Map<String, AppUser> usersById = appUserRepository.findByIdInAndOrganization_Id(userIdsToLoad, session.getOrgId())
+                .stream()
+                .collect(Collectors.toMap(AppUser::getId, u -> u, (a, b) -> a));
+
+        Map<String, AiExecutionPlan> plansById = new HashMap<>();
+        planRepository.findBySessionIdOrderByCreatedAtDesc(session.getId())
+                .forEach(p -> plansById.put(p.getId(), p));
+
+        List<ChatMessageResponse> msgResponses = pageMessages.stream()
+                .map(m -> toMessageResponse(m, plansById, usersById, session.getUserId()))
+                .toList();
+
+        return ChatMessagePageResponse.builder()
+                .messages(msgResponses)
+                .hasMoreMessages(hasMore)
+                .build();
     }
 
     @Transactional
@@ -291,7 +358,10 @@ public class BeetelAgentService {
             session.setTitle(deriveSessionTitle(request.getMessage(), request.getMarkdownFileName()));
         }
 
-        List<AiChatMessage> existingMessages = messageRepository.findBySessionIdOrderByCreatedAtAsc(session.getId());
+        List<AiChatMessage> existingMessages = new ArrayList<>(
+                messageRepository.findLatestMessages(session.getId(), PageRequest.of(0, 6))
+        );
+        Collections.reverse(existingMessages);
 
         String userPromptText = buildUserPromptWithMarkdown(request);
 
@@ -1113,14 +1183,26 @@ public class BeetelAgentService {
     }
 
     private ChatSessionResponse toSessionResponse(AiChatSession s, boolean includeMessages) {
+        return toSessionResponse(s, includeMessages, DEFAULT_MESSAGE_PAGE_SIZE);
+    }
+
+    private ChatSessionResponse toSessionResponse(AiChatSession s, boolean includeMessages, int messageLimit) {
         List<AiChatSessionMember> memberRows = sessionMemberRepository.findBySessionIdOrderByCreatedAtAsc(s.getId());
         Set<String> userIdsToLoad = new LinkedHashSet<>();
         userIdsToLoad.add(s.getUserId());
         memberRows.forEach(m -> userIdsToLoad.add(m.getUserId()));
 
         List<AiChatMessage> msgs = null;
+        boolean hasMoreMessages = false;
         if (includeMessages) {
-            msgs = messageRepository.findBySessionIdOrderByCreatedAtAsc(s.getId());
+            int safeLimit = messageLimit > 0 ? messageLimit : DEFAULT_MESSAGE_PAGE_SIZE;
+            List<AiChatMessage> fetched = messageRepository.findLatestMessages(
+                    s.getId(),
+                    PageRequest.of(0, safeLimit + 1)
+            );
+            hasMoreMessages = fetched.size() > safeLimit;
+            msgs = new ArrayList<>(hasMoreMessages ? fetched.subList(0, safeLimit) : fetched);
+            Collections.reverse(msgs);
             for (AiChatMessage m : msgs) {
                 if (m.getSenderUserId() != null && !m.getSenderUserId().isBlank()) {
                     userIdsToLoad.add(m.getSenderUserId());
@@ -1160,6 +1242,7 @@ public class BeetelAgentService {
                 .createdAt(s.getCreatedAt())
                 .updatedAt(s.getUpdatedAt())
                 .messages(msgResponses)
+                .hasMoreMessages(hasMoreMessages)
                 .build();
     }
 
