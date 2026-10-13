@@ -28,6 +28,7 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
   const [whitelistedPipelineIds, setWhitelistedPipelineIds] = useState([]);
 
   const [localPipelines, setLocalPipelines] = useState(pipelines || []);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (pipelines && pipelines.length > 0) {
