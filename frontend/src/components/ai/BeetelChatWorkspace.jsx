@@ -917,8 +917,10 @@ const BeetelChatWorkspace = ({
   const [error, setError] = useState(null);
   const [sessionAccessDenied, setSessionAccessDenied] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
 
   const fileInputRef = useRef(null);
+  const headerMenuRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const shouldScrollToBottomRef = useRef(true);
@@ -938,6 +940,18 @@ const BeetelChatWorkspace = ({
       setContextEntityName(initialContextEntityName);
     }
   }, [initialContextType, initialContextEntityId, initialContextEntityName]);
+
+  // Close header three-dot menu when clicking outside
+  useEffect(() => {
+    if (!headerMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target)) {
+        setHeaderMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [headerMenuOpen]);
 
   // Load available pipelines, workflows, connections & UDFs for context selector
   useEffect(() => {
@@ -1484,68 +1498,23 @@ const BeetelChatWorkspace = ({
 
         </div>
 
-        {/* Share & Upload .md Spec controls */}
-        <div style={{ ...FRSC, gap: '7px', flexWrap: 'wrap' }}>
-          {activeSessionId && (
-            <div style={{ ...FRSC, gap: '7px' }}>
-              {isSessionShared && (
-                <div
+        {/* Right Header: Three-dot dropdown menu for Model, Share, and Attach */}
+        <div style={{ ...FRSC, gap: '8px', position: 'relative' }} ref={headerMenuRef}>
+          {participants.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              {participants.slice(0, 4).map((p, idx) => (
+                <UserAvatar
+                  key={p.userId || idx}
+                  initials={p.displayInitials}
+                  name={`${p.fullName}${p.isOwner ? ' (Owner)' : ' (Shared)'}`}
+                  color={p.avatarColor}
+                  size={24}
                   style={{
-                    ...FRSC,
-                    gap: '5px',
-                    padding: '4px 10px',
-                    borderRadius: BORDER_RADIUS.pill,
-                    background: '#E1F5EE',
-                    border: '1px solid #9FE1CB',
-                    color: '#0F6E56',
-                    fontSize: '11px',
-                    fontWeight: FONT.weight.semibold,
+                    marginLeft: idx === 0 ? 0 : '-6px',
+                    border: '1.5px solid #FFFFFF',
                   }}
-                  title={`Shared with ${(session?.sharedMembers || []).map(m => m.fullName).join(', ')}`}
-                >
-                  <i className="fa-solid fa-users" style={{ fontSize: '10px' }} />
-                  <span>Shared ({participants.length})</span>
-                </div>
-              )}
-
-              {participants.length > 1 && (
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {participants.slice(0, 4).map((p, idx) => (
-                    <UserAvatar
-                      key={p.userId || idx}
-                      initials={p.displayInitials}
-                      name={`${p.fullName}${p.isOwner ? ' (Owner)' : ' (Shared)'}`}
-                      color={p.avatarColor}
-                      size={23}
-                      style={{
-                        marginLeft: idx === 0 ? 0 : '-6px',
-                        border: '1.5px solid #FFFFFF',
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setShareModalOpen(true)}
-                style={{
-                  ...FRSC,
-                  gap: '5px',
-                  padding: '5px 10px',
-                  borderRadius: BORDER_RADIUS.sm,
-                  border: `1px solid ${COLORS.brand.primary}`,
-                  background: COLORS.brand.primary,
-                  color: '#FFFFFF',
-                  fontSize: FONT.size.xs,
-                  fontWeight: FONT.weight.semibold,
-                  cursor: 'pointer',
-                }}
-                title="Share this conversation with members of your organization"
-              >
-                <i className="fa-solid fa-user-plus" style={{ fontSize: '10px' }} />
-                <span>Share</span>
-              </button>
+                />
+              ))}
             </div>
           )}
 
@@ -1556,25 +1525,147 @@ const BeetelChatWorkspace = ({
             onChange={handleFileUpload}
             style={{ display: 'none' }}
           />
+
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setHeaderMenuOpen(prev => !prev)}
             style={{
               ...FRSC,
-              gap: '5px',
-              padding: '5px 10px',
+              justifyContent: 'center',
+              width: '30px',
+              height: '30px',
               borderRadius: BORDER_RADIUS.sm,
               border: '1px solid #D4D0F5',
-              background: '#FFFFFF',
+              background: headerMenuOpen ? '#EDEBFB' : '#FFFFFF',
               color: COLORS.accent.purpleText,
-              fontSize: FONT.size.xs,
-              fontWeight: FONT.weight.semibold,
               cursor: 'pointer',
+              transition: 'background 0.15s ease',
             }}
+            title="Conversation Options"
+            aria-label="Conversation Options"
           >
-            <i className="fa-regular fa-file-lines" style={{ fontSize: '11px' }} />
-            <span>{AGENT.uploadMarkdown}</span>
+            <i className="fa-solid fa-ellipsis-vertical" style={{ fontSize: '14px' }} />
           </button>
+
+          {headerMenuOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                right: 0,
+                zIndex: 100,
+                minWidth: '220px',
+                background: '#FFFFFF',
+                borderRadius: BORDER_RADIUS.md,
+                border: '1px solid #DFDDF7',
+                boxShadow: '0 8px 24px rgba(83, 74, 183, 0.14)',
+                padding: '6px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+              }}
+            >
+              {/* Model selection item */}
+              <div
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: BORDER_RADIUS.sm,
+                  background: '#F9F8FD',
+                  border: '1px solid #ECE9F8',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                }}
+              >
+                <div style={{ ...FRSC, gap: '6px', color: COLORS.accent.purpleText, fontSize: '11px', fontWeight: FONT.weight.semibold }}>
+                  <i className="fa-solid fa-microchip" style={{ fontSize: '11px' }} />
+                  <span>Model Provider</span>
+                </div>
+                <select
+                  value={preferredProvider}
+                  onChange={e => {
+                    setPreferredProvider(e.target.value);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '4px 6px',
+                    borderRadius: BORDER_RADIUS.sm,
+                    border: '1px solid #D4D0F5',
+                    fontSize: FONT.size.xs,
+                    fontWeight: FONT.weight.medium,
+                    background: '#FFFFFF',
+                    color: COLORS.text.primary,
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Auto (Groq / Ollama)</option>
+                  <option value="OLLAMA">Local Ollama</option>
+                  <option value="GROQ">Groq Cloud</option>
+                </select>
+              </div>
+
+              {/* Share Conversation action */}
+              {activeSessionId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHeaderMenuOpen(false);
+                    setShareModalOpen(true);
+                  }}
+                  style={{
+                    ...FRSC,
+                    gap: '8px',
+                    padding: '7px 10px',
+                    borderRadius: BORDER_RADIUS.sm,
+                    border: 'none',
+                    background: 'transparent',
+                    color: COLORS.text.primary,
+                    fontSize: FONT.size.xs,
+                    fontWeight: FONT.weight.medium,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#F3F2FC')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <i className="fa-solid fa-user-plus" style={{ fontSize: '12px', color: COLORS.brand.primary, width: '14px' }} />
+                  <span>Share Conversation</span>
+                </button>
+              )}
+
+              {/* Attach / Upload Markdown Spec action */}
+              <button
+                type="button"
+                onClick={() => {
+                  setHeaderMenuOpen(false);
+                  fileInputRef.current?.click();
+                }}
+                style={{
+                  ...FRSC,
+                  gap: '8px',
+                  padding: '7px 10px',
+                  borderRadius: BORDER_RADIUS.sm,
+                  border: 'none',
+                  background: 'transparent',
+                  color: COLORS.text.primary,
+                  fontSize: FONT.size.xs,
+                  fontWeight: FONT.weight.medium,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  width: '100%',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#F3F2FC')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <i className="fa-regular fa-file-lines" style={{ fontSize: '12px', color: COLORS.accent.purpleText, width: '14px' }} />
+                <span>Attach Spec (.md)</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
       {(loadingSession || loadingOlderMessages || sending || Boolean(busyPlanId)) && <BarLoader />}
@@ -2003,43 +2094,19 @@ const BeetelChatWorkspace = ({
               outline: 'none',
             }}
           />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '150px' }}>
-            <select
-              value={preferredProvider}
-              onChange={e => setPreferredProvider(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '5px 8px',
-                borderRadius: BORDER_RADIUS.sm,
-                border: '1px solid #D4D0F5',
-                fontSize: FONT.size.xs,
-                fontWeight: FONT.weight.medium,
-                background: '#FFFFFF',
-                color: COLORS.text.primary,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-              title="Choose LLM provider or Auto Failover"
-            >
-              <option value="">Auto (Groq / Ollama)</option>
-              <option value="OLLAMA">Local Ollama</option>
-              <option value="GROQ">Groq Cloud</option>
-            </select>
-            <Button
-              type="submit"
-              disabled={sending || (!input.trim() && !mdFile)}
-              style={{ width: '100%', justifyContent: 'center' }}
-            >
-              {sending ? (
-                <span style={{ ...FRSC, gap: '6px', justifyContent: 'center' }}>
-                  <SpinnerLoader size={13} color="#FFFFFF" height="auto" style={{ width: 'auto', padding: 0 }} />
-                  <span>Sending</span>
-                </span>
-              ) : (
-                'Send'
-              )}
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            disabled={sending || (!input.trim() && !mdFile)}
+          >
+            {sending ? (
+              <span style={{ ...FRSC, gap: '6px' }}>
+                <SpinnerLoader size={13} color="#FFFFFF" height="auto" style={{ width: 'auto', padding: 0 }} />
+                <span>Sending</span>
+              </span>
+            ) : (
+              'Send'
+            )}
+          </Button>
         </div>
       </form>
 

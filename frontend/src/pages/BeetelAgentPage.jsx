@@ -230,48 +230,16 @@ const BeetelAgentPage = () => {
                     }}
                   >
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ ...FRSC, gap: '5px' }}>
-                        <p style={{
-                          fontSize: FONT.size.xs,
-                          fontWeight: active ? FONT.weight.semibold : FONT.weight.medium,
-                          margin: 0,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          flex: 1,
-                        }}>
-                          {sess.title || 'New Conversation'}
-                        </p>
-                        {isShared && (
-                          <span
-                            title="Shared conversation"
-                            style={{
-                              ...FRSC,
-                              gap: '4px',
-                              fontSize: '9px',
-                              fontWeight: FONT.weight.semibold,
-                              padding: '1px 6px',
-                              borderRadius: BORDER_RADIUS.full,
-                              background: '#E1F5EE',
-                              color: '#0F6E56',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <i className="fa-solid fa-users" style={{ fontSize: '8px' }} />
-                            <span>{memberCount}</span>
-                          </span>
-                        )}
-                      </div>
-                      {sess.contextType && sess.contextType !== 'NONE' && (
-                        <span style={{
-                          display: 'inline-block',
-                          fontSize: '10px',
-                          color: COLORS.text.secondary,
-                          marginTop: '2px',
-                        }}>
-                          {sess.contextType}: {sess.contextEntityName || sess.contextEntityId}
-                        </span>
-                      )}
+                      <p style={{
+                        fontSize: FONT.size.xs,
+                        fontWeight: active ? FONT.weight.semibold : FONT.weight.medium,
+                        margin: 0,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}>
+                        {sess.title || 'New Conversation'}
+                      </p>
                     </div>
                   </div>
                 );
