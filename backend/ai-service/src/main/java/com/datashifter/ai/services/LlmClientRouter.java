@@ -256,12 +256,16 @@ public class LlmClientRouter {
     private boolean isPerModelRateLimitError(String errMsg) {
         if (errMsg == null) return false;
         String lower = errMsg.toLowerCase();
-        return lower.contains("429") || lower.contains("rate_limit_exceeded") || lower.contains("tokens per minute");
+        return lower.contains("429")
+                || lower.contains("413")
+                || lower.contains("rate_limit_exceeded")
+                || lower.contains("request too large")
+                || lower.contains("tokens per minute");
     }
 
     private String summarizeError(String errMsg) {
         if (errMsg == null) return "Unknown error";
-        return errMsg.length() > 260 ? errMsg.substring(0, 260) + "..." : errMsg;
+        return errMsg.length() > 600 ? errMsg.substring(0, 600) + "..." : errMsg;
     }
 
     private ChatModel buildChatModel(ResolvedLlmCandidate candidate, String modelName) {

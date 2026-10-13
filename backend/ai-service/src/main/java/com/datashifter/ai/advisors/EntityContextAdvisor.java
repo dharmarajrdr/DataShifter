@@ -3,8 +3,11 @@ package com.datashifter.ai.advisors;
 import com.datashifter.ai.spi.BeetelContextAdvisor;
 import com.datashifter.common.dtos.ConnectionDtos.ConnectionResponse;
 import com.datashifter.common.dtos.MonitorDtos.ErrorSummaryResponse;
+import com.datashifter.common.dtos.PipelineDtos.ColumnMappingResponse;
 import com.datashifter.common.dtos.PipelineDtos.PipelineResponse;
 import com.datashifter.common.dtos.PipelineDtos.PipelineSummaryResponse;
+import com.datashifter.common.dtos.PipelineDtos.PipelineTableResponse;
+import com.datashifter.common.dtos.PipelineDtos.TargetTableMappingResponse;
 import com.datashifter.common.dtos.UdfDtos.UdfResponse;
 import com.datashifter.common.dtos.WorkflowDtos.WorkflowEdgeResponse;
 import com.datashifter.common.dtos.WorkflowDtos.WorkflowNodeResponse;
@@ -161,7 +164,7 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                 if (pipeline.getValidationErrors() != null && !pipeline.getValidationErrors().isEmpty()) {
                     sb.append("- Validation Errors: ").append(String.join("; ", pipeline.getValidationErrors())).append("\n");
                 }
-                sb.append("- Tables & Mappings: `").append(objectMapper.writeValueAsString(pipeline.getTables())).append("`\n");
+                sb.append("- Tables & Mappings: ").append(formatPipelineTablesSummary(pipeline)).append("\n");
                 if (errors != null && errors.getTotalErrors() > 0) {
                     sb.append("- Recent Errors (Total ").append(errors.getTotalErrors()).append("): `")
                             .append(objectMapper.writeValueAsString(errors.getErrors())).append("`\n");
@@ -252,5 +255,41 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
             }
         }
         return dag.toString();
+    }
+
+    private String formatPipelineTablesSummary(PipelineResponse pipeline) {
+        if (pipeline.getTables() == null || pipeline.getTables().isEmpty()) {
+            return "(no tables configured)";
+        }
+        List<String> tableEntries = new ArrayList<>();
+        for (PipelineTableResponse pt : pipeline.getTables()) {
+            List<TargetTableMappingResponse> targets = pt.getTargetMappings() != null ? pt.getTargetMappings() : List.of();
+            if (targets.isEmpty()) {
+                tableEntries.add(String.format("`%s` (pipelineTableId=`%s`, unmapped)", pt.getSourceTable(), pt.getId()));
+                continue;
+            }
+            for (TargetTableMappingResponse tm : targets) {
+                List<ColumnMappingResponse> cols = tm.getColumnMappings() != null ? tm.getColumnMappings() : List.of();
+                String colSummary = cols.stream()
+                        .limit(15)
+                        .map(cm -> {
+                            String base = (cm.getSourceColumn() != null ? cm.getSourceColumn() : "DEFAULT") + "->" + cm.getTargetColumn();
+                            if (cm.getTransformations() != null && !cm.getTransformations().isEmpty()) {
+                                String fns = cm.getTransformations().stream()
+                                        .map(t -> String.valueOf(t.getFunctionName()))
+                                        .collect(Collectors.joining("+"));
+                                return base + "(" + fns + ")";
+                            }
+                            return base;
+                        })
+                        .collect(Collectors.joining(", "));
+                if (cols.size() > 15) {
+                    colSummary += ", ... (+" + (cols.size() - 15) + " more)";
+                }
+                tableEntries.add(String.format("`%s` -> `%s` (pipelineTableId=`%s`, writeMode=%s, cols(%d)=[%s])",
+                        pt.getSourceTable(), tm.getTargetTable(), pt.getId(), tm.getWriteMode(), cols.size(), colSummary));
+            }
+        }
+        return String.join("; ", tableEntries);
     }
 }

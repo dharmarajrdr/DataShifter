@@ -196,15 +196,19 @@ public class BeetelAgentService {
                 .build();
         messageRepository.save(userMsg);
 
-        // Build conversation history for LLM (last 12 messages)
+        // Build conversation history for LLM (last 6 USER/ASSISTANT messages, capped to prevent token bloat)
         List<Message> historyForLlm = new ArrayList<>();
-        int startIdx = Math.max(0, existingMessages.size() - 12);
+        int startIdx = Math.max(0, existingMessages.size() - 6);
         for (int i = startIdx; i < existingMessages.size(); i++) {
             AiChatMessage m = existingMessages.get(i);
+            String msgContent = m.getContent() != null ? m.getContent() : "";
+            if (msgContent.length() > 1200) {
+                msgContent = msgContent.substring(0, 1200) + "... [truncated]";
+            }
             if ("USER".equalsIgnoreCase(m.getRole())) {
-                historyForLlm.add(new UserMessage(m.getContent()));
+                historyForLlm.add(new UserMessage(msgContent));
             } else if ("ASSISTANT".equalsIgnoreCase(m.getRole())) {
-                historyForLlm.add(new AssistantMessage(m.getContent()));
+                historyForLlm.add(new AssistantMessage(msgContent));
             }
         }
 
@@ -220,13 +224,34 @@ public class BeetelAgentService {
             }
         }
 
-        LlmInvocationResult llmResult = llmClientRouter.callWithFailover(
-                systemPrompt,
-                historyForLlm,
-                userPromptText,
-                toolBeans,
-                request.getPreferredProvider()
-        );
+        LlmInvocationResult llmResult;
+        try {
+            llmResult = llmClientRouter.callWithFailover(
+                    systemPrompt,
+                    historyForLlm,
+                    userPromptText,
+                    toolBeans,
+                    request.getPreferredProvider()
+            );
+        } catch (Exception ex) {
+            String errorText = ex.getMessage() != null && !ex.getMessage().isBlank()
+                    ? ex.getMessage()
+                    : "Beetel encountered an unexpected error while invoking configured LLM providers.";
+            log.warn("Persisting LLM error message in session {}: {}", session.getId(), errorText);
+
+            AiChatMessage errorMsg = AiChatMessage.builder()
+                    .sessionId(session.getId())
+                    .role("ERROR")
+                    .content(errorText)
+                    .providerUsed(request.getPreferredProvider() != null ? request.getPreferredProvider().name() : "AUTO_FAILOVER")
+                    .build();
+            errorMsg = messageRepository.save(errorMsg);
+
+            session.setUpdatedAt(Instant.now());
+            sessionRepository.save(session);
+
+            return toMessageResponse(errorMsg, Map.of());
+        }
 
         String rawContent = llmResult.content();
         AiExecutionPlan savedPlan = extractAndSavePlanIfPresent(rawContent, session);

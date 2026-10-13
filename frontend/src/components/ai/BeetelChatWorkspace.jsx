@@ -226,6 +226,236 @@ const PlanConfirmationCard = ({ plan, onConfirm, onReject, busyPlanId }) => {
   );
 };
 
+const parseLlmErrorDetails = (rawText) => {
+  const raw = String(rawText || 'Unknown error');
+  const attemptsPrefix = 'All configured LLM keys/providers failed. Attempts:';
+  const hasAttempts = raw.includes(attemptsPrefix);
+
+  const parseSingleAttempt = (segment) => {
+    const trimmed = segment.trim();
+    const colonIdx = trimmed.indexOf(':');
+    let providerLabel = 'LLM Provider';
+    let rest = trimmed;
+    if (colonIdx > 0 && colonIdx < 48) {
+      providerLabel = trimmed.slice(0, colonIdx).trim();
+      rest = trimmed.slice(colonIdx + 1).trim();
+    }
+
+    let statusCode = null;
+    const statusMatch = rest.match(/^(\d{3})\s*-\s*([\s\S]*)$/);
+    if (statusMatch) {
+      statusCode = statusMatch[1];
+      rest = statusMatch[2].trim();
+    }
+
+    let cleanMessage = rest;
+    let errorCode = null;
+    let errorType = null;
+
+    // Extract JSON message even if the JSON string was truncated
+    if (rest.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(rest);
+        const errObj = parsed?.error || parsed;
+        if (errObj?.message) cleanMessage = errObj.message;
+        if (errObj?.code) errorCode = errObj.code;
+        if (errObj?.type) errorType = errObj.type;
+      } catch {
+        const msgMatch = rest.match(/"message"\s*:\s*"([^"]+)/);
+        const codeMatch = rest.match(/"code"\s*:\s*"([^"]+)/);
+        const typeMatch = rest.match(/"type"\s*:\s*"([^"]+)/);
+        if (msgMatch) cleanMessage = msgMatch[1];
+        if (codeMatch) errorCode = codeMatch[1];
+        if (typeMatch) errorType = typeMatch[1];
+      }
+    }
+
+    let badgeLabel = statusCode ? `HTTP ${statusCode}` : 'Failed';
+    if (statusCode === '429' || errorCode === 'rate_limit_exceeded') {
+      badgeLabel = statusCode === '413' ? 'Token Limit (413)' : 'Rate Limit (429)';
+    } else if (statusCode === '413' || cleanMessage.toLowerCase().includes('request too large')) {
+      badgeLabel = 'Request Too Large (413)';
+    } else if (statusCode === '401' || statusCode === '403') {
+      badgeLabel = 'Auth Error';
+    } else if (statusCode === '404') {
+      badgeLabel = 'Model Not Found (404)';
+    } else if (cleanMessage.toLowerCase().includes('not reachable')) {
+      badgeLabel = 'Offline';
+    }
+
+    return {
+      providerLabel,
+      statusCode,
+      badgeLabel,
+      message: cleanMessage,
+      errorCode,
+      errorType,
+    };
+  };
+
+  if (hasAttempts) {
+    const afterPrefix = raw.slice(raw.indexOf(attemptsPrefix) + attemptsPrefix.length).trim();
+    const segments = afterPrefix.split(/\s+\|\s+/).filter(Boolean);
+    return {
+      title: 'All configured LLM providers failed to respond',
+      attempts: segments.map(parseSingleAttempt),
+      raw,
+    };
+  }
+
+  return {
+    title: 'Request could not be completed',
+    attempts: [parseSingleAttempt(raw)],
+    raw,
+  };
+};
+
+const BeetelErrorCard = ({ content, onRetry, sending }) => {
+  const [showRaw, setShowRaw] = useState(false);
+  const parsed = parseLlmErrorDetails(content);
+
+  return (
+    <div style={{
+      border: '1px solid #F5B7B1',
+      borderRadius: BORDER_RADIUS.lg,
+      background: '#FFF8F8',
+      overflow: 'hidden',
+      boxShadow: '0 2px 8px rgba(163, 45, 45, 0.06)',
+    }}>
+      {/* Error Header */}
+      <div style={{
+        ...FRBC,
+        gap: SPACING.xs,
+        padding: `8px ${SPACING.md}`,
+        background: '#FCEBEB',
+        borderBottom: '1px solid #F5B7B1',
+      }}>
+        <div style={{ ...FRSC, gap: '6px' }}>
+          <span style={{
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            background: '#A32D2D',
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: FONT.weight.bold,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            !
+          </span>
+          <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: '#791F1F' }}>
+            {parsed.title}
+          </span>
+        </div>
+
+        {onRetry && (
+          <button
+            type="button"
+            disabled={sending}
+            onClick={onRetry}
+            style={{
+              padding: '3px 10px',
+              borderRadius: BORDER_RADIUS.full,
+              border: '1px solid #D98880',
+              background: '#fff',
+              color: '#791F1F',
+              fontSize: '11px',
+              fontWeight: FONT.weight.semibold,
+              cursor: sending ? 'not-allowed' : 'pointer',
+              opacity: sending ? 0.6 : 1,
+            }}
+          >
+            ↻ Retry
+          </button>
+        )}
+      </div>
+
+      {/* Parsed Provider Attempts */}
+      <div style={{ padding: SPACING.sm, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {parsed.attempts.map((att, idx) => (
+          <div
+            key={idx}
+            style={{
+              padding: `6px ${SPACING.sm}`,
+              borderRadius: BORDER_RADIUS.md,
+              background: '#fff',
+              border: '1px solid #F7C1C1',
+            }}
+          >
+            <div style={{ ...FRBC, gap: SPACING.xs, marginBottom: '3px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: FONT.weight.semibold, color: COLORS.text.primary }}>
+                {att.providerLabel}
+              </span>
+              <span style={{
+                fontSize: '10px',
+                fontWeight: FONT.weight.semibold,
+                padding: '1px 7px',
+                borderRadius: BORDER_RADIUS.full,
+                background: '#FCEBEB',
+                color: '#A32D2D',
+                border: '1px solid #F5B7B1',
+              }}>
+                {att.badgeLabel}
+              </span>
+            </div>
+            <p style={{
+              margin: 0,
+              fontSize: FONT.size.xs,
+              color: COLORS.text.secondary,
+              lineHeight: 1.45,
+              wordBreak: 'break-word',
+            }}>
+              {att.message}
+            </p>
+          </div>
+        ))}
+
+        {/* Footer controls */}
+        <div style={{ ...FRBC, paddingTop: '2px' }}>
+          <span style={{ fontSize: '11px', color: '#8A3B3B' }}>
+            Tip: Switch Model to Local Ollama or retry in a few seconds.
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowRaw(prev => !prev)}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: '#791F1F',
+              fontSize: '11px',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            {showRaw ? 'Hide technical details' : 'Technical details'}
+          </button>
+        </div>
+
+        {showRaw && (
+          <pre style={{
+            margin: '4px 0 0 0',
+            padding: '8px',
+            borderRadius: BORDER_RADIUS.sm,
+            background: '#2D1B1B',
+            color: '#FADBD8',
+            fontSize: '10px',
+            fontFamily: FONT.mono,
+            overflowX: 'auto',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+          }}>
+            {parsed.raw}
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const BeetelChatWorkspace = ({
   sessionId: externalSessionId = null,
   onSessionCreated = () => {},
@@ -675,9 +905,35 @@ const BeetelChatWorkspace = ({
             </div>
           </div>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, msgIdx) => {
             const isUser = msg.role === 'USER';
             const isSystem = msg.role === 'SYSTEM';
+            const isError = msg.role === 'ERROR';
+
+            if (isError) {
+              const prevUserMsg = [...messages.slice(0, msgIdx)]
+                .reverse()
+                .find(m => m.role === 'USER' && m.content);
+              return (
+                <div
+                  key={msg.id}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <div style={{ width: compact ? '94%' : '84%' }}>
+                    <BeetelErrorCard
+                      content={msg.content}
+                      sending={sending}
+                      onRetry={prevUserMsg ? () => handleSend(prevUserMsg.content) : null}
+                    />
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={msg.id}
@@ -762,14 +1018,15 @@ const BeetelChatWorkspace = ({
         )}
 
         {error && (
-          <div style={{
-            padding: `${SPACING.xs} ${SPACING.sm}`,
-            borderRadius: BORDER_RADIUS.md,
-            background: '#FCEBEB',
-            color: '#A32D2D',
-            fontSize: FONT.size.xs,
-          }}>
-            {error}
+          <div style={{ width: compact ? '94%' : '84%' }}>
+            <BeetelErrorCard
+              content={error}
+              sending={sending}
+              onRetry={() => {
+                const lastUser = [...messages].reverse().find(m => m.role === 'USER' && m.content);
+                if (lastUser) handleSend(lastUser.content);
+              }}
+            />
           </div>
         )}
 
