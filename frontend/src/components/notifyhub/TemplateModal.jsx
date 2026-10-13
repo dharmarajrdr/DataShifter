@@ -210,35 +210,54 @@ const TemplateModal = ({ template, onClose, onSave }) => {
                 borderRadius: BORDER_RADIUS.md,
                 border: `1px solid ${COLORS.border.light}`,
               }}>
-                <div style={{ ...FRBC, marginBottom: '6px' }}>
-                  <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: COLORS.text.secondary }}>
-                    Click variable chip to insert into:
-                  </span>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveField('subject')}
+                <div style={{ ...FRBC, marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: COLORS.text.primary }}>
+                      Available Variables
+                    </span>
+                    <span
+                      title="Click any variable chip below to insert it at your cursor in the chosen field (Subject or Body)"
                       style={{
-                        padding: '2px 8px', fontSize: FONT.size.xs, borderRadius: BORDER_RADIUS.pill,
-                        border: 'none', cursor: 'pointer',
-                        background: activeField === 'subject' ? COLORS.brand.primary : COLORS.background.tertiary,
-                        color: activeField === 'subject' ? '#fff' : COLORS.text.secondary,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        color: COLORS.text.tertiary, cursor: 'help', fontSize: '11px',
                       }}
                     >
-                      Subject
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveField('body')}
-                      style={{
-                        padding: '2px 8px', fontSize: FONT.size.xs, borderRadius: BORDER_RADIUS.pill,
-                        border: 'none', cursor: 'pointer',
-                        background: activeField === 'body' ? COLORS.brand.primary : COLORS.background.tertiary,
-                        color: activeField === 'body' ? '#fff' : COLORS.text.secondary,
-                      }}
-                    >
-                      Body
-                    </button>
+                      <i className="fa-solid fa-circle-info" />
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', color: COLORS.text.secondary }}>Insert into:</span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveField('subject')}
+                        style={{
+                          padding: '2px 8px', fontSize: FONT.size.xs, borderRadius: BORDER_RADIUS.pill,
+                          border: 'none', cursor: 'pointer',
+                          background: activeField === 'subject' ? COLORS.brand.primary : COLORS.background.tertiary,
+                          color: activeField === 'subject' ? '#fff' : COLORS.text.secondary,
+                          fontWeight: activeField === 'subject' ? FONT.weight.semibold : FONT.weight.regular,
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        Subject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveField('body')}
+                        style={{
+                          padding: '2px 8px', fontSize: FONT.size.xs, borderRadius: BORDER_RADIUS.pill,
+                          border: 'none', cursor: 'pointer',
+                          background: activeField === 'body' ? COLORS.brand.primary : COLORS.background.tertiary,
+                          color: activeField === 'body' ? '#fff' : COLORS.text.secondary,
+                          fontWeight: activeField === 'body' ? FONT.weight.semibold : FONT.weight.regular,
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        Body
+                      </button>
+                    </div>
                   </div>
                 </div>
 
