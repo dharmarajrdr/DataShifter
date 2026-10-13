@@ -92,22 +92,6 @@ const BeetelAgentPage = () => {
     });
   };
 
-  const handleDeleteSession = async (e, id) => {
-    e.stopPropagation();
-    try {
-      await aiApi.deleteSession(id);
-      setSessions(prev => prev.filter(s => s.id !== id));
-      if (selectedSessionId === id) {
-        hasAutoSelectedRef.current = true;
-        setAccessDenied(false);
-        setSelectedSessionId(null);
-        navigate('/beetel', { replace: true });
-      }
-    } catch {
-      // ignore
-    }
-  };
-
   const poolBadge = POOL_LABELS[keyStatus?.activePool] || POOL_LABELS.SYSTEM;
 
   if (accessDenied) {
@@ -224,7 +208,7 @@ const BeetelAgentPage = () => {
                         </p>
                         {isShared && (
                           <span
-                            title="Shared conversation (cannot be deleted)"
+                            title="Shared conversation"
                             style={{
                               ...FRSC,
                               gap: '4px',
@@ -253,23 +237,6 @@ const BeetelAgentPage = () => {
                         </span>
                       )}
                     </div>
-                    {!isShared && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteSession(e, sess.id)}
-                        title="Delete private conversation"
-                        style={{
-                          border: 'none',
-                          background: 'transparent',
-                          color: COLORS.text.tertiary,
-                          fontSize: '11px',
-                          cursor: 'pointer',
-                          padding: '2px 4px',
-                        }}
-                      >
-                        <i className="fa-solid fa-xmark" />
-                      </button>
-                    )}
                   </div>
                 );
               })

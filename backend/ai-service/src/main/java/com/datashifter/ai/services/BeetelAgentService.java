@@ -250,16 +250,7 @@ public class BeetelAgentService {
 
     @Transactional
     public void deleteSession(String sessionId) {
-        AiChatSession session = findAuthorizedSession(sessionId);
-        long sharedCount = sessionMemberRepository.countBySessionId(session.getId());
-        if (sharedCount > 0) {
-            throw new DatashifterException("Shared conversations cannot be deleted.");
-        }
-        String currentUserId = UserContext.getCurrentUserId();
-        if (!session.getUserId().equals(currentUserId)) {
-            throw new DatashifterException("Only the conversation owner can delete a private conversation.");
-        }
-        sessionRepository.delete(session);
+        throw new DatashifterException("Conversations cannot be deleted.");
     }
 
     // =========================================================================
