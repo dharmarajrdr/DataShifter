@@ -1482,29 +1482,6 @@ const BeetelChatWorkspace = ({
             </select>
           )}
 
-          <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: COLORS.accent.purpleText, marginLeft: '4px' }}>
-            Model:
-          </span>
-          <select
-            value={preferredProvider}
-            onChange={e => setPreferredProvider(e.target.value)}
-            style={{
-              padding: '5px 9px',
-              borderRadius: BORDER_RADIUS.sm,
-              border: '1px solid #D4D0F5',
-              fontSize: FONT.size.xs,
-              fontWeight: FONT.weight.medium,
-              background: '#FFFFFF',
-              color: COLORS.text.primary,
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-            title="Choose LLM provider or Auto Failover"
-          >
-            <option value="">Auto (Groq / Ollama)</option>
-            <option value="OLLAMA">Local Ollama (gemma4:12b)</option>
-            <option value="GROQ">Groq Cloud</option>
-          </select>
         </div>
 
         {/* Share & Upload .md Spec controls */}
@@ -1999,42 +1976,76 @@ const BeetelChatWorkspace = ({
           borderTop: `1px solid ${COLORS.border.light}`,
           background: '#fff',
           display: 'flex',
-          gap: SPACING.xs,
-          alignItems: 'flex-end',
+          flexDirection: 'column',
+          gap: '8px',
         }}
       >
-        <textarea
-          rows={compact ? 2 : 2}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder={AGENT.placeholder}
-          style={{
-            flex: 1,
-            resize: 'none',
-            padding: '8px 10px',
-            borderRadius: BORDER_RADIUS.md,
-            border: `1px solid ${COLORS.border.light}`,
-            fontSize: FONT.size.sm,
-            fontFamily: FONT.family,
-            outline: 'none',
-          }}
-        />
-        <Button type="submit" disabled={sending || (!input.trim() && !mdFile)}>
-          {sending ? (
-            <span style={{ ...FRSC, gap: '6px' }}>
-              <SpinnerLoader size={13} color="#FFFFFF" height="auto" style={{ width: 'auto', padding: 0 }} />
-              <span>Sending</span>
+        <div style={{ display: 'flex', gap: SPACING.xs, alignItems: 'flex-end' }}>
+          <textarea
+            rows={compact ? 2 : 2}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder={AGENT.placeholder}
+            style={{
+              flex: 1,
+              resize: 'none',
+              padding: '8px 10px',
+              borderRadius: BORDER_RADIUS.md,
+              border: `1px solid ${COLORS.border.light}`,
+              fontSize: FONT.size.sm,
+              fontFamily: FONT.family,
+              outline: 'none',
+            }}
+          />
+          <Button type="submit" disabled={sending || (!input.trim() && !mdFile)}>
+            {sending ? (
+              <span style={{ ...FRSC, gap: '6px' }}>
+                <SpinnerLoader size={13} color="#FFFFFF" height="auto" style={{ width: 'auto', padding: 0 }} />
+                <span>Sending</span>
+              </span>
+            ) : (
+              'Send'
+            )}
+          </Button>
+        </div>
+
+        {/* Composer bottom toolbar with Model selector */}
+        <div style={{ ...FRBC, alignItems: 'center' }}>
+          <div style={{ ...FRSC, gap: '6px', alignItems: 'center' }}>
+            <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>
+              Model:
             </span>
-          ) : (
-            'Send'
-          )}
-        </Button>
+            <select
+              value={preferredProvider}
+              onChange={e => setPreferredProvider(e.target.value)}
+              style={{
+                padding: '3px 8px',
+                borderRadius: BORDER_RADIUS.sm,
+                border: '1px solid #D4D0F5',
+                fontSize: FONT.size.xs,
+                fontWeight: FONT.weight.medium,
+                background: '#FFFFFF',
+                color: COLORS.text.primary,
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+              title="Choose LLM provider or Auto Failover"
+            >
+              <option value="">Auto (Groq / Ollama)</option>
+              <option value="OLLAMA">Local Ollama (gemma4:12b)</option>
+              <option value="GROQ">Groq Cloud</option>
+            </select>
+          </div>
+          <span style={{ fontSize: '11px', color: COLORS.text.muted }}>
+            Press Enter to send, Shift+Enter for newline
+          </span>
+        </div>
       </form>
 
       {/* Share Conversation Modal */}
