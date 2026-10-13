@@ -372,7 +372,14 @@ const TemplateModal = ({ template, onClose, onSave }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Template'}
+              {saving ? (
+                <>
+                  <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />
+                  Saving...
+                </>
+              ) : (
+                isEdit ? 'Save Changes' : 'Create Template'
+              )}
             </Button>
           </div>
         </form>

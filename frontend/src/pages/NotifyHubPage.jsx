@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PageHeader, Button, StatusBadge, ConfirmationModal } from '../components/common';
+import { PageHeader, Button, StatusBadge, ConfirmationModal, Loader } from '../components/common';
 import { COLORS, FONT, BORDER_RADIUS, SPACING } from '../constants/design';
 import { FRBC, FRSC, FCSS } from '../constants/layouts';
 import { notifyHubApi, pipelineApi } from '../services/api';
@@ -121,6 +121,17 @@ const NotifyHubPage = () => {
         <div style={{ display: 'flex', gap: SPACING.sm }}>
           <Button
             variant="secondary"
+            onClick={loadData}
+            disabled={loading}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            title="Refresh NotifyHub data"
+          >
+            <i className={`fa-solid fa-arrows-rotate ${loading ? 'fa-spin' : ''}`} style={{ fontSize: '13px' }} />
+            <span>Refresh</span>
+          </Button>
+
+          <Button
+            variant="secondary"
             onClick={() => setShowTestSendModal(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
@@ -220,19 +231,24 @@ const NotifyHubPage = () => {
         </div>
       </div>
 
-      {/* TAB CONTENT: CHANNELS */}
-      {activeTab === 'channels' && (
-        <div>
-          {filteredChannels.length === 0 ? (
-            <div style={{
-              textAlign: 'center', padding: `${SPACING.xxxl} ${SPACING.xl}`,
-              background: COLORS.background.secondary, borderRadius: BORDER_RADIUS.lg,
-              border: `1px dashed ${COLORS.border.medium}`,
-            }}>
-              <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, color: COLORS.text.primary, margin: 0 }}>
-                No notification channels configured
-              </p>
-              <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginTop: '4px' }}>
+      {/* Loading State */}
+      {loading ? (
+        <Loader message="Loading NotifyHub configurations..." height="40vh" />
+      ) : (
+        <>
+          {/* TAB CONTENT: CHANNELS */}
+          {activeTab === 'channels' && (
+            <div>
+              {filteredChannels.length === 0 ? (
+                <div style={{
+                  textAlign: 'center', padding: `${SPACING.xxxl} ${SPACING.xl}`,
+                  background: COLORS.background.secondary, borderRadius: BORDER_RADIUS.lg,
+                  border: `1px dashed ${COLORS.border.medium}`,
+                }}>
+                  <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, color: COLORS.text.primary, margin: 0 }}>
+                    No notification channels configured
+                  </p>
+                  <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginTop: '4px' }}>
                 Add your team's Slack, Email, Microsoft Teams, Zoho Cliq or custom Webhook endpoints.
               </p>
               <Button
@@ -504,6 +520,8 @@ const NotifyHubPage = () => {
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
 
       {/* MODALS */}

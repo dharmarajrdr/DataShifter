@@ -280,7 +280,14 @@ const TestSendModal = ({ channels = [], templates = [], pipelines = [], onClose,
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={sending}>
-              {sending ? 'Dispatching...' : 'Dispatch Alert Now'}
+              {sending ? (
+                <>
+                  <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />
+                  Dispatching...
+                </>
+              ) : (
+                'Dispatch Alert Now'
+              )}
             </Button>
           </div>
         </form>

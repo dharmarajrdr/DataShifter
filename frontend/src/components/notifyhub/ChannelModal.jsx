@@ -584,7 +584,14 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Channel'}
+              {saving ? (
+                <>
+                  <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />
+                  Saving...
+                </>
+              ) : (
+                isEdit ? 'Save Changes' : 'Create Channel'
+              )}
             </Button>
           </div>
         </form>
