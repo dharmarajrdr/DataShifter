@@ -6,6 +6,7 @@ import { AGENT } from '../constants/literals';
 import { PageHeader, Button } from '../components/common';
 import { BeetelIcon } from '../components/layout/Icons';
 import BeetelChatWorkspace from '../components/ai/BeetelChatWorkspace';
+import { ErrorPage } from './ErrorPage';
 import { aiApi } from '../services/aiApi';
 
 const POOL_LABELS = {
@@ -27,11 +28,13 @@ const BeetelAgentPage = () => {
 
   const [sessions, setSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(routeSessionId || null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [keyStatus, setKeyStatus] = useState(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
 
   useEffect(() => {
     setSelectedSessionId(routeSessionId || null);
+    setAccessDenied(false);
   }, [routeSessionId]);
 
   const fetchOverview = useCallback(async () => {
@@ -67,6 +70,7 @@ const BeetelAgentPage = () => {
 
   const handleNewChat = () => {
     hasAutoSelectedRef.current = true;
+    setAccessDenied(false);
     setSelectedSessionId(null);
     navigate('/beetel');
   };
@@ -74,6 +78,7 @@ const BeetelAgentPage = () => {
   const handleSessionCreated = (newSession) => {
     if (!newSession) return;
     hasAutoSelectedRef.current = true;
+    setAccessDenied(false);
     setSelectedSessionId(newSession.id);
     if (routeSessionId !== newSession.id) {
       navigate(`/beetel/${newSession.id}`, { replace: true });
@@ -94,6 +99,7 @@ const BeetelAgentPage = () => {
       setSessions(prev => prev.filter(s => s.id !== id));
       if (selectedSessionId === id) {
         hasAutoSelectedRef.current = true;
+        setAccessDenied(false);
         setSelectedSessionId(null);
         navigate('/beetel', { replace: true });
       }
@@ -103,6 +109,10 @@ const BeetelAgentPage = () => {
   };
 
   const poolBadge = POOL_LABELS[keyStatus?.activePool] || POOL_LABELS.SYSTEM;
+
+  if (accessDenied) {
+    return <ErrorPage status={403} />;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
@@ -271,6 +281,7 @@ const BeetelAgentPage = () => {
         <BeetelChatWorkspace
           sessionId={selectedSessionId}
           onSessionCreated={handleSessionCreated}
+          onAccessDenied={() => setAccessDenied(true)}
           initialContextType={initialContextType}
           initialContextEntityId={initialContextEntityId}
           initialContextEntityName={initialContextEntityName}

@@ -1080,14 +1080,16 @@ public class BeetelAgentService {
         String userId = UserContext.getCurrentUserId();
         String orgId = UserContext.getCurrentOrgId();
         AiChatSession session = sessionRepository.findByIdAndOrgId(sessionId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("AiChatSession", sessionId));
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException(
+                        "You don't have permission to access this page. Contact your organization administrator to request the required permissions."));
 
         boolean isOwner = session.getUserId().equals(userId);
         boolean isSharedMember = !isOwner
                 && sessionMemberRepository.existsBySessionIdAndUserIdAndOrgId(sessionId, userId, orgId);
 
         if (!isOwner && !isSharedMember) {
-            throw new ResourceNotFoundException("AiChatSession", sessionId);
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "You don't have permission to access this page. Contact your organization administrator to request the required permissions.");
         }
         return session;
     }

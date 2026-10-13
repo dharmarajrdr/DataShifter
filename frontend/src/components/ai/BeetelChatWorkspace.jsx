@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { aiApi } from '../../services/aiApi';
 import { pipelineApi, workflowApi, connectionApi, udfApi } from '../../services/api';
 import BeetelMarkdownRenderer from './BeetelMarkdownRenderer';
+import { ErrorPage } from '../../pages/ErrorPage';
 
 const SAMPLE_MD_SPEC = `# Orders & Customers Migration Specification
 
@@ -840,6 +841,7 @@ const ShareConversationModal = ({
 const BeetelChatWorkspace = ({
   sessionId: externalSessionId = null,
   onSessionCreated = () => {},
+  onAccessDenied = null,
   initialContextType = 'NONE',
   initialContextEntityId = null,
   initialContextEntityName = null,
@@ -862,6 +864,7 @@ const BeetelChatWorkspace = ({
   const [sending, setSending] = useState(false);
   const [busyPlanId, setBusyPlanId] = useState(null);
   const [error, setError] = useState(null);
+  const [sessionAccessDenied, setSessionAccessDenied] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -933,9 +936,13 @@ const BeetelChatWorkspace = ({
     if (!sid) {
       setSession(null);
       setMessages([]);
+      setSessionAccessDenied(false);
+      setError(null);
       return;
     }
     try {
+      setSessionAccessDenied(false);
+      setError(null);
       const res = await aiApi.getSession(sid);
       const sessData = res?.data || res;
       if (sessData) {
@@ -948,9 +955,18 @@ const BeetelChatWorkspace = ({
         }
       }
     } catch (e) {
+      if (
+        e?.status === 403 ||
+        e?.status === 404 ||
+        /AiChatSession not found|access denied|don't have permission/i.test(e?.message || '')
+      ) {
+        setSessionAccessDenied(true);
+        if (onAccessDenied) onAccessDenied();
+        return;
+      }
       setError(e?.message || 'Failed to load conversation messages');
     }
-  }, []);
+  }, [onAccessDenied]);
 
   useEffect(() => {
     loadSessionMessages(externalSessionId);
@@ -1126,6 +1142,24 @@ const BeetelChatWorkspace = ({
     ...(session?.owner ? [session.owner] : []),
     ...(session?.sharedMembers || []),
   ];
+
+  if (sessionAccessDenied) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        background: COLORS.background.primary,
+        border: compact ? 'none' : `1px solid ${COLORS.border.light}`,
+        borderRadius: compact ? 0 : BORDER_RADIUS.lg,
+        overflow: 'auto',
+      }}>
+        <ErrorPage status={403} compact={compact} />
+      </div>
+    );
+  }
 
   return (
     <div style={{
