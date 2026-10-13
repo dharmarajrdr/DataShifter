@@ -50,7 +50,7 @@ spring:
             - Path=/api/v1/payments/**
 
         - id: ai-service
-          uri: http://${AI_SERVICE_HOST:localhost}:8089
+          uri: http://${AI_SERVICE_HOST:ai-service}:8089
           predicates:
             - Path=/api/v1/ai/**
 

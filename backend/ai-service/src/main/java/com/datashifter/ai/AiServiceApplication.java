@@ -25,13 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
                 "com.datashifter.udf.services",
                 "com.datashifter.udf.storage",
                 "com.datashifter.udf.validation"
-        },
-        excludeFilters = @ComponentScan.Filter(
-                type = FilterType.ANNOTATION,
-                classes = RestController.class
-        )
+        }
 )
-@ComponentScan(basePackages = "com.datashifter.ai.controllers")
 @EntityScan(basePackages = "com.datashifter.common.models")
 @EnableJpaRepositories(basePackages = {
         "com.datashifter.common.repositories",
