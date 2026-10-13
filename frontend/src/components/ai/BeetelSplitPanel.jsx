@@ -92,26 +92,28 @@ const BeetelSplitPanel = () => {
           <div style={{
             ...FRBC,
             padding: `${SPACING.sm} ${SPACING.md}`,
-            borderBottom: `1px solid ${COLORS.border.light}`,
-            background: COLORS.background.primary,
+            background: 'linear-gradient(135deg, #261F5E 0%, #4A3FB0 100%)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+            color: '#FFFFFF',
           }}>
             <div style={{ ...FRSC, gap: SPACING.xs }}>
               <div style={{
-                width: 26,
-                height: 26,
-                borderRadius: '6px',
-                background: COLORS.accent.purpleLight,
+                width: 28,
+                height: 28,
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.16)',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-                <BeetelIcon color={COLORS.accent.purpleText} size={15} />
+                <BeetelIcon color="#FFFFFF" size={15} />
               </div>
               <div>
-                <p style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.semibold, margin: 0 }}>
+                <p style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.semibold, color: '#FFFFFF', margin: 0 }}>
                   {AGENT.title}
                 </p>
-                <p style={{ fontSize: '10px', color: COLORS.text.tertiary, margin: 0 }}>
+                <p style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.78)', margin: 0 }}>
                   {routeContext.type !== 'NONE'
                     ? `Bound to active ${routeContext.type.toLowerCase()}`
                     : 'Contextual AI Assistant'}
@@ -132,12 +134,13 @@ const BeetelSplitPanel = () => {
                 }}
                 title="Expand to full Beetel workspace"
                 style={{
-                  padding: '4px 8px',
-                  borderRadius: BORDER_RADIUS.sm,
-                  border: `1px solid ${COLORS.border.light}`,
-                  background: COLORS.background.secondary,
-                  color: COLORS.text.secondary,
+                  padding: '4px 9px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.28)',
+                  background: 'rgba(255, 255, 255, 0.14)',
+                  color: '#FFFFFF',
                   fontSize: '11px',
+                  fontWeight: FONT.weight.medium,
                   cursor: 'pointer',
                 }}
               >
@@ -148,15 +151,19 @@ const BeetelSplitPanel = () => {
                 onClick={() => setIsOpen(false)}
                 title="Close split panel"
                 style={{
-                  border: 'none',
-                  background: 'transparent',
+                  width: 26,
+                  height: 26,
+                  borderRadius: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.22)',
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  color: '#FFFFFF',
                   cursor: 'pointer',
-                  padding: '4px',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <CloseIcon size={14} />
+                <i className="fa-solid fa-xmark" style={{ fontSize: '12px' }} />
               </button>
             </div>
           </div>

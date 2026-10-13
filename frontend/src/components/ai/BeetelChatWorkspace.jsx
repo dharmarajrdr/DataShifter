@@ -623,27 +623,48 @@ const ShareConversationModal = ({
         <div style={{
           ...FRBC,
           padding: `${SPACING.md} ${SPACING.lg}`,
-          borderBottom: `1px solid ${COLORS.border.light}`,
-          background: COLORS.background.secondary,
+          background: 'linear-gradient(135deg, #2D256E 0%, #534AB7 100%)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+          color: '#FFFFFF',
         }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: FONT.size.base, fontWeight: FONT.weight.semibold, color: COLORS.text.primary }}>
-              Share Conversation
-            </h3>
-            <p style={{ margin: '2px 0 0 0', fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
-              {session.title || 'Conversation'}
-            </p>
+          <div style={{ ...FRSC, gap: SPACING.sm }}>
+            <div style={{
+              width: 34,
+              height: 34,
+              borderRadius: '9px',
+              background: 'rgba(255, 255, 255, 0.16)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <i className="fa-solid fa-user-plus" style={{ fontSize: '13px', color: '#FFFFFF' }} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: FONT.size.base, fontWeight: FONT.weight.semibold, color: '#FFFFFF' }}>
+                Share Conversation
+              </h3>
+              <p style={{ margin: '2px 0 0 0', fontSize: FONT.size.xs, color: 'rgba(255, 255, 255, 0.78)' }}>
+                {session.title || 'Conversation'}
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             style={{
-              border: 'none',
-              background: 'transparent',
-              fontSize: '14px',
-              color: COLORS.text.tertiary,
+              width: 28,
+              height: 28,
+              borderRadius: '7px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              background: 'rgba(255, 255, 255, 0.12)',
+              fontSize: '13px',
+              color: '#FFFFFF',
               cursor: 'pointer',
-              padding: '4px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <i className="fa-solid fa-xmark" />
@@ -659,7 +680,7 @@ const ShareConversationModal = ({
           color: '#854F0B',
           lineHeight: 1.45,
         }}>
-          <strong>Permanent Organization Access:</strong> Selected members from your organization can view and contribute to this conversation and approve execution plans. Once granted, access <strong>cannot be revoked</strong> and shared conversations <strong>cannot be deleted</strong>.
+          <strong>Permanent Organization Access:</strong> Selected members from your organization can view and contribute to this conversation and approve execution plans. Once granted, access <strong>cannot be revoked</strong>.
         </div>
 
         {/* Search Input */}
@@ -1179,195 +1200,260 @@ const BeetelChatWorkspace = ({
     );
   }
 
+  const contextIconClass =
+    contextType === 'PIPELINE'
+      ? 'fa-solid fa-code-branch'
+      : contextType === 'WORKFLOW'
+      ? 'fa-solid fa-diagram-project'
+      : contextType === 'CONNECTION'
+      ? 'fa-solid fa-plug'
+      : contextType === 'UDF'
+      ? 'fa-solid fa-code'
+      : 'fa-solid fa-globe';
+
   return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
       background: COLORS.background.primary,
-      border: compact ? 'none' : `1px solid ${COLORS.border.light}`,
+      border: compact ? 'none' : '1px solid #DFDDF7',
       borderRadius: compact ? 0 : BORDER_RADIUS.lg,
+      boxShadow: compact ? 'none' : '0 4px 16px rgba(83, 74, 183, 0.06)',
       overflow: 'hidden',
     }}>
-      {/* Context & Sharing Bar */}
+      {/* Rich Context & Sharing Header Bar */}
       <div style={{
         ...FRBC,
         flexWrap: 'wrap',
         gap: SPACING.xs,
-        padding: `${SPACING.xs} ${SPACING.md}`,
-        background: COLORS.background.secondary,
-        borderBottom: `1px solid ${COLORS.border.light}`,
+        padding: compact ? '8px 12px' : '9px 16px',
+        background: 'linear-gradient(135deg, #2E2672 0%, #4E45AF 58%, #1B6E68 100%)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+        boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.14)',
       }}>
-        <div style={{ ...FRSC, gap: SPACING.xs, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>
-            Context:
-          </span>
-          <select
-            value={contextType}
-            onChange={e => {
-              const nextType = e.target.value;
-              setContextType(nextType);
-              if (nextType === 'PIPELINE' && pipelines.length > 0) {
-                setContextEntityId(pipelines[0].id);
-                setContextEntityName(pipelines[0].name);
-              } else if (nextType === 'WORKFLOW' && workflows.length > 0) {
-                setContextEntityId(workflows[0].id);
-                setContextEntityName(workflows[0].name);
-              } else if (nextType === 'CONNECTION' && connections.length > 0) {
-                setContextEntityId(connections[0].id);
-                setContextEntityName(connections[0].name);
-              } else if (nextType === 'UDF' && udfs.length > 0) {
-                setContextEntityId(udfs[0].id);
-                setContextEntityName(udfs[0].name);
-              } else {
-                setContextEntityId('');
-                setContextEntityName('');
-              }
-            }}
-            style={{
-              padding: '4px 8px',
-              borderRadius: BORDER_RADIUS.sm,
-              border: `1px solid ${COLORS.border.light}`,
-              fontSize: FONT.size.xs,
-              background: '#fff',
-              color: COLORS.text.primary,
-            }}
-          >
-            <option value="NONE">Global Workspace</option>
-            <option value="PIPELINE">Pipeline</option>
-            <option value="WORKFLOW">Workflow</option>
-            <option value="CONNECTION">Connection</option>
-            <option value="UDF">UDF</option>
-          </select>
-
-          {contextType === 'PIPELINE' && (
+        <div style={{ ...FRSC, gap: '8px', flexWrap: 'wrap' }}>
+          {/* Context Capsule */}
+          <div style={{
+            ...FRSC,
+            gap: '6px',
+            padding: '3px 6px 3px 9px',
+            borderRadius: BORDER_RADIUS.md,
+            background: 'rgba(255, 255, 255, 0.13)',
+            border: '1px solid rgba(255, 255, 255, 0.22)',
+          }}>
+            <i className={contextIconClass} style={{ fontSize: '11px', color: '#C7D2FE' }} />
+            <span style={{
+              fontSize: '10px',
+              fontWeight: FONT.weight.semibold,
+              color: 'rgba(255, 255, 255, 0.85)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.4px',
+            }}>
+              Context
+            </span>
             <select
-              value={contextEntityId}
-              onChange={e => setContextEntityId(e.target.value)}
+              value={contextType}
+              onChange={e => {
+                const nextType = e.target.value;
+                setContextType(nextType);
+                if (nextType === 'PIPELINE' && pipelines.length > 0) {
+                  setContextEntityId(pipelines[0].id);
+                  setContextEntityName(pipelines[0].name);
+                } else if (nextType === 'WORKFLOW' && workflows.length > 0) {
+                  setContextEntityId(workflows[0].id);
+                  setContextEntityName(workflows[0].name);
+                } else if (nextType === 'CONNECTION' && connections.length > 0) {
+                  setContextEntityId(connections[0].id);
+                  setContextEntityName(connections[0].name);
+                } else if (nextType === 'UDF' && udfs.length > 0) {
+                  setContextEntityId(udfs[0].id);
+                  setContextEntityName(udfs[0].name);
+                } else {
+                  setContextEntityId('');
+                  setContextEntityName('');
+                }
+              }}
               style={{
-                padding: '4px 8px',
-                borderRadius: BORDER_RADIUS.sm,
-                border: `1px solid ${COLORS.border.light}`,
+                padding: '3px 7px',
+                borderRadius: '6px',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
                 fontSize: FONT.size.xs,
-                background: '#fff',
-                color: COLORS.text.primary,
-                maxWidth: compact ? '150px' : '220px',
+                fontWeight: FONT.weight.semibold,
+                background: '#FFFFFF',
+                color: '#2E2672',
+                outline: 'none',
+                cursor: 'pointer',
               }}
             >
-              <option value="">Select pipeline...</option>
-              {pipelines.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.status})
-                </option>
-              ))}
+              <option value="NONE">Global Workspace</option>
+              <option value="PIPELINE">Pipeline</option>
+              <option value="WORKFLOW">Workflow</option>
+              <option value="CONNECTION">Connection</option>
+              <option value="UDF">UDF</option>
             </select>
-          )}
 
-          {contextType === 'WORKFLOW' && (
+            {contextType === 'PIPELINE' && (
+              <select
+                value={contextEntityId}
+                onChange={e => setContextEntityId(e.target.value)}
+                style={{
+                  padding: '3px 7px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  fontSize: FONT.size.xs,
+                  fontWeight: FONT.weight.medium,
+                  background: '#FFFFFF',
+                  color: COLORS.text.primary,
+                  maxWidth: compact ? '140px' : '210px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">Select pipeline...</option>
+                {pipelines.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.status})
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {contextType === 'WORKFLOW' && (
+              <select
+                value={contextEntityId}
+                onChange={e => setContextEntityId(e.target.value)}
+                style={{
+                  padding: '3px 7px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  fontSize: FONT.size.xs,
+                  fontWeight: FONT.weight.medium,
+                  background: '#FFFFFF',
+                  color: COLORS.text.primary,
+                  maxWidth: compact ? '140px' : '210px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">Select workflow...</option>
+                {workflows.map(w => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} ({w.status})
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {contextType === 'CONNECTION' && (
+              <select
+                value={contextEntityId}
+                onChange={e => setContextEntityId(e.target.value)}
+                style={{
+                  padding: '3px 7px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  fontSize: FONT.size.xs,
+                  fontWeight: FONT.weight.medium,
+                  background: '#FFFFFF',
+                  color: COLORS.text.primary,
+                  maxWidth: compact ? '140px' : '210px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">Select connection...</option>
+                {connections.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.dbType || c.type})
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {contextType === 'UDF' && (
+              <select
+                value={contextEntityId}
+                onChange={e => setContextEntityId(e.target.value)}
+                style={{
+                  padding: '3px 7px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  fontSize: FONT.size.xs,
+                  fontWeight: FONT.weight.medium,
+                  background: '#FFFFFF',
+                  color: COLORS.text.primary,
+                  maxWidth: compact ? '140px' : '210px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">Select UDF...</option>
+                {udfs.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} (v{u.version || '1.0.0'})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Model Capsule */}
+          <div style={{
+            ...FRSC,
+            gap: '6px',
+            padding: '3px 6px 3px 9px',
+            borderRadius: BORDER_RADIUS.md,
+            background: 'rgba(255, 255, 255, 0.13)',
+            border: '1px solid rgba(255, 255, 255, 0.22)',
+          }}>
+            <i className="fa-solid fa-microchip" style={{ fontSize: '11px', color: '#A7F3D0' }} />
+            <span style={{
+              fontSize: '10px',
+              fontWeight: FONT.weight.semibold,
+              color: 'rgba(255, 255, 255, 0.85)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.4px',
+            }}>
+              Model
+            </span>
             <select
-              value={contextEntityId}
-              onChange={e => setContextEntityId(e.target.value)}
+              value={preferredProvider}
+              onChange={e => setPreferredProvider(e.target.value)}
               style={{
-                padding: '4px 8px',
-                borderRadius: BORDER_RADIUS.sm,
-                border: `1px solid ${COLORS.border.light}`,
+                padding: '3px 7px',
+                borderRadius: '6px',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
                 fontSize: FONT.size.xs,
-                background: '#fff',
-                color: COLORS.text.primary,
-                maxWidth: compact ? '150px' : '220px',
+                fontWeight: FONT.weight.semibold,
+                background: '#FFFFFF',
+                color: '#2E2672',
+                outline: 'none',
+                cursor: 'pointer',
               }}
+              title="Choose LLM provider or Auto Failover"
             >
-              <option value="">Select workflow...</option>
-              {workflows.map(w => (
-                <option key={w.id} value={w.id}>
-                  {w.name} ({w.status})
-                </option>
-              ))}
+              <option value="">Auto (Groq / Ollama)</option>
+              <option value="OLLAMA">Local Ollama (gemma4:12b)</option>
+              <option value="GROQ">Groq Cloud</option>
             </select>
-          )}
-
-          {contextType === 'CONNECTION' && (
-            <select
-              value={contextEntityId}
-              onChange={e => setContextEntityId(e.target.value)}
-              style={{
-                padding: '4px 8px',
-                borderRadius: BORDER_RADIUS.sm,
-                border: `1px solid ${COLORS.border.light}`,
-                fontSize: FONT.size.xs,
-                background: '#fff',
-                color: COLORS.text.primary,
-                maxWidth: compact ? '150px' : '220px',
-              }}
-            >
-              <option value="">Select connection...</option>
-              {connections.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.dbType || c.type})
-                </option>
-              ))}
-            </select>
-          )}
-
-          {contextType === 'UDF' && (
-            <select
-              value={contextEntityId}
-              onChange={e => setContextEntityId(e.target.value)}
-              style={{
-                padding: '4px 8px',
-                borderRadius: BORDER_RADIUS.sm,
-                border: `1px solid ${COLORS.border.light}`,
-                fontSize: FONT.size.xs,
-                background: '#fff',
-                color: COLORS.text.primary,
-                maxWidth: compact ? '150px' : '220px',
-              }}
-            >
-              <option value="">Select UDF...</option>
-              {udfs.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.name} (v{u.version || '1.0.0'})
-                </option>
-              ))}
-            </select>
-          )}
-
-          <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary, marginLeft: '4px' }}>
-            Model:
-          </span>
-          <select
-            value={preferredProvider}
-            onChange={e => setPreferredProvider(e.target.value)}
-            style={{
-              padding: '4px 8px',
-              borderRadius: BORDER_RADIUS.sm,
-              border: `1px solid ${COLORS.border.light}`,
-              fontSize: FONT.size.xs,
-              background: '#fff',
-              color: COLORS.text.primary,
-            }}
-            title="Choose LLM provider or Auto Failover"
-          >
-            <option value="">Auto (Groq / Ollama)</option>
-            <option value="OLLAMA">Local Ollama (gemma4:12b)</option>
-            <option value="GROQ">Groq Cloud</option>
-          </select>
+          </div>
         </div>
 
         {/* Share & Upload .md Spec controls */}
-        <div style={{ ...FRSC, gap: '6px', flexWrap: 'wrap' }}>
+        <div style={{ ...FRSC, gap: '7px', flexWrap: 'wrap' }}>
           {activeSessionId && (
-            <div style={{ ...FRSC, gap: '6px' }}>
+            <div style={{ ...FRSC, gap: '7px' }}>
               {isSessionShared && (
                 <div
                   style={{
                     ...FRSC,
                     gap: '5px',
-                    padding: '2px 8px',
-                    borderRadius: BORDER_RADIUS.full,
-                    background: '#E1F5EE',
-                    border: '1px solid #9FE1CB',
-                    color: '#0F6E56',
+                    padding: '3px 9px',
+                    borderRadius: BORDER_RADIUS.pill,
+                    background: 'rgba(29, 158, 117, 0.28)',
+                    border: '1px solid rgba(159, 225, 203, 0.5)',
+                    color: '#D2F7E9',
                     fontSize: '11px',
                     fontWeight: FONT.weight.semibold,
                   }}
@@ -1386,10 +1472,10 @@ const BeetelChatWorkspace = ({
                       initials={p.displayInitials}
                       name={`${p.fullName}${p.isOwner ? ' (Owner)' : ' (Shared)'}`}
                       color={p.avatarColor}
-                      size={22}
+                      size={23}
                       style={{
                         marginLeft: idx === 0 ? 0 : '-6px',
-                        border: '1.5px solid #fff',
+                        border: '1.5px solid #FFFFFF',
                       }}
                     />
                   ))}
@@ -1402,11 +1488,11 @@ const BeetelChatWorkspace = ({
                 style={{
                   ...FRSC,
                   gap: '5px',
-                  padding: '4px 9px',
-                  borderRadius: BORDER_RADIUS.sm,
-                  border: `1px solid ${COLORS.accent.purpleText}`,
-                  background: COLORS.accent.purpleLight,
-                  color: COLORS.accent.purpleText,
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.32)',
+                  background: 'rgba(255, 255, 255, 0.16)',
+                  color: '#FFFFFF',
                   fontSize: FONT.size.xs,
                   fontWeight: FONT.weight.semibold,
                   cursor: 'pointer',
@@ -1432,13 +1518,15 @@ const BeetelChatWorkspace = ({
             style={{
               ...FRSC,
               gap: '5px',
-              padding: '4px 8px',
-              borderRadius: BORDER_RADIUS.sm,
-              border: `1px solid ${COLORS.border.medium}`,
-              background: '#fff',
-              color: COLORS.text.primary,
+              padding: '5px 10px',
+              borderRadius: '6px',
+              border: '1px solid rgba(255, 255, 255, 0.85)',
+              background: '#FFFFFF',
+              color: '#2E2672',
               fontSize: FONT.size.xs,
+              fontWeight: FONT.weight.semibold,
               cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.12)',
             }}
           >
             <i className="fa-regular fa-file-lines" style={{ fontSize: '11px' }} />

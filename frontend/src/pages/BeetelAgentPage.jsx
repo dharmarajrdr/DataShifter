@@ -99,63 +99,191 @@ const BeetelAgentPage = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
-      <PageHeader
-        title={AGENT.title}
-        subtitle={AGENT.subtitle}
-        actions={
-          <div style={{ ...FRSC, gap: SPACING.sm }}>
-            <div
-              onClick={() => navigate('/profile')}
-              title="Click to configure your personal LLM API keys"
-              style={{
-                ...FRSC,
-                gap: '6px',
-                padding: '5px 10px',
-                borderRadius: BORDER_RADIUS.full,
-                background: poolBadge.bg,
-                color: poolBadge.text,
-                fontSize: FONT.size.xs,
-                fontWeight: FONT.weight.medium,
-                cursor: 'pointer',
-              }}
-            >
-              <BeetelIcon color={poolBadge.text} size={13} />
-              <span>{poolBadge.label}</span>
-            </div>
-            <Button size="sm" onClick={handleNewChat}>
-              {AGENT.newChat}
-            </Button>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', gap: SPACING.md }}>
+      {/* Premium Hero Header Banner */}
+      <div style={{
+        ...FRBC,
+        flexWrap: 'wrap',
+        gap: SPACING.md,
+        padding: `${SPACING.md} ${SPACING.lg}`,
+        borderRadius: BORDER_RADIUS.lg,
+        background: 'linear-gradient(135deg, #261F5E 0%, #4A3FB0 52%, #197A6B 100%)',
+        boxShadow: '0 8px 24px rgba(59, 48, 145, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.16)',
+        color: '#FFFFFF',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Subtle decorative radial glow */}
+        <div style={{
+          position: 'absolute',
+          top: '-60px',
+          right: '140px',
+          width: '200px',
+          height: '200px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 70%)',
+          pointerEvents: 'none',
+        }} />
+
+        <div style={{ ...FRSC, gap: SPACING.md, zIndex: 1 }}>
+          <div style={{
+            width: 44,
+            height: 44,
+            borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.14)',
+            border: '1px solid rgba(255, 255, 255, 0.25)',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <BeetelIcon color="#FFFFFF" size={22} />
           </div>
-        }
-      />
+          <div>
+            <div style={{ ...FRSC, gap: '8px', marginBottom: '2px' }}>
+              <h1 style={{
+                margin: 0,
+                fontSize: FONT.size.xl,
+                fontWeight: FONT.weight.semibold,
+                color: '#FFFFFF',
+                letterSpacing: '-0.2px',
+              }}>
+                {AGENT.title}
+              </h1>
+              <span style={{
+                ...FRSC,
+                gap: '5px',
+                padding: '2px 8px',
+                borderRadius: BORDER_RADIUS.pill,
+                background: 'rgba(29, 158, 117, 0.28)',
+                border: '1px solid rgba(159, 225, 203, 0.45)',
+                color: '#D2F7E9',
+                fontSize: '10px',
+                fontWeight: FONT.weight.semibold,
+                letterSpacing: '0.4px',
+                textTransform: 'uppercase',
+              }}>
+                <span style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: '#4ADE80',
+                  boxShadow: '0 0 6px #4ADE80',
+                }} />
+                Agentic Copilot
+              </span>
+            </div>
+            <p style={{
+              margin: 0,
+              fontSize: FONT.size.sm,
+              color: 'rgba(255, 255, 255, 0.82)',
+            }}>
+              {AGENT.subtitle}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ ...FRSC, gap: SPACING.sm, zIndex: 1 }}>
+          <div
+            onClick={() => navigate('/profile')}
+            title="Click to configure your personal LLM API keys"
+            style={{
+              ...FRSC,
+              gap: '7px',
+              padding: '6px 12px',
+              borderRadius: BORDER_RADIUS.pill,
+              background: 'rgba(255, 255, 255, 0.13)',
+              border: '1px solid rgba(255, 255, 255, 0.24)',
+              color: '#FFFFFF',
+              fontSize: FONT.size.xs,
+              fontWeight: FONT.weight.medium,
+              cursor: 'pointer',
+              backdropFilter: 'blur(8px)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
+            }}
+          >
+            <i className="fa-solid fa-key" style={{ fontSize: '11px', color: '#A7F3D0' }} />
+            <span>{poolBadge.label}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleNewChat}
+            style={{
+              ...FRSC,
+              gap: '6px',
+              padding: '7px 14px',
+              borderRadius: BORDER_RADIUS.md,
+              border: '1px solid rgba(255, 255, 255, 0.9)',
+              background: '#FFFFFF',
+              color: '#3C3489',
+              fontSize: FONT.size.sm,
+              fontWeight: FONT.weight.semibold,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.16)',
+            }}
+          >
+            <i className="fa-solid fa-plus" style={{ fontSize: '11px' }} />
+            <span>{AGENT.newChat}</span>
+          </button>
+        </div>
+      </div>
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '260px 1fr',
+        gridTemplateColumns: '268px 1fr',
         gap: SPACING.md,
         flex: 1,
         minHeight: 0,
       }}>
         {/* Left Sidebar: Session History */}
         <div style={{
-          border: `1px solid ${COLORS.border.light}`,
+          border: '1px solid #DFDDF7',
           borderRadius: BORDER_RADIUS.lg,
           background: COLORS.background.primary,
+          boxShadow: '0 4px 16px rgba(83, 74, 183, 0.06)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}>
           <div style={{
             ...FRBC,
-            padding: `${SPACING.sm} ${SPACING.md}`,
-            borderBottom: `1px solid ${COLORS.border.light}`,
-            background: COLORS.background.secondary,
+            padding: '11px 14px',
+            background: 'linear-gradient(135deg, #352C7E 0%, #534AB7 100%)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+            color: '#FFFFFF',
           }}>
-            <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: COLORS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-              Conversations
-            </span>
-            <span style={{ fontSize: '11px', color: COLORS.text.tertiary }}>
+            <div style={{ ...FRSC, gap: '8px' }}>
+              <span style={{
+                width: 22,
+                height: 22,
+                borderRadius: '6px',
+                background: 'rgba(255, 255, 255, 0.16)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <i className="fa-solid fa-comments" style={{ fontSize: '11px', color: '#E0E7FF' }} />
+              </span>
+              <span style={{
+                fontSize: FONT.size.xs,
+                fontWeight: FONT.weight.semibold,
+                color: '#FFFFFF',
+                textTransform: 'uppercase',
+                letterSpacing: '0.6px',
+              }}>
+                Conversations
+              </span>
+            </div>
+            <span style={{
+              fontSize: '11px',
+              fontWeight: FONT.weight.semibold,
+              padding: '2px 8px',
+              borderRadius: BORDER_RADIUS.pill,
+              background: 'rgba(255, 255, 255, 0.18)',
+              color: '#FFFFFF',
+              border: '1px solid rgba(255, 255, 255, 0.24)',
+            }}>
               {sessions.length}
             </span>
           </div>
@@ -185,11 +313,17 @@ const BeetelAgentPage = () => {
                     style={{
                       ...FRBC,
                       gap: SPACING.xs,
-                      padding: `${SPACING.xs} ${SPACING.sm}`,
+                      padding: '9px 11px',
                       borderRadius: BORDER_RADIUS.md,
-                      marginBottom: '3px',
+                      marginBottom: '4px',
                       cursor: 'pointer',
-                      background: active ? COLORS.accent.purpleLight : 'transparent',
+                      background: active
+                        ? 'linear-gradient(135deg, #F3F2FF 0%, #EEEDFE 100%)'
+                        : 'transparent',
+                      border: active
+                        ? '1px solid #C8C4F5'
+                        : '1px solid transparent',
+                      boxShadow: active ? '0 2px 6px rgba(83, 74, 183, 0.08)' : 'none',
                       color: active ? COLORS.accent.purpleText : COLORS.text.primary,
                     }}
                   >
