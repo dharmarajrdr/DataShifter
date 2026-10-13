@@ -123,6 +123,11 @@ const RoleEditorModal = ({ role, onClose, onSave }) => {
     }
   };
 
+  const isAgentRole = String(role?.name || '').toLowerCase() === 'agent';
+  const visibleGroups = isAgentRole
+    ? PERMISSION_GROUPS.filter(g => g.label !== 'Organization')
+    : PERMISSION_GROUPS;
+
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -168,7 +173,7 @@ const RoleEditorModal = ({ role, onClose, onSave }) => {
               }}>Clear all</button>
             </div>
 
-            {PERMISSION_GROUPS.map(group => {
+            {visibleGroups.map(group => {
               const groupPerms = group.permissions.map(p => p.key);
               const selectedCount = groupPerms.filter(p => permissions.has(p)).length;
               const allSelected = selectedCount === groupPerms.length;
@@ -298,6 +303,7 @@ const RolesPage = () => {
         {roles.map(role => {
           const roleMembers = getMembersForRole(role.id);
           const isExpanded = expandedRole === role.id;
+          const isAgentRole = String(role.name || '').toLowerCase() === 'agent';
 
           return (
             <div key={role.id} style={{
@@ -316,6 +322,7 @@ const RolesPage = () => {
                     <div style={{ ...FRSC, gap: SPACING.xs }}>
                       <p style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, margin: 0 }}>{role.name}</p>
                       {role.system && <Chip label="System" colorScheme="default" style={{ fontSize: '9px' }} />}
+                      {isAgentRole && <Chip label="AI Agent Only" colorScheme="purple" style={{ fontSize: '9px' }} />}
                     </div>
                     <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, margin: 0, marginTop: '2px' }}>
                       {role.description || 'No description'}
@@ -324,7 +331,7 @@ const RolesPage = () => {
                 </div>
                 <div style={{ ...FRSC, gap: SPACING.sm }}>
                   <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-                    {roleMembers.length} member{roleMembers.length !== 1 ? 's' : ''}
+                    {isAgentRole ? 'Assigned to Beetel' : `${roleMembers.length} member${roleMembers.length !== 1 ? 's' : ''}`}
                   </span>
                   <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
                     {role.permissions?.length || 0} permissions

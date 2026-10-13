@@ -1,5 +1,6 @@
 package com.datashifter.ai.tools;
 
+import com.datashifter.ai.services.AgentPermissionService;
 import com.datashifter.common.dtos.ConnectionDtos.*;
 import com.datashifter.common.dtos.MappingDtos.MappingResponse;
 import com.datashifter.common.dtos.MonitorDtos.*;
@@ -8,6 +9,7 @@ import com.datashifter.common.dtos.PipelineDtos.*;
 import com.datashifter.common.dtos.TableOrderDtos.*;
 import com.datashifter.common.dtos.UdfDtos.UdfResponse;
 import com.datashifter.common.dtos.WorkflowDtos.*;
+import com.datashifter.common.enums.Permissions;
 import com.datashifter.connector.services.implementations.TableOrderService;
 import com.datashifter.connector.services.interfaces.ConnectionService;
 import com.datashifter.monitor.services.interfaces.MonitorService;
@@ -42,10 +44,13 @@ public class BeetelReadOnlyToolFacade {
     private final WorkflowService workflowService;
     private final MonitorService monitorService;
     private final UdfRegistryService udfRegistryService;
+    private final AgentPermissionService agentPermissionService;
 
     @Tool(description = "List all table names in a database connection by connectionId.")
     public List<String> listDatabaseTables(
             @ToolParam(description = "Database connection ID") String connectionId) {
+        agentPermissionService.assertPermission(Permissions.CONNECTION_VIEW);
+        agentPermissionService.assertPermission(Permissions.CONNECTION_BROWSE_SCHEMA);
         return connectionService.listTables(connectionId);
     }
 
@@ -53,6 +58,8 @@ public class BeetelReadOnlyToolFacade {
     public TableMetadata getTableSchema(
             @ToolParam(description = "Database connection ID") String connectionId,
             @ToolParam(description = "Table name") String tableName) {
+        agentPermissionService.assertPermission(Permissions.CONNECTION_VIEW);
+        agentPermissionService.assertPermission(Permissions.CONNECTION_BROWSE_SCHEMA);
         return connectionService.getTableMetadata(connectionId, tableName);
     }
 
@@ -60,6 +67,8 @@ public class BeetelReadOnlyToolFacade {
     public SmartOrderResponse computeSmartTableOrder(
             @ToolParam(description = "Database connection ID") String connectionId,
             @ToolParam(description = "Table names to sort") List<String> tableNames) {
+        agentPermissionService.assertPermission(Permissions.CONNECTION_VIEW);
+        agentPermissionService.assertPermission(Permissions.CONNECTION_BROWSE_SCHEMA);
         return tableOrderService.smartOrder(SmartOrderRequest.builder()
                 .connectionId(connectionId)
                 .tableNames(tableNames)
@@ -69,11 +78,13 @@ public class BeetelReadOnlyToolFacade {
     @Tool(description = "Get full configuration of a pipeline by pipelineId (tables, column mappings, transformations, filters, settings).")
     public PipelineResponse getPipelineDetails(
             @ToolParam(description = "Pipeline ID") String pipelineId) {
+        agentPermissionService.assertPermission(Permissions.PIPELINE_VIEW);
         return pipelineService.getById(pipelineId);
     }
 
     @Tool(description = "List registered Java UDFs and methods available for column transformations.")
     public List<UdfResponse> listUdfs() {
+        agentPermissionService.assertPermission(Permissions.UDF_VIEW);
         return udfRegistryService.getAll();
     }
 
@@ -82,6 +93,7 @@ public class BeetelReadOnlyToolFacade {
             @ToolParam(description = "Pipeline ID") String pipelineId,
             @ToolParam(description = "Page (0-indexed)") int page,
             @ToolParam(description = "Page size (max 20)") int size) {
+        agentPermissionService.assertPermission(Permissions.MONITOR_VIEW_ERRORS);
         return monitorService.getErrorSummary(pipelineId, Math.max(0, page), Math.min(20, Math.max(1, size)));
     }
 
@@ -91,6 +103,7 @@ public class BeetelReadOnlyToolFacade {
             @ToolParam(description = "Optional pipelineId filter") String pipelineIdFilter,
             @ToolParam(description = "Page (0-indexed)") int page,
             @ToolParam(description = "Page size (max 20)") int size) {
+        agentPermissionService.assertPermission(Permissions.MONITOR_VIEW_ERRORS);
         return monitorService.getWorkflowErrorSummary(workflowId, pipelineIdFilter, Math.max(0, page), Math.min(20, Math.max(1, size)));
     }
 }

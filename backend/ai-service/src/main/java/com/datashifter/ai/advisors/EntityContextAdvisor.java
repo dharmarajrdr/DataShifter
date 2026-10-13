@@ -1,5 +1,6 @@
 package com.datashifter.ai.advisors;
 
+import com.datashifter.ai.services.AgentPermissionService;
 import com.datashifter.ai.spi.BeetelContextAdvisor;
 import com.datashifter.common.dtos.ConnectionDtos.ConnectionResponse;
 import com.datashifter.common.dtos.MonitorDtos.ErrorSummaryResponse;
@@ -14,6 +15,7 @@ import com.datashifter.common.dtos.WorkflowDtos.WorkflowNodeResponse;
 import com.datashifter.common.dtos.WorkflowDtos.WorkflowResponse;
 import com.datashifter.common.dtos.WorkflowDtos.WorkflowSummaryResponse;
 import com.datashifter.common.enums.AiContextType;
+import com.datashifter.common.enums.Permissions;
 import com.datashifter.connector.services.interfaces.ConnectionService;
 import com.datashifter.monitor.services.interfaces.MonitorService;
 import com.datashifter.pipeline.services.interfaces.PipelineService;
@@ -37,6 +39,7 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
     private final WorkflowService workflowService;
     private final MonitorService monitorService;
     private final UdfRegistryService udfRegistryService;
+    private final AgentPermissionService agentPermissionService;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -52,15 +55,24 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
         List<WorkflowSummaryResponse> wfs = List.of();
         List<UdfResponse> udfs = List.of();
 
-        // 1. Always inject a compact live workspace inventory including Workflow DAG topology (nodes + edges) and UDFs
+        AgentPermissionService.AgentPolicySnapshot policy = agentPermissionService.resolveCurrentPolicy();
+        boolean canViewConns = policy.isAllowed(Permissions.CONNECTION_VIEW);
+        boolean canViewPipes = policy.isAllowed(Permissions.PIPELINE_VIEW);
+        boolean canViewWfs = policy.isAllowed(Permissions.WORKFLOW_VIEW);
+        boolean canViewUdfs = policy.isAllowed(Permissions.UDF_VIEW);
+        boolean canViewErrors = policy.isAllowed(Permissions.MONITOR_VIEW_ERRORS);
+
+        // 1. Always inject a compact live workspace inventory respecting Agent role permissions
         try {
-            conns = connectionService.getAll();
-            pipes = pipelineService.getAll();
-            wfs = workflowService.getAll();
-            udfs = udfRegistryService.getAll();
+            if (canViewConns) conns = connectionService.getAll();
+            if (canViewPipes) pipes = pipelineService.getAll();
+            if (canViewWfs) wfs = workflowService.getAll();
+            if (canViewUdfs) udfs = udfRegistryService.getAll();
 
             sb.append("### Live Workspace Inventory\n");
-            if (conns.isEmpty()) {
+            if (!canViewConns) {
+                sb.append("- **Connections**: (Restricted by Org policy — missing `connection:view` permission)\n");
+            } else if (conns.isEmpty()) {
                 sb.append("- **Connections**: (none configured)\n");
             } else {
                 String connStr = conns.stream()
@@ -70,7 +82,9 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                 sb.append("- **Connections**: ").append(connStr).append("\n");
             }
 
-            if (pipes.isEmpty()) {
+            if (!canViewPipes) {
+                sb.append("- **Pipelines**: (Restricted by Org policy — missing `pipeline:view` permission)\n");
+            } else if (pipes.isEmpty()) {
                 sb.append("- **Pipelines**: (none)\n");
             } else {
                 String pipeStr = pipes.stream()
@@ -80,7 +94,9 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                 sb.append("- **Pipelines**: ").append(pipeStr).append("\n");
             }
 
-            if (wfs.isEmpty()) {
+            if (!canViewWfs) {
+                sb.append("- **Workflows**: (Restricted by Org policy — missing `workflow:view` permission)\n");
+            } else if (wfs.isEmpty()) {
                 sb.append("- **Workflows**: (none)\n");
             } else {
                 sb.append("- **Workflows & DAG Topology**:\n");
@@ -98,7 +114,9 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                 }
             }
 
-            if (udfs.isEmpty()) {
+            if (!canViewUdfs) {
+                sb.append("- **UDFs**: (Restricted by Org policy — missing `udf:view` permission)\n");
+            } else if (udfs.isEmpty()) {
                 sb.append("- **UDFs**: (none registered)\n");
             } else {
                 String udfStr = udfs.stream()
@@ -174,9 +192,9 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
 
         // 2. Inject active Pipeline, Workflow, Connection, or UDF details in compact format
         try {
-            if (resolvedType == AiContextType.PIPELINE) {
+            if (resolvedType == AiContextType.PIPELINE && canViewPipes) {
                 PipelineResponse pipeline = pipelineService.getById(resolvedId);
-                ErrorSummaryResponse errors = monitorService.getErrorSummary(resolvedId, 0, 5);
+                ErrorSummaryResponse errors = canViewErrors ? monitorService.getErrorSummary(resolvedId, 0, 5) : null;
                 sb.append("\n### Active Pipeline Context (`").append(pipeline.getName()).append("`, ID: `").append(pipeline.getId()).append("`)\n");
                 sb.append("- Status: `").append(pipeline.getStatus()).append("`, SrcID: `").append(pipeline.getSourceConnectionId())
                         .append("`, TgtID: `").append(pipeline.getTargetConnectionId())
@@ -190,9 +208,9 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                     sb.append("- Recent Errors (Total ").append(errors.getTotalErrors()).append("): `")
                             .append(objectMapper.writeValueAsString(errors.getErrors())).append("`\n");
                 }
-            } else if (resolvedType == AiContextType.WORKFLOW) {
+            } else if (resolvedType == AiContextType.WORKFLOW && canViewWfs) {
                 WorkflowResponse workflow = workflowService.getById(resolvedId);
-                ErrorSummaryResponse wfErrors = monitorService.getWorkflowErrorSummary(resolvedId, null, 0, 5);
+                ErrorSummaryResponse wfErrors = canViewErrors ? monitorService.getWorkflowErrorSummary(resolvedId, null, 0, 5) : null;
                 sb.append("\n### Active Workflow Context (`").append(workflow.getName()).append("`, ID: `").append(workflow.getId()).append("`)\n");
                 sb.append("- Status: `").append(workflow.getStatus()).append("`\n");
                 sb.append("- DAG Analysis: ").append(formatWorkflowDagSummary(workflow)).append("\n");
@@ -203,7 +221,7 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                     sb.append("- Recent Errors (Total ").append(wfErrors.getTotalErrors()).append("): `")
                             .append(objectMapper.writeValueAsString(wfErrors.getErrors())).append("`\n");
                 }
-            } else if (resolvedType == AiContextType.CONNECTION) {
+            } else if (resolvedType == AiContextType.CONNECTION && canViewConns) {
                 final String targetConnId = resolvedId;
                 ConnectionResponse conn = connectionService.getById(targetConnId);
                 sb.append("\n### Active Connection Context (`").append(conn.getName()).append("`, ID: `").append(conn.getId()).append("`)\n");
@@ -217,7 +235,7 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                         .map(p -> String.format("`%s` (id=`%s`, status=%s)", p.getName(), p.getId(), p.getStatus()))
                         .toList();
                 sb.append("- Used By Pipelines: ").append(linkedPipes.isEmpty() ? "(none)" : String.join(", ", linkedPipes)).append("\n");
-            } else if (resolvedType == AiContextType.UDF) {
+            } else if (resolvedType == AiContextType.UDF && canViewUdfs) {
                 String targetUdfId = resolvedId;
                 UdfResponse udf = udfs.stream()
                         .filter(u -> targetUdfId.equals(u.getId()))

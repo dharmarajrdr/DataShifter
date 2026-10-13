@@ -72,8 +72,12 @@ public class InvitationService {
                 });
 
         String roleId = request.getRoleId();
-        if (roleId != null && !roleRepository.existsById(roleId)) {
-            throw new ResourceNotFoundException("Role", roleId);
+        if (roleId != null) {
+            Role invitedRole = roleRepository.findById(roleId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Role", roleId));
+            if (com.datashifter.common.enums.Permissions.AGENT_ROLE_NAME.equalsIgnoreCase(invitedRole.getName())) {
+                throw new DatashifterException("The 'Agent' role is reserved for the AI Agent and cannot be assigned to users");
+            }
         }
 
         Organization organization = entityManager.getReference(Organization.class, orgId);
@@ -147,7 +151,7 @@ public class InvitationService {
                 Role role = invitation.getRoleId() != null
                         ? roleRepository.findById(invitation.getRoleId()).orElse(null)
                         : null;
-                if (role == null) {
+                if (role == null || com.datashifter.common.enums.Permissions.AGENT_ROLE_NAME.equalsIgnoreCase(role.getName())) {
                     role = roleRepository.findByOrgIdAndName(org.getId(), "Viewer").orElse(null);
                 }
 

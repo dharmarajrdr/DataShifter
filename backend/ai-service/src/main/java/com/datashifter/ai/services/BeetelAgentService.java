@@ -65,6 +65,7 @@ public class BeetelAgentService {
     private final AiExecutionPlanRepository planRepository;
     private final CommonAppUserRepository appUserRepository;
     private final LlmClientRouter llmClientRouter;
+    private final AgentPermissionService agentPermissionService;
     private final BeetelReadOnlyToolFacade readOnlyToolFacade;
     private final List<BeetelCapability> capabilities;
     private final List<BeetelContextAdvisor> contextAdvisors;
@@ -375,10 +376,16 @@ public class BeetelAgentService {
         }
 
         String rawContent = llmResult.content();
-        AiExecutionPlan savedPlan = extractAndSavePlanIfPresent(rawContent, session);
-        String cleanAssistantText = stripPlanBlock(rawContent).trim();
-        if (cleanAssistantText.isEmpty() && savedPlan != null) {
-            cleanAssistantText = "I have prepared an execution plan **" + savedPlan.getTitle() + "**. Please review the summary and steps below, and click **Approve & Execute** to proceed.";
+        PlanExtractionResult extraction = extractAndSavePlanIfPresent(rawContent, session);
+        AiExecutionPlan savedPlan = extraction.plan();
+        String cleanAssistantText;
+        if (extraction.restrictionMessage() != null) {
+            cleanAssistantText = extraction.restrictionMessage();
+        } else {
+            cleanAssistantText = stripPlanBlock(rawContent).trim();
+            if (cleanAssistantText.isEmpty() && savedPlan != null) {
+                cleanAssistantText = "I have prepared an execution plan **" + savedPlan.getTitle() + "**. Please review the summary and steps below, and click **Approve & Execute** to proceed.";
+            }
         }
 
         AiChatMessage assistantMsg = AiChatMessage.builder()
@@ -528,6 +535,7 @@ public class BeetelAgentService {
 
     @SuppressWarnings("unchecked")
     private StepExecutionOutcome executeSingleStep(PlanStepDto step, Map<String, String> runtimeVars) throws Exception {
+        agentPermissionService.assertStepPermission(step);
         String actionType = step.getActionType() != null ? step.getActionType().trim().toUpperCase() : "";
         Map<String, Object> rawParams = step.getParameters() != null ? step.getParameters() : Map.of();
         String resolvedJson = resolveVariablesInJson(objectMapper.writeValueAsString(rawParams), runtimeVars);
@@ -942,6 +950,9 @@ public class BeetelAgentService {
                 - Cross-step variables supported: `$LAST_CONNECTION_ID`, `$LAST_PIPELINE_ID`, `$LAST_WORKFLOW_ID`, `$PIPELINE_<UPPERCASE_NAME>`.
                 """);
 
+        // Append Agent Role Policy & Allowed Permissions
+        sb.append(agentPermissionService.buildPolicyPromptSection());
+
         // Append extensible capability context (e.g. RAG platform knowledge)
         for (BeetelCapability cap : capabilities) {
             if (cap.isEnabled()) {
@@ -985,11 +996,13 @@ public class BeetelAgentService {
         return sb.toString();
     }
 
-    private AiExecutionPlan extractAndSavePlanIfPresent(String rawContent, AiChatSession session) {
-        if (rawContent == null || rawContent.isBlank()) return null;
+    private record PlanExtractionResult(AiExecutionPlan plan, String restrictionMessage) {}
+
+    private PlanExtractionResult extractAndSavePlanIfPresent(String rawContent, AiChatSession session) {
+        if (rawContent == null || rawContent.isBlank()) return new PlanExtractionResult(null, null);
         Matcher matcher = PLAN_BLOCK_PATTERN.matcher(rawContent);
         if (!matcher.find()) {
-            return null;
+            return new PlanExtractionResult(null, null);
         }
 
         String jsonBlock = matcher.group(1);
@@ -1020,7 +1033,12 @@ public class BeetelAgentService {
             }
 
             if (steps.isEmpty()) {
-                return null;
+                return new PlanExtractionResult(null, null);
+            }
+
+            Optional<String> restriction = agentPermissionService.validatePlanPermissions(steps);
+            if (restriction.isPresent()) {
+                return new PlanExtractionResult(null, restriction.get());
             }
 
             AiExecutionPlan plan = AiExecutionPlan.builder()
@@ -1035,10 +1053,10 @@ public class BeetelAgentService {
                     .stepsJson(toJson(steps))
                     .build();
 
-            return planRepository.save(plan);
+            return new PlanExtractionResult(planRepository.save(plan), null);
         } catch (Exception e) {
             log.warn("Could not parse <BEETEL_PLAN> JSON block from LLM output: {}", e.getMessage());
-            return null;
+            return new PlanExtractionResult(null, null);
         }
     }
 
