@@ -92,8 +92,8 @@ const BeetelSplitPanel = () => {
           <div style={{
             ...FRBC,
             padding: `${SPACING.sm} ${SPACING.md}`,
-            background: 'linear-gradient(135deg, #261F5E 0%, #4A3FB0 100%)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+            background: COLORS.brand.primary,
+            borderBottom: `1px solid ${COLORS.brand.primaryDark}`,
             color: '#FFFFFF',
           }}>
             <div style={{ ...FRSC, gap: SPACING.xs }}>

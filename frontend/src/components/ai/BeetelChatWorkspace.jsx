@@ -624,8 +624,8 @@ const ShareConversationModal = ({
         <div style={{
           ...FRBC,
           padding: `${SPACING.md} ${SPACING.lg}`,
-          background: 'linear-gradient(135deg, #2D256E 0%, #534AB7 100%)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+          background: COLORS.brand.primary,
+          borderBottom: `1px solid ${COLORS.brand.primaryDark}`,
           color: '#FFFFFF',
         }}>
           <div style={{ ...FRSC, gap: SPACING.sm }}>
@@ -1240,9 +1240,8 @@ const BeetelChatWorkspace = ({
         flexWrap: 'wrap',
         gap: SPACING.xs,
         padding: compact ? '8px 12px' : '9px 16px',
-        background: 'linear-gradient(135deg, #2E2672 0%, #4E45AF 58%, #1B6E68 100%)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
-        boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.14)',
+        background: COLORS.brand.primary,
+        borderBottom: `1px solid ${COLORS.brand.primaryDark}`,
       }}>
         <div style={{ ...FRSC, gap: '8px', flexWrap: 'wrap' }}>
           {/* Context Capsule */}

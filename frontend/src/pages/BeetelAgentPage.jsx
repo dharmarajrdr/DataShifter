@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC } from '../constants/layouts';
 import { AGENT } from '../constants/literals';
-import { BarLoader, SkeletonLoader } from '../components/common';
+import { PageHeader, Button, BarLoader, SkeletonLoader } from '../components/common';
 import { BeetelIcon } from '../components/layout/Icons';
 import BeetelChatWorkspace from '../components/ai/BeetelChatWorkspace';
 import { ErrorPage } from './ErrorPage';
@@ -99,135 +99,36 @@ const BeetelAgentPage = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', gap: SPACING.md }}>
-      {/* Premium Hero Header Banner */}
-      <div style={{
-        ...FRBC,
-        flexWrap: 'wrap',
-        gap: SPACING.md,
-        padding: `${SPACING.md} ${SPACING.lg}`,
-        borderRadius: BORDER_RADIUS.lg,
-        background: 'linear-gradient(135deg, #261F5E 0%, #4A3FB0 52%, #197A6B 100%)',
-        boxShadow: '0 8px 24px rgba(59, 48, 145, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.16)',
-        color: '#FFFFFF',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        {/* Subtle decorative radial glow */}
-        <div style={{
-          position: 'absolute',
-          top: '-60px',
-          right: '140px',
-          width: '200px',
-          height: '200px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 70%)',
-          pointerEvents: 'none',
-        }} />
-
-        <div style={{ ...FRSC, gap: SPACING.md, zIndex: 1 }}>
-          <div style={{
-            width: 44,
-            height: 44,
-            borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.14)',
-            border: '1px solid rgba(255, 255, 255, 0.25)',
-            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <BeetelIcon color="#FFFFFF" size={22} />
-          </div>
-          <div>
-            <div style={{ ...FRSC, gap: '8px', marginBottom: '2px' }}>
-              <h1 style={{
-                margin: 0,
-                fontSize: FONT.size.xl,
-                fontWeight: FONT.weight.semibold,
-                color: '#FFFFFF',
-                letterSpacing: '-0.2px',
-              }}>
-                {AGENT.title}
-              </h1>
-              <span style={{
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+      <PageHeader
+        title={AGENT.title}
+        subtitle={AGENT.subtitle}
+        actions={
+          <div style={{ ...FRSC, gap: SPACING.sm }}>
+            <div
+              onClick={() => navigate('/profile')}
+              title="Click to configure your personal LLM API keys"
+              style={{
                 ...FRSC,
-                gap: '5px',
-                padding: '2px 8px',
-                borderRadius: BORDER_RADIUS.pill,
-                background: 'rgba(29, 158, 117, 0.28)',
-                border: '1px solid rgba(159, 225, 203, 0.45)',
-                color: '#D2F7E9',
-                fontSize: '10px',
-                fontWeight: FONT.weight.semibold,
-                letterSpacing: '0.4px',
-                textTransform: 'uppercase',
-              }}>
-                <span style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: '#4ADE80',
-                  boxShadow: '0 0 6px #4ADE80',
-                }} />
-                Agentic Copilot
-              </span>
+                gap: '6px',
+                padding: '5px 10px',
+                borderRadius: BORDER_RADIUS.full,
+                background: poolBadge.bg,
+                color: poolBadge.text,
+                fontSize: FONT.size.xs,
+                fontWeight: FONT.weight.medium,
+                cursor: 'pointer',
+              }}
+            >
+              <BeetelIcon color={poolBadge.text} size={13} />
+              <span>{poolBadge.label}</span>
             </div>
-            <p style={{
-              margin: 0,
-              fontSize: FONT.size.sm,
-              color: 'rgba(255, 255, 255, 0.82)',
-            }}>
-              {AGENT.subtitle}
-            </p>
+            <Button size="sm" onClick={handleNewChat}>
+              {AGENT.newChat}
+            </Button>
           </div>
-        </div>
-
-        <div style={{ ...FRSC, gap: SPACING.sm, zIndex: 1 }}>
-          <div
-            onClick={() => navigate('/profile')}
-            title="Click to configure your personal LLM API keys"
-            style={{
-              ...FRSC,
-              gap: '7px',
-              padding: '6px 12px',
-              borderRadius: BORDER_RADIUS.pill,
-              background: 'rgba(255, 255, 255, 0.13)',
-              border: '1px solid rgba(255, 255, 255, 0.24)',
-              color: '#FFFFFF',
-              fontSize: FONT.size.xs,
-              fontWeight: FONT.weight.medium,
-              cursor: 'pointer',
-              backdropFilter: 'blur(8px)',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
-            }}
-          >
-            <i className="fa-solid fa-key" style={{ fontSize: '11px', color: '#A7F3D0' }} />
-            <span>{poolBadge.label}</span>
-          </div>
-          <button
-            type="button"
-            onClick={handleNewChat}
-            style={{
-              ...FRSC,
-              gap: '6px',
-              padding: '7px 14px',
-              borderRadius: BORDER_RADIUS.md,
-              border: '1px solid rgba(255, 255, 255, 0.9)',
-              background: '#FFFFFF',
-              color: '#3C3489',
-              fontSize: FONT.size.sm,
-              fontWeight: FONT.weight.semibold,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.16)',
-            }}
-          >
-            <i className="fa-solid fa-plus" style={{ fontSize: '11px' }} />
-            <span>{AGENT.newChat}</span>
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       <div style={{
         display: 'grid',
@@ -249,8 +150,8 @@ const BeetelAgentPage = () => {
           <div style={{
             ...FRBC,
             padding: '11px 14px',
-            background: 'linear-gradient(135deg, #352C7E 0%, #534AB7 100%)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+            background: COLORS.brand.primary,
+            borderBottom: `1px solid ${COLORS.brand.primaryDark}`,
             color: '#FFFFFF',
           }}>
             <div style={{ ...FRSC, gap: '8px' }}>
@@ -263,7 +164,7 @@ const BeetelAgentPage = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-                <i className="fa-solid fa-comments" style={{ fontSize: '11px', color: '#E0E7FF' }} />
+                <i className="fa-solid fa-comments" style={{ fontSize: '11px', color: '#FFFFFF' }} />
               </span>
               <span style={{
                 fontSize: FONT.size.xs,
@@ -323,13 +224,8 @@ const BeetelAgentPage = () => {
                       borderRadius: BORDER_RADIUS.md,
                       marginBottom: '4px',
                       cursor: 'pointer',
-                      background: active
-                        ? 'linear-gradient(135deg, #F3F2FF 0%, #EEEDFE 100%)'
-                        : 'transparent',
-                      border: active
-                        ? '1px solid #C8C4F5'
-                        : '1px solid transparent',
-                      boxShadow: active ? '0 2px 6px rgba(83, 74, 183, 0.08)' : 'none',
+                      background: active ? COLORS.accent.purpleLight : 'transparent',
+                      border: active ? '1px solid #C8C4F5' : '1px solid transparent',
                       color: active ? COLORS.accent.purpleText : COLORS.text.primary,
                     }}
                   >
