@@ -149,7 +149,6 @@ public class BeetelAgentService {
     // CHAT & PLAN GENERATION
     // =========================================================================
 
-    @Transactional
     public ChatMessageResponse sendMessage(ChatMessageRequest request) {
         if ((request.getMessage() == null || request.getMessage().isBlank())
                 && (request.getMarkdownContent() == null || request.getMarkdownContent().isBlank())) {
@@ -257,7 +256,6 @@ public class BeetelAgentService {
     // PLAN CONFIRMATION & EXECUTION
     // =========================================================================
 
-    @Transactional
     public ChatMessageResponse decidePlan(String planId, PlanDecisionRequest decision) {
         String orgId = UserContext.getCurrentOrgId();
         AiExecutionPlan plan = planRepository.findByIdAndOrgId(planId, orgId)

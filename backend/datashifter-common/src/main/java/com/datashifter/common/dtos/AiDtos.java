@@ -211,6 +211,10 @@ public class AiDtos {
         private Map<String, Object> parameters;
         private String status; // PENDING, COMPLETED, FAILED, SKIPPED
         private String resultSummary;
+
+        public String getOutput() {
+            return resultSummary;
+        }
     }
 
     @Getter
@@ -233,6 +237,23 @@ public class AiDtos {
         private Instant confirmedAt;
         private Instant completedAt;
         private Instant createdAt;
+
+        public String getExecutionResult() {
+            if (status == AiPlanStatus.COMPLETED && executionLogs != null && !executionLogs.isEmpty()) {
+                return String.join(" • ", executionLogs);
+            }
+            return null;
+        }
+
+        public String getErrorMessage() {
+            if (status == AiPlanStatus.FAILED && executionLogs != null && !executionLogs.isEmpty()) {
+                return executionLogs.stream()
+                        .filter(l -> l.contains("FAILED:"))
+                        .findFirst()
+                        .orElse(String.join(" • ", executionLogs));
+            }
+            return null;
+        }
     }
 
     @Getter
