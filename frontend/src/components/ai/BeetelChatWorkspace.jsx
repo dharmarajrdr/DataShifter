@@ -922,6 +922,7 @@ const BeetelChatWorkspace = ({
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const shouldScrollToBottomRef = useRef(true);
+  const initialBottomSnappedRef = useRef(false);
   const prependScrollSnapshotRef = useRef(null);
   const isFetchingOlderRef = useRef(false);
 
@@ -991,6 +992,7 @@ const BeetelChatWorkspace = ({
     isFetchingOlderRef.current = false;
     setLoadingOlderMessages(false);
     prependScrollSnapshotRef.current = null;
+    initialBottomSnappedRef.current = false;
     if (!sid) {
       setSession(null);
       setMessages([]);
@@ -1082,26 +1084,47 @@ const BeetelChatWorkspace = ({
 
   const handleMessagesScroll = useCallback((e) => {
     const el = e.currentTarget;
-    if (el.scrollTop <= 48 && hasMoreMessages && !isFetchingOlderRef.current && !loadingSession) {
+    if (
+      initialBottomSnappedRef.current &&
+      el.scrollTop <= 48 &&
+      el.scrollHeight > el.clientHeight &&
+      hasMoreMessages &&
+      !isFetchingOlderRef.current &&
+      !loadingSession
+    ) {
       loadOlderMessages();
     }
   }, [hasMoreMessages, loadingSession, loadOlderMessages]);
 
   useLayoutEffect(() => {
+    if (loadingSession) return;
     const container = messagesContainerRef.current;
-    if (prependScrollSnapshotRef.current && container) {
+    if (!container) return;
+
+    if (prependScrollSnapshotRef.current) {
       const { prevScrollHeight, prevScrollTop } = prependScrollSnapshotRef.current;
       prependScrollSnapshotRef.current = null;
       const heightDiff = container.scrollHeight - prevScrollHeight;
       container.scrollTop = prevScrollTop + heightDiff;
       return;
     }
+
     if (shouldScrollToBottomRef.current) {
-      if (messagesEndRef.current && typeof messagesEndRef.current.scrollIntoView === 'function') {
+      if (!initialBottomSnappedRef.current) {
+        container.scrollTop = container.scrollHeight;
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+          }
+          initialBottomSnappedRef.current = true;
+        });
+      } else if (messagesEndRef.current && typeof messagesEndRef.current.scrollIntoView === 'function') {
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        container.scrollTop = container.scrollHeight;
       }
     }
-  }, [messages, sending]);
+  }, [messages, sending, loadingSession]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
