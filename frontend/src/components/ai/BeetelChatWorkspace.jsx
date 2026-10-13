@@ -6,6 +6,7 @@ import { Button } from '../common';
 import { BeetelIcon } from '../layout/Icons';
 import { aiApi } from '../../services/aiApi';
 import { pipelineApi, workflowApi } from '../../services/api';
+import BeetelMarkdownRenderer from './BeetelMarkdownRenderer';
 
 const SAMPLE_MD_SPEC = `# Orders & Customers Migration Specification
 
@@ -78,14 +79,9 @@ const PlanConfirmationCard = ({ plan, onConfirm, onReject, busyPlanId }) => {
       {/* Summary */}
       <div style={{ padding: SPACING.md }}>
         {plan.summary && (
-          <p style={{
-            fontSize: FONT.size.sm,
-            color: COLORS.text.primary,
-            margin: `0 0 ${SPACING.sm} 0`,
-            lineHeight: 1.5,
-          }}>
-            {plan.summary}
-          </p>
+          <div style={{ margin: `0 0 ${SPACING.sm} 0`, color: COLORS.text.primary }}>
+            <BeetelMarkdownRenderer content={plan.summary} />
+          </div>
         )}
 
         {/* Steps List */}
@@ -152,9 +148,9 @@ const PlanConfirmationCard = ({ plan, onConfirm, onReject, busyPlanId }) => {
                       )}
                     </div>
                     {step.description && (
-                      <p style={{ fontSize: '11px', color: COLORS.text.secondary, margin: '2px 0 0 0', lineHeight: 1.4 }}>
-                        {step.description}
-                      </p>
+                      <div style={{ fontSize: '11px', color: COLORS.text.secondary, margin: '2px 0 0 0' }}>
+                        <BeetelMarkdownRenderer content={step.description} />
+                      </div>
                     )}
                     {step.output && (
                       <p style={{
@@ -716,14 +712,7 @@ const BeetelChatWorkspace = ({
                     </div>
                   )}
 
-                  <div style={{
-                    fontSize: FONT.size.sm,
-                    lineHeight: 1.55,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  }}>
-                    {msg.content}
-                  </div>
+                  <BeetelMarkdownRenderer content={msg.content} isUser={isUser} />
 
                   {msg.plan && (
                     <PlanConfirmationCard
