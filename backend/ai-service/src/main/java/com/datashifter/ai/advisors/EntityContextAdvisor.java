@@ -47,15 +47,17 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
     @Override
     public String buildContextSection(String userMessage, AiContextType contextType, String contextId) {
         StringBuilder sb = new StringBuilder();
+        List<ConnectionResponse> conns = List.of();
         List<PipelineSummaryResponse> pipes = List.of();
         List<WorkflowSummaryResponse> wfs = List.of();
+        List<UdfResponse> udfs = List.of();
 
         // 1. Always inject a compact live workspace inventory including Workflow DAG topology (nodes + edges) and UDFs
         try {
-            List<ConnectionResponse> conns = connectionService.getAll();
+            conns = connectionService.getAll();
             pipes = pipelineService.getAll();
             wfs = workflowService.getAll();
-            List<UdfResponse> udfs = udfRegistryService.getAll();
+            udfs = udfRegistryService.getAll();
 
             sb.append("### Live Workspace Inventory\n");
             if (conns.isEmpty()) {
@@ -115,8 +117,7 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
             log.debug("Could not build workspace inventory summary: {}", e.getMessage());
         }
 
-        // Auto-resolve contextId if user selected WORKFLOW or PIPELINE context type without choosing a specific item
-        // or mentioned a workflow/pipeline by name in userMessage
+        // Auto-resolve contextId if user selected a context type without choosing a specific item
         String resolvedId = (contextId != null && !contextId.isBlank()) ? contextId.trim() : null;
         AiContextType resolvedType = contextType != null ? contextType : AiContextType.NONE;
 
@@ -144,6 +145,26 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                 if (resolvedId == null && !pipes.isEmpty()) {
                     resolvedId = pipes.get(0).getId();
                 }
+            } else if (resolvedType == AiContextType.CONNECTION) {
+                for (ConnectionResponse c : conns) {
+                    if (c.getName() != null && lowerMsg.contains(c.getName().toLowerCase())) {
+                        resolvedId = c.getId();
+                        break;
+                    }
+                }
+                if (resolvedId == null && !conns.isEmpty()) {
+                    resolvedId = conns.get(0).getId();
+                }
+            } else if (resolvedType == AiContextType.UDF) {
+                for (UdfResponse u : udfs) {
+                    if (u.getName() != null && lowerMsg.contains(u.getName().toLowerCase())) {
+                        resolvedId = u.getId();
+                        break;
+                    }
+                }
+                if (resolvedId == null && !udfs.isEmpty()) {
+                    resolvedId = udfs.get(0).getId();
+                }
             }
         }
 
@@ -151,7 +172,7 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
             return sb.toString();
         }
 
-        // 2. Inject active Pipeline or Workflow details in compact format
+        // 2. Inject active Pipeline, Workflow, Connection, or UDF details in compact format
         try {
             if (resolvedType == AiContextType.PIPELINE) {
                 PipelineResponse pipeline = pipelineService.getById(resolvedId);
@@ -181,6 +202,42 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                 if (wfErrors != null && wfErrors.getTotalErrors() > 0) {
                     sb.append("- Recent Errors (Total ").append(wfErrors.getTotalErrors()).append("): `")
                             .append(objectMapper.writeValueAsString(wfErrors.getErrors())).append("`\n");
+                }
+            } else if (resolvedType == AiContextType.CONNECTION) {
+                final String targetConnId = resolvedId;
+                ConnectionResponse conn = connectionService.getById(targetConnId);
+                sb.append("\n### Active Connection Context (`").append(conn.getName()).append("`, ID: `").append(conn.getId()).append("`)\n");
+                sb.append("- Database Type: `").append(conn.getDbType()).append("`, Status: `").append(conn.getStatus())
+                        .append("`, Database/Instance: `").append(conn.getDatabaseName())
+                        .append("`, Host: `").append(conn.getHost() != null ? conn.getHost() : "N/A")
+                        .append("`, Port: `").append(conn.getPort() != null ? conn.getPort() : "N/A").append("`\n");
+                List<String> linkedPipes = pipes.stream()
+                        .filter(p -> targetConnId.equals(p.getSourceConnectionId()) || targetConnId.equals(p.getTargetConnectionId())
+                                || (conn.getName() != null && (conn.getName().equals(p.getSourceName()) || conn.getName().equals(p.getTargetName()))))
+                        .map(p -> String.format("`%s` (id=`%s`, status=%s)", p.getName(), p.getId(), p.getStatus()))
+                        .toList();
+                sb.append("- Used By Pipelines: ").append(linkedPipes.isEmpty() ? "(none)" : String.join(", ", linkedPipes)).append("\n");
+            } else if (resolvedType == AiContextType.UDF) {
+                String targetUdfId = resolvedId;
+                UdfResponse udf = udfs.stream()
+                        .filter(u -> targetUdfId.equals(u.getId()))
+                        .findFirst()
+                        .orElse(null);
+                if (udf != null) {
+                    sb.append("\n### Active UDF Context (`").append(udf.getName()).append("`, ID: `").append(udf.getId()).append("`)\n");
+                    sb.append("- Artifact: `").append(udf.getArtifactName()).append("`, Version: `").append(udf.getVersion())
+                            .append("`, Status: `").append(udf.getStatus())
+                            .append("`, Referenced By Pipelines: `").append(udf.getPipelineCount() != null ? udf.getPipelineCount() : 0L).append("`\n");
+                    if (udf.getDescription() != null && !udf.getDescription().isBlank()) {
+                        sb.append("- Description: ").append(udf.getDescription()).append("\n");
+                    }
+                    if (udf.getFunctions() != null && !udf.getFunctions().isEmpty()) {
+                        String fnDetails = udf.getFunctions().stream()
+                                .map(f -> String.format("`%s` (class=`%s`, returnType=`%s`, desc=`%s`)",
+                                        f.getFunctionName(), f.getClassName(), f.getReturnType(), f.getDescription()))
+                                .collect(Collectors.joining("; "));
+                        sb.append("- Functions: ").append(fnDetails).append("\n");
+                    }
                 }
             }
         } catch (Exception e) {

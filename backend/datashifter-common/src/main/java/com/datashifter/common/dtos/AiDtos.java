@@ -5,6 +5,7 @@ import com.datashifter.common.enums.AiKeyScope;
 import com.datashifter.common.enums.AiPlanStatus;
 import com.datashifter.common.enums.AiProviderType;
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
 import java.time.Instant;
@@ -158,6 +159,7 @@ public class AiDtos {
         private String displayInitials;
         private String avatarColor;
         private String roleName;
+        @JsonProperty("isOwner")
         private boolean isOwner;
         private Instant grantedAt;
     }
@@ -181,6 +183,7 @@ public class AiDtos {
         private String title;
         private String ownerUserId;
         private ChatParticipantDto owner;
+        @JsonProperty("isShared")
         private boolean isShared;
         private List<ChatParticipantDto> sharedMembers;
         private AiContextType contextType;

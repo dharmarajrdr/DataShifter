@@ -169,12 +169,11 @@ public class BeetelAgentService {
 
         // Strict same-organization check: verify ALL requested user IDs belong to currentOrgId
         List<AppUser> orgUsers = appUserRepository.findByIdInAndOrganization_Id(requestedIds, currentOrgId);
-        Set<String> validOrgUserIds = orgUsers.stream()
+        Map<String, AppUser> validUsersById = orgUsers.stream()
                 .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
-                .map(AppUser::getId)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toMap(AppUser::getId, u -> u, (a, b) -> a));
 
-        if (validOrgUserIds.size() != requestedIds.size()) {
+        if (validUsersById.size() != requestedIds.size()) {
             throw new DatashifterException("Cannot share conversation with users outside your organization.");
         }
 
@@ -183,6 +182,7 @@ public class BeetelAgentService {
                 .map(AiChatSessionMember::getUserId)
                 .collect(Collectors.toSet());
 
+        List<AppUser> newlyGrantedUsers = new ArrayList<>();
         for (String targetUserId : requestedIds) {
             if (targetUserId.equals(session.getUserId()) || existingMemberIds.contains(targetUserId)) {
                 continue;
@@ -194,6 +194,42 @@ public class BeetelAgentService {
                     .grantedByUserId(currentUserId)
                     .build();
             sessionMemberRepository.save(member);
+            AppUser targetUser = validUsersById.get(targetUserId);
+            if (targetUser != null) {
+                newlyGrantedUsers.add(targetUser);
+            }
+        }
+
+        if (!newlyGrantedUsers.isEmpty()) {
+            AppUser granter = appUserRepository.findById(currentUserId).orElse(null);
+            String granterName = granter != null && granter.getFullName() != null && !granter.getFullName().isBlank()
+                    ? granter.getFullName()
+                    : "A member";
+
+            List<String> firstThreeNames = newlyGrantedUsers.stream()
+                    .limit(3)
+                    .map(u -> "**" + u.getFullName() + "**")
+                    .toList();
+            String targetsText;
+            int extraCount = newlyGrantedUsers.size() - 3;
+            if (extraCount > 0) {
+                targetsText = String.join(", ", firstThreeNames)
+                        + " and **" + extraCount + (extraCount == 1 ? " other**" : " others**");
+            } else if (firstThreeNames.size() == 1) {
+                targetsText = firstThreeNames.get(0);
+            } else if (firstThreeNames.size() == 2) {
+                targetsText = firstThreeNames.get(0) + " and " + firstThreeNames.get(1);
+            } else {
+                targetsText = firstThreeNames.get(0) + ", " + firstThreeNames.get(1) + ", and " + firstThreeNames.get(2);
+            }
+
+            AiChatMessage auditMsg = AiChatMessage.builder()
+                    .sessionId(session.getId())
+                    .senderUserId(currentUserId)
+                    .role("AUDIT")
+                    .content("**" + granterName + "** granted access to " + targetsText)
+                    .build();
+            messageRepository.save(auditMsg);
         }
 
         session.setUpdatedAt(Instant.now());
@@ -315,7 +351,8 @@ public class BeetelAgentService {
                     historyForLlm,
                     userPromptText,
                     toolBeans,
-                    request.getPreferredProvider()
+                    request.getPreferredProvider(),
+                    session.getUserId()
             );
         } catch (Exception ex) {
             String errorText = ex.getMessage() != null && !ex.getMessage().isBlank()

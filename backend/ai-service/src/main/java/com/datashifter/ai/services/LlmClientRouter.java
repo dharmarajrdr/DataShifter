@@ -66,11 +66,22 @@ public class LlmClientRouter {
             List<Object> toolBeans,
             AiProviderType preferredProvider
     ) {
+        return callWithFailover(systemPrompt, historyMessages, userPrompt, toolBeans, preferredProvider, null);
+    }
+
+    public LlmInvocationResult callWithFailover(
+            String systemPrompt,
+            List<Message> historyMessages,
+            String userPrompt,
+            List<Object> toolBeans,
+            AiProviderType preferredProvider,
+            String sessionOwnerUserId
+    ) {
         String userId = UserContext.getCurrentUserId();
         String orgId = UserContext.getCurrentOrgId();
 
         List<ResolvedLlmCandidate> candidates = new ArrayList<>(
-                keyManagementService.resolveCandidatePool(userId, orgId, preferredProvider)
+                keyManagementService.resolveCandidatePool(userId, sessionOwnerUserId, orgId, preferredProvider)
         );
 
         boolean hasOllamaCandidate = candidates.stream()

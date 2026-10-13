@@ -226,18 +226,35 @@ public class AiKeyManagementService {
      */
     @Transactional(readOnly = true)
     public List<ResolvedLlmCandidate> resolveCandidatePool(String userId, String orgId, AiProviderType preferredProvider) {
+        return resolveCandidatePool(userId, null, orgId, preferredProvider);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ResolvedLlmCandidate> resolveCandidatePool(
+            String userId,
+            String sessionOwnerUserId,
+            String orgId,
+            AiProviderType preferredProvider
+    ) {
         List<AiApiKey> userKeys = userId != null
                 ? apiKeyRepository.findByScopeAndUserIdAndIsActiveTrueOrderByPriorityOrderAscCreatedAtAsc(AiKeyScope.USER, userId)
+                : List.of();
+
+        List<AiApiKey> ownerKeys = (sessionOwnerUserId != null && !sessionOwnerUserId.isBlank() && !sessionOwnerUserId.equals(userId))
+                ? apiKeyRepository.findByScopeAndUserIdAndIsActiveTrueOrderByPriorityOrderAscCreatedAtAsc(AiKeyScope.USER, sessionOwnerUserId)
                 : List.of();
 
         List<AiApiKey> orgKeys = orgId != null
                 ? apiKeyRepository.findByScopeAndOrgIdAndIsActiveTrueOrderByPriorityOrderAscCreatedAtAsc(AiKeyScope.ORG, orgId)
                 : List.of();
 
-        if (!userKeys.isEmpty() || !orgKeys.isEmpty()) {
+        if (!userKeys.isEmpty() || !ownerKeys.isEmpty() || !orgKeys.isEmpty()) {
             List<ResolvedLlmCandidate> pool = new ArrayList<>();
             if (!userKeys.isEmpty()) {
                 pool.addAll(orderDbCandidates(userKeys, preferredProvider));
+            }
+            if (!ownerKeys.isEmpty()) {
+                pool.addAll(orderDbCandidates(ownerKeys, preferredProvider));
             }
             if (!orgKeys.isEmpty()) {
                 pool.addAll(orderDbCandidates(orgKeys, preferredProvider));

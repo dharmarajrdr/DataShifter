@@ -6,7 +6,7 @@ import { Button } from '../common';
 import { BeetelIcon } from '../layout/Icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { aiApi } from '../../services/aiApi';
-import { pipelineApi, workflowApi } from '../../services/api';
+import { pipelineApi, workflowApi, connectionApi, udfApi } from '../../services/api';
 import BeetelMarkdownRenderer from './BeetelMarkdownRenderer';
 
 const SAMPLE_MD_SPEC = `# Orders & Customers Migration Specification
@@ -853,6 +853,8 @@ const BeetelChatWorkspace = ({
   const [contextEntityName, setContextEntityName] = useState(initialContextEntityName || '');
   const [pipelines, setPipelines] = useState([]);
   const [workflows, setWorkflows] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [udfs, setUdfs] = useState([]);
 
   const [input, setInput] = useState('');
   const [preferredProvider, setPreferredProvider] = useState(''); // '' = Auto, 'OLLAMA', 'GROQ'
@@ -878,10 +880,12 @@ const BeetelChatWorkspace = ({
     }
   }, [initialContextType, initialContextEntityId, initialContextEntityName]);
 
-  // Load available pipelines & workflows for context selector
+  // Load available pipelines, workflows, connections & UDFs for context selector
   useEffect(() => {
     pipelineApi.getAll().then(res => setPipelines(res.data || [])).catch(() => {});
     workflowApi.getAll().then(res => setWorkflows(res.data || [])).catch(() => {});
+    connectionApi.getAll().then(res => setConnections(res.data || [])).catch(() => {});
+    udfApi.getAll().then(res => setUdfs(res.data || [])).catch(() => {});
   }, []);
 
   // Resolve entity name when ID or list changes, and auto-select first entity if none chosen yet
@@ -902,11 +906,27 @@ const BeetelChatWorkspace = ({
         setContextEntityId(workflows[0].id);
         setContextEntityName(workflows[0].name);
       }
+    } else if (contextType === 'CONNECTION') {
+      if (contextEntityId) {
+        const found = connections.find(c => String(c.id) === String(contextEntityId));
+        if (found) setContextEntityName(found.name);
+      } else if (connections.length > 0) {
+        setContextEntityId(connections[0].id);
+        setContextEntityName(connections[0].name);
+      }
+    } else if (contextType === 'UDF') {
+      if (contextEntityId) {
+        const found = udfs.find(u => String(u.id) === String(contextEntityId));
+        if (found) setContextEntityName(found.name);
+      } else if (udfs.length > 0) {
+        setContextEntityId(udfs[0].id);
+        setContextEntityName(udfs[0].name);
+      }
     } else if (contextType === 'NONE') {
       setContextEntityId('');
       setContextEntityName('');
     }
-  }, [contextType, contextEntityId, pipelines, workflows]);
+  }, [contextType, contextEntityId, pipelines, workflows, connections, udfs]);
 
   // Load existing session metadata + messages if externalSessionId is selected
   const loadSessionMessages = useCallback(async (sid) => {
@@ -921,6 +941,11 @@ const BeetelChatWorkspace = ({
       if (sessData) {
         setSession(sessData);
         setMessages(sessData.messages || []);
+        if (sessData.contextType) {
+          setContextType(sessData.contextType);
+          setContextEntityId(sessData.contextEntityId || '');
+          setContextEntityName(sessData.contextEntityName || '');
+        }
       }
     } catch (e) {
       setError(e?.message || 'Failed to load conversation messages');
@@ -1094,6 +1119,9 @@ const BeetelChatWorkspace = ({
   ];
 
   const activeSessionId = externalSessionId || session?.id || null;
+  const isSessionShared = Boolean(
+    session?.isShared || session?.shared || (session?.sharedMembers && session.sharedMembers.length > 0)
+  );
   const participants = [
     ...(session?.owner ? [session.owner] : []),
     ...(session?.sharedMembers || []),
@@ -1133,6 +1161,12 @@ const BeetelChatWorkspace = ({
               } else if (nextType === 'WORKFLOW' && workflows.length > 0) {
                 setContextEntityId(workflows[0].id);
                 setContextEntityName(workflows[0].name);
+              } else if (nextType === 'CONNECTION' && connections.length > 0) {
+                setContextEntityId(connections[0].id);
+                setContextEntityName(connections[0].name);
+              } else if (nextType === 'UDF' && udfs.length > 0) {
+                setContextEntityId(udfs[0].id);
+                setContextEntityName(udfs[0].name);
               } else {
                 setContextEntityId('');
                 setContextEntityName('');
@@ -1150,6 +1184,8 @@ const BeetelChatWorkspace = ({
             <option value="NONE">Global Workspace</option>
             <option value="PIPELINE">Pipeline</option>
             <option value="WORKFLOW">Workflow</option>
+            <option value="CONNECTION">Connection</option>
+            <option value="UDF">UDF</option>
           </select>
 
           {contextType === 'PIPELINE' && (
@@ -1198,6 +1234,52 @@ const BeetelChatWorkspace = ({
             </select>
           )}
 
+          {contextType === 'CONNECTION' && (
+            <select
+              value={contextEntityId}
+              onChange={e => setContextEntityId(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                borderRadius: BORDER_RADIUS.sm,
+                border: `1px solid ${COLORS.border.light}`,
+                fontSize: FONT.size.xs,
+                background: '#fff',
+                color: COLORS.text.primary,
+                maxWidth: compact ? '150px' : '220px',
+              }}
+            >
+              <option value="">Select connection...</option>
+              {connections.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.dbType || c.type})
+                </option>
+              ))}
+            </select>
+          )}
+
+          {contextType === 'UDF' && (
+            <select
+              value={contextEntityId}
+              onChange={e => setContextEntityId(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                borderRadius: BORDER_RADIUS.sm,
+                border: `1px solid ${COLORS.border.light}`,
+                fontSize: FONT.size.xs,
+                background: '#fff',
+                color: COLORS.text.primary,
+                maxWidth: compact ? '150px' : '220px',
+              }}
+            >
+              <option value="">Select UDF...</option>
+              {udfs.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.name} (v{u.version || '1.0.0'})
+                </option>
+              ))}
+            </select>
+          )}
+
           <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary, marginLeft: '4px' }}>
             Model:
           </span>
@@ -1224,7 +1306,7 @@ const BeetelChatWorkspace = ({
         <div style={{ ...FRSC, gap: '6px', flexWrap: 'wrap' }}>
           {activeSessionId && (
             <div style={{ ...FRSC, gap: '6px' }}>
-              {session?.isShared ? (
+              {isSessionShared && (
                 <div
                   style={{
                     ...FRSC,
@@ -1237,28 +1319,11 @@ const BeetelChatWorkspace = ({
                     fontSize: '11px',
                     fontWeight: FONT.weight.semibold,
                   }}
-                  title={`Shared with ${(session.sharedMembers || []).map(m => m.fullName).join(', ')}`}
+                  title={`Shared with ${(session?.sharedMembers || []).map(m => m.fullName).join(', ')}`}
                 >
                   <i className="fa-solid fa-users" style={{ fontSize: '10px' }} />
                   <span>Shared ({participants.length})</span>
                 </div>
-              ) : (
-                <span
-                  style={{
-                    ...FRSC,
-                    gap: '5px',
-                    fontSize: '11px',
-                    color: COLORS.text.secondary,
-                    background: '#fff',
-                    border: `1px solid ${COLORS.border.light}`,
-                    padding: '2px 8px',
-                    borderRadius: BORDER_RADIUS.full,
-                  }}
-                  title="This conversation is private to you until shared"
-                >
-                  <i className="fa-solid fa-lock" style={{ fontSize: '10px' }} />
-                  <span>Private</span>
-                </span>
               )}
 
               {participants.length > 1 && (
@@ -1362,7 +1427,7 @@ const BeetelChatWorkspace = ({
               Hi, I&apos;m {AGENT.name}
             </h3>
             <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, margin: '0 0 16px 0', lineHeight: 1.5 }}>
-              Upload a Markdown (<code>.md</code>) specification to generate pipelines and workflows, or select a pipeline/workflow above to debug errors and optimize mappings.
+              Upload a Markdown (<code>.md</code>) specification to generate pipelines and workflows, or select a pipeline, workflow, connection, or UDF above to debug errors and optimize mappings.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
               {quickPrompts.map((qp, i) => (
@@ -1390,6 +1455,36 @@ const BeetelChatWorkspace = ({
             const isUser = msg.role === 'USER';
             const isSystem = msg.role === 'SYSTEM';
             const isError = msg.role === 'ERROR';
+            const isAudit = msg.role === 'AUDIT';
+
+            if (isAudit) {
+              return (
+                <div
+                  key={msg.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    margin: '2px 0',
+                  }}
+                >
+                  <div
+                    style={{
+                      ...FRSC,
+                      gap: '6px',
+                      padding: '4px 12px',
+                      borderRadius: BORDER_RADIUS.full,
+                      background: COLORS.background.secondary,
+                      border: `1px solid ${COLORS.border.light}`,
+                      color: COLORS.text.secondary,
+                      fontSize: '11px',
+                    }}
+                  >
+                    <i className="fa-solid fa-user-check" style={{ fontSize: '10px', color: '#0F6E56' }} />
+                    <BeetelMarkdownRenderer content={msg.content} />
+                  </div>
+                </div>
+              );
+            }
 
             if (isError) {
               const prevUserMsg = [...messages.slice(0, msgIdx)]
@@ -1456,61 +1551,81 @@ const BeetelChatWorkspace = ({
                 )}
 
                 <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: isUser ? 'flex-end' : 'flex-start',
                   maxWidth: compact ? '88%' : '78%',
-                  padding: `${SPACING.sm} ${SPACING.md}`,
-                  borderRadius: BORDER_RADIUS.lg,
-                  background: isUser
-                    ? COLORS.brand.primary
-                    : isSystem
-                    ? '#E1F5EE'
-                    : COLORS.background.secondary,
-                  color: isUser ? '#fff' : COLORS.text.primary,
-                  border: isUser ? 'none' : `1px solid ${COLORS.border.light}`,
+                  minWidth: 0,
                 }}>
-                  <div style={{ ...FRBC, gap: SPACING.xs, marginBottom: '4px' }}>
+                  {isUser && (
                     <span style={{
                       fontSize: '11px',
                       fontWeight: FONT.weight.semibold,
-                      color: isUser
-                        ? 'rgba(255,255,255,0.92)'
-                        : isSystem
-                        ? '#0F6E56'
-                        : COLORS.accent.purpleText,
+                      color: COLORS.text.secondary,
+                      marginBottom: '3px',
+                      paddingRight: '2px',
+                      textAlign: 'right',
                     }}>
                       {senderDisplayName}
                     </span>
-                    {!isUser && msg.providerUsed && (
-                      <span style={{ fontSize: '10px', color: COLORS.text.tertiary }}>
-                        {msg.providerUsed}{msg.modelUsed ? ` · ${msg.modelUsed}` : ''}
-                      </span>
+                  )}
+
+                  <div style={{
+                    width: '100%',
+                    padding: `${SPACING.sm} ${SPACING.md}`,
+                    borderRadius: BORDER_RADIUS.lg,
+                    background: isUser
+                      ? COLORS.brand.primary
+                      : isSystem
+                      ? '#E1F5EE'
+                      : COLORS.background.secondary,
+                    color: isUser ? '#fff' : COLORS.text.primary,
+                    border: isUser ? 'none' : `1px solid ${COLORS.border.light}`,
+                    boxSizing: 'border-box',
+                  }}>
+                    {!isUser && (
+                      <div style={{ ...FRBC, gap: SPACING.xs, marginBottom: '4px' }}>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: FONT.weight.semibold,
+                          color: isSystem ? '#0F6E56' : COLORS.accent.purpleText,
+                        }}>
+                          {senderDisplayName}
+                        </span>
+                        {msg.providerUsed && (
+                          <span style={{ fontSize: '10px', color: COLORS.text.tertiary }}>
+                            {msg.providerUsed}{msg.modelUsed ? ` · ${msg.modelUsed}` : ''}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {msg.markdownAttachmentName && (
+                      <div style={{
+                        ...FRSC,
+                        gap: '6px',
+                        padding: '4px 8px',
+                        marginBottom: '6px',
+                        borderRadius: BORDER_RADIUS.sm,
+                        background: isUser ? 'rgba(255,255,255,0.16)' : '#fff',
+                        fontSize: '11px',
+                      }}>
+                        <i className="fa-solid fa-paperclip" style={{ fontSize: '11px' }} />
+                        <span style={{ fontWeight: FONT.weight.medium }}>{msg.markdownAttachmentName}</span>
+                      </div>
+                    )}
+
+                    <BeetelMarkdownRenderer content={msg.content} isUser={isUser} />
+
+                    {msg.plan && (
+                      <PlanConfirmationCard
+                        plan={msg.plan}
+                        onConfirm={handleConfirmPlan}
+                        onReject={handleRejectPlan}
+                        busyPlanId={busyPlanId}
+                      />
                     )}
                   </div>
-
-                  {msg.markdownAttachmentName && (
-                    <div style={{
-                      ...FRSC,
-                      gap: '6px',
-                      padding: '4px 8px',
-                      marginBottom: '6px',
-                      borderRadius: BORDER_RADIUS.sm,
-                      background: isUser ? 'rgba(255,255,255,0.16)' : '#fff',
-                      fontSize: '11px',
-                    }}>
-                      <i className="fa-solid fa-paperclip" style={{ fontSize: '11px' }} />
-                      <span style={{ fontWeight: FONT.weight.medium }}>{msg.markdownAttachmentName}</span>
-                    </div>
-                  )}
-
-                  <BeetelMarkdownRenderer content={msg.content} isUser={isUser} />
-
-                  {msg.plan && (
-                    <PlanConfirmationCard
-                      plan={msg.plan}
-                      onConfirm={handleConfirmPlan}
-                      onReject={handleRejectPlan}
-                      busyPlanId={busyPlanId}
-                    />
-                  )}
                 </div>
               </div>
             );
@@ -1641,6 +1756,9 @@ const BeetelChatWorkspace = ({
         session={session}
         onSessionUpdated={(updatedSess) => {
           setSession(updatedSess);
+          if (Array.isArray(updatedSess.messages)) {
+            setMessages(updatedSess.messages);
+          }
           onSessionCreated(updatedSess);
         }}
       />

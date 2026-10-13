@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC } from '../constants/layouts';
 import { AGENT } from '../constants/literals';
@@ -17,16 +17,22 @@ const POOL_LABELS = {
 
 const BeetelAgentPage = () => {
   const [searchParams] = useSearchParams();
+  const { sessionId: routeSessionId } = useParams();
   const navigate = useNavigate();
+  const hasAutoSelectedRef = useRef(false);
 
   const initialContextType = searchParams.get('contextType') || 'NONE';
   const initialContextEntityId = searchParams.get('entityId') || '';
   const initialContextEntityName = searchParams.get('entityName') || '';
 
   const [sessions, setSessions] = useState([]);
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [selectedSessionId, setSelectedSessionId] = useState(routeSessionId || null);
   const [keyStatus, setKeyStatus] = useState(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
+
+  useEffect(() => {
+    setSelectedSessionId(routeSessionId || null);
+  }, [routeSessionId]);
 
   const fetchOverview = useCallback(async () => {
     setLoadingSessions(true);
@@ -38,27 +44,40 @@ const BeetelAgentPage = () => {
       const list = sessRes.data || [];
       setSessions(list);
       setKeyStatus(keyRes.data || null);
-      if (list.length > 0 && !selectedSessionId && initialContextType === 'NONE') {
+      if (
+        list.length > 0 &&
+        !routeSessionId &&
+        !hasAutoSelectedRef.current &&
+        initialContextType === 'NONE'
+      ) {
+        hasAutoSelectedRef.current = true;
         setSelectedSessionId(list[0].id);
+        navigate(`/beetel/${list[0].id}`, { replace: true });
       }
     } catch {
       // ignore initial load error
     } finally {
       setLoadingSessions(false);
     }
-  }, [selectedSessionId, initialContextType]);
+  }, [routeSessionId, initialContextType, navigate]);
 
   useEffect(() => {
     fetchOverview();
   }, [fetchOverview]);
 
   const handleNewChat = () => {
+    hasAutoSelectedRef.current = true;
     setSelectedSessionId(null);
+    navigate('/beetel');
   };
 
   const handleSessionCreated = (newSession) => {
     if (!newSession) return;
+    hasAutoSelectedRef.current = true;
     setSelectedSessionId(newSession.id);
+    if (routeSessionId !== newSession.id) {
+      navigate(`/beetel/${newSession.id}`, { replace: true });
+    }
     setSessions(prev => {
       const exists = prev.some(s => s.id === newSession.id);
       if (exists) {
@@ -74,7 +93,9 @@ const BeetelAgentPage = () => {
       await aiApi.deleteSession(id);
       setSessions(prev => prev.filter(s => s.id !== id));
       if (selectedSessionId === id) {
+        hasAutoSelectedRef.current = true;
         setSelectedSessionId(null);
+        navigate('/beetel', { replace: true });
       }
     } catch {
       // ignore
@@ -157,12 +178,16 @@ const BeetelAgentPage = () => {
             ) : (
               sessions.map(sess => {
                 const active = sess.id === selectedSessionId;
-                const isShared = Boolean(sess.isShared || (sess.sharedMembers && sess.sharedMembers.length > 0));
+                const isShared = Boolean(sess.isShared || sess.shared || (sess.sharedMembers && sess.sharedMembers.length > 0));
                 const memberCount = 1 + (sess.sharedMembers?.length || 0);
                 return (
                   <div
                     key={sess.id}
-                    onClick={() => setSelectedSessionId(sess.id)}
+                    onClick={() => {
+                      hasAutoSelectedRef.current = true;
+                      setSelectedSessionId(sess.id);
+                      navigate(`/beetel/${sess.id}`);
+                    }}
                     style={{
                       ...FRBC,
                       gap: SPACING.xs,
