@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '../common';
+import { Button, MultiSelectDropdown } from '../common';
 import { COLORS, FONT, BORDER_RADIUS, SPACING } from '../../constants/design';
 import { FRBC, FRSC, FCSS } from '../../constants/layouts';
 import { notifyHubApi, pipelineApi } from '../../services/api';
@@ -552,28 +552,24 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
             )}
 
             {whitelistMode === 'WHITELIST' && (
-              <div style={{
-                maxHeight: 140, overflowY: 'auto', background: COLORS.background.secondary,
-                padding: SPACING.xs, borderRadius: BORDER_RADIUS.sm, border: `1px solid ${COLORS.border.light}`,
-                display: 'flex', flexDirection: 'column', gap: '4px',
-              }}>
-                {localPipelines.length === 0 ? (
-                  <p style={{ margin: 0, padding: SPACING.xs, fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
-                    No pipelines found in this organization to whitelist.
-                  </p>
-                ) : (
-                  localPipelines.map(p => (
-                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: FONT.size.xs, cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={whitelistedPipelineIds.includes(p.id)}
-                        onChange={() => togglePipelineWhitelist(p.id)}
-                      />
-                      <span style={{ fontWeight: FONT.weight.medium }}>{p.name}</span>
-                      <span style={{ color: COLORS.text.tertiary }}>({p.id})</span>
-                    </label>
-                  ))
-                )}
+              <div>
+                <MultiSelectDropdown
+                  options={localPipelines.map(p => ({
+                    value: p.id,
+                    label: p.name,
+                    sublabel: p.id,
+                  }))}
+                  value={whitelistedPipelineIds}
+                  onChange={setWhitelistedPipelineIds}
+                  placeholder="Select pipelines to whitelist..."
+                  searchPlaceholder="Search pipelines by name or ID..."
+                  emptyMessage="No pipelines found in this organization."
+                />
+                <p style={{ margin: '6px 0 0', fontSize: '11px', color: COLORS.text.tertiary }}>
+                  {whitelistedPipelineIds.length === 0
+                    ? 'No pipelines selected. Choose the pipelines permitted to use this channel.'
+                    : `${whitelistedPipelineIds.length} pipeline(s) authorized.`}
+                </p>
               </div>
             )}
           </div>
