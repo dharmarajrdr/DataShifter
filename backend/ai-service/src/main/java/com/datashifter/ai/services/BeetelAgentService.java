@@ -3,6 +3,7 @@ package com.datashifter.ai.services;
 import com.datashifter.ai.services.LlmClientRouter.LlmInvocationResult;
 import com.datashifter.ai.spi.BeetelCapability;
 import com.datashifter.ai.spi.BeetelContextAdvisor;
+import com.datashifter.ai.tools.BeetelActionToolFacade;
 import com.datashifter.ai.tools.BeetelReadOnlyToolFacade;
 import com.datashifter.common.dtos.AiDtos.*;
 import com.datashifter.common.dtos.ConnectionDtos.*;
@@ -70,6 +71,7 @@ public class BeetelAgentService {
     private final LlmClientRouter llmClientRouter;
     private final AgentPermissionService agentPermissionService;
     private final BeetelReadOnlyToolFacade readOnlyToolFacade;
+    private final BeetelActionToolFacade actionToolFacade;
     private final List<BeetelCapability> capabilities;
     private final List<BeetelContextAdvisor> contextAdvisors;
 
@@ -397,9 +399,10 @@ public class BeetelAgentService {
         // Build System Prompt with extensible advisors and capabilities
         String systemPrompt = buildSystemPrompt(userPromptText, session.getContextType(), session.getContextId());
 
-        // Collect all read-only tool beans + extensible capability tool beans
+        // Collect all tool beans: read-only discovery, mutating action facade, and extensible capabilities
         List<Object> toolBeans = new ArrayList<>();
         toolBeans.add(readOnlyToolFacade);
+        toolBeans.add(actionToolFacade);
         for (BeetelCapability cap : capabilities) {
             if (cap.isEnabled() && cap.getToolBeans() != null) {
                 toolBeans.addAll(cap.getToolBeans());

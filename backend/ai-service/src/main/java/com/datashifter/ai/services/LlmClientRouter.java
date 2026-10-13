@@ -180,13 +180,22 @@ public class LlmClientRouter {
             String errMsg = ex.getMessage() != null ? ex.getMessage() : "";
             // If an Ollama model does not support native function/tool calling, retry cleanly without tools
             // (Live Workspace Inventory is already injected in systemPrompt)
-            if (candidate.provider() == AiProviderType.OLLAMA
+            boolean isOllamaToolError = candidate.provider() == AiProviderType.OLLAMA
                     && toolBeans != null && !toolBeans.isEmpty()
                     && (errMsg.toLowerCase().contains("does not support tools")
                         || errMsg.toLowerCase().contains("tool")
-                        || errMsg.contains("400"))) {
-                log.info("Ollama model on '{}' does not support native tools ({}); retrying prompt with pre-injected workspace context.",
-                        candidate.label(), summarizeError(errMsg));
+                        || errMsg.contains("400"));
+
+            // If a provider (Groq, OpenAI, etc.) fails with tool call validation error (e.g. model hallucinated an unprovided tool),
+            // gracefully retry without tools so the user receives the AI response instead of a raw HTTP 400 crash
+            boolean isToolValidationFailure = toolBeans != null && !toolBeans.isEmpty()
+                    && (errMsg.toLowerCase().contains("tool call validation failed")
+                        || errMsg.toLowerCase().contains("attempted to call tool")
+                        || errMsg.toLowerCase().contains("was not in request.tools"));
+
+            if (isOllamaToolError || isToolValidationFailure) {
+                log.warn("{} on '{}' encountered tool execution error ({}); retrying cleanly without tools as text fallback.",
+                        candidate.provider(), candidate.label(), summarizeError(errMsg));
                 var fallbackSpec = ChatClient.create(chatModel)
                         .prompt()
                         .system(systemPrompt);
