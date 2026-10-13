@@ -303,11 +303,21 @@ const NotifyHubPage = () => {
                   </Button>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: SPACING.md }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: SPACING.lg }}>
                   {filteredListeners.map(l => {
                     const matchedChannel = channels.find(c => c.id === l.channelId);
                     const matchedTemplate = templates.find(t => t.id === l.templateId);
                     const cat = EVENT_CATALOG.find(c => c.resourceType === l.resourceType);
+
+                    let resources = ['ALL'];
+                    if (l.targetResourceIdsJson) {
+                      try {
+                        const parsed = JSON.parse(l.targetResourceIdsJson);
+                        if (Array.isArray(parsed) && parsed.length > 0) resources = parsed;
+                      } catch (e) {}
+                    } else if (l.filterResourceId) {
+                      resources = [l.filterResourceId];
+                    }
 
                     return (
                       <div
@@ -317,23 +327,52 @@ const NotifyHubPage = () => {
                           border: `1px solid ${COLORS.border.light}`,
                           borderRadius: BORDER_RADIUS.lg,
                           padding: SPACING.lg,
-                          display: 'flex', flexDirection: 'column', gap: SPACING.sm,
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: SPACING.md,
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                          position: 'relative',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.boxShadow = '0 8px 24px rgba(83, 74, 183, 0.08)';
+                          e.currentTarget.style.borderColor = COLORS.brand.primary + '50';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
+                          e.currentTarget.style.borderColor = COLORS.border.light;
+                          e.currentTarget.style.transform = 'translateY(0)';
                         }}
                       >
-                        <div style={{ ...FRBC }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {/* Header: Resource Icon + Name & Status Badge */}
+                        <div style={{ ...FRBC, gap: SPACING.sm }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
                             <span style={{
-                              padding: '2px 8px', borderRadius: BORDER_RADIUS.pill,
-                              fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold,
+                              padding: '3px 8px', borderRadius: BORDER_RADIUS.sm,
+                              fontSize: '10px', fontWeight: FONT.weight.semibold,
                               background: COLORS.brand.primary + '15',
                               color: COLORS.brand.primary,
-                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              flexShrink: 0,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.4px',
                             }}>
-                              <i className={cat?.icon || 'fa-solid fa-bell'} style={{ fontSize: '11px' }} />
+                              <i className={cat?.icon || 'fa-solid fa-bell'} style={{ fontSize: '10px' }} />
                               {l.resourceType}
                             </span>
-                            <h4 style={{ margin: 0, fontSize: FONT.size.base, fontWeight: FONT.weight.semibold }}>
+                            <h4
+                              title={l.name}
+                              style={{
+                                margin: 0,
+                                fontSize: FONT.size.base,
+                                fontWeight: FONT.weight.semibold,
+                                color: COLORS.text.primary,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
                               {l.name}
                             </h4>
                           </div>
@@ -341,56 +380,122 @@ const NotifyHubPage = () => {
                           <StatusBadge status={l.enabled ? 'ACTIVE' : 'PAUSED'} />
                         </div>
 
+                        {/* Monitored Event Badge */}
                         <div style={{
-                          padding: '6px 10px', borderRadius: BORDER_RADIUS.sm,
+                          padding: '6px 10px',
+                          borderRadius: BORDER_RADIUS.sm,
                           background: COLORS.background.secondary,
-                          fontSize: FONT.size.xs, fontFamily: 'monospace',
-                          color: COLORS.text.primary, fontWeight: FONT.weight.semibold,
+                          border: `1px solid ${COLORS.border.light}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: SPACING.xs,
                         }}>
-                          on "{l.resourceType.toLowerCase()}" "{l.eventAction.toLowerCase()}" <span style={{ color: COLORS.text.tertiary, fontWeight: 'normal' }}>({l.eventKey})</span>
+                          <span style={{
+                            fontSize: FONT.size.xs,
+                            fontFamily: 'monospace',
+                            color: COLORS.text.primary,
+                            fontWeight: FONT.weight.medium,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            on <strong style={{ color: COLORS.brand.primary }}>"{l.resourceType.toLowerCase()}"</strong> "{l.eventAction.toLowerCase()}"
+                          </span>
+                          <span style={{
+                            fontSize: '10px',
+                            color: COLORS.text.tertiary,
+                            fontFamily: 'monospace',
+                            flexShrink: 0,
+                          }}>
+                            {l.eventKey}
+                          </span>
                         </div>
 
-                        {l.description && (
-                          <p style={{ margin: 0, fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
-                            {l.description}
-                          </p>
-                        )}
+                        {/* Description (Single-line truncated with tooltip) */}
+                        <p
+                          title={l.description || 'No description provided'}
+                          style={{
+                            margin: 0,
+                            fontSize: FONT.size.xs,
+                            color: COLORS.text.secondary,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            minHeight: '16px',
+                          }}
+                        >
+                          {l.description || 'No description provided'}
+                        </p>
 
-                        <div style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, display: 'flex', flexDirection: 'column', gap: '4px', marginTop: 'auto' }}>
-                          <div>
-                            <strong>Channel:</strong>{' '}
-                            {matchedChannel ? (
-                              <span>{matchedChannel.name} ({matchedChannel.channelType})</span>
-                            ) : (
-                              <span style={{ color: COLORS.status.error }}>Missing / Deleted channel ({l.channelId.slice(0, 8)}...)</span>
-                            )}
+                        {/* Metadata Rows: Channel, Template, Resources */}
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          padding: `${SPACING.xs} ${SPACING.sm}`,
+                          background: COLORS.background.secondary + '80',
+                          borderRadius: BORDER_RADIUS.sm,
+                          fontSize: FONT.size.xs,
+                          color: COLORS.text.secondary,
+                          marginTop: 'auto',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.xs }}>
+                            <span style={{ color: COLORS.text.tertiary, flexShrink: 0 }}>Channel:</span>
+                            <span
+                              title={matchedChannel ? `${matchedChannel.name} (${matchedChannel.channelType})` : 'Missing channel'}
+                              style={{
+                                fontWeight: FONT.weight.medium,
+                                color: matchedChannel ? COLORS.text.primary : COLORS.status.error,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {matchedChannel ? `${matchedChannel.name} (${matchedChannel.channelType})` : 'Missing Channel'}
+                            </span>
                           </div>
-                          <div>
-                            <strong>Template:</strong>{' '}
-                            {matchedTemplate ? matchedTemplate.name : 'Built-in Standard Format'}
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.xs }}>
+                            <span style={{ color: COLORS.text.tertiary, flexShrink: 0 }}>Template:</span>
+                            <span
+                              title={matchedTemplate ? matchedTemplate.name : 'Built-in Standard Format'}
+                              style={{
+                                fontWeight: FONT.weight.medium,
+                                color: COLORS.text.primary,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {matchedTemplate ? matchedTemplate.name : 'Built-in Standard Format'}
+                            </span>
                           </div>
-                          <div>
-                            <strong>Monitored Resources:</strong>{' '}
-                            {(() => {
-                              let resources = ['ALL'];
-                              if (l.targetResourceIdsJson) {
-                                try {
-                                  const parsed = JSON.parse(l.targetResourceIdsJson);
-                                  if (Array.isArray(parsed) && parsed.length > 0) resources = parsed;
-                                } catch (e) {}
-                              } else if (l.filterResourceId) {
-                                resources = [l.filterResourceId];
-                              }
-                              if (resources.includes('ALL')) {
-                                return <span style={{ color: COLORS.brand.primary }}>All {l.resourceType.toLowerCase()}s (*)</span>;
-                              }
-                              return <span>{resources.length} specific {l.resourceType.toLowerCase()}(s)</span>;
-                            })()}
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.xs }}>
+                            <span style={{ color: COLORS.text.tertiary, flexShrink: 0 }}>Monitored:</span>
+                            <span style={{
+                              fontWeight: FONT.weight.medium,
+                              color: resources.includes('ALL') ? COLORS.brand.primary : COLORS.text.primary,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {resources.includes('ALL')
+                                ? `All ${l.resourceType.toLowerCase()}s (*)`
+                                : `${resources.length} specific ${l.resourceType.toLowerCase()}(s)`}
+                            </span>
                           </div>
                         </div>
 
-                        <div style={{ ...FRBC, paddingTop: SPACING.sm, borderTop: `1px solid ${COLORS.border.light}` }}>
-                          <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
+                        {/* Card Footer: ID & Edit/Delete Actions */}
+                        <div style={{
+                          ...FRBC,
+                          paddingTop: SPACING.xs,
+                          borderTop: `1px solid ${COLORS.border.light}`,
+                          fontSize: FONT.size.xs,
+                        }}>
+                          <span style={{ fontSize: '10px', color: COLORS.text.tertiary, fontFamily: 'monospace' }}>
                             ID: {l.id.slice(0, 8)}...
                           </span>
 
@@ -418,6 +523,7 @@ const NotifyHubPage = () => {
               )}
             </div>
           )}
+
           {/* TAB CONTENT: CHANNELS */}
           {activeTab === 'channels' && (
             <div>
@@ -431,210 +537,394 @@ const NotifyHubPage = () => {
                     No notification channels configured
                   </p>
                   <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginTop: '4px' }}>
-                Add your team's Slack, Email, Microsoft Teams, Zoho Cliq or custom Webhook endpoints.
-              </p>
-              <Button
-                variant="primary"
-                onClick={() => { setEditingChannel(null); setShowChannelModal(true); }}
-                style={{ marginTop: SPACING.md }}
-              >
-                + Create Channel Configuration
-              </Button>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: SPACING.md }}>
-              {filteredChannels.map(ch => {
-                let parsedConfig = {};
-                try { parsedConfig = JSON.parse(ch.configJson || '{}'); } catch(e) {}
-                let whitelistInfo = 'All platform resources (entire organization)';
-                if (ch.allowedResourcesJson) {
-                  try {
-                    const resList = JSON.parse(ch.allowedResourcesJson);
-                    if (resList.includes('ALL')) {
-                      whitelistInfo = 'All platform resources';
-                    } else {
-                      whitelistInfo = `Whitelisted scopes (${resList.length}): ${resList.join(', ')}`;
-                    }
-                  } catch(e) {}
-                } else if (ch.pipelineId) {
-                  whitelistInfo = `Locked to pipeline: ${ch.pipelineId}`;
-                } else if (ch.allowedPipelinesJson) {
-                  try {
-                    const ids = JSON.parse(ch.allowedPipelinesJson);
-                    whitelistInfo = `Whitelisted pipelines (${ids.length}): ${ids.join(', ')}`;
-                  } catch(e) {}
-                }
-
-                return (
-                  <div
-                    key={ch.id}
-                    style={{
-                      background: COLORS.background.primary,
-                      border: `1px solid ${COLORS.border.light}`,
-                      borderRadius: BORDER_RADIUS.lg,
-                      padding: SPACING.lg,
-                      display: 'flex', flexDirection: 'column', gap: SPACING.sm,
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                    }}
-                  >
-                    <div style={{ ...FRBC }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: BORDER_RADIUS.pill,
-                          fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold,
-                          display: 'inline-flex', alignItems: 'center', gap: '5px',
-                          background: ch.channelType === 'SLACK' ? '#4A154B15' :
-                                      ch.channelType === 'EMAIL' ? '#2563EB15' :
-                                      ch.channelType === 'TEAMS' ? '#6264A715' :
-                                      ch.channelType === 'CLIQ' ? '#1D9E7515' : '#D85A3015',
-                          color: ch.channelType === 'SLACK' ? '#4A154B' :
-                                 ch.channelType === 'EMAIL' ? '#2563EB' :
-                                 ch.channelType === 'TEAMS' ? '#6264A7' :
-                                 ch.channelType === 'CLIQ' ? '#0F6E56' : '#A32D2D',
-                        }}>
-                          <i className={
-                            ch.channelType === 'SLACK' ? 'fa-brands fa-slack' :
-                            ch.channelType === 'EMAIL' ? 'fa-solid fa-envelope' :
-                            ch.channelType === 'TEAMS' ? 'fa-solid fa-people-group' :
-                            ch.channelType === 'CLIQ' ? 'fa-solid fa-comments' :
-                            'fa-solid fa-network-wired'
-                          } style={{ fontSize: '11px' }} />
-                          {ch.channelType}
-                        </span>
-                        <h4 style={{ margin: 0, fontSize: FONT.size.base, fontWeight: FONT.weight.semibold }}>
-                          {ch.name}
-                        </h4>
-                      </div>
-                    </div>
-
-                    <div style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      {ch.channelType === 'EMAIL' && (
-                        <div><strong>Recipients:</strong> {Array.isArray(parsedConfig.to) ? parsedConfig.to.join(', ') : parsedConfig.to || '—'}</div>
-                      )}
-                      {(ch.channelType === 'SLACK' || ch.channelType === 'TEAMS' || ch.channelType === 'CLIQ' || ch.channelType === 'WEBHOOK') && (
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <strong>URL:</strong> {parsedConfig.webhookUrl || parsedConfig.endpointUrl || parsedConfig.url || '—'}
-                        </div>
-                      )}
-                      <div>
-                        <strong>Access:</strong> <span style={{ color: COLORS.brand.primary }}>{whitelistInfo}</span>
-                      </div>
-                    </div>
-
-                    <div style={{ ...FRBC, marginTop: 'auto', paddingTop: SPACING.sm, borderTop: `1px solid ${COLORS.border.light}` }}>
-                      <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-                        ID: {ch.id.slice(0, 8)}...
-                      </span>
-
-                      <div style={{ display: 'flex', gap: SPACING.xs }}>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => { setEditingChannel(ch); setShowChannelModal(true); }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => confirmDeleteChannel(ch)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB CONTENT: TEMPLATES */}
-      {activeTab === 'templates' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.md }}>
-          {filteredTemplates.length === 0 ? (
-            <div style={{
-              textAlign: 'center', padding: `${SPACING.xxxl} ${SPACING.xl}`,
-              background: COLORS.background.secondary, borderRadius: BORDER_RADIUS.lg,
-              border: `1px dashed ${COLORS.border.medium}`,
-            }}>
-              <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, color: COLORS.text.primary, margin: 0 }}>
-                No custom templates created yet
-              </p>
-              <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginTop: '4px' }}>
-                Default templates are active. Create custom templates to standardize alert messaging for your team.
-              </p>
-              <Button
-                variant="primary"
-                onClick={() => { setEditingTemplate(null); setShowTemplateModal(true); }}
-                style={{ marginTop: SPACING.md }}
-              >
-                + Create Notification Template
-              </Button>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: SPACING.md }}>
-              {filteredTemplates.map(tmpl => (
-                <div
-                  key={tmpl.id}
-                  style={{
-                    background: COLORS.background.primary,
-                    border: `1px solid ${COLORS.border.light}`,
-                    borderRadius: BORDER_RADIUS.lg,
-                    padding: SPACING.lg,
-                    display: 'flex', flexDirection: 'column', gap: SPACING.sm,
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                  }}
-                >
-                  <div style={{ ...FRBC }}>
-                    <h4 style={{ margin: 0, fontSize: FONT.size.base, fontWeight: FONT.weight.semibold }}>
-                      {tmpl.name}
-                    </h4>
-                  </div>
-
-                  <p style={{ margin: 0, fontSize: FONT.size.xs, color: COLORS.text.secondary, minHeight: 18 }}>
-                    {tmpl.description || 'No description provided'}
+                    Add your team's Slack, Email, Microsoft Teams, Zoho Cliq or custom Webhook endpoints.
                   </p>
-
-                  <div style={{
-                    background: COLORS.background.secondary,
-                    padding: SPACING.xs, borderRadius: BORDER_RADIUS.sm,
-                    fontSize: FONT.size.xs, fontFamily: 'monospace',
-                    maxHeight: 70, overflow: 'hidden', textOverflow: 'ellipsis',
-                  }}>
-                    {tmpl.bodyTemplate}
-                  </div>
-
-                  <div style={{ ...FRBC, marginTop: 'auto', paddingTop: SPACING.sm, borderTop: `1px solid ${COLORS.border.light}` }}>
-                    <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-                      Subject: {tmpl.subjectTemplate ? tmpl.subjectTemplate.slice(0, 24) + '...' : 'Default'}
-                    </span>
-
-                    <div style={{ display: 'flex', gap: SPACING.xs }}>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => { setEditingTemplate(tmpl); setShowTemplateModal(true); }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => confirmDeleteTemplate(tmpl)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
+                  <Button
+                    variant="primary"
+                    onClick={() => { setEditingChannel(null); setShowChannelModal(true); }}
+                    style={{ marginTop: SPACING.md }}
+                  >
+                    + Create Channel Configuration
+                  </Button>
                 </div>
-              ))}
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: SPACING.lg }}>
+                  {filteredChannels.map(ch => {
+                    let parsedConfig = {};
+                    try { parsedConfig = JSON.parse(ch.configJson || '{}'); } catch(e) {}
+                    let whitelistInfo = 'All platform resources (entire organization)';
+                    if (ch.allowedResourcesJson) {
+                      try {
+                        const resList = JSON.parse(ch.allowedResourcesJson);
+                        if (resList.includes('ALL')) {
+                          whitelistInfo = 'All platform resources (*)';
+                        } else {
+                          whitelistInfo = `${resList.length} resource scope(s)`;
+                        }
+                      } catch(e) {}
+                    } else if (ch.pipelineId) {
+                      whitelistInfo = `Pipeline: ${ch.pipelineId}`;
+                    } else if (ch.allowedPipelinesJson) {
+                      try {
+                        const ids = JSON.parse(ch.allowedPipelinesJson);
+                        whitelistInfo = `${ids.length} pipeline(s)`;
+                      } catch(e) {}
+                    }
+
+                    return (
+                      <div
+                        key={ch.id}
+                        style={{
+                          background: COLORS.background.primary,
+                          border: `1px solid ${COLORS.border.light}`,
+                          borderRadius: BORDER_RADIUS.lg,
+                          padding: SPACING.lg,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: SPACING.md,
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.boxShadow = '0 8px 24px rgba(83, 74, 183, 0.08)';
+                          e.currentTarget.style.borderColor = COLORS.brand.primary + '50';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
+                          e.currentTarget.style.borderColor = COLORS.border.light;
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        {/* Header: Channel Type Pill & Name */}
+                        <div style={{ ...FRBC, gap: SPACING.sm }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                            <span style={{
+                              padding: '3px 8px', borderRadius: BORDER_RADIUS.sm,
+                              fontSize: '10px', fontWeight: FONT.weight.semibold,
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              flexShrink: 0,
+                              background: ch.channelType === 'SLACK' ? '#4A154B15' :
+                                          ch.channelType === 'EMAIL' ? '#2563EB15' :
+                                          ch.channelType === 'TEAMS' ? '#6264A715' :
+                                          ch.channelType === 'CLIQ' ? '#1D9E7515' : '#D85A3015',
+                              color: ch.channelType === 'SLACK' ? '#4A154B' :
+                                     ch.channelType === 'EMAIL' ? '#2563EB' :
+                                     ch.channelType === 'TEAMS' ? '#6264A7' :
+                                     ch.channelType === 'CLIQ' ? '#0F6E56' : '#A32D2D',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.4px',
+                            }}>
+                              <i className={
+                                ch.channelType === 'SLACK' ? 'fa-brands fa-slack' :
+                                ch.channelType === 'EMAIL' ? 'fa-solid fa-envelope' :
+                                ch.channelType === 'TEAMS' ? 'fa-solid fa-people-group' :
+                                ch.channelType === 'CLIQ' ? 'fa-solid fa-comments' :
+                                'fa-solid fa-network-wired'
+                              } style={{ fontSize: '10px' }} />
+                              {ch.channelType}
+                            </span>
+                            <h4
+                              title={ch.name}
+                              style={{
+                                margin: 0,
+                                fontSize: FONT.size.base,
+                                fontWeight: FONT.weight.semibold,
+                                color: COLORS.text.primary,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {ch.name}
+                            </h4>
+                          </div>
+                        </div>
+
+                        {/* Metadata Rows */}
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          padding: `${SPACING.xs} ${SPACING.sm}`,
+                          background: COLORS.background.secondary + '80',
+                          borderRadius: BORDER_RADIUS.sm,
+                          fontSize: FONT.size.xs,
+                          color: COLORS.text.secondary,
+                          marginTop: 'auto',
+                        }}>
+                          {ch.channelType === 'EMAIL' && (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.xs }}>
+                              <span style={{ color: COLORS.text.tertiary, flexShrink: 0 }}>Recipients:</span>
+                              <span
+                                title={Array.isArray(parsedConfig.to) ? parsedConfig.to.join(', ') : parsedConfig.to || '—'}
+                                style={{
+                                  fontWeight: FONT.weight.medium,
+                                  color: COLORS.text.primary,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {Array.isArray(parsedConfig.to) ? parsedConfig.to.join(', ') : parsedConfig.to || '—'}
+                              </span>
+                            </div>
+                          )}
+
+                          {(ch.channelType === 'SLACK' || ch.channelType === 'TEAMS' || ch.channelType === 'CLIQ' || ch.channelType === 'WEBHOOK') && (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.xs }}>
+                              <span style={{ color: COLORS.text.tertiary, flexShrink: 0 }}>Endpoint:</span>
+                              <span
+                                title={parsedConfig.webhookUrl || parsedConfig.endpointUrl || parsedConfig.url || '—'}
+                                style={{
+                                  fontWeight: FONT.weight.medium,
+                                  color: COLORS.text.primary,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  fontFamily: 'monospace',
+                                  fontSize: '11px',
+                                }}
+                              >
+                                {parsedConfig.webhookUrl || parsedConfig.endpointUrl || parsedConfig.url || '—'}
+                              </span>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.xs }}>
+                            <span style={{ color: COLORS.text.tertiary, flexShrink: 0 }}>Access Scope:</span>
+                            <span
+                              title={whitelistInfo}
+                              style={{
+                                fontWeight: FONT.weight.medium,
+                                color: COLORS.brand.primary,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {whitelistInfo}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Footer: ID & Edit/Delete Actions */}
+                        <div style={{
+                          ...FRBC,
+                          paddingTop: SPACING.xs,
+                          borderTop: `1px solid ${COLORS.border.light}`,
+                          fontSize: FONT.size.xs,
+                        }}>
+                          <span style={{ fontSize: '10px', color: COLORS.text.tertiary, fontFamily: 'monospace' }}>
+                            ID: {ch.id.slice(0, 8)}...
+                          </span>
+
+                          <div style={{ display: 'flex', gap: SPACING.xs }}>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => { setEditingChannel(ch); setShowChannelModal(true); }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => confirmDeleteChannel(ch)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
+
+          {/* TAB CONTENT: TEMPLATES */}
+          {activeTab === 'templates' && (
+            <div>
+              {filteredTemplates.length === 0 ? (
+                <div style={{
+                  textAlign: 'center', padding: `${SPACING.xxxl} ${SPACING.xl}`,
+                  background: COLORS.background.secondary, borderRadius: BORDER_RADIUS.lg,
+                  border: `1px dashed ${COLORS.border.medium}`,
+                }}>
+                  <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, color: COLORS.text.primary, margin: 0 }}>
+                    No custom templates created yet
+                  </p>
+                  <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginTop: '4px' }}>
+                    Default templates are active. Create custom templates to standardize alert messaging for your team.
+                  </p>
+                  <Button
+                    variant="primary"
+                    onClick={() => { setEditingTemplate(null); setShowTemplateModal(true); }}
+                    style={{ marginTop: SPACING.md }}
+                  >
+                    + Create Notification Template
+                  </Button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: SPACING.lg }}>
+                  {filteredTemplates.map(tmpl => (
+                    <div
+                      key={tmpl.id}
+                      style={{
+                        background: COLORS.background.primary,
+                        border: `1px solid ${COLORS.border.light}`,
+                        borderRadius: BORDER_RADIUS.lg,
+                        padding: SPACING.lg,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: SPACING.md,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(83, 74, 183, 0.08)';
+                        e.currentTarget.style.borderColor = COLORS.brand.primary + '50';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
+                        e.currentTarget.style.borderColor = COLORS.border.light;
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      {/* Header: Template Tag Pill & Name */}
+                      <div style={{ ...FRBC, gap: SPACING.sm }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                          <span style={{
+                            padding: '3px 8px', borderRadius: BORDER_RADIUS.sm,
+                            fontSize: '10px', fontWeight: FONT.weight.semibold,
+                            background: COLORS.brand.primary + '15',
+                            color: COLORS.brand.primary,
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            flexShrink: 0,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.4px',
+                          }}>
+                            <i className="fa-solid fa-file-code" style={{ fontSize: '10px' }} />
+                            TEMPLATE
+                          </span>
+                          <h4
+                            title={tmpl.name}
+                            style={{
+                              margin: 0,
+                              fontSize: FONT.size.base,
+                              fontWeight: FONT.weight.semibold,
+                              color: COLORS.text.primary,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {tmpl.name}
+                          </h4>
+                        </div>
+                      </div>
+
+                      {/* Description (Single-line truncated with tooltip) */}
+                      <p
+                        title={tmpl.description || 'Standard notification template'}
+                        style={{
+                          margin: 0,
+                          fontSize: FONT.size.xs,
+                          color: COLORS.text.secondary,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          minHeight: '16px',
+                        }}
+                      >
+                        {tmpl.description || 'Standard notification template'}
+                      </p>
+
+                      {/* Code Preview Box */}
+                      <div
+                        title={tmpl.bodyTemplate}
+                        style={{
+                          background: COLORS.background.secondary,
+                          border: `1px solid ${COLORS.border.light}`,
+                          padding: `${SPACING.xs} ${SPACING.sm}`,
+                          borderRadius: BORDER_RADIUS.sm,
+                          fontSize: FONT.size.xs,
+                          fontFamily: 'monospace',
+                          height: '52px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          color: COLORS.text.primary,
+                          lineHeight: '1.4',
+                          wordBreak: 'break-all',
+                        }}
+                      >
+                        {tmpl.bodyTemplate}
+                      </div>
+
+                      {/* Subject Row */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: SPACING.xs,
+                        padding: `${SPACING.xs} ${SPACING.sm}`,
+                        background: COLORS.background.secondary + '80',
+                        borderRadius: BORDER_RADIUS.sm,
+                        fontSize: FONT.size.xs,
+                        marginTop: 'auto',
+                      }}>
+                        <span style={{ color: COLORS.text.tertiary, flexShrink: 0 }}>Subject:</span>
+                        <span
+                          title={tmpl.subjectTemplate || 'Default Standard Subject'}
+                          style={{
+                            fontWeight: FONT.weight.medium,
+                            color: COLORS.text.primary,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {tmpl.subjectTemplate || 'Default Standard Subject'}
+                        </span>
+                      </div>
+
+                      {/* Card Footer: ID & Edit/Delete Actions */}
+                      <div style={{
+                        ...FRBC,
+                        paddingTop: SPACING.xs,
+                        borderTop: `1px solid ${COLORS.border.light}`,
+                        fontSize: FONT.size.xs,
+                      }}>
+                        <span style={{ fontSize: '10px', color: COLORS.text.tertiary, fontFamily: 'monospace' }}>
+                          ID: {tmpl.id.slice(0, 8)}...
+                        </span>
+
+                        <div style={{ display: 'flex', gap: SPACING.xs }}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => { setEditingTemplate(tmpl); setShowTemplateModal(true); }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => confirmDeleteTemplate(tmpl)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
