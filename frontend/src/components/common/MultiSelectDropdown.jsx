@@ -68,7 +68,7 @@ const MultiSelectDropdown = ({
 
   const handleSelectAll = () => {
     if (disabled) return;
-    const visibleValues = filteredOptions.map(o => o.value);
+    const visibleValues = filteredOptions.filter(o => !o.isHeader).map(o => o.value);
     const allSelected = visibleValues.every(v => selectedSet.has(v));
     if (allSelected) {
       // Unselect filtered
@@ -88,7 +88,7 @@ const MultiSelectDropdown = ({
   };
 
   // Find labels of selected items
-  const selectedOptions = options.filter(o => selectedSet.has(o.value));
+  const selectedOptions = options.filter(o => !o.isHeader && selectedSet.has(o.value));
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', ...style }}>
@@ -301,7 +301,27 @@ const MultiSelectDropdown = ({
                 {emptyMessage}
               </div>
             ) : (
-              filteredOptions.map(opt => {
+              filteredOptions.map((opt, idx) => {
+                if (opt.isHeader) {
+                  return (
+                    <div
+                      key={`header-${opt.label}-${idx}`}
+                      style={{
+                        padding: '6px 8px 3px',
+                        fontSize: '10px',
+                        fontWeight: FONT.weight.bold,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        color: COLORS.text.tertiary,
+                        borderTop: idx > 0 ? `1px solid ${COLORS.border.light}` : 'none',
+                        marginTop: idx > 0 ? '4px' : '0',
+                      }}
+                    >
+                      {opt.label}
+                    </div>
+                  );
+                }
+
                 const checked = selectedSet.has(opt.value);
                 return (
                   <label

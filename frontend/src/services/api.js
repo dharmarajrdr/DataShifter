@@ -472,6 +472,22 @@ export const notifyHubApi = {
 
   getLogs: (pipelineId) =>
     apiClient.get(`/notifyhub/logs${pipelineId ? `?pipelineId=${pipelineId}` : ''}`),
+
+  // Event Listeners
+  listListeners: () =>
+    apiClient.get('/notifyhub/listeners'),
+
+  getListener: (id) =>
+    apiClient.get(`/notifyhub/listeners/${id}`),
+
+  createListener: (payload) =>
+    apiClient.post('/notifyhub/listeners', payload),
+
+  updateListener: (id, payload) =>
+    apiClient.put(`/notifyhub/listeners/${id}`, payload),
+
+  deleteListener: (id) =>
+    apiClient.delete(`/notifyhub/listeners/${id}`),
 };
 
 export { authApi } from './authApi';

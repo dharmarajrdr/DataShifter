@@ -6,15 +6,15 @@ import { notifyHubApi, pipelineApi } from '../services/api';
 import { useNotification } from '../contexts/NotificationContext';
 import ChannelModal from '../components/notifyhub/ChannelModal';
 import TemplateModal from '../components/notifyhub/TemplateModal';
-import TestSendModal from '../components/notifyhub/TestSendModal';
+import EventListenerModal, { EVENT_CATALOG } from '../components/notifyhub/EventListenerModal';
 
 const NotifyHubPage = () => {
   const notification = useNotification();
 
-  const [activeTab, setActiveTab] = useState('channels'); // 'channels', 'templates', 'logs'
+  const [activeTab, setActiveTab] = useState('listeners'); // 'listeners', 'channels', 'templates'
   const [channels, setChannels] = useState([]);
   const [templates, setTemplates] = useState([]);
-  const [logs, setLogs] = useState([]);
+  const [listeners, setListeners] = useState([]);
   const [pipelines, setPipelines] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -23,32 +23,33 @@ const NotifyHubPage = () => {
   const [editingChannel, setEditingChannel] = useState(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
-  const [showTestSendModal, setShowTestSendModal] = useState(false);
-  const [testingChannel, setTestingChannel] = useState(null);
+  const [showListenerModal, setShowListenerModal] = useState(false);
+  const [editingListener, setEditingListener] = useState(null);
 
   // Delete confirmations
   const [itemToDelete, setItemToDelete] = useState(null);
-  const [deleteType, setDeleteType] = useState(null); // 'channel' or 'template'
+  const [deleteType, setDeleteType] = useState(null); // 'channel', 'template', 'listener'
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // Filters
   const [channelTypeFilter, setChannelTypeFilter] = useState('ALL');
+  const [listenerResourceFilter, setListenerResourceFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [chRes, tmplRes, logsRes, pipeRes] = await Promise.all([
+      const [chRes, tmplRes, listRes, pipeRes] = await Promise.all([
         notifyHubApi.listChannels().catch(() => ({ data: [] })),
         notifyHubApi.listTemplates().catch(() => ({ data: [] })),
-        notifyHubApi.getLogs().catch(() => ({ data: [] })),
+        notifyHubApi.listListeners().catch(() => ({ data: [] })),
         pipelineApi.getAll().catch(() => ({ data: [] })),
       ]);
 
       setChannels(Array.isArray(chRes) ? chRes : (chRes.data || []));
       setTemplates(Array.isArray(tmplRes) ? tmplRes : (tmplRes.data || []));
-      setLogs(Array.isArray(logsRes) ? logsRes : (logsRes.data || []));
+      setListeners(Array.isArray(listRes) ? listRes : (listRes.data || []));
       setPipelines(Array.isArray(pipeRes) ? pipeRes : (pipeRes.data || []));
     } catch (err) {
       console.error('Failed to load NotifyHub data', err);
@@ -68,9 +69,12 @@ const NotifyHubPage = () => {
       if (deleteType === 'channel') {
         await notifyHubApi.deleteChannel(itemToDelete.id);
         notification.success(`Deleted channel "${itemToDelete.name}" successfully`);
-      } else {
+      } else if (deleteType === 'template') {
         await notifyHubApi.deleteTemplate(itemToDelete.id);
         notification.success(`Deleted template "${itemToDelete.name}" successfully`);
+      } else if (deleteType === 'listener') {
+        await notifyHubApi.deleteListener(itemToDelete.id);
+        notification.success(`Deleted event listener "${itemToDelete.name}" successfully`);
       }
       setShowDeleteConfirm(false);
       setItemToDelete(null);
@@ -95,6 +99,12 @@ const NotifyHubPage = () => {
     setShowDeleteConfirm(true);
   };
 
+  const confirmDeleteListener = (listener) => {
+    setItemToDelete(listener);
+    setDeleteType('listener');
+    setShowDeleteConfirm(true);
+  };
+
   const filteredChannels = channels.filter(ch => {
     if (channelTypeFilter !== 'ALL' && ch.channelType !== channelTypeFilter) return false;
     if (searchQuery && !ch.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -103,6 +113,16 @@ const NotifyHubPage = () => {
 
   const filteredTemplates = templates.filter(t => {
     if (searchQuery && !t.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  const filteredListeners = listeners.filter(l => {
+    if (listenerResourceFilter !== 'ALL' && l.resourceType !== listenerResourceFilter) return false;
+    if (searchQuery) {
+      const matchName = l.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchKey = l.eventKey?.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!matchName && !matchKey) return false;
+    }
     return true;
   });
 
@@ -115,7 +135,7 @@ const NotifyHubPage = () => {
             NotifyHub
           </h1>
           <p style={{ margin: '4px 0 0', fontSize: FONT.size.sm, color: COLORS.text.secondary }}>
-            Centralized notification manager for channels (Email, Slack, Teams, Cliq, Webhooks), reusable templates, and failure alerts.
+            Centralized notification manager for channels, reusable templates, and multi-resource event listeners.
           </p>
         </div>
 
@@ -130,6 +150,17 @@ const NotifyHubPage = () => {
             <i className={`fa-solid fa-arrows-rotate ${loading ? 'fa-spin' : ''}`} style={{ fontSize: '13px' }} />
             <span>Refresh</span>
           </Button>
+
+          {activeTab === 'listeners' && (
+            <Button
+              variant="primary"
+              onClick={() => { setEditingListener(null); setShowListenerModal(true); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <i className="fa-solid fa-plus" style={{ fontSize: '12px' }} />
+              <span>New Event Listener</span>
+            </Button>
+          )}
 
           {activeTab === 'channels' && (
             <Button
@@ -164,9 +195,9 @@ const NotifyHubPage = () => {
       }}>
         <div style={{ display: 'flex', gap: SPACING.md }}>
           {[
+            { key: 'listeners', label: `Event Listeners (${listeners.length})` },
             { key: 'channels', label: `Channels (${channels.length})` },
             { key: 'templates', label: `Templates (${templates.length})` },
-            { key: 'logs', label: `Delivery Logs (${logs.length})` },
           ].map(tab => {
             const active = activeTab === tab.key;
             return (
@@ -190,6 +221,26 @@ const NotifyHubPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: SPACING.sm, alignItems: 'center' }}>
+          {activeTab === 'listeners' && (
+            <select
+              value={listenerResourceFilter}
+              onChange={e => setListenerResourceFilter(e.target.value)}
+              style={{
+                padding: '6px 12px', borderRadius: BORDER_RADIUS.md,
+                border: `1px solid ${COLORS.border.medium}`, fontSize: FONT.size.xs,
+                background: '#fff',
+              }}
+            >
+              <option value="ALL">All Resources</option>
+              <option value="PIPELINE">Pipeline</option>
+              <option value="WORKFLOW">Workflow</option>
+              <option value="UDF">UDF</option>
+              <option value="CONNECTION">Connection</option>
+              <option value="SETUP">Setup</option>
+              <option value="BEETEL">Beetel</option>
+            </select>
+          )}
+
           {activeTab === 'channels' && (
             <select
               value={channelTypeFilter}
@@ -228,6 +279,127 @@ const NotifyHubPage = () => {
         <Loader message="Loading NotifyHub configurations..." height="40vh" />
       ) : (
         <>
+          {/* TAB CONTENT: EVENT LISTENERS */}
+          {activeTab === 'listeners' && (
+            <div>
+              {filteredListeners.length === 0 ? (
+                <div style={{
+                  textAlign: 'center', padding: `${SPACING.xxxl} ${SPACING.xl}`,
+                  background: COLORS.background.secondary, borderRadius: BORDER_RADIUS.lg,
+                  border: `1px dashed ${COLORS.border.medium}`,
+                }}>
+                  <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, color: COLORS.text.primary, margin: 0 }}>
+                    No event listeners configured
+                  </p>
+                  <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginTop: '4px' }}>
+                    Listen to platform lifecycle events (pipeline completed, udf removed, connection edited, setup updates, beetel plan, etc.) and configure notification delivery.
+                  </p>
+                  <Button
+                    variant="primary"
+                    onClick={() => { setEditingListener(null); setShowListenerModal(true); }}
+                    style={{ marginTop: SPACING.md }}
+                  >
+                    + Add Event Listener
+                  </Button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: SPACING.md }}>
+                  {filteredListeners.map(l => {
+                    const matchedChannel = channels.find(c => c.id === l.channelId);
+                    const matchedTemplate = templates.find(t => t.id === l.templateId);
+                    const cat = EVENT_CATALOG.find(c => c.resourceType === l.resourceType);
+
+                    return (
+                      <div
+                        key={l.id}
+                        style={{
+                          background: COLORS.background.primary,
+                          border: `1px solid ${COLORS.border.light}`,
+                          borderRadius: BORDER_RADIUS.lg,
+                          padding: SPACING.lg,
+                          display: 'flex', flexDirection: 'column', gap: SPACING.sm,
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                        }}
+                      >
+                        <div style={{ ...FRBC }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              padding: '2px 8px', borderRadius: BORDER_RADIUS.pill,
+                              fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold,
+                              background: COLORS.brand.primary + '15',
+                              color: COLORS.brand.primary,
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            }}>
+                              <i className={cat?.icon || 'fa-solid fa-bell'} style={{ fontSize: '11px' }} />
+                              {l.resourceType}
+                            </span>
+                            <h4 style={{ margin: 0, fontSize: FONT.size.base, fontWeight: FONT.weight.semibold }}>
+                              {l.name}
+                            </h4>
+                          </div>
+
+                          <StatusBadge status={l.enabled ? 'ACTIVE' : 'PAUSED'} />
+                        </div>
+
+                        <div style={{
+                          padding: '6px 10px', borderRadius: BORDER_RADIUS.sm,
+                          background: COLORS.background.secondary,
+                          fontSize: FONT.size.xs, fontFamily: 'monospace',
+                          color: COLORS.text.primary, fontWeight: FONT.weight.semibold,
+                        }}>
+                          on "{l.resourceType.toLowerCase()}" "{l.eventAction.toLowerCase()}" <span style={{ color: COLORS.text.tertiary, fontWeight: 'normal' }}>({l.eventKey})</span>
+                        </div>
+
+                        {l.description && (
+                          <p style={{ margin: 0, fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
+                            {l.description}
+                          </p>
+                        )}
+
+                        <div style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, display: 'flex', flexDirection: 'column', gap: '4px', marginTop: 'auto' }}>
+                          <div>
+                            <strong>Channel:</strong>{' '}
+                            {matchedChannel ? (
+                              <span>{matchedChannel.name} ({matchedChannel.channelType})</span>
+                            ) : (
+                              <span style={{ color: COLORS.status.error }}>Missing / Deleted channel ({l.channelId.slice(0, 8)}...)</span>
+                            )}
+                          </div>
+                          <div>
+                            <strong>Template:</strong>{' '}
+                            {matchedTemplate ? matchedTemplate.name : 'Built-in Standard Format'}
+                          </div>
+                        </div>
+
+                        <div style={{ ...FRBC, paddingTop: SPACING.sm, borderTop: `1px solid ${COLORS.border.light}` }}>
+                          <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
+                            ID: {l.id.slice(0, 8)}...
+                          </span>
+
+                          <div style={{ display: 'flex', gap: SPACING.xs }}>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => { setEditingListener(l); setShowListenerModal(true); }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => confirmDeleteListener(l)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {/* TAB CONTENT: CHANNELS */}
           {activeTab === 'channels' && (
             <div>
@@ -256,8 +428,17 @@ const NotifyHubPage = () => {
               {filteredChannels.map(ch => {
                 let parsedConfig = {};
                 try { parsedConfig = JSON.parse(ch.configJson || '{}'); } catch(e) {}
-                let whitelistInfo = 'All pipelines in organization';
-                if (ch.pipelineId) {
+                let whitelistInfo = 'All platform resources (entire organization)';
+                if (ch.allowedResourcesJson) {
+                  try {
+                    const resList = JSON.parse(ch.allowedResourcesJson);
+                    if (resList.includes('ALL')) {
+                      whitelistInfo = 'All platform resources';
+                    } else {
+                      whitelistInfo = `Whitelisted scopes (${resList.length}): ${resList.join(', ')}`;
+                    }
+                  } catch(e) {}
+                } else if (ch.pipelineId) {
                   whitelistInfo = `Locked to pipeline: ${ch.pipelineId}`;
                 } else if (ch.allowedPipelinesJson) {
                   try {
@@ -333,16 +514,6 @@ const NotifyHubPage = () => {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => { setTestingChannel(ch); setShowTestSendModal(true); }}
-                          title={`Test sending an alert to ${ch.name}`}
-                          style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          <i className="fa-solid fa-paper-plane" style={{ fontSize: '11px' }} />
-                          Test
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
                           onClick={() => { setEditingChannel(ch); setShowChannelModal(true); }}
                         >
                           Edit
@@ -405,13 +576,6 @@ const NotifyHubPage = () => {
                     <h4 style={{ margin: 0, fontSize: FONT.size.base, fontWeight: FONT.weight.semibold }}>
                       {tmpl.name}
                     </h4>
-                    <span style={{
-                      padding: '2px 8px', borderRadius: BORDER_RADIUS.pill,
-                      fontSize: FONT.size.xs, background: COLORS.background.secondary,
-                      color: COLORS.text.secondary,
-                    }}>
-                      {tmpl.eventType || 'CUSTOM'}
-                    </span>
                   </div>
 
                   <p style={{ margin: 0, fontSize: FONT.size.xs, color: COLORS.text.secondary, minHeight: 18 }}>
@@ -455,74 +619,6 @@ const NotifyHubPage = () => {
           )}
         </div>
       )}
-
-      {/* TAB CONTENT: DELIVERY LOGS */}
-      {activeTab === 'logs' && (
-        <div style={{
-          background: COLORS.background.primary,
-          border: `1px solid ${COLORS.border.light}`,
-          borderRadius: BORDER_RADIUS.lg,
-          overflow: 'hidden',
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: FONT.size.sm }}>
-            <thead>
-              <tr style={{ background: COLORS.background.secondary, borderBottom: `1px solid ${COLORS.border.light}` }}>
-                <th style={{ padding: `${SPACING.sm} ${SPACING.md}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Status</th>
-                <th style={{ padding: `${SPACING.sm} ${SPACING.md}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Channel</th>
-                <th style={{ padding: `${SPACING.sm} ${SPACING.md}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Type</th>
-                <th style={{ padding: `${SPACING.sm} ${SPACING.md}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Pipeline</th>
-                <th style={{ padding: `${SPACING.sm} ${SPACING.md}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Template</th>
-                <th style={{ padding: `${SPACING.sm} ${SPACING.md}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Attempts</th>
-                <th style={{ padding: `${SPACING.sm} ${SPACING.md}`, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.text.secondary }}>
-                    No delivery audit logs recorded yet. Use "Test & Send Alert" above to trigger a notification.
-                  </td>
-                </tr>
-              ) : (
-                logs.map(log => (
-                  <tr key={log.id} style={{ borderBottom: `1px solid ${COLORS.border.light}` }}>
-                    <td style={{ padding: `${SPACING.sm} ${SPACING.md}` }}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: BORDER_RADIUS.pill,
-                        fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold,
-                        background: log.status === 'SENT' ? COLORS.status.successLight :
-                                    log.status === 'FAILED' ? COLORS.status.errorLight : COLORS.status.warningLight,
-                        color: log.status === 'SENT' ? COLORS.status.successText :
-                               log.status === 'FAILED' ? COLORS.status.errorText : COLORS.status.warningText,
-                      }}>
-                        {log.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: `${SPACING.sm} ${SPACING.md}`, fontWeight: FONT.weight.medium }}>
-                      {log.channelName}
-                    </td>
-                    <td style={{ padding: `${SPACING.sm} ${SPACING.md}` }}>
-                      {log.channelType}
-                    </td>
-                    <td style={{ padding: `${SPACING.sm} ${SPACING.md}`, color: COLORS.text.secondary }}>
-                      {log.pipelineId || 'Global (Org)'}
-                    </td>
-                    <td style={{ padding: `${SPACING.sm} ${SPACING.md}` }}>
-                      {log.templateName || 'pipeline-failure-alert'}
-                    </td>
-                    <td style={{ padding: `${SPACING.sm} ${SPACING.md}` }}>
-                      {log.attemptCount}
-                    </td>
-                    <td style={{ padding: `${SPACING.sm} ${SPACING.md}`, color: COLORS.text.tertiary }}>
-                      {log.createdAt ? new Date(log.createdAt).toLocaleString() : '—'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
         </>
       )}
 
@@ -544,14 +640,13 @@ const NotifyHubPage = () => {
         />
       )}
 
-      {showTestSendModal && (
-        <TestSendModal
-          channel={testingChannel}
+      {showListenerModal && (
+        <EventListenerModal
+          listener={editingListener}
           channels={channels}
           templates={templates}
-          pipelines={pipelines}
-          onClose={() => { setShowTestSendModal(false); setTestingChannel(null); }}
-          onSent={() => { setActiveTab('logs'); loadData(); }}
+          onClose={() => { setShowListenerModal(false); setEditingListener(null); }}
+          onSave={loadData}
         />
       )}
 

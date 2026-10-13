@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, MultiSelectDropdown } from '../common';
 import { COLORS, FONT, BORDER_RADIUS, SPACING } from '../../constants/design';
 import { FRBC, FRSC, FCSS } from '../../constants/layouts';
-import { notifyHubApi, pipelineApi } from '../../services/api';
+import { notifyHubApi, pipelineApi, workflowApi, connectionApi, udfApi } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
 
 const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
@@ -22,26 +22,55 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
   const [selectedFields, setSelectedFields] = useState([]);
   const [availableWebhookFields, setAvailableWebhookFields] = useState([]);
 
-  // Whitelisting options
-  const [whitelistMode, setWhitelistMode] = useState('ALL'); // 'ALL', 'SPECIFIC', 'WHITELIST'
-  const [singlePipelineId, setSinglePipelineId] = useState('');
-  const [whitelistedPipelineIds, setWhitelistedPipelineIds] = useState([]);
-
-  const [localPipelines, setLocalPipelines] = useState(pipelines || []);
+  // Whitelisting options: list of selected resource tokens / IDs
+  const [selectedResources, setSelectedResources] = useState(['ALL']); // 'ALL' or array of keys/IDs
+  const [availableResources, setAvailableResources] = useState([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (pipelines && pipelines.length > 0) {
-      setLocalPipelines(pipelines);
-    } else {
-      pipelineApi.getAll()
-        .then(res => {
-          const list = Array.isArray(res) ? res : (res?.data || []);
-          setLocalPipelines(list);
-        })
-        .catch(() => {});
-    }
-  }, [pipelines]);
+    // Fetch all platform resources for whitelist dropdown
+    Promise.all([
+      pipelineApi.getAll().catch(() => ({ data: [] })),
+      workflowApi.getAll().catch(() => ({ data: [] })),
+      connectionApi.getAll().catch(() => ({ data: [] })),
+      udfApi.getAll().catch(() => ({ data: [] })),
+    ]).then(([pipeRes, wfRes, connRes, udfRes]) => {
+      const pipes = Array.isArray(pipeRes) ? pipeRes : (pipeRes?.data || []);
+      const wfs = Array.isArray(wfRes) ? wfRes : (wfRes?.data || []);
+      const conns = Array.isArray(connRes) ? connRes : (connRes?.data || []);
+      const udfs = Array.isArray(udfRes) ? udfRes : (udfRes?.data || []);
+
+      const groupedOptions = [
+        // Category headers & wildcard options
+        { isHeader: true, label: 'Global Platform Scopes' },
+        { value: 'ALL', label: 'All Resources (Entire Platform)', sublabel: 'Allows pipelines, workflows, udfs, connections, setup, and Beetel' },
+        { value: 'RESOURCE:WORKFLOW', label: 'All Workflows', sublabel: 'Allows all workflow orchestrations' },
+        { value: 'RESOURCE:PIPELINE', label: 'All Pipelines', sublabel: 'Allows all data pipelines' },
+        { value: 'RESOURCE:UDF', label: 'All UDFs', sublabel: 'Allows all User-Defined transformation functions' },
+        { value: 'RESOURCE:CONNECTION', label: 'All Database Connections', sublabel: 'Allows all source and target connectors' },
+        { value: 'RESOURCE:SETUP', label: 'All Organization Setup', sublabel: 'Allows system quotas, billing, and settings updates' },
+        { value: 'RESOURCE:BEETEL', label: 'All Beetel AI Agent', sublabel: 'Allows autonomous Beetel sessions and plans' },
+
+        // Workflows items
+        ...(wfs.length > 0 ? [{ isHeader: true, label: `Specific Workflows (${wfs.length})` }] : []),
+        ...wfs.map(w => ({ value: w.id, label: w.name, sublabel: `Workflow • ${w.id}` })),
+
+        // Pipelines items
+        ...(pipes.length > 0 ? [{ isHeader: true, label: `Specific Pipelines (${pipes.length})` }] : []),
+        ...pipes.map(p => ({ value: p.id, label: p.name, sublabel: `Pipeline • ${p.id}` })),
+
+        // UDF items
+        ...(udfs.length > 0 ? [{ isHeader: true, label: `Specific UDFs (${udfs.length})` }] : []),
+        ...udfs.map(u => ({ value: u.id, label: u.name, sublabel: `UDF JAR • ${u.id}` })),
+
+        // Connection items
+        ...(conns.length > 0 ? [{ isHeader: true, label: `Specific Connections (${conns.length})` }] : []),
+        ...conns.map(c => ({ value: c.id, label: c.name, sublabel: `${c.type || 'Connection'} • ${c.id}` })),
+      ];
+
+      setAvailableResources(groupedOptions);
+    });
+  }, []);
 
   useEffect(() => {
     // Load available webhook fields
@@ -72,19 +101,25 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
         console.error('Failed to parse channel config', e);
       }
 
-      if (channel.pipelineId) {
-        setWhitelistMode('SPECIFIC');
-        setSinglePipelineId(channel.pipelineId);
+      // Restore allowed resources from channel
+      if (channel.allowedResourcesJson) {
+        try {
+          const list = JSON.parse(channel.allowedResourcesJson);
+          setSelectedResources(Array.isArray(list) && list.length > 0 ? list : ['ALL']);
+        } catch (e) {
+          setSelectedResources(['ALL']);
+        }
+      } else if (channel.pipelineId) {
+        setSelectedResources([channel.pipelineId]);
       } else if (channel.allowedPipelinesJson) {
         try {
           const list = JSON.parse(channel.allowedPipelinesJson);
-          setWhitelistMode('WHITELIST');
-          setWhitelistedPipelineIds(list || []);
+          setSelectedResources(Array.isArray(list) && list.length > 0 ? list : ['ALL']);
         } catch (e) {
-          setWhitelistMode('ALL');
+          setSelectedResources(['ALL']);
         }
       } else {
-        setWhitelistMode('ALL');
+        setSelectedResources(['ALL']);
       }
     }
   }, [channel]);
@@ -159,8 +194,7 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
         channelType,
         enabled,
         config,
-        pipelineId: whitelistMode === 'SPECIFIC' ? singlePipelineId : null,
-        allowedPipelineIds: whitelistMode === 'WHITELIST' ? whitelistedPipelineIds : null,
+        allowedResources: selectedResources.length > 0 ? selectedResources : ['ALL'],
       };
 
       if (isEdit) {
@@ -485,93 +519,38 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
             border: `1px solid ${COLORS.border.medium}`,
           }}>
             <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.semibold, marginBottom: '2px' }}>
-              Invocation Access & Pipeline Whitelisting
+              Resource Whitelist & Invocation Access Control
             </label>
             <p style={{ margin: '0 0 10px', fontSize: FONT.size.xs, color: COLORS.text.secondary }}>
-              Prevent unauthorized pipelines from invoking this channel configuration.
+              Allow all resources across the organization, entire resource types (e.g. all workflows, all pipelines, all UDFs, etc.), or specific resource items.
             </p>
 
-            <div style={{ display: 'flex', gap: SPACING.sm, marginBottom: SPACING.md }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: FONT.size.sm, cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="whitelistMode"
-                  value="ALL"
-                  checked={whitelistMode === 'ALL'}
-                  onChange={() => setWhitelistMode('ALL')}
-                />
-                All Org Pipelines
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: FONT.size.sm, cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="whitelistMode"
-                  value="WHITELIST"
-                  checked={whitelistMode === 'WHITELIST'}
-                  onChange={() => setWhitelistMode('WHITELIST')}
-                />
-                Whitelist Multiple
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: FONT.size.sm, cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="whitelistMode"
-                  value="SPECIFIC"
-                  checked={whitelistMode === 'SPECIFIC'}
-                  onChange={() => setWhitelistMode('SPECIFIC')}
-                />
-                Single Pipeline Locked
-              </label>
-            </div>
-
-            {whitelistMode === 'SPECIFIC' && (
-              <div>
-                <select
-                  value={singlePipelineId}
-                  onChange={e => setSinglePipelineId(e.target.value)}
-                  style={{
-                    width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
-                    borderRadius: BORDER_RADIUS.sm, border: `1px solid ${COLORS.border.medium}`,
-                    fontSize: FONT.size.sm, background: '#fff',
-                  }}
-                  required
-                >
-                  <option value="">Select pipeline to lock to...</option>
-                  {localPipelines.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
-                  ))}
-                </select>
-                {localPipelines.length === 0 && (
-                  <p style={{ margin: '6px 0 0', fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-                    No pipelines available in this organization yet.
-                  </p>
+            <div>
+              <MultiSelectDropdown
+                options={availableResources}
+                value={selectedResources}
+                onChange={setSelectedResources}
+                placeholder="Select resources to authorize..."
+                searchPlaceholder="Search all resources (workflows, pipelines, udfs, connections...)"
+                emptyMessage="No matching platform resources found."
+              />
+              <div style={{ margin: '8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: COLORS.text.tertiary }}>
+                <span>
+                  {selectedResources.includes('ALL')
+                    ? 'Global access: Channel can be invoked by any pipeline, workflow, UDF, connector, or Beetel agent.'
+                    : `${selectedResources.length} resource scope(s) or item(s) whitelisted.`}
+                </span>
+                {!selectedResources.includes('ALL') && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedResources(['ALL'])}
+                    style={{ background: 'none', border: 'none', color: COLORS.brand.primary, cursor: 'pointer', padding: 0, fontSize: '11px' }}
+                  >
+                    Reset to All Resources
+                  </button>
                 )}
               </div>
-            )}
-
-            {whitelistMode === 'WHITELIST' && (
-              <div>
-                <MultiSelectDropdown
-                  options={localPipelines.map(p => ({
-                    value: p.id,
-                    label: p.name,
-                    sublabel: p.id,
-                  }))}
-                  value={whitelistedPipelineIds}
-                  onChange={setWhitelistedPipelineIds}
-                  placeholder="Select pipelines to whitelist..."
-                  searchPlaceholder="Search pipelines by name or ID..."
-                  emptyMessage="No pipelines found in this organization."
-                />
-                <p style={{ margin: '6px 0 0', fontSize: '11px', color: COLORS.text.tertiary }}>
-                  {whitelistedPipelineIds.length === 0
-                    ? 'No pipelines selected. Choose the pipelines permitted to use this channel.'
-                    : `${whitelistedPipelineIds.length} pipeline(s) authorized.`}
-                </p>
-              </div>
-            )}
+            </div>
           </div>
 
           {/* Action Buttons */}

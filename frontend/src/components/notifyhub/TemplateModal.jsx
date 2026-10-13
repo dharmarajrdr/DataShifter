@@ -11,8 +11,6 @@ const TemplateModal = ({ template, onClose, onSave }) => {
 
   const [name, setName] = useState(template?.name || '');
   const [description, setDescription] = useState(template?.description || '');
-  const [eventType, setEventType] = useState(template?.eventType || 'PIPELINE_FAILED');
-  const [channelType, setChannelType] = useState(template?.channelType || 'ALL');
   const [subjectTemplate, setSubjectTemplate] = useState(template?.subjectTemplate || '[ALERT] Pipeline {{pipeline_name}} status: {{priority}}');
   const [bodyTemplate, setBodyTemplate] = useState(
     template?.bodyTemplate ||
@@ -56,8 +54,6 @@ const TemplateModal = ({ template, onClose, onSave }) => {
       const payload = {
         name: name.trim(),
         description: description.trim() || undefined,
-        eventType,
-        channelType,
         subjectTemplate: subjectTemplate.trim() || undefined,
         bodyTemplate: bodyTemplate.trim(),
       };
@@ -125,44 +121,22 @@ const TemplateModal = ({ template, onClose, onSave }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: SPACING.lg, padding: SPACING.xl }}>
             {/* Left Column: Form & Editor */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.md }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: SPACING.md }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: '2px' }}>
-                    Template Name *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., pipeline-failure-alert"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    style={{
-                      width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
-                      borderRadius: BORDER_RADIUS.md, border: `1px solid ${COLORS.border.medium}`,
-                      fontSize: FONT.size.sm, outline: 'none',
-                    }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: '2px' }}>
-                    Event Type
-                  </label>
-                  <select
-                    value={eventType}
-                    onChange={e => setEventType(e.target.value)}
-                    style={{
-                      width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
-                      borderRadius: BORDER_RADIUS.md, border: `1px solid ${COLORS.border.medium}`,
-                      fontSize: FONT.size.sm, background: '#fff',
-                    }}
-                  >
-                    <option value="PIPELINE_FAILED">Pipeline Failed</option>
-                    <option value="PIPELINE_SUCCESS">Pipeline Success</option>
-                    <option value="PIPELINE_WARNING">Pipeline Warning</option>
-                    <option value="PIPELINE_STOPPED">Pipeline Stopped</option>
-                    <option value="CUSTOM">Custom Event</option>
-                  </select>
-                </div>
+              <div>
+                <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: '2px' }}>
+                  Template Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., pipeline-failure-alert"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  style={{
+                    width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
+                    borderRadius: BORDER_RADIUS.md, border: `1px solid ${COLORS.border.medium}`,
+                    fontSize: FONT.size.sm, outline: 'none',
+                  }}
+                  required
+                />
               </div>
 
               <div>
