@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC } from '../constants/layouts';
 import { AGENT } from '../constants/literals';
-import { PageHeader, Button } from '../components/common';
+import { BarLoader, SkeletonLoader } from '../components/common';
 import { BeetelIcon } from '../components/layout/Icons';
 import BeetelChatWorkspace from '../components/ai/BeetelChatWorkspace';
 import { ErrorPage } from './ErrorPage';
@@ -287,12 +287,18 @@ const BeetelAgentPage = () => {
               {sessions.length}
             </span>
           </div>
+          {loadingSessions && <BarLoader />}
 
           <div style={{ flex: 1, overflowY: 'auto', padding: SPACING.xs }}>
             {loadingSessions ? (
-              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, padding: SPACING.sm }}>
-                Loading conversations...
-              </p>
+              <div style={{ padding: '4px 2px' }}>
+                <SkeletonLoader
+                  variant="table-row"
+                  count={5}
+                  height="40px"
+                  style={{ borderRadius: BORDER_RADIUS.md }}
+                />
+              </div>
             ) : sessions.length === 0 ? (
               <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, padding: SPACING.sm, textAlign: 'center' }}>
                 No conversations yet. Start chatting or upload a <code>.md</code> spec!

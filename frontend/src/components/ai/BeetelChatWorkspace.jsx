@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../../constants/design';
 import { FRSC, FRBC } from '../../constants/layouts';
 import { AGENT } from '../../constants/literals';
-import { Button } from '../common';
+import { Button, BarLoader, SpinnerLoader, SkeletonLoader } from '../common';
 import { BeetelIcon } from '../layout/Icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { aiApi } from '../../services/aiApi';
@@ -74,9 +74,10 @@ const PlanConfirmationCard = ({ plan, onConfirm, onReject, busyPlanId }) => {
           color: style.text,
           border: `1px solid ${style.border}`,
         }}>
-          {style.label}
+          {isBusy ? 'Executing...' : style.label}
         </span>
       </div>
+      {isBusy && <BarLoader />}
 
       {/* Summary */}
       <div style={{ padding: SPACING.md }}>
@@ -670,6 +671,7 @@ const ShareConversationModal = ({
             <i className="fa-solid fa-xmark" />
           </button>
         </div>
+        {(loadingMembers || submitting) && <BarLoader />}
 
         {/* Notice Banner */}
         <div style={{
@@ -712,9 +714,14 @@ const ShareConversationModal = ({
           gap: '6px',
         }}>
           {loadingMembers ? (
-            <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, textAlign: 'center', padding: SPACING.md }}>
-              Loading organization members...
-            </p>
+            <div style={{ padding: `${SPACING.xs} 0` }}>
+              <SkeletonLoader
+                variant="table-row"
+                count={4}
+                height="46px"
+                style={{ borderRadius: BORDER_RADIUS.md }}
+              />
+            </div>
           ) : filteredMembers.length === 0 ? (
             <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, textAlign: 'center', padding: SPACING.md }}>
               No matching members found in your organization.
@@ -900,6 +907,7 @@ const BeetelChatWorkspace = ({
   const [input, setInput] = useState('');
   const [preferredProvider, setPreferredProvider] = useState(''); // '' = Auto, 'OLLAMA', 'GROQ'
   const [mdFile, setMdFile] = useState(null); // { name, content, size }
+  const [loadingSession, setLoadingSession] = useState(Boolean(externalSessionId));
   const [sending, setSending] = useState(false);
   const [busyPlanId, setBusyPlanId] = useState(null);
   const [error, setError] = useState(null);
@@ -976,10 +984,12 @@ const BeetelChatWorkspace = ({
       setSession(null);
       setMessages([]);
       setSessionAccessDenied(false);
+      setLoadingSession(false);
       setError(null);
       return;
     }
     try {
+      setLoadingSession(true);
       setSessionAccessDenied(false);
       setError(null);
       const res = await aiApi.getSession(sid);
@@ -1004,6 +1014,8 @@ const BeetelChatWorkspace = ({
         return;
       }
       setError(e?.message || 'Failed to load conversation messages');
+    } finally {
+      setLoadingSession(false);
     }
   }, [onAccessDenied]);
 
@@ -1534,6 +1546,7 @@ const BeetelChatWorkspace = ({
           </button>
         </div>
       </div>
+      {(loadingSession || sending || Boolean(busyPlanId)) && <BarLoader />}
 
       {/* Messages Area */}
       <div style={{
@@ -1544,7 +1557,13 @@ const BeetelChatWorkspace = ({
         flexDirection: 'column',
         gap: SPACING.md,
       }}>
-        {messages.length === 0 ? (
+        {loadingSession ? (
+          <SpinnerLoader
+            size="md"
+            message="Loading conversation..."
+            height="100%"
+          />
+        ) : messages.length === 0 ? (
           <div style={{
             margin: 'auto',
             textAlign: 'center',
@@ -1824,6 +1843,8 @@ const BeetelChatWorkspace = ({
           }}>
             <BeetelAvatar size={30} />
             <div style={{
+              ...FRSC,
+              gap: '8px',
               padding: `${SPACING.xs} ${SPACING.md}`,
               borderRadius: BORDER_RADIUS.lg,
               background: COLORS.background.secondary,
@@ -1831,7 +1852,8 @@ const BeetelChatWorkspace = ({
               fontSize: FONT.size.xs,
               color: COLORS.text.secondary,
             }}>
-              {AGENT.name} is analyzing context and tools...
+              <SpinnerLoader size={14} height="auto" style={{ width: 'auto', padding: 0 }} />
+              <span>{AGENT.name} is analyzing context and tools...</span>
             </div>
           </div>
         )}
@@ -1929,7 +1951,14 @@ const BeetelChatWorkspace = ({
           }}
         />
         <Button type="submit" disabled={sending || (!input.trim() && !mdFile)}>
-          {sending ? '...' : 'Send'}
+          {sending ? (
+            <span style={{ ...FRSC, gap: '6px' }}>
+              <SpinnerLoader size={13} color="#FFFFFF" height="auto" style={{ width: 'auto', padding: 0 }} />
+              <span>Sending</span>
+            </span>
+          ) : (
+            'Send'
+          )}
         </Button>
       </form>
 
