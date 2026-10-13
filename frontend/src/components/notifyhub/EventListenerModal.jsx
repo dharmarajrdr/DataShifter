@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from '../common';
+import { Button, Toggle } from '../common';
 import { COLORS, FONT, BORDER_RADIUS, SPACING } from '../../constants/design';
 import { FRBC } from '../../constants/layouts';
 import { notifyHubApi } from '../../services/api';
@@ -256,15 +256,20 @@ const EventListenerModal = ({ listener, channels = [], templates = [], onClose, 
               />
             </div>
 
-            <div style={{ paddingTop: '18px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: FONT.size.sm, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={e => setEnabled(e.target.checked)}
-                />
-                <span style={{ fontWeight: FONT.weight.medium }}>Active</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 90 }}>
+              <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: '2px' }}>
+                Status
               </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '38px' }}>
+                <Toggle checked={enabled} onChange={setEnabled} />
+                <span style={{
+                  fontSize: FONT.size.xs,
+                  fontWeight: FONT.weight.medium,
+                  color: enabled ? COLORS.status.connected : COLORS.text.tertiary,
+                }}>
+                  {enabled ? 'Active' : 'Disabled'}
+                </span>
+              </div>
             </div>
           </div>
 

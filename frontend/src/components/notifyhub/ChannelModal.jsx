@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, MultiSelectDropdown, Toggle } from '../common';
+import { Button, MultiSelectDropdown } from '../common';
 import { COLORS, FONT, BORDER_RADIUS, SPACING } from '../../constants/design';
 import { FRBC, FRSC, FCSS } from '../../constants/layouts';
 import { notifyHubApi, pipelineApi, workflowApi, connectionApi, udfApi } from '../../services/api';
@@ -257,40 +257,23 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
 
         {/* Form Body */}
         <form onSubmit={handleSave} style={{ padding: SPACING.xl, display: 'flex', flexDirection: 'column', gap: SPACING.lg }}>
-          {/* Channel Name & Status */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: SPACING.md, alignItems: 'center' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: SPACING.xxs }}>
-                Configuration Name *
-              </label>
-              <input
-                type="text"
-                placeholder="e.g., Core Dev Team Slack, Ops Alerts"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                style={{
-                  width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
-                  borderRadius: BORDER_RADIUS.md, border: `1px solid ${COLORS.border.medium}`,
-                  fontSize: FONT.size.base, outline: 'none',
-                }}
-                required
-              />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 100 }}>
-              <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: SPACING.xxs }}>
-                Status
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '38px' }}>
-                <Toggle checked={enabled} onChange={setEnabled} />
-                <span style={{
-                  fontSize: FONT.size.xs,
-                  fontWeight: FONT.weight.medium,
-                  color: enabled ? COLORS.status.connected : COLORS.text.tertiary,
-                }}>
-                  {enabled ? 'Active' : 'Disabled'}
-                </span>
-              </div>
-            </div>
+          {/* Channel Name */}
+          <div>
+            <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: SPACING.xxs }}>
+              Configuration Name *
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., Core Dev Team Slack, Ops Alerts"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              style={{
+                width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
+                borderRadius: BORDER_RADIUS.md, border: `1px solid ${COLORS.border.medium}`,
+                fontSize: FONT.size.base, outline: 'none',
+              }}
+              required
+            />
           </div>
 
           {/* Channel Type */}

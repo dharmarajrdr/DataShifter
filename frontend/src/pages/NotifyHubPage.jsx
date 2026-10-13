@@ -487,8 +487,6 @@ const NotifyHubPage = () => {
                           {ch.name}
                         </h4>
                       </div>
-
-                      <StatusBadge status={ch.enabled ? 'CONNECTED' : 'PAUSED'} />
                     </div>
 
                     <div style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, display: 'flex', flexDirection: 'column', gap: '4px' }}>
