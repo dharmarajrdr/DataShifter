@@ -140,17 +140,6 @@ const NotifyHubPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: SPACING.sm }}>
-          <Button
-            variant="secondary"
-            onClick={loadData}
-            disabled={loading}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            title="Refresh NotifyHub data"
-          >
-            <i className={`fa-solid fa-arrows-rotate ${loading ? 'fa-spin' : ''}`} style={{ fontSize: '13px' }} />
-            <span>Refresh</span>
-          </Button>
-
           {activeTab === 'listeners' && (
             <Button
               variant="primary"
