@@ -335,14 +335,12 @@ const NotifyHubPage = () => {
                           position: 'relative',
                         }}
                         onMouseEnter={e => {
-                          e.currentTarget.style.boxShadow = '0 8px 24px rgba(83, 74, 183, 0.08)';
-                          e.currentTarget.style.borderColor = COLORS.brand.primary + '50';
-                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 6px 18px rgba(83, 74, 183, 0.08)';
+                          e.currentTarget.style.borderColor = COLORS.brand.primary + '60';
                         }}
                         onMouseLeave={e => {
                           e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
                           e.currentTarget.style.borderColor = COLORS.border.light;
-                          e.currentTarget.style.transform = 'translateY(0)';
                         }}
                       >
                         {/* Header: Resource Icon + Name & Status Badge */}
@@ -586,14 +584,12 @@ const NotifyHubPage = () => {
                           transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                         }}
                         onMouseEnter={e => {
-                          e.currentTarget.style.boxShadow = '0 8px 24px rgba(83, 74, 183, 0.08)';
-                          e.currentTarget.style.borderColor = COLORS.brand.primary + '50';
-                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 6px 18px rgba(83, 74, 183, 0.08)';
+                          e.currentTarget.style.borderColor = COLORS.brand.primary + '60';
                         }}
                         onMouseLeave={e => {
                           e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
                           e.currentTarget.style.borderColor = COLORS.border.light;
-                          e.currentTarget.style.transform = 'translateY(0)';
                         }}
                       >
                         {/* Header: Channel Type Pill & Name */}
@@ -784,14 +780,12 @@ const NotifyHubPage = () => {
                         transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                       }}
                       onMouseEnter={e => {
-                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(83, 74, 183, 0.08)';
-                        e.currentTarget.style.borderColor = COLORS.brand.primary + '50';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 6px 18px rgba(83, 74, 183, 0.08)';
+                        e.currentTarget.style.borderColor = COLORS.brand.primary + '60';
                       }}
                       onMouseLeave={e => {
                         e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
                         e.currentTarget.style.borderColor = COLORS.border.light;
-                        e.currentTarget.style.transform = 'translateY(0)';
                       }}
                     >
                       {/* Header: Template Tag Pill & Name */}
