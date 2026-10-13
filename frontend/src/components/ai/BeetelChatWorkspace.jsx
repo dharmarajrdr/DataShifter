@@ -2003,29 +2003,13 @@ const BeetelChatWorkspace = ({
               outline: 'none',
             }}
           />
-          <Button type="submit" disabled={sending || (!input.trim() && !mdFile)}>
-            {sending ? (
-              <span style={{ ...FRSC, gap: '6px' }}>
-                <SpinnerLoader size={13} color="#FFFFFF" height="auto" style={{ width: 'auto', padding: 0 }} />
-                <span>Sending</span>
-              </span>
-            ) : (
-              'Send'
-            )}
-          </Button>
-        </div>
-
-        {/* Composer bottom toolbar with Model selector */}
-        <div style={{ ...FRBC, alignItems: 'center' }}>
-          <div style={{ ...FRSC, gap: '6px', alignItems: 'center' }}>
-            <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary }}>
-              Model:
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '150px' }}>
             <select
               value={preferredProvider}
               onChange={e => setPreferredProvider(e.target.value)}
               style={{
-                padding: '3px 8px',
+                width: '100%',
+                padding: '5px 8px',
                 borderRadius: BORDER_RADIUS.sm,
                 border: '1px solid #D4D0F5',
                 fontSize: FONT.size.xs,
@@ -2038,13 +2022,24 @@ const BeetelChatWorkspace = ({
               title="Choose LLM provider or Auto Failover"
             >
               <option value="">Auto (Groq / Ollama)</option>
-              <option value="OLLAMA">Local Ollama (gemma4:12b)</option>
+              <option value="OLLAMA">Local Ollama</option>
               <option value="GROQ">Groq Cloud</option>
             </select>
+            <Button
+              type="submit"
+              disabled={sending || (!input.trim() && !mdFile)}
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              {sending ? (
+                <span style={{ ...FRSC, gap: '6px', justifyContent: 'center' }}>
+                  <SpinnerLoader size={13} color="#FFFFFF" height="auto" style={{ width: 'auto', padding: 0 }} />
+                  <span>Sending</span>
+                </span>
+              ) : (
+                'Send'
+              )}
+            </Button>
           </div>
-          <span style={{ fontSize: '11px', color: COLORS.text.muted }}>
-            Press Enter to send, Shift+Enter for newline
-          </span>
         </div>
       </form>
 
