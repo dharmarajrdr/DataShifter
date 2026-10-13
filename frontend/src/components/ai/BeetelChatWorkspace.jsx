@@ -247,6 +247,7 @@ const BeetelChatWorkspace = ({
   const [workflows, setWorkflows] = useState([]);
 
   const [input, setInput] = useState('');
+  const [preferredProvider, setPreferredProvider] = useState(''); // '' = Auto, 'OLLAMA', 'GROQ'
   const [mdFile, setMdFile] = useState(null); // { name, content, size }
   const [sending, setSending] = useState(false);
   const [busyPlanId, setBusyPlanId] = useState(null);
@@ -367,15 +368,27 @@ const BeetelChatWorkspace = ({
         contextEntityName: contextEntityName || null,
         markdownAttachment: attachedMd?.content || null,
         markdownFileName: attachedMd?.name || null,
+        preferredProvider: preferredProvider || null,
       };
       const res = await aiApi.sendMessage(payload);
-      const data = res.data;
+      const data = res?.data || res;
       if (data?.session) {
         setSession(data.session);
         onSessionCreated(data.session);
+      } else if (data?.sessionId) {
+        const sessObj = {
+          id: data.sessionId,
+          title: textToSend.trim().slice(0, 48) || (attachedMd?.name ? `Spec: ${attachedMd.name}` : 'New Conversation'),
+          contextType,
+          contextEntityId: contextEntityId || null,
+          contextEntityName: contextEntityName || null,
+        };
+        setSession(sessObj);
+        onSessionCreated(sessObj);
       }
-      if (data?.assistantMessage) {
-        setMessages(prev => [...prev, data.assistantMessage]);
+      const assistantMsg = data?.assistantMessage || (data?.role ? data : null);
+      if (assistantMsg) {
+        setMessages(prev => [...prev, assistantMsg]);
       }
     } catch (e) {
       setError(e?.message || 'Beetel encountered an error processing your request.');
@@ -389,14 +402,15 @@ const BeetelChatWorkspace = ({
     setError(null);
     try {
       const res = await aiApi.confirmPlan(planId);
-      const updatedPlan = res.data;
-      setMessages(prev =>
-        prev.map(m => (m.plan?.id === planId ? { ...m, plan: updatedPlan } : m))
-      );
-      const sid = externalSessionId || session?.id;
-      if (sid) {
-        await loadSessionMessages(sid);
-      }
+      const msgData = res?.data || res;
+      const updatedPlan = msgData?.plan || msgData;
+      setMessages(prev => {
+        const updated = prev.map(m => (m.plan?.id === planId ? { ...m, plan: updatedPlan } : m));
+        if (msgData?.role && msgData?.content) {
+          return [...updated, { ...msgData, plan: null }];
+        }
+        return updated;
+      });
     } catch (e) {
       setError(e?.message || 'Plan execution failed');
     } finally {
@@ -409,14 +423,15 @@ const BeetelChatWorkspace = ({
     setError(null);
     try {
       const res = await aiApi.rejectPlan(planId);
-      const updatedPlan = res.data;
-      setMessages(prev =>
-        prev.map(m => (m.plan?.id === planId ? { ...m, plan: updatedPlan } : m))
-      );
-      const sid = externalSessionId || session?.id;
-      if (sid) {
-        await loadSessionMessages(sid);
-      }
+      const msgData = res?.data || res;
+      const updatedPlan = msgData?.plan || msgData;
+      setMessages(prev => {
+        const updated = prev.map(m => (m.plan?.id === planId ? { ...m, plan: updatedPlan } : m));
+        if (msgData?.role && msgData?.content) {
+          return [...updated, { ...msgData, plan: null }];
+        }
+        return updated;
+      });
     } catch (e) {
       setError(e?.message || 'Failed to reject plan');
     } finally {
@@ -536,6 +551,27 @@ const BeetelChatWorkspace = ({
               ))}
             </select>
           )}
+
+          <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary, marginLeft: '4px' }}>
+            Model:
+          </span>
+          <select
+            value={preferredProvider}
+            onChange={e => setPreferredProvider(e.target.value)}
+            style={{
+              padding: '4px 8px',
+              borderRadius: BORDER_RADIUS.sm,
+              border: `1px solid ${COLORS.border.light}`,
+              fontSize: FONT.size.xs,
+              background: '#fff',
+              color: COLORS.text.primary,
+            }}
+            title="Choose LLM provider or Auto Failover"
+          >
+            <option value="">Auto (Groq / Ollama)</option>
+            <option value="OLLAMA">Local Ollama (gemma4:12b)</option>
+            <option value="GROQ">Groq Cloud</option>
+          </select>
         </div>
 
         {/* Upload .md Spec button */}

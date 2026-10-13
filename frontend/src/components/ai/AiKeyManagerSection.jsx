@@ -6,10 +6,11 @@ import { aiApi } from '../../services/aiApi';
 import { Button } from '../common';
 
 const GROQ_MODELS = [
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+  'qwen/qwen3.8-27b',
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
-  'deepseek-r1-distill-llama-70b',
-  'mixtral-8x7b-32768',
 ];
 
 const STATUS_BADGE = {
@@ -38,7 +39,7 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true }) => {
   const [label, setLabel] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
-  const [modelName, setModelName] = useState('llama-3.3-70b-versatile');
+  const [modelName, setModelName] = useState('openai/gpt-oss-120b');
   const [priorityOrder, setPriorityOrder] = useState(0);
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState(null);
@@ -67,7 +68,7 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true }) => {
     setProvider(nextProvider);
     if (nextProvider === 'OLLAMA') {
       setBaseUrl('http://localhost:11434');
-      setModelName(poolStatus?.defaultOllamaModel || 'llama3.1');
+      setModelName(poolStatus?.defaultOllamaModel || 'gemma4:12b');
     } else {
       setBaseUrl('https://api.groq.com/openai');
       setModelName(poolStatus?.defaultGroqModel || 'openai/gpt-oss-120b');
@@ -305,7 +306,7 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true }) => {
                   type="text"
                   value={modelName}
                   onChange={(e) => setModelName(e.target.value)}
-                  placeholder="llama3.1"
+                  placeholder="gemma4:12b"
                   style={inputStyle}
                 />
               )}

@@ -15,11 +15,14 @@ import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,10 @@ import java.util.Map;
 public class LlmClientRouter {
 
     private final AiKeyManagementService keyManagementService;
+
+    private static final RetryTemplate NO_INTERNAL_RETRY = RetryTemplate.builder()
+            .maxAttempts(1)
+            .build();
 
     public record LlmInvocationResult(
             String content,
@@ -37,14 +44,20 @@ public class LlmClientRouter {
     ) {}
 
     private static final List<String> GROQ_FALLBACK_MODELS = List.of(
-            "openai/gpt-oss-120b",
             "openai/gpt-oss-20b",
+            "openai/gpt-oss-120b",
             "qwen/qwen3.8-27b"
+    );
+
+    private static final List<String> OLLAMA_FALLBACK_MODELS = List.of(
+            "gemma4:12b",
+            "llama3.2",
+            "llama3.1"
     );
 
     /**
      * Executes a prompt with Spring AI ChatClient, automatically rotating through
-     * the resolved key pool (User -> Org -> System) if a key fails or hits rate limits.
+     * the resolved key pool (User -> Org -> System) and model tiers if a key fails or hits rate limits.
      */
     public LlmInvocationResult callWithFailover(
             String systemPrompt,
@@ -56,7 +69,22 @@ public class LlmClientRouter {
         String userId = UserContext.getCurrentUserId();
         String orgId = UserContext.getCurrentOrgId();
 
-        List<ResolvedLlmCandidate> candidates = keyManagementService.resolveCandidatePool(userId, orgId, preferredProvider);
+        List<ResolvedLlmCandidate> candidates = new ArrayList<>(
+                keyManagementService.resolveCandidatePool(userId, orgId, preferredProvider)
+        );
+
+        boolean hasOllamaCandidate = candidates.stream()
+                .anyMatch(c -> c.provider() == AiProviderType.OLLAMA);
+        if (!hasOllamaCandidate) {
+            keyManagementService.getLocalOllamaFallbackCandidate().ifPresent(localOllama -> {
+                if (preferredProvider == AiProviderType.OLLAMA) {
+                    candidates.add(0, localOllama);
+                } else {
+                    candidates.add(localOllama);
+                }
+            });
+        }
+
         if (candidates.isEmpty()) {
             throw new DatashifterException(
                     "No LLM API keys or Ollama instances are configured. Please add a Groq API key or Ollama endpoint in User Profile / Organization Settings, or set GROQ_API_KEYS in the environment.");
@@ -65,9 +93,7 @@ public class LlmClientRouter {
         List<String> attemptErrors = new ArrayList<>();
 
         for (ResolvedLlmCandidate candidate : candidates) {
-            // Skip system Ollama fallback if Ollama is not reachable and other candidates were tried
             if (candidate.provider() == AiProviderType.OLLAMA
-                    && "SYSTEM-OLLAMA".equals(candidate.keyId())
                     && !keyManagementService.isOllamaReachable(candidate.baseUrl())) {
                 attemptErrors.add(candidate.label() + ": Local Ollama server not reachable at " + candidate.baseUrl());
                 continue;
@@ -82,21 +108,7 @@ public class LlmClientRouter {
                             candidate.provider(), candidate.label(), candidate.scope(), modelName);
 
                     ChatModel chatModel = buildChatModel(candidate, modelName);
-                    var requestSpec = ChatClient.create(chatModel)
-                            .prompt()
-                            .system(systemPrompt);
-
-                    if (historyMessages != null && !historyMessages.isEmpty()) {
-                        requestSpec = requestSpec.messages(historyMessages);
-                    }
-
-                    requestSpec = requestSpec.user(userPrompt);
-
-                    if (toolBeans != null && !toolBeans.isEmpty()) {
-                        requestSpec = requestSpec.tools(toolBeans.toArray());
-                    }
-
-                    String responseText = requestSpec.call().content();
+                    String responseText = executeChatRequest(chatModel, candidate, systemPrompt, historyMessages, userPrompt, toolBeans);
                     keyManagementService.recordKeySuccess(candidate);
 
                     return new LlmInvocationResult(
@@ -109,9 +121,9 @@ public class LlmClientRouter {
                 } catch (Exception ex) {
                     String errMsg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
                     lastCandidateError = errMsg;
-                    if (isModelNotFoundError(errMsg)) {
-                        log.warn("Model '{}' not found on candidate '{}', trying next fallback model...",
-                                modelName, candidate.label());
+                    if (isModelNotFoundError(errMsg) || isPerModelRateLimitError(errMsg)) {
+                        log.warn("Model '{}' unavailable/rate-limited on candidate '{}' ({}), trying next model/key...",
+                                modelName, candidate.label(), summarizeError(errMsg));
                         continue;
                     }
                     break;
@@ -122,11 +134,58 @@ public class LlmClientRouter {
                 log.warn("LLM invocation failed on candidate '{}' ({}): {}",
                         candidate.label(), candidate.provider(), lastCandidateError);
                 keyManagementService.recordKeyFailure(candidate, lastCandidateError);
-                attemptErrors.add(candidate.label() + ": " + lastCandidateError);
+                attemptErrors.add(candidate.label() + ": " + summarizeError(lastCandidateError));
             }
         }
 
         throw new DatashifterException("All configured LLM keys/providers failed. Attempts: " + String.join(" | ", attemptErrors));
+    }
+
+    private String executeChatRequest(
+            ChatModel chatModel,
+            ResolvedLlmCandidate candidate,
+            String systemPrompt,
+            List<Message> historyMessages,
+            String userPrompt,
+            List<Object> toolBeans
+    ) {
+        try {
+            var requestSpec = ChatClient.create(chatModel)
+                    .prompt()
+                    .system(systemPrompt);
+
+            if (historyMessages != null && !historyMessages.isEmpty()) {
+                requestSpec = requestSpec.messages(historyMessages);
+            }
+
+            requestSpec = requestSpec.user(userPrompt);
+
+            if (toolBeans != null && !toolBeans.isEmpty()) {
+                requestSpec = requestSpec.tools(toolBeans.toArray());
+            }
+
+            return requestSpec.call().content();
+        } catch (Exception ex) {
+            String errMsg = ex.getMessage() != null ? ex.getMessage() : "";
+            // If an Ollama model does not support native function/tool calling, retry cleanly without tools
+            // (Live Workspace Inventory is already injected in systemPrompt)
+            if (candidate.provider() == AiProviderType.OLLAMA
+                    && toolBeans != null && !toolBeans.isEmpty()
+                    && (errMsg.toLowerCase().contains("does not support tools")
+                        || errMsg.toLowerCase().contains("tool")
+                        || errMsg.contains("400"))) {
+                log.info("Ollama model on '{}' does not support native tools ({}); retrying prompt with pre-injected workspace context.",
+                        candidate.label(), summarizeError(errMsg));
+                var fallbackSpec = ChatClient.create(chatModel)
+                        .prompt()
+                        .system(systemPrompt);
+                if (historyMessages != null && !historyMessages.isEmpty()) {
+                    fallbackSpec = fallbackSpec.messages(historyMessages);
+                }
+                return fallbackSpec.user(userPrompt).call().content();
+            }
+            throw ex;
+        }
     }
 
     /**
@@ -157,7 +216,7 @@ public class LlmClientRouter {
             } catch (Exception ex) {
                 String errMsg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
                 lastErr = errMsg;
-                if (isModelNotFoundError(errMsg)) {
+                if (isModelNotFoundError(errMsg) || isPerModelRateLimitError(errMsg)) {
                     continue;
                 }
                 break;
@@ -174,29 +233,41 @@ public class LlmClientRouter {
     }
 
     private List<String> buildModelsToTry(ResolvedLlmCandidate candidate) {
-        List<String> models = new ArrayList<>();
+        Set<String> models = new LinkedHashSet<>();
         if (candidate.modelName() != null && !candidate.modelName().isBlank()) {
             models.add(candidate.modelName().trim());
         }
         if (candidate.provider() == AiProviderType.GROQ) {
-            for (String fallback : GROQ_FALLBACK_MODELS) {
-                if (!models.contains(fallback)) {
-                    models.add(fallback);
-                }
-            }
+            models.addAll(GROQ_FALLBACK_MODELS);
+        } else if (candidate.provider() == AiProviderType.OLLAMA) {
+            models.addAll(OLLAMA_FALLBACK_MODELS);
         }
-        return models;
+        return new ArrayList<>(models);
     }
 
     private boolean isModelNotFoundError(String errMsg) {
         if (errMsg == null) return false;
         String lower = errMsg.toLowerCase();
-        return lower.contains("model_not_found") || (lower.contains("404") && lower.contains("model"));
+        return lower.contains("model_not_found")
+                || (lower.contains("404") && lower.contains("model"))
+                || (lower.contains("not found") && lower.contains("model"));
+    }
+
+    private boolean isPerModelRateLimitError(String errMsg) {
+        if (errMsg == null) return false;
+        String lower = errMsg.toLowerCase();
+        return lower.contains("429") || lower.contains("rate_limit_exceeded") || lower.contains("tokens per minute");
+    }
+
+    private String summarizeError(String errMsg) {
+        if (errMsg == null) return "Unknown error";
+        return errMsg.length() > 260 ? errMsg.substring(0, 260) + "..." : errMsg;
     }
 
     private ChatModel buildChatModel(ResolvedLlmCandidate candidate, String modelName) {
         if (candidate.provider() == AiProviderType.OLLAMA) {
-            OllamaApi ollamaApi = new OllamaApi(candidate.baseUrl());
+            String effectiveOllamaUrl = keyManagementService.resolveEffectiveOllamaBaseUrl(candidate.baseUrl());
+            OllamaApi ollamaApi = new OllamaApi(effectiveOllamaUrl);
             OllamaOptions options = OllamaOptions.builder()
                     .model(modelName)
                     .temperature(0.2)
@@ -207,7 +278,7 @@ public class LlmClientRouter {
                     .build();
         }
 
-        // Default: GROQ (OpenAI-compatible API)
+        // Default: GROQ (OpenAI-compatible API) with 1-attempt RetryTemplate for instant key/model failover
         String baseUrl = normalizeOpenAiBaseUrl(candidate.baseUrl());
         OpenAiApi openAiApi = new OpenAiApi(baseUrl, candidate.apiKey());
         OpenAiChatOptions options = OpenAiChatOptions.builder()
@@ -217,6 +288,7 @@ public class LlmClientRouter {
         return OpenAiChatModel.builder()
                 .openAiApi(openAiApi)
                 .defaultOptions(options)
+                .retryTemplate(NO_INTERNAL_RETRY)
                 .build();
     }
 

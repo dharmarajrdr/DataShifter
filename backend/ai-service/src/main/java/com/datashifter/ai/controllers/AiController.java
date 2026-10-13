@@ -5,6 +5,7 @@ import com.datashifter.ai.services.AiKeyManagementService.ResolvedLlmCandidate;
 import com.datashifter.ai.services.BeetelAgentService;
 import com.datashifter.ai.services.LlmClientRouter;
 import com.datashifter.common.dtos.AiDtos.*;
+import com.datashifter.common.dtos.ApiResponse;
 import com.datashifter.common.enums.AiContextType;
 import com.datashifter.common.models.AiApiKey;
 import com.datashifter.common.repositories.AiApiKeyRepository;
@@ -31,20 +32,20 @@ public class AiController {
     // =========================================================================
 
     @GetMapping("/keys/status")
-    public ResponseEntity<AiKeyPoolStatusResponse> getKeyPoolStatus() {
-        return ResponseEntity.ok(keyManagementService.getPoolStatus());
+    public ApiResponse<AiKeyPoolStatusResponse> getKeyPoolStatus() {
+        return ApiResponse.success(keyManagementService.getPoolStatus());
     }
 
     @PostMapping("/keys")
-    public ResponseEntity<AiApiKeyResponse> createKey(@RequestBody CreateAiApiKeyRequest request) {
-        return ResponseEntity.ok(keyManagementService.createKey(request));
+    public ApiResponse<AiApiKeyResponse> createKey(@RequestBody CreateAiApiKeyRequest request) {
+        return ApiResponse.success(keyManagementService.createKey(request), "API key added");
     }
 
     @PutMapping("/keys/{id}")
-    public ResponseEntity<AiApiKeyResponse> updateKey(
+    public ApiResponse<AiApiKeyResponse> updateKey(
             @PathVariable String id,
             @RequestBody UpdateAiApiKeyRequest request) {
-        return ResponseEntity.ok(keyManagementService.updateKey(id, request));
+        return ApiResponse.success(keyManagementService.updateKey(id, request), "API key updated");
     }
 
     @DeleteMapping("/keys/{id}")
@@ -54,12 +55,12 @@ public class AiController {
     }
 
     @PostMapping("/keys/{id}/reset")
-    public ResponseEntity<AiApiKeyResponse> resetKeyHealth(@PathVariable String id) {
-        return ResponseEntity.ok(keyManagementService.resetKeyHealth(id));
+    public ApiResponse<AiApiKeyResponse> resetKeyHealth(@PathVariable String id) {
+        return ApiResponse.success(keyManagementService.resetKeyHealth(id), "Key health reset");
     }
 
     @PostMapping("/keys/{id}/test")
-    public ResponseEntity<Map<String, Object>> testKey(@PathVariable String id) {
+    public ApiResponse<Map<String, Object>> testKey(@PathVariable String id) {
         AiApiKey key = apiKeyRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Key not found: " + id));
         String decrypted = key.getEncryptedApiKey() != null && !key.getEncryptedApiKey().isBlank()
@@ -75,7 +76,7 @@ public class AiController {
                 key.getModelName(),
                 null
         );
-        return ResponseEntity.ok(llmClientRouter.testCandidate(candidate));
+        return ApiResponse.success(llmClientRouter.testCandidate(candidate));
     }
 
     // =========================================================================
@@ -83,28 +84,34 @@ public class AiController {
     // =========================================================================
 
     @GetMapping("/sessions")
-    public ResponseEntity<List<ChatSessionResponse>> listSessions(
+    public ApiResponse<List<ChatSessionResponse>> listSessions(
             @RequestParam(required = false) AiContextType contextType,
             @RequestParam(required = false) String contextId) {
-        return ResponseEntity.ok(beetelAgentService.listSessions(contextType, contextId));
+        return ApiResponse.success(beetelAgentService.listSessions(contextType, contextId));
     }
 
     @PostMapping("/sessions")
-    public ResponseEntity<ChatSessionResponse> createSession(
+    public ApiResponse<ChatSessionResponse> createSession(
             @RequestBody(required = false) CreateChatSessionRequest request) {
-        return ResponseEntity.ok(beetelAgentService.createSession(request));
+        return ApiResponse.success(beetelAgentService.createSession(request));
     }
 
     @GetMapping("/sessions/{id}")
-    public ResponseEntity<ChatSessionResponse> getSession(@PathVariable String id) {
-        return ResponseEntity.ok(beetelAgentService.getSession(id));
+    public ApiResponse<ChatSessionResponse> getSession(@PathVariable String id) {
+        return ApiResponse.success(beetelAgentService.getSession(id));
+    }
+
+    @GetMapping("/sessions/{id}/messages")
+    public ApiResponse<List<ChatMessageResponse>> getSessionMessages(@PathVariable String id) {
+        ChatSessionResponse session = beetelAgentService.getSession(id);
+        return ApiResponse.success(session.getMessages() != null ? session.getMessages() : List.of());
     }
 
     @PutMapping("/sessions/{id}/context")
-    public ResponseEntity<ChatSessionResponse> updateSessionContext(
+    public ApiResponse<ChatSessionResponse> updateSessionContext(
             @PathVariable String id,
             @RequestBody UpdateSessionContextRequest request) {
-        return ResponseEntity.ok(beetelAgentService.updateSessionContext(id, request));
+        return ApiResponse.success(beetelAgentService.updateSessionContext(id, request));
     }
 
     @DeleteMapping("/sessions/{id}")
@@ -118,14 +125,15 @@ public class AiController {
     // =========================================================================
 
     @PostMapping("/chat")
-    public ResponseEntity<ChatMessageResponse> sendMessage(@RequestBody ChatMessageRequest request) {
-        return ResponseEntity.ok(beetelAgentService.sendMessage(request));
+    public ApiResponse<ChatMessageResponse> sendMessage(@RequestBody ChatMessageRequest request) {
+        return ApiResponse.success(beetelAgentService.sendMessage(request));
     }
 
     @PostMapping("/plans/{planId}/decision")
-    public ResponseEntity<ChatMessageResponse> decidePlan(
+    public ApiResponse<ChatMessageResponse> decidePlan(
             @PathVariable String planId,
             @RequestBody PlanDecisionRequest decision) {
-        return ResponseEntity.ok(beetelAgentService.decidePlan(planId, decision));
+        return ApiResponse.success(beetelAgentService.decidePlan(planId, decision));
     }
 }
+

@@ -57,13 +57,14 @@ class AiKeyManagementServiceTest {
 
         when(apiKeyRepository.findByScopeAndUserIdAndIsActiveTrueOrderByPriorityOrderAscCreatedAtAsc(AiKeyScope.USER, "user-1"))
                 .thenReturn(List.of(userKey1));
+        when(apiKeyRepository.findByScopeAndOrgIdAndIsActiveTrueOrderByPriorityOrderAscCreatedAtAsc(AiKeyScope.ORG, "org-1"))
+                .thenReturn(List.of());
 
         List<ResolvedLlmCandidate> pool = service.resolveCandidatePool("user-1", "org-1", null);
 
         assertEquals(1, pool.size());
         assertEquals(AiKeyScope.USER, pool.get(0).scope());
         assertEquals("gsk_user_1", pool.get(0).apiKey());
-        verify(apiKeyRepository, never()).findByScopeAndOrgIdAndIsActiveTrueOrderByPriorityOrderAscCreatedAtAsc(any(), any());
     }
 
     @Test

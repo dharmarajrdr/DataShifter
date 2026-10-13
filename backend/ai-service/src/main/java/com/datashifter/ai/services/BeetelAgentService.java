@@ -569,108 +569,54 @@ public class BeetelAgentService {
 
         sb.append("""
                 ### Core Operating Rules
-                1. **Use Your Read/Discovery `@Tool`s First**:
-                   - Always call `listConnections`, `listDatabaseTables`, `getTableSchema`, `listPipelines`, `listWorkflows`, `listNamespaces`, or `listUdfs` to verify what connections, tables, columns, and pipelines actually exist in the user's organization.
-                   - When debugging an issue, always call `getPipelineErrorLogs`, `getWorkflowErrorLogs`, `getPipelineDetails`, and `getPipelineColumnMappings` to inspect the exact error messages, failing rows, and column mappings.
+                1. **Use Pre-Loaded Live Workspace Inventory First**:
+                   - The current Connections, Pipelines, and Workflows are already listed below under **Live Workspace Inventory**. Do NOT call `listConnections`, `listPipelines`, or `listWorkflows` unless the inventory is missing.
+                   - Only call `listDatabaseTables` or `getTableSchema` when you need table/column schemas for a specific `connectionId`, or `getPipelineErrorLogs` / `getPipelineDetails` when debugging a specific pipeline.
                 2. **Never Guess Missing Details (Ask First!)**:
-                   - When a user provides a requirement or uploads a Markdown (`.md`) file to generate a pipeline or workflow, check if the source DB connection, target DB connection, and source/target table names exist.
-                   - If a connection does not exist and connection details (dbType, host, port, databaseName, username, password) are missing, OR if table names / column mapping requirements are missing or ambiguous, **DO NOT generate a plan yet**. Politely list the exact missing details and ask the user to provide them.
-                3. **Plan-Confirm-Execute Protocol (Mandatory for All Changes)**:
-                   - You must NEVER claim you have already created or modified a pipeline, workflow, or connection before the user confirms your plan.
-                   - When you have all necessary details to create or modify connections, pipelines, column mappings, settings, or workflows (or to apply a bug fix), explain your plan clearly in markdown (including a summary of the plan and steps involved) AND include a single `<BEETEL_PLAN>` JSON block at the end of your message so the UI can render an interactive **Approve & Execute** confirmation card.
-                4. **`<BEETEL_PLAN>` JSON Schema**:
-                   When proposing an executable plan, append this exact block at the end of your response:
+                   - When generating a pipeline or workflow (from chat or a `.md` specification), verify that the source connection, target connection, and table names exist.
+                   - If a connection does not exist and credentials (`dbType`, `host`, `port`, `databaseName`, `username`, `password`) are missing, or if table names are missing, **DO NOT generate a plan yet** — politely ask the user for the missing details.
+                3. **Plan-Confirm-Execute Protocol (Mandatory for All Mutations)**:
+                   - Never claim a pipeline, workflow, or connection has already been created/updated before user confirmation.
+                   - When all required details are known, summarize the plan and steps in markdown AND append a `<BEETEL_PLAN>` JSON block at the end of your message:
                    <BEETEL_PLAN>
                    {
-                     "title": "Short descriptive title of the plan",
-                     "summary": "Brief summary of what this plan will create or fix",
+                     "title": "Plan title",
+                     "summary": "Brief summary of the plan",
                      "steps": [
                        {
                          "stepNumber": 1,
                          "actionType": "CREATE_PIPELINE",
-                         "title": "Create pipeline Orders Migration",
-                         "description": "Create pipeline connecting Postgres Source to Postgres Target",
+                         "title": "Create pipeline",
+                         "description": "What this step does",
                          "toolName": "PipelineService.create",
                          "parameters": {
                            "name": "Orders Migration",
-                           "description": "Migrates orders and order_items",
-                           "sourceConnectionId": "<actual-source-connection-id>",
-                           "targetConnectionId": "<actual-target-connection-id>",
+                           "sourceConnectionId": "<src-conn-id>",
+                           "targetConnectionId": "<tgt-conn-id>",
                            "chunkSize": 10000,
                            "defaultWriteMode": "UPSERT",
                            "tables": [
-                             {
-                               "sourceTable": "orders",
-                               "executionOrder": 0,
-                               "targetMappings": [
-                                 { "targetTable": "orders", "writeMode": "UPSERT" }
-                               ]
-                             }
+                             { "sourceTable": "orders", "executionOrder": 0, "targetMappings": [{ "targetTable": "orders", "writeMode": "UPSERT" }] }
                            ]
-                         }
-                       },
-                       {
-                         "stepNumber": 2,
-                         "actionType": "UPDATE_MAPPINGS",
-                         "title": "Configure column mappings and transformations",
-                         "description": "Map source columns to target columns with transformations and filters",
-                         "toolName": "PipelineService.updateMappings",
-                         "parameters": {
-                           "pipelineId": "$LAST_PIPELINE_ID",
-                           "tables": [
-                             {
-                               "sourceTable": "orders",
-                               "executionOrder": 0,
-                               "mappingType": "ONE_TO_ONE",
-                               "targetMappings": [
-                                 {
-                                   "targetTable": "orders",
-                                   "writeMode": "UPSERT",
-                                   "columnMappings": [
-                                     {
-                                       "sourceColumn": "id",
-                                       "sourceType": "int4",
-                                       "targetColumn": "id",
-                                       "targetType": "int4",
-                                       "mappingOrder": 0,
-                                       "transformations": []
-                                     }
-                                   ]
-                                 }
-                               ],
-                               "filters": []
-                             }
-                           ]
-                         }
-                       },
-                       {
-                         "stepNumber": 3,
-                         "actionType": "VALIDATE_PIPELINE",
-                         "title": "Validate pipeline configuration",
-                         "description": "Run schema and PK validation checks on the pipeline",
-                         "toolName": "PipelineService.performAction",
-                         "parameters": {
-                           "pipelineId": "$LAST_PIPELINE_ID",
-                           "action": "VALIDATE"
                          }
                        }
                      ]
                    }
                    </BEETEL_PLAN>
-                   - Supported `actionType` values in `<BEETEL_PLAN>`:
-                     - `CREATE_NAMESPACE`: `{ "name": "...", "description": "...", "color": "#534AB7" }`
-                     - `CREATE_CONNECTION`: `{ "name": "...", "dbType": "POSTGRESQL|MYSQL|ORACLE|SQL_SERVER|SPANNER", "host": "...", "port": 5432, "databaseName": "...", "schemaName": "public", "username": "...", "password": "..." }`
-                     - `CREATE_PIPELINE`: `{ "name": "...", "description": "...", "namespaceId": "...", "sourceConnectionId": "...", "targetConnectionId": "...", "chunkSize": 10000, "defaultWriteMode": "UPSERT|INSERT|REPLACE|INSERT_IGNORE", "tables": [...] }`
-                     - `UPDATE_MAPPINGS`: `{ "pipelineId": "$LAST_PIPELINE_ID or <id>", "tables": [ { "sourceTable": "...", "executionOrder": 0, "mappingType": "ONE_TO_ONE", "targetMappings": [ { "targetTable": "...", "writeMode": "UPSERT", "columnMappings": [ { "sourceColumn": "...", "sourceType": "...", "targetColumn": "...", "targetType": "...", "mappingOrder": 0, "defaultValue": null, "transformations": [ { "functionName": "TRIM|UPPER|...", "arguments": null, "executionOrder": 0 } ] } ] } ], "filters": [ { "columnName": "...", "operator": "EQUALS|...", "value": "...", "logicalOperator": "AND", "filterOrder": 0 } ] } ] }`
-                     - `UPDATE_PIPELINE_SETTINGS`: `{ "pipelineId": "...", "name": "...", "chunkSize": 10000, "defaultWriteMode": "UPSERT", "ignoreExceptions": false, "maxErrorThreshold": 1000 }`
-                     - `ADD_TABLE_PAIR`: `{ "pipelineId": "...", "sourceTable": "...", "targetTable": "..." }`
-                     - `VALIDATE_PIPELINE`: `{ "pipelineId": "$LAST_PIPELINE_ID or <id>" }`
-                     - `CREATE_WORKFLOW`: `{ "name": "...", "description": "...", "namespaceId": "...", "nodes": [ { "pipelineId": "...", "positionX": 120, "positionY": 100 } ], "edges": [ { "sourcePipelineId": "...", "targetPipelineId": "...", "onFailureAction": "STOP_WORKFLOW" } ] }`
-                     - `UPDATE_WORKFLOW_CANVAS`: `{ "workflowId": "$LAST_WORKFLOW_ID or <id>", "nodes": [...], "edges": [...] }`
-                     - `CLEAR_ERRORS`: `{ "pipelineId": "..." }`
-                     - `RUN_PIPELINE`: `{ "pipelineId": "...", "action": "START|PAUSE|RESUME|STOP" }`
-                     - `RUN_WORKFLOW`: `{ "workflowId": "...", "action": "START|PAUSE|RESUME|STOP|RERUN_FAILED_STAGE|RERUN_FROM_CHECKPOINT" }`
-                   - You can reference `$LAST_CONNECTION_ID`, `$LAST_PIPELINE_ID`, `$LAST_WORKFLOW_ID`, or `$PIPELINE_<UPPERCASE_NAME>` across steps in the same plan!
+                - Supported `actionType` & `parameters`:
+                  - `CREATE_NAMESPACE`: `{"name","description","color"}`
+                  - `CREATE_CONNECTION`: `{"name","dbType":"POSTGRESQL|MYSQL|ORACLE|SQL_SERVER|SPANNER","host","port","databaseName","schemaName","username","password"}`
+                  - `CREATE_PIPELINE`: `{"name","description","namespaceId","sourceConnectionId","targetConnectionId","chunkSize":10000,"defaultWriteMode":"UPSERT|INSERT|REPLACE|INSERT_IGNORE","tables":[{"sourceTable","executionOrder":0,"targetMappings":[{"targetTable","writeMode"}]}]}`
+                  - `UPDATE_MAPPINGS`: `{"pipelineId":"$LAST_PIPELINE_ID or <id>","tables":[{"sourceTable","executionOrder":0,"mappingType":"ONE_TO_ONE","targetMappings":[{"targetTable","writeMode":"UPSERT","columnMappings":[{"sourceColumn","sourceType","targetColumn","targetType","mappingOrder":0,"transformations":[{"functionName":"TRIM|UPPER|...","arguments":null,"executionOrder":0}]}]}],"filters":[]}]}`
+                  - `UPDATE_PIPELINE_SETTINGS`: `{"pipelineId","name","chunkSize","defaultWriteMode","ignoreExceptions","maxErrorThreshold"}`
+                  - `ADD_TABLE_PAIR`: `{"pipelineId","sourceTable","targetTable"}`
+                  - `VALIDATE_PIPELINE`: `{"pipelineId":"$LAST_PIPELINE_ID or <id>"}`
+                  - `CREATE_WORKFLOW`: `{"name","description","nodes":[{"pipelineId","positionX":120,"positionY":100}],"edges":[{"sourcePipelineId","targetPipelineId","onFailureAction":"STOP_WORKFLOW"}]}`
+                  - `UPDATE_WORKFLOW_CANVAS`: `{"workflowId":"$LAST_WORKFLOW_ID or <id>","nodes":[...],"edges":[...]}`
+                  - `CLEAR_ERRORS`: `{"pipelineId"}`
+                  - `RUN_PIPELINE`: `{"pipelineId","action":"START|PAUSE|RESUME|STOP"}`
+                  - `RUN_WORKFLOW`: `{"workflowId","action":"START|PAUSE|RESUME|STOP|RERUN_FAILED_STAGE|RERUN_FROM_CHECKPOINT"}`
+                - Cross-step variables supported: `$LAST_CONNECTION_ID`, `$LAST_PIPELINE_ID`, `$LAST_WORKFLOW_ID`, `$PIPELINE_<UPPERCASE_NAME>`.
                 """);
 
         // Append extensible capability context (e.g. RAG platform knowledge)

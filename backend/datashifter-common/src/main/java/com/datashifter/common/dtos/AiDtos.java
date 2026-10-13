@@ -4,6 +4,7 @@ import com.datashifter.common.enums.AiContextType;
 import com.datashifter.common.enums.AiKeyScope;
 import com.datashifter.common.enums.AiPlanStatus;
 import com.datashifter.common.enums.AiProviderType;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.*;
 
 import java.time.Instant;
@@ -27,7 +28,7 @@ public class AiDtos {
         private String label;
         private String apiKey; // Plaintext key (encrypted before storage; optional for OLLAMA)
         private String baseUrl; // Optional custom URL (e.g., http://localhost:11434)
-        private String modelName; // e.g., llama-3.3-70b-versatile or llama3.1
+        private String modelName; // e.g., openai/gpt-oss-120b or llama3.1
         private Integer priorityOrder;
         private Boolean isActive;
     }
@@ -89,6 +90,10 @@ public class AiDtos {
         private List<AiApiKeyResponse> userKeys;
         private List<AiApiKeyResponse> orgKeys;
         private List<String> registeredCapabilities;
+
+        public String getActivePool() {
+            return activeScope != null ? activeScope.name() : "SYSTEM";
+        }
     }
 
     // =========================================================================
@@ -103,7 +108,9 @@ public class AiDtos {
     public static class CreateChatSessionRequest {
         private String title;
         private AiContextType contextType;
+        @JsonAlias("contextEntityId")
         private String contextId;
+        @JsonAlias("contextEntityName")
         private String contextName;
     }
 
@@ -114,7 +121,9 @@ public class AiDtos {
     @Builder
     public static class UpdateSessionContextRequest {
         private AiContextType contextType;
+        @JsonAlias("contextEntityId")
         private String contextId;
+        @JsonAlias("contextEntityName")
         private String contextName;
     }
 
@@ -127,9 +136,12 @@ public class AiDtos {
         private String sessionId;
         private String message;
         private AiContextType contextType;
+        @JsonAlias("contextEntityId")
         private String contextId;
+        @JsonAlias("contextEntityName")
         private String contextName;
         private String markdownFileName;
+        @JsonAlias("markdownAttachment")
         private String markdownContent;
         private AiProviderType preferredProvider; // Optional override: GROQ or OLLAMA
     }
@@ -148,6 +160,14 @@ public class AiDtos {
         private Instant createdAt;
         private Instant updatedAt;
         private List<ChatMessageResponse> messages;
+
+        public String getContextEntityId() {
+            return contextId;
+        }
+
+        public String getContextEntityName() {
+            return contextName;
+        }
     }
 
     @Getter
@@ -167,6 +187,10 @@ public class AiDtos {
         private String keySource;
         private ExecutionPlanResponse plan;
         private Instant createdAt;
+
+        public String getMarkdownAttachmentName() {
+            return markdownFileName;
+        }
     }
 
     // =========================================================================

@@ -338,7 +338,7 @@ services:
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
       OLLAMA_ENABLED: ${OLLAMA_ENABLED:-true}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:12b}
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
     volumes:
       - udfdata:/var/lib/datashifter/udfs

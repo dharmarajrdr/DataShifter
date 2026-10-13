@@ -52,7 +52,7 @@ public class AiKeyManagementService {
     @Value("${datashifter.ai.ollama.base-url:http://localhost:11434}")
     private String defaultOllamaBaseUrl;
 
-    @Value("${datashifter.ai.ollama.default-model:llama3.1}")
+    @Value("${datashifter.ai.ollama.default-model:gemma4:12b}")
     private String defaultOllamaModel;
 
     // Tracks system env key health and current rotation index in memory
@@ -220,8 +220,8 @@ public class AiKeyManagementService {
     /**
      * Resolves the ordered list of LLM candidates to try for the current request.
      * Hierarchy:
-     *   1. USER keys (if user has any active keys configured -> system keys are NOT used)
-     *   2. ORG keys (if org has any active keys configured -> system keys are NOT used)
+     *   1. USER keys (highest priority)
+     *   2. ORG keys (used after USER keys or when no USER keys exist; bypasses SYSTEM keys)
      *   3. SYSTEM keys (.env GROQ_API_KEYS + local Ollama fallback)
      */
     @Transactional(readOnly = true)
@@ -230,16 +230,19 @@ public class AiKeyManagementService {
                 ? apiKeyRepository.findByScopeAndUserIdAndIsActiveTrueOrderByPriorityOrderAscCreatedAtAsc(AiKeyScope.USER, userId)
                 : List.of();
 
-        if (!userKeys.isEmpty()) {
-            return orderDbCandidates(userKeys, preferredProvider);
-        }
-
         List<AiApiKey> orgKeys = orgId != null
                 ? apiKeyRepository.findByScopeAndOrgIdAndIsActiveTrueOrderByPriorityOrderAscCreatedAtAsc(AiKeyScope.ORG, orgId)
                 : List.of();
 
-        if (!orgKeys.isEmpty()) {
-            return orderDbCandidates(orgKeys, preferredProvider);
+        if (!userKeys.isEmpty() || !orgKeys.isEmpty()) {
+            List<ResolvedLlmCandidate> pool = new ArrayList<>();
+            if (!userKeys.isEmpty()) {
+                pool.addAll(orderDbCandidates(userKeys, preferredProvider));
+            }
+            if (!orgKeys.isEmpty()) {
+                pool.addAll(orderDbCandidates(orgKeys, preferredProvider));
+            }
+            return pool;
         }
 
         // Fallback to System .env keys + Ollama
@@ -409,10 +412,67 @@ public class AiKeyManagementService {
                 .toList();
     }
 
+    public Optional<ResolvedLlmCandidate> getLocalOllamaFallbackCandidate() {
+        if (!ollamaEnabled) {
+            return Optional.empty();
+        }
+        String effectiveUrl = resolveEffectiveOllamaBaseUrl(defaultOllamaBaseUrl);
+        if (!isOllamaReachable(effectiveUrl)) {
+            return Optional.empty();
+        }
+        return Optional.of(new ResolvedLlmCandidate(
+                "SYSTEM-OLLAMA",
+                AiKeyScope.SYSTEM,
+                AiProviderType.OLLAMA,
+                "Local Ollama (" + defaultOllamaModel + ")",
+                "ollama",
+                effectiveUrl,
+                defaultOllamaModel,
+                null
+        ));
+    }
+
+    public String resolveEffectiveOllamaBaseUrl(String rawUrl) {
+        String candidateUrl = (rawUrl != null && !rawUrl.isBlank()) ? rawUrl.trim() : defaultOllamaBaseUrl;
+        if (candidateUrl.endsWith("/")) {
+            candidateUrl = candidateUrl.substring(0, candidateUrl.length() - 1);
+        }
+        if ( checkOllamaEndpoint(candidateUrl)) {
+            return candidateUrl;
+        }
+        // When running inside Docker on macOS/Windows, localhost:11434 in UI maps to host.docker.internal:11434
+        if (candidateUrl.contains("localhost") || candidateUrl.contains("127.0.0.1")) {
+            String dockerHostUrl = candidateUrl
+                    .replace("localhost", "host.docker.internal")
+                    .replace("127.0.0.1", "host.docker.internal");
+            if (checkOllamaEndpoint(dockerHostUrl)) {
+                return dockerHostUrl;
+            }
+        }
+        if (!candidateUrl.equals(defaultOllamaBaseUrl) && checkOllamaEndpoint(defaultOllamaBaseUrl)) {
+            return defaultOllamaBaseUrl;
+        }
+        return candidateUrl;
+    }
+
     public boolean isOllamaReachable(String baseUrl) {
         if (!ollamaEnabled) return false;
+        String target = (baseUrl != null && !baseUrl.isBlank()) ? baseUrl.trim() : defaultOllamaBaseUrl;
+        if (checkOllamaEndpoint(target)) {
+            return true;
+        }
+        if (target.contains("localhost") || target.contains("127.0.0.1")) {
+            String dockerHostUrl = target
+                    .replace("localhost", "host.docker.internal")
+                    .replace("127.0.0.1", "host.docker.internal");
+            return checkOllamaEndpoint(dockerHostUrl);
+        }
+        return false;
+    }
+
+    private boolean checkOllamaEndpoint(String baseUrl) {
         try {
-            URI uri = URI.create((baseUrl != null ? baseUrl : defaultOllamaBaseUrl) + "/api/tags");
+            URI uri = URI.create(baseUrl + "/api/tags");
             HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
             conn.setConnectTimeout(800);
             conn.setReadTimeout(800);

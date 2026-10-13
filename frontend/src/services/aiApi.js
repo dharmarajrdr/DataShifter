@@ -6,7 +6,7 @@ export const aiApi = {
   createKey: (data) => apiClient.post('/ai/keys', data),
   updateKey: (id, data) => apiClient.put(`/ai/keys/${id}`, data),
   deleteKey: (id) => apiClient.delete(`/ai/keys/${id}`),
-  testKey: (id) => apiClient.post(`/ai/keys/${id}/test`, {}),
+  testKey: (id) => apiClient.post(`/ai/keys/${id}/test`, {}, { timeout: 60000 }),
   resetKeyHealth: (id) => apiClient.post(`/ai/keys/${id}/reset`, {}),
 
   // Chat sessions & context
@@ -19,10 +19,16 @@ export const aiApi = {
   },
   createSession: (data = {}) => apiClient.post('/ai/sessions', data),
   getSession: (id) => apiClient.get(`/ai/sessions/${id}`),
+  getSessionMessages: (id) => apiClient.get(`/ai/sessions/${id}/messages`),
   updateSessionContext: (id, data) => apiClient.put(`/ai/sessions/${id}/context`, data),
   deleteSession: (id) => apiClient.delete(`/ai/sessions/${id}`),
 
   // Chat messages & Execution Plans
-  sendMessage: (data) => apiClient.post('/ai/chat', data),
-  decidePlan: (planId, data) => apiClient.post(`/ai/plans/${planId}/decision`, data),
+  sendMessage: (data) => apiClient.post('/ai/chat', data, { timeout: 90000 }),
+  decidePlan: (planId, data) => apiClient.post(`/ai/plans/${planId}/decision`, data, { timeout: 90000 }),
+  confirmPlan: (planId, feedback = '') =>
+    apiClient.post(`/ai/plans/${planId}/decision`, { approved: true, feedback }, { timeout: 90000 }),
+  rejectPlan: (planId, feedback = '') =>
+    apiClient.post(`/ai/plans/${planId}/decision`, { approved: false, feedback }, { timeout: 60000 }),
 };
+
