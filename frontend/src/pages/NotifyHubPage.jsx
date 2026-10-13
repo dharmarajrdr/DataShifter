@@ -45,10 +45,10 @@ const NotifyHubPage = () => {
         pipelineApi.getAll().catch(() => ({ data: [] })),
       ]);
 
-      setChannels(chRes.data || []);
-      setTemplates(tmplRes.data || []);
-      setLogs(logsRes.data || []);
-      setPipelines(pipeRes.data || []);
+      setChannels(Array.isArray(chRes) ? chRes : (chRes.data || []));
+      setTemplates(Array.isArray(tmplRes) ? tmplRes : (tmplRes.data || []));
+      setLogs(Array.isArray(logsRes) ? logsRes : (logsRes.data || []));
+      setPipelines(Array.isArray(pipeRes) ? pipeRes : (pipeRes.data || []));
     } catch (err) {
       console.error('Failed to load NotifyHub data', err);
     } finally {

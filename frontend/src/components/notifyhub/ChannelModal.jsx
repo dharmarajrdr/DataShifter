@@ -36,7 +36,8 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
     } else {
       pipelineApi.getAll()
         .then(res => {
-          if (res.data) setLocalPipelines(res.data);
+          const list = Array.isArray(res) ? res : (res?.data || []);
+          setLocalPipelines(list);
         })
         .catch(() => {});
     }
@@ -46,7 +47,8 @@ const ChannelModal = ({ channel, pipelines = [], onClose, onSave }) => {
     // Load available webhook fields
     notifyHubApi.getWebhookFields()
       .then(res => {
-        if (res.data) setAvailableWebhookFields(res.data);
+        const list = Array.isArray(res) ? res : (res?.data || []);
+        if (list.length > 0) setAvailableWebhookFields(list);
       })
       .catch(() => {});
 

@@ -28,7 +28,8 @@ const TemplateModal = ({ template, onClose, onSave }) => {
   useEffect(() => {
     notifyHubApi.getPlaceholders()
       .then(res => {
-        if (res.data) setPlaceholders(res.data);
+        const list = Array.isArray(res) ? res : (res?.data || []);
+        if (list.length > 0) setPlaceholders(list);
       })
       .catch(() => {});
   }, []);
@@ -42,7 +43,8 @@ const TemplateModal = ({ template, onClose, onSave }) => {
         bodyTemplate,
       })
         .then(res => {
-          if (res.data) setPreview(res.data);
+          const data = res?.data || res;
+          if (data) setPreview(data);
         })
         .catch(() => {});
     }, 250);
