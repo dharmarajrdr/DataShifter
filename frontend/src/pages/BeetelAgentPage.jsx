@@ -123,7 +123,7 @@ const BeetelAgentPage = () => {
               <BeetelIcon color={poolBadge.text} size={13} />
               <span>{poolBadge.label}</span>
             </div>
-            <Button size="sm" onClick={handleNewChat}>
+            <Button onClick={handleNewChat}>
               {AGENT.newChat}
             </Button>
           </div>

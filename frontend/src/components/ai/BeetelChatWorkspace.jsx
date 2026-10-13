@@ -1228,12 +1228,12 @@ const BeetelChatWorkspace = ({
         ...FRBC,
         flexWrap: 'wrap',
         gap: SPACING.xs,
-        padding: compact ? '8px 12px' : '9px 16px',
-        background: COLORS.brand.primary,
-        borderBottom: `1px solid ${COLORS.brand.primaryDark}`,
+        padding: compact ? '8px 12px' : '10px 16px',
+        background: COLORS.brand.primaryLight,
+        borderBottom: '1px solid #DFDDF7',
       }}>
         <div style={{ ...FRSC, gap: SPACING.xs, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: '#FFFFFF' }}>
+          <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: COLORS.accent.purpleText }}>
             Context:
           </span>
           <select
@@ -1259,9 +1259,9 @@ const BeetelChatWorkspace = ({
               }
             }}
             style={{
-              padding: '4px 8px',
+              padding: '5px 9px',
               borderRadius: BORDER_RADIUS.sm,
-              border: `1px solid ${COLORS.border.light}`,
+              border: '1px solid #D4D0F5',
               fontSize: FONT.size.xs,
               fontWeight: FONT.weight.medium,
               background: '#FFFFFF',
@@ -1282,9 +1282,9 @@ const BeetelChatWorkspace = ({
               value={contextEntityId}
               onChange={e => setContextEntityId(e.target.value)}
               style={{
-                padding: '4px 8px',
+                padding: '5px 9px',
                 borderRadius: BORDER_RADIUS.sm,
-                border: `1px solid ${COLORS.border.light}`,
+                border: '1px solid #D4D0F5',
                 fontSize: FONT.size.xs,
                 fontWeight: FONT.weight.medium,
                 background: '#FFFFFF',
@@ -1308,9 +1308,9 @@ const BeetelChatWorkspace = ({
               value={contextEntityId}
               onChange={e => setContextEntityId(e.target.value)}
               style={{
-                padding: '4px 8px',
+                padding: '5px 9px',
                 borderRadius: BORDER_RADIUS.sm,
-                border: `1px solid ${COLORS.border.light}`,
+                border: '1px solid #D4D0F5',
                 fontSize: FONT.size.xs,
                 fontWeight: FONT.weight.medium,
                 background: '#FFFFFF',
@@ -1334,9 +1334,9 @@ const BeetelChatWorkspace = ({
               value={contextEntityId}
               onChange={e => setContextEntityId(e.target.value)}
               style={{
-                padding: '4px 8px',
+                padding: '5px 9px',
                 borderRadius: BORDER_RADIUS.sm,
-                border: `1px solid ${COLORS.border.light}`,
+                border: '1px solid #D4D0F5',
                 fontSize: FONT.size.xs,
                 fontWeight: FONT.weight.medium,
                 background: '#FFFFFF',
@@ -1360,9 +1360,9 @@ const BeetelChatWorkspace = ({
               value={contextEntityId}
               onChange={e => setContextEntityId(e.target.value)}
               style={{
-                padding: '4px 8px',
+                padding: '5px 9px',
                 borderRadius: BORDER_RADIUS.sm,
-                border: `1px solid ${COLORS.border.light}`,
+                border: '1px solid #D4D0F5',
                 fontSize: FONT.size.xs,
                 fontWeight: FONT.weight.medium,
                 background: '#FFFFFF',
@@ -1381,16 +1381,16 @@ const BeetelChatWorkspace = ({
             </select>
           )}
 
-          <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: '#FFFFFF', marginLeft: '4px' }}>
+          <span style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.semibold, color: COLORS.accent.purpleText, marginLeft: '4px' }}>
             Model:
           </span>
           <select
             value={preferredProvider}
             onChange={e => setPreferredProvider(e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: '5px 9px',
               borderRadius: BORDER_RADIUS.sm,
-              border: `1px solid ${COLORS.border.light}`,
+              border: '1px solid #D4D0F5',
               fontSize: FONT.size.xs,
               fontWeight: FONT.weight.medium,
               background: '#FFFFFF',
@@ -1415,7 +1415,7 @@ const BeetelChatWorkspace = ({
                   style={{
                     ...FRSC,
                     gap: '5px',
-                    padding: '3px 9px',
+                    padding: '4px 10px',
                     borderRadius: BORDER_RADIUS.pill,
                     background: '#E1F5EE',
                     border: '1px solid #9FE1CB',
@@ -1454,11 +1454,11 @@ const BeetelChatWorkspace = ({
                 style={{
                   ...FRSC,
                   gap: '5px',
-                  padding: '4px 10px',
+                  padding: '5px 10px',
                   borderRadius: BORDER_RADIUS.sm,
-                  border: `1px solid ${COLORS.accent.purpleLight}`,
-                  background: COLORS.accent.purpleLight,
-                  color: COLORS.accent.purpleText,
+                  border: `1px solid ${COLORS.brand.primary}`,
+                  background: COLORS.brand.primary,
+                  color: '#FFFFFF',
                   fontSize: FONT.size.xs,
                   fontWeight: FONT.weight.semibold,
                   cursor: 'pointer',
@@ -1484,13 +1484,13 @@ const BeetelChatWorkspace = ({
             style={{
               ...FRSC,
               gap: '5px',
-              padding: '4px 10px',
+              padding: '5px 10px',
               borderRadius: BORDER_RADIUS.sm,
-              border: `1px solid ${COLORS.border.light}`,
+              border: '1px solid #D4D0F5',
               background: '#FFFFFF',
-              color: COLORS.text.primary,
+              color: COLORS.accent.purpleText,
               fontSize: FONT.size.xs,
-              fontWeight: FONT.weight.medium,
+              fontWeight: FONT.weight.semibold,
               cursor: 'pointer',
             }}
           >
