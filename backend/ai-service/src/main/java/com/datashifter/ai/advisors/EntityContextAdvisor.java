@@ -5,6 +5,7 @@ import com.datashifter.common.dtos.ConnectionDtos.ConnectionResponse;
 import com.datashifter.common.dtos.MonitorDtos.ErrorSummaryResponse;
 import com.datashifter.common.dtos.PipelineDtos.PipelineResponse;
 import com.datashifter.common.dtos.PipelineDtos.PipelineSummaryResponse;
+import com.datashifter.common.dtos.UdfDtos.UdfResponse;
 import com.datashifter.common.dtos.WorkflowDtos.WorkflowEdgeResponse;
 import com.datashifter.common.dtos.WorkflowDtos.WorkflowNodeResponse;
 import com.datashifter.common.dtos.WorkflowDtos.WorkflowResponse;
@@ -14,6 +15,7 @@ import com.datashifter.connector.services.interfaces.ConnectionService;
 import com.datashifter.monitor.services.interfaces.MonitorService;
 import com.datashifter.pipeline.services.interfaces.PipelineService;
 import com.datashifter.pipeline.services.interfaces.WorkflowService;
+import com.datashifter.udf.services.UdfRegistryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
     private final PipelineService pipelineService;
     private final WorkflowService workflowService;
     private final MonitorService monitorService;
+    private final UdfRegistryService udfRegistryService;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -44,11 +47,12 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
         List<PipelineSummaryResponse> pipes = List.of();
         List<WorkflowSummaryResponse> wfs = List.of();
 
-        // 1. Always inject a compact live workspace inventory including Workflow DAG topology (nodes + edges)
+        // 1. Always inject a compact live workspace inventory including Workflow DAG topology (nodes + edges) and UDFs
         try {
             List<ConnectionResponse> conns = connectionService.getAll();
             pipes = pipelineService.getAll();
             wfs = workflowService.getAll();
+            List<UdfResponse> udfs = udfRegistryService.getAll();
 
             sb.append("### Live Workspace Inventory\n");
             if (conns.isEmpty()) {
@@ -87,6 +91,22 @@ public class EntityContextAdvisor implements BeetelContextAdvisor {
                                 .append("`, pipelines=").append(w.getPipelineCount()).append(")\n");
                     }
                 }
+            }
+
+            if (udfs.isEmpty()) {
+                sb.append("- **UDFs**: (none registered)\n");
+            } else {
+                String udfStr = udfs.stream()
+                        .map(u -> {
+                            String funcs = u.getFunctions() != null
+                                    ? u.getFunctions().stream().map(f -> f.getFunctionName()).collect(Collectors.joining(","))
+                                    : "";
+                            return String.format("`%s` (id=`%s`, artifact=`%s`, status=%s, usedInPipelines=%d, functions=[%s])",
+                                    u.getName(), u.getId(), u.getArtifactName(), u.getStatus(),
+                                    u.getPipelineCount() != null ? u.getPipelineCount() : 0L, funcs);
+                        })
+                        .collect(Collectors.joining("; "));
+                sb.append("- **UDFs**: ").append(udfStr).append("\n");
             }
         } catch (Exception e) {
             log.debug("Could not build workspace inventory summary: {}", e.getMessage());

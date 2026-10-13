@@ -9,6 +9,7 @@ import com.datashifter.common.dtos.ConnectionDtos.*;
 import com.datashifter.common.dtos.NamespaceDtos.CreateNamespaceRequest;
 import com.datashifter.common.dtos.NamespaceDtos.NamespaceResponse;
 import com.datashifter.common.dtos.PipelineDtos.*;
+import com.datashifter.common.dtos.UdfDtos.UdfResponse;
 import com.datashifter.common.dtos.WorkflowDtos.*;
 import com.datashifter.common.enums.*;
 import com.datashifter.common.exceptions.DatashifterException;
@@ -25,6 +26,7 @@ import com.datashifter.monitor.services.interfaces.MonitorService;
 import com.datashifter.pipeline.services.implementations.NamespaceService;
 import com.datashifter.pipeline.services.interfaces.PipelineService;
 import com.datashifter.pipeline.services.interfaces.WorkflowService;
+import com.datashifter.udf.services.UdfRegistryService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -66,6 +68,7 @@ public class BeetelAgentService {
     private final WorkflowService workflowService;
     private final NamespaceService namespaceService;
     private final MonitorService monitorService;
+    private final UdfRegistryService udfRegistryService;
     private final ObjectMapper objectMapper;
 
     @Value("${datashifter.ai.agent-name:Beetel}")
@@ -388,15 +391,22 @@ public class BeetelAgentService {
 
         return switch (actionType) {
             case "CREATE_NAMESPACE" -> {
-                CreateNamespaceRequest req = objectMapper.convertValue(params, CreateNamespaceRequest.class);
+                CreateNamespaceRequest req = convertCleanParams(params, CreateNamespaceRequest.class);
                 NamespaceResponse res = namespaceService.create(req);
                 runtimeVars.put("$LAST_NAMESPACE_ID", res.getId());
                 yield new StepExecutionOutcome(
                         "Created namespace '" + res.getName() + "' (ID: " + res.getId() + ")",
                         "NAMESPACE", res.getId());
             }
+            case "DELETE_NAMESPACE" -> {
+                String nsId = resolveTargetId(params, "namespaceId", runtimeVars, "$LAST_NAMESPACE_ID");
+                namespaceService.delete(nsId);
+                yield new StepExecutionOutcome(
+                        "Deleted namespace (ID: " + nsId + ")",
+                        "NAMESPACE", nsId);
+            }
             case "CREATE_CONNECTION" -> {
-                CreateConnectionRequest req = objectMapper.convertValue(params, CreateConnectionRequest.class);
+                CreateConnectionRequest req = convertCleanParams(params, CreateConnectionRequest.class);
                 ConnectionResponse res = connectionService.create(req);
                 runtimeVars.put("$LAST_CONNECTION_ID", res.getId());
                 runtimeVars.put("$CONNECTION_" + res.getName().toUpperCase().replaceAll("[^A-Z0-9]", "_"), res.getId());
@@ -405,15 +415,22 @@ public class BeetelAgentService {
                         "CONNECTION", res.getId());
             }
             case "UPDATE_CONNECTION" -> {
-                String connId = String.valueOf(params.getOrDefault("connectionId", params.get("id")));
-                UpdateConnectionRequest req = objectMapper.convertValue(params, UpdateConnectionRequest.class);
+                String connId = resolveConnectionId(params, runtimeVars);
+                UpdateConnectionRequest req = convertCleanParams(params, UpdateConnectionRequest.class);
                 ConnectionResponse res = connectionService.update(connId, req);
                 yield new StepExecutionOutcome(
                         "Updated connection '" + res.getName() + "' (ID: " + res.getId() + ")",
                         "CONNECTION", res.getId());
             }
+            case "DELETE_CONNECTION" -> {
+                String connId = resolveConnectionId(params, runtimeVars);
+                connectionService.delete(connId);
+                yield new StepExecutionOutcome(
+                        "Deleted connection (ID: " + connId + ")",
+                        "CONNECTION", connId);
+            }
             case "CREATE_PIPELINE" -> {
-                CreatePipelineRequest req = objectMapper.convertValue(params, CreatePipelineRequest.class);
+                CreatePipelineRequest req = convertCleanParams(params, CreatePipelineRequest.class);
                 PipelineResponse res = pipelineService.create(req);
                 runtimeVars.put("$LAST_PIPELINE_ID", res.getId());
                 runtimeVars.put("$PIPELINE_" + res.getName().toUpperCase().replaceAll("[^A-Z0-9]", "_"), res.getId());
@@ -422,7 +439,7 @@ public class BeetelAgentService {
                         "PIPELINE", res.getId());
             }
             case "IMPORT_PIPELINE" -> {
-                PipelineExportDto exportDto = objectMapper.convertValue(params, PipelineExportDto.class);
+                PipelineExportDto exportDto = convertCleanParams(params, PipelineExportDto.class);
                 PipelineImportResultDto res = pipelineService.importPipeline(exportDto);
                 if (!res.isSuccess()) {
                     throw new DatashifterException("Import failed: " + String.join("; ", res.getErrors()));
@@ -436,24 +453,42 @@ public class BeetelAgentService {
                                 + res.getTablesCount() + " table(s) and " + res.getColumnMappingsCount() + " column mapping(s)",
                         "PIPELINE", res.getPipelineId());
             }
-            case "UPDATE_PIPELINE_SETTINGS", "UPDATE_PIPELINE" -> {
-                String pipelineId = resolveTargetId(params, "pipelineId", runtimeVars, "$LAST_PIPELINE_ID");
-                UpdatePipelineRequest req = objectMapper.convertValue(params, UpdatePipelineRequest.class);
+            case "UPDATE_PIPELINE_SETTINGS", "UPDATE_PIPELINE", "RENAME_PIPELINE" -> {
+                String pipelineId = resolvePipelineId(params, runtimeVars);
+                UpdatePipelineRequest req = convertCleanParams(params, UpdatePipelineRequest.class);
+                if (params.containsKey("newName") && (req.getName() == null || req.getName().isBlank())) {
+                    req.setName(String.valueOf(params.get("newName")));
+                }
                 PipelineResponse res = pipelineService.update(pipelineId, req);
                 yield new StepExecutionOutcome(
-                        "Updated settings for pipeline '" + res.getName() + "' (ID: " + res.getId() + ")",
+                        "Updated pipeline '" + res.getName() + "' (ID: " + res.getId() + ")",
                         "PIPELINE", res.getId());
             }
+            case "DELETE_PIPELINE" -> {
+                String pipelineId = resolvePipelineId(params, runtimeVars);
+                pipelineService.delete(pipelineId);
+                yield new StepExecutionOutcome(
+                        "Deleted pipeline (ID: " + pipelineId + ")",
+                        "PIPELINE", pipelineId);
+            }
             case "ADD_TABLE_PAIR" -> {
-                String pipelineId = resolveTargetId(params, "pipelineId", runtimeVars, "$LAST_PIPELINE_ID");
-                AddTablePairRequest req = objectMapper.convertValue(params, AddTablePairRequest.class);
+                String pipelineId = resolvePipelineId(params, runtimeVars);
+                AddTablePairRequest req = convertCleanParams(params, AddTablePairRequest.class);
                 PipelineResponse res = pipelineService.addTablePair(pipelineId, req);
                 yield new StepExecutionOutcome(
                         "Added table pair " + req.getSourceTable() + " → " + req.getTargetTable() + " to pipeline '" + res.getName() + "'",
                         "PIPELINE", res.getId());
             }
+            case "REMOVE_TABLE_PAIR" -> {
+                String pipelineId = resolvePipelineId(params, runtimeVars);
+                String pipelineTableId = String.valueOf(params.getOrDefault("pipelineTableId", params.get("tableId")));
+                PipelineResponse res = pipelineService.removeTablePair(pipelineId, pipelineTableId);
+                yield new StepExecutionOutcome(
+                        "Removed table pair " + pipelineTableId + " from pipeline '" + res.getName() + "'",
+                        "PIPELINE", res.getId());
+            }
             case "UPDATE_MAPPINGS" -> {
-                String pipelineId = resolveTargetId(params, "pipelineId", runtimeVars, "$LAST_PIPELINE_ID");
+                String pipelineId = resolvePipelineId(params, runtimeVars);
                 Object tablesRaw = params.get("tables");
                 List<PipelineTableRequest> tables = objectMapper.convertValue(
                         tablesRaw, new TypeReference<List<PipelineTableRequest>>() {});
@@ -463,7 +498,7 @@ public class BeetelAgentService {
                         "PIPELINE", res.getId());
             }
             case "VALIDATE_PIPELINE" -> {
-                String pipelineId = resolveTargetId(params, "pipelineId", runtimeVars, "$LAST_PIPELINE_ID");
+                String pipelineId = resolvePipelineId(params, runtimeVars);
                 PipelineActionRequest actionReq = new PipelineActionRequest();
                 actionReq.setAction(PipelineAction.VALIDATE);
                 PipelineResponse res = pipelineService.performAction(pipelineId, actionReq);
@@ -477,7 +512,7 @@ public class BeetelAgentService {
                         "PIPELINE", res.getId());
             }
             case "PIPELINE_ACTION", "RUN_PIPELINE" -> {
-                String pipelineId = resolveTargetId(params, "pipelineId", runtimeVars, "$LAST_PIPELINE_ID");
+                String pipelineId = resolvePipelineId(params, runtimeVars);
                 String actStr = String.valueOf(params.getOrDefault("action", "START")).toUpperCase();
                 PipelineActionRequest actionReq = new PipelineActionRequest();
                 actionReq.setAction(PipelineAction.valueOf(actStr));
@@ -487,7 +522,7 @@ public class BeetelAgentService {
                         "PIPELINE", res.getId());
             }
             case "CREATE_WORKFLOW" -> {
-                CreateWorkflowRequest req = objectMapper.convertValue(params, CreateWorkflowRequest.class);
+                CreateWorkflowRequest req = convertCleanParams(params, CreateWorkflowRequest.class);
                 WorkflowResponse res = workflowService.create(req);
                 runtimeVars.put("$LAST_WORKFLOW_ID", res.getId());
                 yield new StepExecutionOutcome(
@@ -495,24 +530,50 @@ public class BeetelAgentService {
                                 + (res.getNodes() != null ? res.getNodes().size() : 0) + " node(s)",
                         "WORKFLOW", res.getId());
             }
-            case "UPDATE_WORKFLOW", "UPDATE_WORKFLOW_CANVAS" -> {
-                String workflowId = resolveTargetId(params, "workflowId", runtimeVars, "$LAST_WORKFLOW_ID");
-                SaveWorkflowCanvasRequest req = objectMapper.convertValue(params, SaveWorkflowCanvasRequest.class);
+            case "UPDATE_WORKFLOW", "RENAME_WORKFLOW" -> {
+                String workflowId = resolveWorkflowId(params, runtimeVars);
+                UpdateWorkflowRequest req = convertCleanParams(params, UpdateWorkflowRequest.class);
+                if (params.containsKey("newName") && (req.getName() == null || req.getName().isBlank())) {
+                    req.setName(String.valueOf(params.get("newName")));
+                }
+                WorkflowResponse res = workflowService.update(workflowId, req);
+                yield new StepExecutionOutcome(
+                        "Updated workflow '" + res.getName() + "' (ID: " + res.getId() + ", status: " + res.getStatus() + ")",
+                        "WORKFLOW", res.getId());
+            }
+            case "UPDATE_WORKFLOW_CANVAS" -> {
+                String workflowId = resolveWorkflowId(params, runtimeVars);
+                SaveWorkflowCanvasRequest req = convertCleanParams(params, SaveWorkflowCanvasRequest.class);
                 WorkflowResponse res = workflowService.saveCanvas(workflowId, req);
                 yield new StepExecutionOutcome(
                         "Updated DAG canvas for workflow '" + res.getName() + "' (status: " + res.getStatus() + ")",
                         "WORKFLOW", res.getId());
             }
             case "ADD_WORKFLOW_PIPELINES" -> {
-                String workflowId = resolveTargetId(params, "workflowId", runtimeVars, "$LAST_WORKFLOW_ID");
-                AddWorkflowPipelinesRequest req = objectMapper.convertValue(params, AddWorkflowPipelinesRequest.class);
+                String workflowId = resolveWorkflowId(params, runtimeVars);
+                AddWorkflowPipelinesRequest req = convertCleanParams(params, AddWorkflowPipelinesRequest.class);
                 WorkflowResponse res = workflowService.addPipelines(workflowId, req);
                 yield new StepExecutionOutcome(
                         "Added pipelines to workflow '" + res.getName() + "' (total nodes: " + (res.getNodes() != null ? res.getNodes().size() : 0) + ")",
                         "WORKFLOW", res.getId());
             }
+            case "REMOVE_WORKFLOW_PIPELINE" -> {
+                String workflowId = resolveWorkflowId(params, runtimeVars);
+                String pipelineId = resolvePipelineId(params, runtimeVars);
+                WorkflowResponse res = workflowService.removePipeline(workflowId, pipelineId);
+                yield new StepExecutionOutcome(
+                        "Removed pipeline " + pipelineId + " from workflow '" + res.getName() + "'",
+                        "WORKFLOW", res.getId());
+            }
+            case "DELETE_WORKFLOW" -> {
+                String workflowId = resolveWorkflowId(params, runtimeVars);
+                workflowService.delete(workflowId);
+                yield new StepExecutionOutcome(
+                        "Deleted workflow (ID: " + workflowId + ")",
+                        "WORKFLOW", workflowId);
+            }
             case "WORKFLOW_ACTION", "RUN_WORKFLOW" -> {
-                String workflowId = resolveTargetId(params, "workflowId", runtimeVars, "$LAST_WORKFLOW_ID");
+                String workflowId = resolveWorkflowId(params, runtimeVars);
                 String actStr = String.valueOf(params.getOrDefault("action", "START")).toUpperCase();
                 WorkflowActionRequest req = WorkflowActionRequest.builder()
                         .action(WorkflowAction.valueOf(actStr))
@@ -522,8 +583,15 @@ public class BeetelAgentService {
                         "Executed action " + actStr + " on workflow '" + res.getName() + "' (status: " + res.getStatus() + ")",
                         "WORKFLOW", res.getId());
             }
+            case "DELETE_UDF" -> {
+                String udfId = resolveUdfId(params);
+                udfRegistryService.delete(udfId);
+                yield new StepExecutionOutcome(
+                        "Deleted UDF (ID: " + udfId + ")",
+                        "UDF", udfId);
+            }
             case "CLEAR_ERRORS" -> {
-                String pipelineId = resolveTargetId(params, "pipelineId", runtimeVars, "$LAST_PIPELINE_ID");
+                String pipelineId = resolvePipelineId(params, runtimeVars);
                 monitorService.clearErrors(pipelineId);
                 yield new StepExecutionOutcome(
                         "Cleared error logs for pipeline " + pipelineId,
@@ -531,6 +599,113 @@ public class BeetelAgentService {
             }
             default -> throw new DatashifterException("Unsupported plan step actionType: " + actionType);
         };
+    }
+
+    private <T> T convertCleanParams(Map<String, Object> params, Class<T> targetClass) {
+        Map<String, Object> copy = new HashMap<>(params);
+        copy.remove("workflowId");
+        copy.remove("pipelineId");
+        copy.remove("connectionId");
+        copy.remove("udfId");
+        copy.remove("id");
+        copy.remove("newName");
+        return objectMapper.convertValue(copy, targetClass);
+    }
+
+    private String resolveWorkflowId(Map<String, Object> params, Map<String, String> runtimeVars) {
+        try {
+            String candidate = resolveTargetId(params, "workflowId", runtimeVars, "$LAST_WORKFLOW_ID");
+            for (WorkflowSummaryResponse w : workflowService.getAll()) {
+                if (w.getId().equals(candidate) || (w.getName() != null && w.getName().equalsIgnoreCase(candidate))) {
+                    return w.getId();
+                }
+            }
+            return candidate;
+        } catch (Exception ignored) {
+            Object byName = params.getOrDefault("workflowName", params.get("currentName"));
+            if (byName != null) {
+                String nameStr = String.valueOf(byName).trim();
+                for (WorkflowSummaryResponse w : workflowService.getAll()) {
+                    if (w.getName() != null && w.getName().equalsIgnoreCase(nameStr)) {
+                        return w.getId();
+                    }
+                }
+            }
+            List<WorkflowSummaryResponse> all = workflowService.getAll();
+            if (all.size() == 1) {
+                return all.get(0).getId();
+            }
+            throw new DatashifterException("Missing required workflowId for plan step");
+        }
+    }
+
+    private String resolvePipelineId(Map<String, Object> params, Map<String, String> runtimeVars) {
+        try {
+            String candidate = resolveTargetId(params, "pipelineId", runtimeVars, "$LAST_PIPELINE_ID");
+            for (PipelineSummaryResponse p : pipelineService.getAll()) {
+                if (p.getId().equals(candidate) || (p.getName() != null && p.getName().equalsIgnoreCase(candidate))) {
+                    return p.getId();
+                }
+            }
+            return candidate;
+        } catch (Exception ignored) {
+            Object byName = params.getOrDefault("pipelineName", params.get("currentName"));
+            if (byName != null) {
+                String nameStr = String.valueOf(byName).trim();
+                for (PipelineSummaryResponse p : pipelineService.getAll()) {
+                    if (p.getName() != null && p.getName().equalsIgnoreCase(nameStr)) {
+                        return p.getId();
+                    }
+                }
+            }
+            throw new DatashifterException("Missing required pipelineId for plan step");
+        }
+    }
+
+    private String resolveConnectionId(Map<String, Object> params, Map<String, String> runtimeVars) {
+        try {
+            String candidate = resolveTargetId(params, "connectionId", runtimeVars, "$LAST_CONNECTION_ID");
+            for (ConnectionResponse c : connectionService.getAll()) {
+                if (c.getId().equals(candidate) || (c.getName() != null && c.getName().equalsIgnoreCase(candidate))) {
+                    return c.getId();
+                }
+            }
+            return candidate;
+        } catch (Exception ignored) {
+            Object byName = params.getOrDefault("connectionName", params.get("name"));
+            if (byName != null) {
+                String nameStr = String.valueOf(byName).trim();
+                for (ConnectionResponse c : connectionService.getAll()) {
+                    if (c.getName() != null && c.getName().equalsIgnoreCase(nameStr)) {
+                        return c.getId();
+                    }
+                }
+            }
+            throw new DatashifterException("Missing required connectionId for plan step");
+        }
+    }
+
+    private String resolveUdfId(Map<String, Object> params) {
+        Object raw = params.getOrDefault("udfId",
+                params.getOrDefault("id",
+                        params.getOrDefault("udfName", params.get("name"))));
+        List<UdfResponse> allUdfs = udfRegistryService.getAll();
+        if (raw != null && !String.valueOf(raw).isBlank()) {
+            String target = String.valueOf(raw).trim();
+            for (UdfResponse u : allUdfs) {
+                if (target.equals(u.getId())
+                        || (u.getName() != null && u.getName().equalsIgnoreCase(target))
+                        || (u.getArtifactName() != null && (u.getArtifactName().equalsIgnoreCase(target)
+                            || u.getArtifactName().toLowerCase().startsWith(target.toLowerCase())))) {
+                    return u.getId();
+                }
+            }
+            return target;
+        }
+        if (allUdfs.size() == 1) {
+            return allUdfs.get(0).getId();
+        }
+        throw new DatashifterException("Missing required udfId or udfName for DELETE_UDF step");
     }
 
     private String resolveTargetId(Map<String, Object> params, String key, Map<String, String> runtimeVars, String fallbackVar) {
@@ -565,19 +740,19 @@ public class BeetelAgentService {
     private String buildSystemPrompt(String userMessage, AiContextType contextType, String contextId) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are **").append(agentName).append("**, DataShifter's intelligent Agentic AI Data Engineering Assistant.\n");
-        sb.append("Your mission is to help users design, generate, validate, orchestrate, and debug database migration pipelines and DAG workflows.\n\n");
+        sb.append("Your mission is to help users design, generate, validate, orchestrate, and debug database migration pipelines, DAG workflows, connections, and UDFs.\n\n");
 
         sb.append("""
                 ### Core Operating Rules
                 1. **Use Pre-Loaded Live Workspace Inventory First**:
-                   - The current Connections, Pipelines, and Workflows are already listed below under **Live Workspace Inventory**. Do NOT call `listConnections`, `listPipelines`, or `listWorkflows` unless the inventory is missing.
+                   - The current Connections, Pipelines, Workflows (with full DAG nodes & edges), and UDFs are already listed below under **Live Workspace Inventory**. Do NOT call `listConnections`, `listPipelines`, `listWorkflows`, or `listUdfs` unless the inventory is missing.
                    - Only call `listDatabaseTables` or `getTableSchema` when you need table/column schemas for a specific `connectionId`, or `getPipelineErrorLogs` / `getPipelineDetails` when debugging a specific pipeline.
                 2. **Never Guess Missing Details (Ask First!)**:
                    - When generating a pipeline or workflow (from chat or a `.md` specification), verify that the source connection, target connection, and table names exist.
                    - If a connection does not exist and credentials (`dbType`, `host`, `port`, `databaseName`, `username`, `password`) are missing, or if table names are missing, **DO NOT generate a plan yet** — politely ask the user for the missing details.
                 3. **Plan-Confirm-Execute Protocol (Mandatory for All Mutations)**:
-                   - Never claim a pipeline, workflow, or connection has already been created/updated before user confirmation.
-                   - When all required details are known, summarize the plan and steps in markdown AND append a `<BEETEL_PLAN>` JSON block at the end of your message:
+                   - Never claim a pipeline, workflow, connection, or UDF has already been created/updated/deleted before user confirmation.
+                   - Whenever the user asks to create, update, rename, delete, validate, or run any pipeline, workflow, connection, namespace, or UDF, summarize the plan and steps in markdown AND append a `<BEETEL_PLAN>` JSON block at the end of your message:
                    <BEETEL_PLAN>
                    {
                      "title": "Plan title",
@@ -585,19 +760,13 @@ public class BeetelAgentService {
                      "steps": [
                        {
                          "stepNumber": 1,
-                         "actionType": "CREATE_PIPELINE",
-                         "title": "Create pipeline",
-                         "description": "What this step does",
-                         "toolName": "PipelineService.create",
+                         "actionType": "UPDATE_WORKFLOW",
+                         "title": "Rename workflow to Stg Workflow",
+                         "description": "Update workflow name from Dev Workflow to Stg Workflow",
+                         "toolName": "WorkflowService.update",
                          "parameters": {
-                           "name": "Orders Migration",
-                           "sourceConnectionId": "<src-conn-id>",
-                           "targetConnectionId": "<tgt-conn-id>",
-                           "chunkSize": 10000,
-                           "defaultWriteMode": "UPSERT",
-                           "tables": [
-                             { "sourceTable": "orders", "executionOrder": 0, "targetMappings": [{ "targetTable": "orders", "writeMode": "UPSERT" }] }
-                           ]
+                           "workflowId": "<workflow-id>",
+                           "name": "Stg Workflow"
                          }
                        }
                      ]
@@ -605,17 +774,27 @@ public class BeetelAgentService {
                    </BEETEL_PLAN>
                 - Supported `actionType` & `parameters`:
                   - `CREATE_NAMESPACE`: `{"name","description","color"}`
+                  - `DELETE_NAMESPACE`: `{"namespaceId"}`
                   - `CREATE_CONNECTION`: `{"name","dbType":"POSTGRESQL|MYSQL|ORACLE|SQL_SERVER|SPANNER","host","port","databaseName","schemaName","username","password"}`
+                  - `UPDATE_CONNECTION`: `{"connectionId","name","host","port","databaseName","schemaName","username","password"}`
+                  - `DELETE_CONNECTION`: `{"connectionId"}`
                   - `CREATE_PIPELINE`: `{"name","description","namespaceId","sourceConnectionId","targetConnectionId","chunkSize":10000,"defaultWriteMode":"UPSERT|INSERT|REPLACE|INSERT_IGNORE","tables":[{"sourceTable","executionOrder":0,"targetMappings":[{"targetTable","writeMode"}]}]}`
+                  - `UPDATE_PIPELINE`: `{"pipelineId","name","description","chunkSize","defaultWriteMode","ignoreExceptions","maxErrorThreshold"}` (use this to rename or update pipeline settings)
+                  - `DELETE_PIPELINE`: `{"pipelineId"}`
                   - `UPDATE_MAPPINGS`: `{"pipelineId":"$LAST_PIPELINE_ID or <id>","tables":[{"sourceTable","executionOrder":0,"mappingType":"ONE_TO_ONE","targetMappings":[{"targetTable","writeMode":"UPSERT","columnMappings":[{"sourceColumn","sourceType","targetColumn","targetType","mappingOrder":0,"transformations":[{"functionName":"TRIM|UPPER|...","arguments":null,"executionOrder":0}]}]}],"filters":[]}]}`
-                  - `UPDATE_PIPELINE_SETTINGS`: `{"pipelineId","name","chunkSize","defaultWriteMode","ignoreExceptions","maxErrorThreshold"}`
                   - `ADD_TABLE_PAIR`: `{"pipelineId","sourceTable","targetTable"}`
+                  - `REMOVE_TABLE_PAIR`: `{"pipelineId","pipelineTableId"}`
                   - `VALIDATE_PIPELINE`: `{"pipelineId":"$LAST_PIPELINE_ID or <id>"}`
-                  - `CREATE_WORKFLOW`: `{"name","description","nodes":[{"pipelineId","positionX":120,"positionY":100}],"edges":[{"sourcePipelineId","targetPipelineId","onFailureAction":"STOP_WORKFLOW"}]}`
-                  - `UPDATE_WORKFLOW_CANVAS`: `{"workflowId":"$LAST_WORKFLOW_ID or <id>","nodes":[...],"edges":[...]}`
-                  - `CLEAR_ERRORS`: `{"pipelineId"}`
                   - `RUN_PIPELINE`: `{"pipelineId","action":"START|PAUSE|RESUME|STOP"}`
+                  - `CREATE_WORKFLOW`: `{"name","description","nodes":[{"pipelineId","positionX":120,"positionY":100}],"edges":[{"sourcePipelineId","targetPipelineId","onFailureAction":"STOP_WORKFLOW"}]}`
+                  - `UPDATE_WORKFLOW`: `{"workflowId","name","description","namespaceId"}` (use this to rename or update a workflow's metadata)
+                  - `UPDATE_WORKFLOW_CANVAS`: `{"workflowId":"$LAST_WORKFLOW_ID or <id>","nodes":[{"pipelineId","positionX":120,"positionY":100}],"edges":[{"sourcePipelineId","targetPipelineId","onFailureAction":"STOP_WORKFLOW"}]}`
+                  - `ADD_WORKFLOW_PIPELINES`: `{"workflowId","pipelineIds":["<pipeline-id>"]}`
+                  - `REMOVE_WORKFLOW_PIPELINE`: `{"workflowId","pipelineId"}`
+                  - `DELETE_WORKFLOW`: `{"workflowId"}`
                   - `RUN_WORKFLOW`: `{"workflowId","action":"START|PAUSE|RESUME|STOP|RERUN_FAILED_STAGE|RERUN_FROM_CHECKPOINT"}`
+                  - `DELETE_UDF`: `{"udfId":"<udf-id>","udfName":"<udf-name>"}` (use this to delete a registered Java UDF)
+                  - `CLEAR_ERRORS`: `{"pipelineId"}`
                 - Cross-step variables supported: `$LAST_CONNECTION_ID`, `$LAST_PIPELINE_ID`, `$LAST_WORKFLOW_ID`, `$PIPELINE_<UPPERCASE_NAME>`.
                 """);
 
