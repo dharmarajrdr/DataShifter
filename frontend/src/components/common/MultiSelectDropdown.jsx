@@ -23,6 +23,7 @@ const MultiSelectDropdown = ({
   maxDisplayChips = 3,
   emptyMessage = 'No options found',
   style = {},
+  dropUp = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -204,7 +205,7 @@ const MultiSelectDropdown = ({
         <div
           style={{
             position: 'absolute',
-            top: 'calc(100% + 4px)',
+            ...(dropUp ? { bottom: 'calc(100% + 4px)' } : { top: 'calc(100% + 4px)' }),
             left: 0,
             right: 0,
             zIndex: 1050,
