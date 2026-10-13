@@ -271,14 +271,24 @@ const BeetelChatWorkspace = ({
     workflowApi.getAll().then(res => setWorkflows(res.data || [])).catch(() => {});
   }, []);
 
-  // Resolve entity name when ID or list changes
+  // Resolve entity name when ID or list changes, and auto-select first entity if none chosen yet
   useEffect(() => {
-    if (contextType === 'PIPELINE' && contextEntityId) {
-      const found = pipelines.find(p => String(p.id) === String(contextEntityId));
-      if (found) setContextEntityName(found.name);
-    } else if (contextType === 'WORKFLOW' && contextEntityId) {
-      const found = workflows.find(w => String(w.id) === String(contextEntityId));
-      if (found) setContextEntityName(found.name);
+    if (contextType === 'PIPELINE') {
+      if (contextEntityId) {
+        const found = pipelines.find(p => String(p.id) === String(contextEntityId));
+        if (found) setContextEntityName(found.name);
+      } else if (pipelines.length > 0) {
+        setContextEntityId(pipelines[0].id);
+        setContextEntityName(pipelines[0].name);
+      }
+    } else if (contextType === 'WORKFLOW') {
+      if (contextEntityId) {
+        const found = workflows.find(w => String(w.id) === String(contextEntityId));
+        if (found) setContextEntityName(found.name);
+      } else if (workflows.length > 0) {
+        setContextEntityId(workflows[0].id);
+        setContextEntityName(workflows[0].name);
+      }
     } else if (contextType === 'NONE') {
       setContextEntityId('');
       setContextEntityName('');
@@ -484,9 +494,18 @@ const BeetelChatWorkspace = ({
           <select
             value={contextType}
             onChange={e => {
-              setContextType(e.target.value);
-              setContextEntityId('');
-              setContextEntityName('');
+              const nextType = e.target.value;
+              setContextType(nextType);
+              if (nextType === 'PIPELINE' && pipelines.length > 0) {
+                setContextEntityId(pipelines[0].id);
+                setContextEntityName(pipelines[0].name);
+              } else if (nextType === 'WORKFLOW' && workflows.length > 0) {
+                setContextEntityId(workflows[0].id);
+                setContextEntityName(workflows[0].name);
+              } else {
+                setContextEntityId('');
+                setContextEntityName('');
+              }
             }}
             style={{
               padding: '4px 8px',

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../../constants/design';
 import { FRBC, FRSC } from '../../constants/layouts';
 import { AGENT } from '../../constants/literals';
@@ -154,7 +154,7 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true }) => {
       marginTop: SPACING.lg,
     }}>
       <div style={{ ...FRBC, marginBottom: SPACING.sm }}>
-        <div>
+        <div style={{ width: '75%' }}>
           <div style={{ ...FRSC, gap: SPACING.xs }}>
             <p style={{ fontSize: FONT.size.base, fontWeight: FONT.weight.medium, margin: 0 }}>
               {AGENT.name} AI — {scope === 'USER' ? 'Personal LLM API Keys' : 'Organization Shared LLM API Keys'}

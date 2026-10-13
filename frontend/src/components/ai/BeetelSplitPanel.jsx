@@ -23,6 +23,12 @@ const BeetelSplitPanel = () => {
     if (workflowMatch && workflowMatch[1] !== 'new') {
       return { type: 'WORKFLOW', id: workflowMatch[1] };
     }
+    if (path.startsWith('/workflows')) {
+      return { type: 'WORKFLOW', id: '' };
+    }
+    if (path.startsWith('/pipelines')) {
+      return { type: 'PIPELINE', id: '' };
+    }
     return { type: 'NONE', id: '' };
   }, [location.pathname]);
 
