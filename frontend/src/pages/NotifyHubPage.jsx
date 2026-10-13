@@ -552,16 +552,36 @@ const NotifyHubPage = () => {
         />
       )}
 
-      {showDeleteConfirm && (
-        <ConfirmationModal
-          title={`Delete ${deleteType === 'channel' ? 'Channel' : 'Template'}`}
-          message={`Are you sure you want to permanently delete "${itemToDelete?.name}"?`}
-          confirmLabel={deleting ? 'Deleting...' : 'Delete'}
-          danger
-          onConfirm={handleDelete}
-          onCancel={() => { setShowDeleteConfirm(false); setItemToDelete(null); }}
-        />
-      )}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title={`Delete ${deleteType === 'channel' ? 'Channel' : 'Template'}`}
+        message={`Are you sure you want to permanently delete "${itemToDelete?.name}"? This action cannot be undone.`}
+        color={COLORS.status.error}
+        onClose={() => {
+          if (!deleting) {
+            setShowDeleteConfirm(false);
+            setItemToDelete(null);
+          }
+        }}
+        actions={[
+          {
+            label: 'Cancel',
+            variant: 'secondary',
+            onClick: () => {
+              setShowDeleteConfirm(false);
+              setItemToDelete(null);
+            },
+            disabled: deleting,
+          },
+          {
+            label: deleting ? 'Deleting...' : 'Delete',
+            variant: 'danger',
+            onClick: handleDelete,
+            disabled: deleting,
+            loading: deleting,
+          },
+        ]}
+      />
     </div>
   );
 };
