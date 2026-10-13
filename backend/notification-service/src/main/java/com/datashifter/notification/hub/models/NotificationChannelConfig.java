@@ -24,6 +24,12 @@ public class NotificationChannelConfig {
     @Column(name = "pipeline_id", length = 36)
     private String pipelineId;
 
+    @Column(name = "allowed_pipelines_json", columnDefinition = "TEXT")
+    private String allowedPipelinesJson;
+
+    @Column(name = "created_by", length = 36)
+    private String createdBy;
+
     @Column(nullable = false, length = 100)
     private String name;
 

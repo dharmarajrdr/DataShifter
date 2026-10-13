@@ -49,6 +49,15 @@ public class ChannelService {
             throw new IllegalArgumentException("Invalid configuration map: " + e.getMessage(), e);
         }
 
+        String allowedPipelinesJson = null;
+        if (request.getAllowedPipelineIds() != null && !request.getAllowedPipelineIds().isEmpty()) {
+            try {
+                allowedPipelinesJson = objectMapper.writeValueAsString(request.getAllowedPipelineIds());
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to serialize allowedPipelineIds: {}", e.getMessage());
+            }
+        }
+
         NotificationChannelConfig channelConfig = NotificationChannelConfig.builder()
                 .orgId(orgId)
                 .pipelineId(request.getPipelineId())
@@ -56,6 +65,7 @@ public class ChannelService {
                 .channelType(request.getChannelType())
                 .enabled(request.isEnabled())
                 .configJson(configJson)
+                .allowedPipelinesJson(allowedPipelinesJson)
                 .build();
 
         // Validate config with specific channel implementation
@@ -75,11 +85,21 @@ public class ChannelService {
             throw new IllegalArgumentException("Invalid configuration map: " + e.getMessage(), e);
         }
 
+        String allowedPipelinesJson = null;
+        if (request.getAllowedPipelineIds() != null && !request.getAllowedPipelineIds().isEmpty()) {
+            try {
+                allowedPipelinesJson = objectMapper.writeValueAsString(request.getAllowedPipelineIds());
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to serialize allowedPipelineIds: {}", e.getMessage());
+            }
+        }
+
         channelConfig.setName(request.getName());
         channelConfig.setPipelineId(request.getPipelineId());
         channelConfig.setChannelType(request.getChannelType());
         channelConfig.setEnabled(request.isEnabled());
         channelConfig.setConfigJson(configJson);
+        channelConfig.setAllowedPipelinesJson(allowedPipelinesJson);
 
         channelRegistry.getChannel(request.getChannelType()).ifPresent(ch -> ch.validateConfig(channelConfig));
 

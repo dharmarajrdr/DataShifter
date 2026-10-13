@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS notification_channels (
     channel_type VARCHAR(50) NOT NULL, -- EMAIL, SLACK, TEAMS, CLIQ, WEBHOOK
     is_enabled BOOLEAN DEFAULT TRUE,
     config_json TEXT NOT NULL,
+    allowed_pipelines_json TEXT,
+    created_by VARCHAR(36),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

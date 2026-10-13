@@ -138,18 +138,44 @@ public class NotifyHubDispatcher {
         List<NotificationChannelConfig> matched = new ArrayList<>();
 
         for (NotificationChannelConfig cfg : activeConfigs) {
-            // If target channels filter is provided, enforce it
+            // 1. If explicit channel configuration IDs were selected by the user/caller, enforce match
+            if (request.getTargetChannelConfigIds() != null && !request.getTargetChannelConfigIds().isEmpty()) {
+                if (!request.getTargetChannelConfigIds().contains(cfg.getId())) {
+                    continue;
+                }
+            }
+
+            // 2. If target channel types filter is provided, enforce it
             if (request.getTargetChannels() != null && !request.getTargetChannels().isEmpty()) {
                 if (!request.getTargetChannels().contains(cfg.getChannelType())) {
                     continue;
                 }
             }
 
-            // Match pipeline level channel or global org channel (pipelineId == null)
-            if (cfg.getPipelineId() == null ||
-                    (request.getPipelineId() != null && cfg.getPipelineId().equals(request.getPipelineId()))) {
-                matched.add(cfg);
+            // 3. Match pipeline level channel, allowed whitelist, or global org channel
+            if (cfg.getPipelineId() != null) {
+                // Channel is locked strictly to a single pipeline
+                if (request.getPipelineId() == null || !cfg.getPipelineId().equals(request.getPipelineId())) {
+                    continue;
+                }
+            } else if (cfg.getAllowedPipelinesJson() != null && !cfg.getAllowedPipelinesJson().isBlank()) {
+                // Channel has a pipeline whitelist — only whitelisted pipelines can invoke it
+                if (request.getPipelineId() == null) {
+                    continue;
+                }
+                boolean whitelisted = false;
+                try {
+                    List<?> allowed = new com.fasterxml.jackson.databind.ObjectMapper().readValue(cfg.getAllowedPipelinesJson(), List.class);
+                    whitelisted = allowed.contains(request.getPipelineId());
+                } catch (Exception e) {
+                    log.warn("Failed to parse allowedPipelinesJson for channel {}: {}", cfg.getId(), e.getMessage());
+                }
+                if (!whitelisted) {
+                    continue;
+                }
             }
+
+            matched.add(cfg);
         }
 
         return matched;

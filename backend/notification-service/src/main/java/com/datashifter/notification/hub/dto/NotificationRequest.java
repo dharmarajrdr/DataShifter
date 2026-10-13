@@ -29,4 +29,7 @@ public class NotificationRequest {
 
     // Filter to specific channel types or all configured
     private List<ChannelType> targetChannels;
+
+    // Filter to specific channel configuration IDs explicitly selected by the user/caller
+    private List<String> targetChannelConfigIds;
 }
