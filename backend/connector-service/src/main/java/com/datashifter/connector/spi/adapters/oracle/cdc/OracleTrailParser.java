@@ -76,6 +76,14 @@ public class OracleTrailParser {
      * @return parsed OracleTrailRecord, or null if end-of-file / partial record reached
      */
     public OracleTrailRecord parseNextBinaryRecord(FileChannel channel, String sourceFileName) throws IOException {
+        return parseNextBinaryRecord(channel, sourceFileName, null);
+    }
+
+    /**
+     * Parses the next binary trail record with optional early table filtering to prevent
+     * payload allocations for unselected tables.
+     */
+    public OracleTrailRecord parseNextBinaryRecord(FileChannel channel, String sourceFileName, com.datashifter.connector.cdc.segregation.CdcTableFilter tableFilter) throws IOException {
         long rba = channel.position();
         if (channel.size() - rba < 4) {
             return null; // Not enough bytes for record length header
@@ -111,6 +119,24 @@ public class OracleTrailParser {
         String tableName = readString(payload);
 
         CdcOperationType opType = mapOpCodeToOperationType(opCode);
+        boolean isTxBoundary = (opCode == OracleTrailConstants.OP_COMMIT || opCode == OracleTrailConstants.OP_BEGIN);
+
+        // Zero-allocation header filter: Skip reading column maps entirely for unmapped tables
+        if (!isTxBoundary && tableFilter != null && !tableFilter.matches(schemaName, tableName)) {
+            return OracleTrailRecord.builder()
+                    .sourceFile(sourceFileName)
+                    .rba(rba)
+                    .recordLength(recordLength + 4)
+                    .scn(scn)
+                    .opCode(opCode)
+                    .operationType(opType)
+                    .schemaName(schemaName)
+                    .tableName(tableName)
+                    .transactionId(txId)
+                    .timestamp(timestamp)
+                    .filtered(true)
+                    .build();
+        }
 
         // Read After-Image columns
         Map<String, Object> afterColumns = readColumnMap(payload);
@@ -144,6 +170,13 @@ public class OracleTrailParser {
      * Parses the next structured JSON record starting at the current channel position.
      */
     public OracleTrailRecord parseNextJsonRecord(RandomAccessFile raf, String sourceFileName) throws IOException {
+        return parseNextJsonRecord(raf, sourceFileName, null);
+    }
+
+    /**
+     * Parses the next structured JSON record with optional early table filtering.
+     */
+    public OracleTrailRecord parseNextJsonRecord(RandomAccessFile raf, String sourceFileName, com.datashifter.connector.cdc.segregation.CdcTableFilter tableFilter) throws IOException {
         long rba = raf.getFilePointer();
         String line = raf.readLine();
         if (line == null) {
@@ -177,6 +210,23 @@ public class OracleTrailParser {
                 try {
                     timestamp = Instant.parse(root.get("timestamp").asText());
                 } catch (Exception ignored) {}
+            }
+
+            boolean isTxBoundary = (opType == CdcOperationType.COMMIT || opType == CdcOperationType.BEGIN);
+            if (!isTxBoundary && tableFilter != null && !tableFilter.matches(schema, table)) {
+                return OracleTrailRecord.builder()
+                        .sourceFile(sourceFileName)
+                        .rba(rba)
+                        .recordLength(line.getBytes(StandardCharsets.UTF_8).length)
+                        .scn(scn)
+                        .opCode(opCode)
+                        .operationType(opType)
+                        .schemaName(schema)
+                        .tableName(table)
+                        .transactionId(txId)
+                        .timestamp(timestamp)
+                        .filtered(true)
+                        .build();
             }
 
             Map<String, Object> afterColumns = extractJsonMap(root.path("after"));

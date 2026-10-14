@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -218,5 +219,48 @@ class OracleTrailFileReaderTest {
         // Reached end of file, should have 0 new events
         assertEquals(0, secondPoll.size());
         resumeReader.close();
+    }
+
+    @Test
+    void testReaderTableSegregationAndOperationFilter() throws Exception {
+        File trailFile = tempDir.resolve("aa000001").toFile();
+
+        var records = List.of(
+                // 1. Matched table, matched op
+                new OracleTrailFixtureGenerator.TestRecord(
+                        OracleTrailConstants.OP_INSERT, "HR", "EMPLOYEES", Map.of("ID", 101, "NAME", "Alice"), Map.of()
+                ),
+                // 2. Unmatched table (DEPARTMENTS)
+                new OracleTrailFixtureGenerator.TestRecord(
+                        OracleTrailConstants.OP_INSERT, "HR", "DEPARTMENTS", Map.of("ID", 10, "NAME", "Engineering"), Map.of()
+                ),
+                // 3. Matched table, unmatched op (DELETE)
+                new OracleTrailFixtureGenerator.TestRecord(
+                        OracleTrailConstants.OP_DELETE, "HR", "EMPLOYEES", Map.of(), Map.of("ID", 102)
+                )
+        );
+
+        var tx = List.of(new OracleTrailFixtureGenerator.TestTransaction("TX-FILTER", 99000L, records));
+        fixtureGenerator.generateBinaryTrailFile(trailFile, 1, tx);
+
+        CdcReaderConfig config = CdcReaderConfig.builder()
+                .pipelineId("pipe-filter")
+                .databaseType(DatabaseType.ORACLE)
+                .directoryPath(tempDir.toString())
+                .filePattern("aa*")
+                .targetTableNames(Set.of("EMPLOYEES"))
+                .allowedOperations(Set.of(CdcOperationType.INSERT))
+                .batchSize(100)
+                .build();
+
+        reader.open(config);
+        List<CdcEvent> events = reader.poll(10, Duration.ofMillis(500));
+
+        // Only the INSERT on EMPLOYEES should be emitted!
+        assertEquals(1, events.size());
+        CdcEvent event = events.get(0);
+        assertEquals("EMPLOYEES", event.getTableName());
+        assertEquals(CdcOperationType.INSERT, event.getOperationType());
+        assertEquals("Alice", event.getAfterData().get("NAME"));
     }
 }
