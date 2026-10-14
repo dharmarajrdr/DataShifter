@@ -23,6 +23,8 @@
         <module>postgres-writer</module>
         <module>oracle-gg-reader</module>
         <module>postgres-wal-reader</module>
+        <module>filesystem-writer</module>
+        <module>kafka-writer</module>
     </modules>
 
     <dependencies>

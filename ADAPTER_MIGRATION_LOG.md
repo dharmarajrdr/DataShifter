@@ -31,7 +31,7 @@
 - [x] **Phase 3: Aggregator POM & Oracle Reader / Writer Adapters** (Completed)
 - [x] **Phase 4: PostgreSQL Reader & Writer Adapters** (Completed)
 - [x] **Phase 5: CDC Streaming Adapters (Oracle GG & Postgres WAL)** (Completed)
-- [ ] **Phase 6: Non-Relational Target Adapters (FileSystem & Kafka Writers)**
+- [x] **Phase 6: Non-Relational Target Adapters (FileSystem & Kafka Writers)** (Completed)
 - [ ] **Phase 7: Generalize UDF Service to Library Service (Adapter Registry)**
 - [ ] **Phase 8: Marketplace Catalog & Payment Integration**
 - [ ] **Phase 9: Execution Engine Dynamic Adapter Integration**
