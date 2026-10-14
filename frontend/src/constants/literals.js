@@ -13,6 +13,7 @@ export const NAV = {
   connections: 'Connections',
   udfs: 'UDF library',
   agent: 'Beetel AI',
+  notifyhub: 'NotifyHub',
   settings: 'Settings'
 };
 

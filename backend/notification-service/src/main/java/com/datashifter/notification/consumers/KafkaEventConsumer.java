@@ -41,6 +41,7 @@ import java.util.Map;
 public class KafkaEventConsumer {
 
     private final EventDispatcher dispatcher;
+    private final com.datashifter.notification.hub.engine.NotifyHubDispatcher notifyHubDispatcher;
 
     /**
      * Pipeline progress events — emitted every chunk.
@@ -137,6 +138,31 @@ public class KafkaEventConsumer {
                 .payload(payload)
                 .timestamp(event.getTimestamp() != null ? event.getTimestamp() : Instant.now())
                 .build());
+    }
+
+    /**
+     * NotifyHub alerts consumer:
+     * Consumes alerts from other services (execution-engine, pipeline-service, etc.)
+     * and dispatches via NotifyHub to configured channels (Email, Slack, Teams, Cliq, Webhooks).
+     */
+    @KafkaListener(topics = KafkaTopics.PIPELINE_NOTIFICATIONS, groupId = "notification-service-notifyhub")
+    public void handlePipelineNotification(NotificationEvent event) {
+        if (event == null) return;
+        log.info("Received notification event for pipeline '{}' (org: {})", event.getPipelineName(), event.getOrgId());
+        
+        com.datashifter.notification.hub.dto.NotificationRequest request = com.datashifter.notification.hub.dto.NotificationRequest.builder()
+                .orgId(event.getOrgId())
+                .pipelineId(event.getPipelineId())
+                .pipelineName(event.getPipelineName())
+                .templateName(event.getTemplateName())
+                .priority(event.getPriority())
+                .errorMessage(event.getErrorMessage())
+                .errorType(event.getErrorType())
+                .actionUrl(event.getActionUrl())
+                .parameters(event.getMetadata())
+                .build();
+
+        notifyHubDispatcher.dispatchAsync(request);
     }
 
     // =========================================================================

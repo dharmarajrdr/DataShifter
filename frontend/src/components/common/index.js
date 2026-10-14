@@ -14,3 +14,4 @@ export { default as PopupNotification } from './PopupNotification';
 export { default as SpinnerLoader } from './SpinnerLoader';
 export { default as BarLoader } from './BarLoader';
 export { default as SkeletonLoader } from './SkeletonLoader';
+export { default as MultiSelectDropdown } from './MultiSelectDropdown';

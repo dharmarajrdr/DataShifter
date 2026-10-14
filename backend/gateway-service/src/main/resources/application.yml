@@ -42,7 +42,7 @@ spring:
         - id: notification-service
           uri: http://notification-service:8085
           predicates:
-            - Path=/api/v1/stream/**
+            - Path=/api/v1/stream/**,/api/v1/notifyhub/**
 
         - id: payment-service
           uri: http://payment-service:8087

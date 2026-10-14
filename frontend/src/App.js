@@ -34,6 +34,7 @@ import {
   WorkflowDashboard,
   WorkflowMonitor,
   WorkflowSettings,
+  NotifyHubPage,
 } from './pages';
 
 const App = () => (
@@ -99,6 +100,7 @@ const App = () => (
             <Route path="/udfs" element={<SubscriptionGuard><ProtectedRoute permission="udf:view"><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />
             <Route path="/beetel" element={<SubscriptionGuard><BeetelAgentPage /></SubscriptionGuard>} />
             <Route path="/beetel/:sessionId" element={<SubscriptionGuard><BeetelAgentPage /></SubscriptionGuard>} />
+            <Route path="/notifyhub" element={<SubscriptionGuard><NotifyHubPage /></SubscriptionGuard>} />
             <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />
             <Route path="/settings/members" element={<SubscriptionGuard><ProtectedRoute anyOf={['org:manage_members', 'org:manage_invites']}><MembersPage /></ProtectedRoute></SubscriptionGuard>} />
             <Route path="/settings/roles" element={<SubscriptionGuard><ProtectedRoute permission="org:manage_roles"><RolesPage /></ProtectedRoute></SubscriptionGuard>} />

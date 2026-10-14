@@ -2,17 +2,15 @@ package com.datashifter.notification;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Notification Service — real-time event push via SSE.
+ * Notification Service — real-time event push via SSE and NotifyHub notification manager.
  *
- * This service has NO database. It is a pure Kafka → SSE bridge.
- * Kafka events come in, matching SSE connections get the push.
- *
- * Excludes DataSource auto-config since we don't use JPA/JDBC.
- * EnableScheduling is needed for the heartbeat scheduler.
+ * Handles:
+ * 1. Real-time browser event streaming via SSE
+ * 2. NotifyHub alert dispatching (Email, Slack, Teams, Cliq, Webhook) with templates & retries
  */
 @SpringBootApplication(
     scanBasePackages = {
@@ -20,10 +18,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         "com.datashifter.common.utils",
         "com.datashifter.common.exceptions",
         "com.datashifter.common.security"
-    },
-    exclude = DataSourceAutoConfiguration.class
+    }
 )
 @EnableScheduling
+@EnableAsync
 public class NotificationServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(NotificationServiceApplication.class, args);

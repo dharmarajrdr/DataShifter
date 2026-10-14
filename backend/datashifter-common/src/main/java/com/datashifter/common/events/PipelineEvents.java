@@ -105,4 +105,21 @@ public class PipelineEvents {
         private Map<String, String> pipelineStatuses;
         private Instant timestamp;
     }
+
+    /* ===== pipeline.notifications ===== */
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class NotificationEvent {
+        private String eventId;
+        private String orgId;
+        private String pipelineId;
+        private String pipelineName;
+        private String templateName;
+        private String priority; // LOW, MEDIUM, HIGH, CRITICAL
+        private String errorMessage;
+        private String errorType;
+        private String actionUrl;
+        private Map<String, Object> metadata;
+        private Instant timestamp;
+    }
 }
