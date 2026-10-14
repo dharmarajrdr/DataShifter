@@ -430,4 +430,22 @@ public class PostgresConnector implements DatabaseConnector {
                 .collect(Collectors.joining(", "));
         return "UPDATE " + table + " SET " + sets + " WHERE " + pkColumn + " = ?";
     }
+
+    @Override
+    public Optional<String> getCurrentSnapshotPosition(ConnectionConfig config) {
+        String sql = "SELECT pg_current_wal_lsn()::text";
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 5;
+        try (Connection conn = poolManager.getConnection(config, maxPoolSize);
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                String lsn = rs.getString(1);
+                log.info("Captured PostgreSQL WAL snapshot LSN: {}", lsn);
+                return Optional.ofNullable(lsn);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to retrieve current WAL LSN from PostgreSQL: {}", e.getMessage());
+        }
+        return Optional.empty();
+    }
 }

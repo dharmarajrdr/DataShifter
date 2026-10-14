@@ -28,6 +28,11 @@ public class ExecutionContext {
     private ConnectionConfig sourceConfig;
     private ConnectionConfig targetConfig;
 
+    /* --- Snapshot CDC hand-off position captured at start --- */
+    private String snapshotPosition;
+    private Long snapshotScn;
+
+
     /* --- Progress counters --- */
     private final AtomicLong totalRowsProcessed = new AtomicLong(0);
     private final AtomicLong totalErrors = new AtomicLong(0);
@@ -39,8 +44,11 @@ public class ExecutionContext {
     private volatile Instant pausedAt;
 
     /* --- Rows/sec tracking for instantaneous rate --- */
+    @Builder.Default
     private volatile long lastProgressRows = 0;
+    @Builder.Default
     private volatile long lastProgressTime = 0;
+
 
     /* --- Current table state (updated as we iterate tables) --- */
     private int currentTableIndex;
