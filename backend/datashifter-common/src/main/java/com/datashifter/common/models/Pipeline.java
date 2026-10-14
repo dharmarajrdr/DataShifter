@@ -87,6 +87,28 @@ public class Pipeline extends BaseEntity {
     @Builder.Default
     private Boolean previewInflightRecords = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pipeline_mode", length = 20)
+    @Builder.Default
+    private com.datashifter.common.enums.PipelineMode pipelineMode = com.datashifter.common.enums.PipelineMode.BATCH;
+
+    @Column(name = "cdc_directory_path")
+    private String cdcDirectoryPath;
+
+    @Column(name = "cdc_file_pattern", length = 255)
+    private String cdcFilePattern;
+
+    @Column(name = "cdc_starting_scn", length = 50)
+    private String cdcStartingScn;
+
+    @Column(name = "cdc_flush_interval_ms")
+    @Builder.Default
+    private Integer cdcFlushIntervalMs = 200;
+
+    @Column(name = "cdc_batch_size")
+    @Builder.Default
+    private Integer cdcBatchSize = 500;
+
     @OneToMany(mappedBy = "pipeline", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderBy("executionOrder ASC")
     @Builder.Default

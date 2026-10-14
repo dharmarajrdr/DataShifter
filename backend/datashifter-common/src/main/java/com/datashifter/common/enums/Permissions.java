@@ -60,6 +60,10 @@ public final class Permissions {
         public static final String UDF_VIEW = "udf:view";
         public static final String UDF_DELETE = "udf:delete";
 
+        // --- Change Data Capture (CDC) ---
+        public static final String CDC_VIEW = "cdc:view";
+        public static final String CDC_MANAGE = "cdc:manage";
+
         // --- Organization ---
         public static final String ORG_MANAGE_MEMBERS = "org:manage_members";
         public static final String ORG_MANAGE_ROLES = "org:manage_roles";
@@ -81,6 +85,7 @@ public final class Permissions {
                         MONITOR_VIEW, MONITOR_VIEW_ERRORS,
                         SETTINGS_EDIT,
                         UDF_CREATE, UDF_VIEW, UDF_DELETE,
+                        CDC_VIEW, CDC_MANAGE,
                         ORG_MANAGE_MEMBERS, ORG_MANAGE_ROLES, ORG_MANAGE_INVITES, ORG_VIEW_AUDIT);
 
         /** Default Agent system role permissions — all platform resource permissions excluding org:* */
@@ -94,7 +99,8 @@ public final class Permissions {
                         CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
                         MONITOR_VIEW, MONITOR_VIEW_ERRORS,
                         SETTINGS_EDIT,
-                        UDF_CREATE, UDF_VIEW, UDF_DELETE);
+                        UDF_CREATE, UDF_VIEW, UDF_DELETE,
+                        CDC_VIEW, CDC_MANAGE);
 
         /** Default Editor permissions */
         public static final List<String> EDITOR = List.of(
@@ -106,9 +112,10 @@ public final class Permissions {
                         CONNECTION_CREATE, CONNECTION_VIEW, CONNECTION_EDIT, CONNECTION_TEST, CONNECTION_BROWSE_SCHEMA,
                         MONITOR_VIEW, MONITOR_VIEW_ERRORS,
                         SETTINGS_EDIT,
-                        UDF_CREATE, UDF_VIEW);
+                        UDF_CREATE, UDF_VIEW,
+                        CDC_VIEW, CDC_MANAGE);
 
         /** Default Viewer permissions */
         public static final List<String> VIEWER = List.of(
-                        PIPELINE_VIEW, WORKFLOW_VIEW, MONITOR_VIEW, MONITOR_VIEW_ERRORS, CONNECTION_VIEW, CONNECTION_BROWSE_SCHEMA, UDF_VIEW);
+                        PIPELINE_VIEW, WORKFLOW_VIEW, MONITOR_VIEW, MONITOR_VIEW_ERRORS, CONNECTION_VIEW, CONNECTION_BROWSE_SCHEMA, UDF_VIEW, CDC_VIEW);
 }
