@@ -289,4 +289,143 @@ describe('CDC Pipeline Configuration and Monitoring', () => {
     expect(ops.textContent).toContain('Updates: 21,000');
     expect(ops.textContent).toContain('Deletes: 2,500');
   });
+
+  test('PipelineWizard switches to PostgreSQL WAL log format and defaults pattern', async () => {
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <PipelineWizard />
+        </MemoryRouter>
+      );
+    });
+
+    // Switch to CDC mode
+    const cdcCard = container.querySelector('[data-testid="mode-card-cdc"]');
+    await act(async () => {
+      cdcCard.click();
+    });
+
+    const oracleOption = container.querySelector('[data-testid="logtype-oracle-trail"]');
+    const walOption = container.querySelector('[data-testid="logtype-postgres-wal"]');
+    expect(oracleOption).not.toBeNull();
+    expect(walOption).not.toBeNull();
+
+    // Click PostgreSQL WAL
+    await act(async () => {
+      walOption.click();
+    });
+
+    expect(container.textContent).toContain('PostgreSQL WAL Directory Path');
+    expect(container.textContent).toContain('Starting LSN (Optional)');
+
+    const patternInput = container.querySelector('[data-testid="input-cdc-pattern"]');
+    expect(patternInput.value).toBe('000000010000.*');
+  });
+
+  test('PipelineSettings renders PostgreSQL WAL checkpoints and LSN target reset', async () => {
+    settingsApi.getByPipelineId.mockResolvedValue({
+      data: {
+        id: 'p-wal-1',
+        name: 'PostgreSQL WAL Stream',
+        description: 'Postgres logical WAL stream',
+        pipelineMode: 'CDC',
+        cdcLogType: 'POSTGRES_WAL',
+        cdcDirectoryPath: '/var/lib/postgresql/data/pg_wal',
+        cdcFilePattern: '000000010000.*',
+        cdcStartingScn: '0/3D7E5D8',
+        cdcFlushIntervalMs: 200,
+        cdcBatchSize: 500,
+        status: 'PAUSED',
+        tables: [],
+      },
+    });
+
+    cdcApi.getCheckpoint.mockResolvedValue({
+      data: {
+        id: 'cp-wal-1',
+        pipelineId: 'p-wal-1',
+        sourceFile: '000000010000000000000003',
+        fileOffset: 4096,
+        lastScn: '0/3D7E5D8',
+        eventsProcessed: 8900,
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={['/pipelines/p-wal-1/settings']}>
+          <Routes>
+            <Route path="/pipelines/:pipelineId/settings" element={<PipelineSettings />} />
+          </Routes>
+        </MemoryRouter>
+      );
+    });
+
+    expect(container.textContent).toContain('PostgreSQL WAL Directory Path');
+    expect(container.textContent).toContain('Starting LSN');
+    expect(container.textContent).toContain('Last LSN:');
+    expect(container.textContent).toContain('0/3D7E5D8');
+    expect(container.textContent).toContain('Active Segment:');
+    expect(container.textContent).toContain('000000010000000000000003');
+
+    // Click Reset Checkpoint
+    const resetButton = Array.from(container.querySelectorAll('button')).find(
+      b => b.textContent === 'Reset Checkpoint'
+    );
+    await act(async () => {
+      resetButton.click();
+    });
+
+    expect(container.textContent).toContain('Target LSN / Position (Optional)');
+    expect(container.textContent).toContain('Enter an LSN (e.g. 0/3D7E5D8)');
+  });
+
+  test('LiveMonitor renders PostgreSQL WAL Current LSN and Active WAL Segment', async () => {
+    monitorApi.getByPipelineId.mockResolvedValue({
+      data: {
+        pipelineId: 'p-wal-live',
+        pipelineName: 'Production Postgres WAL Stream',
+        pipelineMode: 'CDC',
+        cdcLogType: 'POSTGRES_WAL',
+        tableName: 'CDC_STREAM',
+        status: 'RUNNING',
+        rowsProcessed: 12000,
+        rowsPerSec: 850,
+        avgRowsPerSec: 720,
+        currentScn: '0/3D7E5D8',
+        lagSeconds: 1,
+        currentSourceFile: '000000010000000000000005',
+        insertCount: 10000,
+        updateCount: 1800,
+        deleteCount: 200,
+        tables: [],
+        inflightRecords: [],
+      },
+    });
+
+    cdcApi.getCheckpoint.mockResolvedValue({
+      data: {
+        lastScn: '0/3D7E5D8',
+        sourceFile: '000000010000000000000005',
+        eventsProcessed: 12000,
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={['/pipelines/p-wal-live/monitor']}>
+          <Routes>
+            <Route path="/pipelines/:pipelineId/monitor" element={<LiveMonitor />} />
+          </Routes>
+        </MemoryRouter>
+      );
+    });
+
+    const metricsGrid = container.querySelector('[data-testid="cdc-metrics-grid"]');
+    expect(metricsGrid).not.toBeNull();
+    expect(metricsGrid.textContent).toContain('Current LSN');
+    expect(metricsGrid.textContent).toContain('0/3D7E5D8');
+    expect(metricsGrid.textContent).toContain('Active WAL Segment');
+    expect(metricsGrid.textContent).toContain('000000010000000000000005');
+  });
 });

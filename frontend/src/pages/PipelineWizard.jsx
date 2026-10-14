@@ -131,21 +131,87 @@ const StepBasics = ({ config, setConfig, namespaces, onCreateNamespace, errors }
             <i className="fa-solid fa-sliders" />
             CDC Stream Configuration
           </span>
-          <span style={{ fontSize: '10px', color: '#0F766E' }}>Oracle Trail / WAL</span>
+          <span style={{ fontSize: '10px', color: '#0F766E', fontWeight: 600 }}>
+            {config.cdcLogType === 'POSTGRES_WAL' ? 'PostgreSQL WAL' : 'Oracle Trail'}
+          </span>
         </div>
         <p style={{ fontSize: FONT.size.xs, color: '#115E59', marginBottom: SPACING.sm, lineHeight: 1.4 }}>
-          Specify the directory containing GoldenGate trail files and replication parameters.
+          {config.cdcLogType === 'POSTGRES_WAL'
+            ? 'Stream row-level mutations from PostgreSQL Write-Ahead Log (WAL) 16MB segments using LSN tracking.'
+            : 'Capture row-level mutations from Oracle GoldenGate binary trail files using SCN tracking.'}
         </p>
+
+        {/* Log Type Selection */}
+        <div style={{ marginBottom: SPACING.sm }}>
+          <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+            Source Log Format <span style={{ color: COLORS.status.error }}>*</span>
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.xs }}>
+            <div
+              data-testid="logtype-oracle-trail"
+              onClick={() => setConfig({
+                ...config,
+                cdcLogType: 'ORACLE_TRAIL',
+                cdcFilePattern: (config.cdcFilePattern === '000000010000.*' || !config.cdcFilePattern) ? 'aa.*' : config.cdcFilePattern,
+                cdcLogTypeManuallySet: true
+              })}
+              style={{
+                padding: '6px 10px',
+                borderRadius: BORDER_RADIUS.sm,
+                cursor: 'pointer',
+                border: (config.cdcLogType || 'ORACLE_TRAIL') === 'ORACLE_TRAIL' ? '2px solid #0D9488' : `1px solid ${COLORS.border.light}`,
+                background: (config.cdcLogType || 'ORACLE_TRAIL') === 'ORACLE_TRAIL' ? '#fff' : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <i className="fa-solid fa-database" style={{ fontSize: '12px', color: (config.cdcLogType || 'ORACLE_TRAIL') === 'ORACLE_TRAIL' ? '#0D9488' : COLORS.text.secondary }} />
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: COLORS.text.primary }}>Oracle Trail</div>
+                <div style={{ fontSize: '9px', color: COLORS.text.secondary }}>GoldenGate SCN</div>
+              </div>
+            </div>
+
+            <div
+              data-testid="logtype-postgres-wal"
+              onClick={() => setConfig({
+                ...config,
+                cdcLogType: 'POSTGRES_WAL',
+                cdcFilePattern: (config.cdcFilePattern === 'aa.*' || !config.cdcFilePattern) ? '000000010000.*' : config.cdcFilePattern,
+                cdcLogTypeManuallySet: true
+              })}
+              style={{
+                padding: '6px 10px',
+                borderRadius: BORDER_RADIUS.sm,
+                cursor: 'pointer',
+                border: config.cdcLogType === 'POSTGRES_WAL' ? '2px solid #0D9488' : `1px solid ${COLORS.border.light}`,
+                background: config.cdcLogType === 'POSTGRES_WAL' ? '#fff' : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <i className="fa-solid fa-file-waveform" style={{ fontSize: '12px', color: config.cdcLogType === 'POSTGRES_WAL' ? '#0D9488' : COLORS.text.secondary }} />
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: COLORS.text.primary }}>PostgreSQL WAL</div>
+                <div style={{ fontSize: '9px', color: COLORS.text.secondary }}>Write-Ahead Log LSN</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div style={{ marginBottom: SPACING.sm }}>
           <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
-            Trail / WAL Directory Path <span style={{ color: COLORS.status.error }}>*</span>
+            {config.cdcLogType === 'POSTGRES_WAL' ? 'PostgreSQL WAL Directory Path' : 'Oracle Trail Directory Path'} <span style={{ color: COLORS.status.error }}>*</span>
           </label>
           <input
             data-testid="input-cdc-directory"
             value={config.cdcDirectoryPath || ''}
             onChange={e => setConfig({ ...config, cdcDirectoryPath: e.target.value })}
-            placeholder="e.g. /u01/app/oracle/dirdat"
+            placeholder={config.cdcLogType === 'POSTGRES_WAL' ? 'e.g. /var/lib/postgresql/data/pg_wal' : 'e.g. /u01/app/oracle/dirdat'}
             style={{
               width: '100%',
               padding: `${SPACING.xs} 10px`,
@@ -167,9 +233,9 @@ const StepBasics = ({ config, setConfig, namespaces, onCreateNamespace, errors }
             </label>
             <input
               data-testid="input-cdc-pattern"
-              value={config.cdcFilePattern || 'aa.*'}
+              value={config.cdcFilePattern || (config.cdcLogType === 'POSTGRES_WAL' ? '000000010000.*' : 'aa.*')}
               onChange={e => setConfig({ ...config, cdcFilePattern: e.target.value })}
-              placeholder="e.g. aa.*"
+              placeholder={config.cdcLogType === 'POSTGRES_WAL' ? 'e.g. 000000010000.*' : 'e.g. aa.*'}
               style={{
                 width: '100%',
                 padding: `${SPACING.xs} 10px`,
@@ -185,13 +251,13 @@ const StepBasics = ({ config, setConfig, namespaces, onCreateNamespace, errors }
 
           <div>
             <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
-              Starting SCN (Optional)
+              {config.cdcLogType === 'POSTGRES_WAL' ? 'Starting LSN (Optional)' : 'Starting SCN (Optional)'}
             </label>
             <input
               data-testid="input-cdc-scn"
               value={config.cdcStartingScn || ''}
               onChange={e => setConfig({ ...config, cdcStartingScn: e.target.value })}
-              placeholder="Leave empty for snapshot SCN"
+              placeholder={config.cdcLogType === 'POSTGRES_WAL' ? 'e.g. 0/3D7E5D8 (empty for snapshot)' : 'e.g. 1847291048 (empty for snapshot)'}
               style={{
                 width: '100%',
                 padding: `${SPACING.xs} 10px`,
@@ -393,9 +459,10 @@ const StepReview = ({ config, namespaces, connections }) => {
         ['Namespace', ns?.name || 'Default'],
         ['Execution Mode', isCdc ? 'CDC Streaming (Continuous)' : 'Batch Migration (Snapshot)'],
         ...(isCdc ? [
-          ['Trail Directory', config.cdcDirectoryPath || '—'],
-          ['File Pattern', config.cdcFilePattern || 'aa.*'],
-          ['Starting SCN', config.cdcStartingScn ? config.cdcStartingScn : 'Auto-detected from snapshot SCN'],
+          ['Log Format', config.cdcLogType === 'POSTGRES_WAL' ? 'PostgreSQL WAL' : 'Oracle GoldenGate Trail'],
+          [config.cdcLogType === 'POSTGRES_WAL' ? 'WAL Directory' : 'Trail Directory', config.cdcDirectoryPath || '—'],
+          ['File Pattern', config.cdcFilePattern || (config.cdcLogType === 'POSTGRES_WAL' ? '000000010000.*' : 'aa.*')],
+          [config.cdcLogType === 'POSTGRES_WAL' ? 'Starting LSN' : 'Starting SCN', config.cdcStartingScn ? config.cdcStartingScn : `Auto-detected from snapshot ${config.cdcLogType === 'POSTGRES_WAL' ? 'LSN' : 'SCN'}`],
           ['Micro-Batching', `${config.cdcBatchSize || 500} events / ${config.cdcFlushIntervalMs || 200}ms`],
         ] : []),
         ['Source', source ? `${source.name} (${source.dbType})` : '—'],
@@ -416,7 +483,7 @@ const validateStep = (step, config) => {
       if (!config.name.trim()) e.name = 'Required';
       else if (config.name.trim().length < 3) e.name = 'Min 3 characters';
       if (config.pipelineMode === 'CDC' && (!config.cdcDirectoryPath || !config.cdcDirectoryPath.trim())) {
-        e.cdcDirectoryPath = 'Trail directory path is required for CDC mode';
+        e.cdcDirectoryPath = `${config.cdcLogType === 'POSTGRES_WAL' ? 'WAL' : 'Trail'} directory path is required for CDC mode`;
       }
       break;
     case 1: if (!config.source) e.source = 'Select source'; if (!config.target) e.target = 'Select target'; break;
@@ -449,6 +516,7 @@ const PipelineWizard = () => {
     selectedSourceTables: [],
     selectedTargetTables: [],
     pipelineMode: 'BATCH',
+    cdcLogType: 'ORACLE_TRAIL',
     cdcDirectoryPath: '',
     cdcFilePattern: 'aa.*',
     cdcStartingScn: '',
@@ -466,9 +534,23 @@ const PipelineWizard = () => {
   useEffect(() => {
     if (!config.source) { setSourceTables([]); return; }
     setLoadingSourceTables(true); setSourceTables([]);
-    setConfig(p => ({ ...p, selectedSourceTables: [] }));
+    setConfig(p => {
+      const srcConn = connections.find(c => c.id === config.source);
+      let nextLogType = p.cdcLogType;
+      let nextPattern = p.cdcFilePattern;
+      if (!p.cdcLogTypeManuallySet && srcConn) {
+        if (srcConn.dbType === 'POSTGRESQL') {
+          nextLogType = 'POSTGRES_WAL';
+          if (!p.cdcFilePattern || p.cdcFilePattern === 'aa.*') nextPattern = '000000010000.*';
+        } else if (srcConn.dbType === 'ORACLE') {
+          nextLogType = 'ORACLE_TRAIL';
+          if (!p.cdcFilePattern || p.cdcFilePattern === '000000010000.*') nextPattern = 'aa.*';
+        }
+      }
+      return { ...p, selectedSourceTables: [], cdcLogType: nextLogType, cdcFilePattern: nextPattern };
+    });
     connectionApi.listTables(config.source).then(r => setSourceTables(r.data || [])).catch(() => setSourceTables([])).finally(() => setLoadingSourceTables(false));
-  }, [config.source]);
+  }, [config.source, connections]);
 
   useEffect(() => {
     if (!config.target) { setTargetTables([]); return; }
@@ -496,8 +578,9 @@ const PipelineWizard = () => {
         targetTables: config.selectedTargetTables,
         tables: config.selectedSourceTables.map((t, i) => ({ sourceTable: t, executionOrder: i })),
         pipelineMode: config.pipelineMode || 'BATCH',
+        cdcLogType: isCdc ? (config.cdcLogType || 'ORACLE_TRAIL') : null,
         cdcDirectoryPath: isCdc ? config.cdcDirectoryPath?.trim() : null,
-        cdcFilePattern: isCdc ? (config.cdcFilePattern?.trim() || 'aa.*') : null,
+        cdcFilePattern: isCdc ? (config.cdcFilePattern?.trim() || (config.cdcLogType === 'POSTGRES_WAL' ? '000000010000.*' : 'aa.*')) : null,
         cdcStartingScn: isCdc ? (config.cdcStartingScn?.trim() || null) : null,
         cdcFlushIntervalMs: isCdc ? Number(config.cdcFlushIntervalMs || 200) : null,
         cdcBatchSize: isCdc ? Number(config.cdcBatchSize || 500) : null,

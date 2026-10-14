@@ -29,6 +29,7 @@ public class PipelineDtos {
         private String cdcDirectoryPath;
         private String cdcFilePattern;
         private String cdcStartingScn;
+        private String cdcLogType;
         private Integer cdcFlushIntervalMs;
         private Integer cdcBatchSize;
  
@@ -55,6 +56,7 @@ public class PipelineDtos {
         private String cdcDirectoryPath;
         private String cdcFilePattern;
         private String cdcStartingScn;
+        private String cdcLogType;
         private Integer cdcFlushIntervalMs;
         private Integer cdcBatchSize;
         /** Per-table write mode overrides: list of {targetTableMappingId, writeMode} */
@@ -93,6 +95,7 @@ public class PipelineDtos {
         private String cdcDirectoryPath;
         private String cdcFilePattern;
         private String cdcStartingScn;
+        private String cdcLogType;
         private Integer cdcFlushIntervalMs;
         private Integer cdcBatchSize;
         private List<PipelineTableResponse> tables;
@@ -283,6 +286,7 @@ public class PipelineDtos {
         private String cdcDirectoryPath;
         private String cdcFilePattern;
         private String cdcStartingScn;
+        private String cdcLogType;
         private Integer cdcFlushIntervalMs;
         private Integer cdcBatchSize;
         private List<PipelineTableConfigDto> tables;

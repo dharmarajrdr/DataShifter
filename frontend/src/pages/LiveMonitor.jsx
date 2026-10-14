@@ -234,7 +234,8 @@ const LiveMonitor = () => {
   const tColor = (s) => s === 'COMPLETED' ? 'purple' : s === 'RUNNING' ? 'teal' : 'default';
   const iCols = data.inflightRecords?.length > 0 ? Object.keys(data.inflightRecords[0]) : [];
   const isLockedToWorkflow = Boolean(data.workflowId);
-  const isCdc = data.pipelineMode === 'CDC' || data.tableName === 'CDC_STREAM' || (data.eta && data.eta.startsWith('SCN:'));
+  const isCdc = data.pipelineMode === 'CDC' || data.tableName === 'CDC_STREAM' || (data.eta && (data.eta.startsWith('SCN:') || data.eta.startsWith('LSN:')));
+  const isWal = data.cdcLogType === 'POSTGRES_WAL' || (data.eta && data.eta.startsWith('LSN:'));
   const acts = getActions(data.status, isLockedToWorkflow);
 
   if (!canViewPipeline) {
@@ -394,8 +395,8 @@ const LiveMonitor = () => {
         {isCdc ? (
           <div data-testid="cdc-metrics-grid" key={updateCount} style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.lg, flexWrap: 'wrap' }}>
             <MetricCard
-              label="Current SCN"
-              value={data.currentScn || cdcCheckpoint?.lastScn || (data.eta?.startsWith('SCN:') ? data.eta.replace('SCN: ', '') : 'Tracking...')}
+              label={isWal ? "Current LSN" : "Current SCN"}
+              value={data.currentLsn || data.currentScn || cdcCheckpoint?.lastScn || (data.eta?.startsWith('LSN:') ? data.eta.replace('LSN: ', '') : data.eta?.startsWith('SCN:') ? data.eta.replace('SCN: ', '') : 'Tracking...')}
               color="#0D9488"
             />
             <MetricCard
@@ -413,8 +414,8 @@ const LiveMonitor = () => {
               color="#534AB7"
             />
             <MetricCard
-              label="Active Trail File"
-              value={data.currentSourceFile || cdcCheckpoint?.sourceFile || data.cdcFilePattern || 'aa.*'}
+              label={isWal ? "Active WAL Segment" : "Active Trail File"}
+              value={data.currentSourceFile || cdcCheckpoint?.sourceFile || data.cdcFilePattern || (isWal ? '000000010000.*' : 'aa.*')}
             />
           </div>
         ) : (
