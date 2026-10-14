@@ -1,5 +1,6 @@
 package com.datashifter.common.dtos;
 
+import com.datashifter.common.enums.PipelineMode;
 import com.datashifter.common.enums.PipelineStatus;
 import com.datashifter.common.enums.WorkflowFailureAction;
 import com.datashifter.common.enums.WorkflowStatus;
@@ -72,6 +73,7 @@ public class WorkflowDtos {
         private long rowsPerSec;
         private long errorsSkipped;
         private String eta;
+        private PipelineMode pipelineMode;
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

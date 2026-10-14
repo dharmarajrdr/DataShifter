@@ -53,6 +53,209 @@ const StepBasics = ({ config, setConfig, namespaces, onCreateNamespace, errors }
         </div>
       </div>
     </div>
+
+    {/* Pipeline Mode Selection */}
+    <div style={{ marginTop: SPACING.lg, marginBottom: SPACING.md }}>
+      <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: SPACING.xs }}>
+        Execution Mode <span style={{ color: COLORS.status.error }}>*</span>
+      </label>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sm }}>
+        <div
+          data-testid="mode-card-batch"
+          onClick={() => setConfig({ ...config, pipelineMode: 'BATCH' })}
+          style={{
+            padding: SPACING.sm,
+            borderRadius: BORDER_RADIUS.md,
+            cursor: 'pointer',
+            border: (config.pipelineMode || 'BATCH') === 'BATCH' ? `2px solid ${COLORS.brand.primary}` : `1px solid ${COLORS.border.light}`,
+            background: (config.pipelineMode || 'BATCH') === 'BATCH' ? COLORS.accent.purpleLight : COLORS.background.primary,
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <div style={{ ...FRBC, marginBottom: '4px' }}>
+            <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: COLORS.text.primary, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <i className="fa-solid fa-layer-group" style={{ color: (config.pipelineMode || 'BATCH') === 'BATCH' ? COLORS.brand.primary : COLORS.text.secondary }} />
+              Batch Migration
+            </span>
+            {(config.pipelineMode || 'BATCH') === 'BATCH' && (
+              <span style={{ fontSize: '10px', color: COLORS.brand.primary, fontWeight: 600 }}>Active</span>
+            )}
+          </div>
+          <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, margin: 0, lineHeight: 1.4 }}>
+            Full table copy using chunked batch readers. Best for initial loads.
+          </p>
+        </div>
+
+        <div
+          data-testid="mode-card-cdc"
+          onClick={() => setConfig({ ...config, pipelineMode: 'CDC' })}
+          style={{
+            padding: SPACING.sm,
+            borderRadius: BORDER_RADIUS.md,
+            cursor: 'pointer',
+            border: config.pipelineMode === 'CDC' ? `2px solid #0D9488` : `1px solid ${COLORS.border.light}`,
+            background: config.pipelineMode === 'CDC' ? '#F0FDFA' : COLORS.background.primary,
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <div style={{ ...FRBC, marginBottom: '4px' }}>
+            <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: COLORS.text.primary, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <i className="fa-solid fa-bolt" style={{ color: config.pipelineMode === 'CDC' ? '#0D9488' : COLORS.text.secondary }} />
+              CDC Streaming
+            </span>
+            <span style={{ fontSize: '9px', fontWeight: 600, color: '#0D9488', background: '#CCFBF1', padding: '1px 5px', borderRadius: BORDER_RADIUS.pill }}>
+              Real-time
+            </span>
+          </div>
+          <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, margin: 0, lineHeight: 1.4 }}>
+            Continuous capture from Oracle GoldenGate trail files / Postgres WAL.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {/* CDC Specific Configuration */}
+    {config.pipelineMode === 'CDC' && (
+      <div
+        data-testid="cdc-config-panel"
+        style={{
+          marginTop: SPACING.md,
+          padding: SPACING.md,
+          background: '#F0FDFA',
+          border: '1px solid #99F6E4',
+          borderRadius: BORDER_RADIUS.md,
+        }}
+      >
+        <div style={{ ...FRBC, marginBottom: SPACING.xs }}>
+          <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: '#0F766E', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <i className="fa-solid fa-sliders" />
+            CDC Stream Configuration
+          </span>
+          <span style={{ fontSize: '10px', color: '#0F766E' }}>Oracle Trail / WAL</span>
+        </div>
+        <p style={{ fontSize: FONT.size.xs, color: '#115E59', marginBottom: SPACING.sm, lineHeight: 1.4 }}>
+          Specify the directory containing GoldenGate trail files and replication parameters.
+        </p>
+
+        <div style={{ marginBottom: SPACING.sm }}>
+          <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+            Trail / WAL Directory Path <span style={{ color: COLORS.status.error }}>*</span>
+          </label>
+          <input
+            data-testid="input-cdc-directory"
+            value={config.cdcDirectoryPath || ''}
+            onChange={e => setConfig({ ...config, cdcDirectoryPath: e.target.value })}
+            placeholder="e.g. /u01/app/oracle/dirdat"
+            style={{
+              width: '100%',
+              padding: `${SPACING.xs} 10px`,
+              border: `1px solid ${errors.cdcDirectoryPath ? COLORS.status.error : COLORS.border.light}`,
+              borderRadius: BORDER_RADIUS.sm,
+              fontSize: FONT.size.sm,
+              boxSizing: 'border-box',
+              background: '#fff',
+              fontFamily: 'monospace'
+            }}
+          />
+          <FieldError message={errors.cdcDirectoryPath} />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sm, marginBottom: SPACING.sm }}>
+          <div>
+            <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+              File Pattern
+            </label>
+            <input
+              data-testid="input-cdc-pattern"
+              value={config.cdcFilePattern || 'aa.*'}
+              onChange={e => setConfig({ ...config, cdcFilePattern: e.target.value })}
+              placeholder="e.g. aa.*"
+              style={{
+                width: '100%',
+                padding: `${SPACING.xs} 10px`,
+                border: `1px solid ${COLORS.border.light}`,
+                borderRadius: BORDER_RADIUS.sm,
+                fontSize: FONT.size.sm,
+                boxSizing: 'border-box',
+                background: '#fff',
+                fontFamily: 'monospace'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+              Starting SCN (Optional)
+            </label>
+            <input
+              data-testid="input-cdc-scn"
+              value={config.cdcStartingScn || ''}
+              onChange={e => setConfig({ ...config, cdcStartingScn: e.target.value })}
+              placeholder="Leave empty for snapshot SCN"
+              style={{
+                width: '100%',
+                padding: `${SPACING.xs} 10px`,
+                border: `1px solid ${COLORS.border.light}`,
+                borderRadius: BORDER_RADIUS.sm,
+                fontSize: FONT.size.sm,
+                boxSizing: 'border-box',
+                background: '#fff',
+                fontFamily: 'monospace'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sm }}>
+          <div>
+            <label style={{ fontSize: '11px', color: COLORS.text.secondary, display: 'block', marginBottom: '2px' }}>
+              Flush Interval (ms)
+            </label>
+            <input
+              data-testid="input-cdc-flush-interval"
+              type="number"
+              min="50"
+              max="10000"
+              step="50"
+              value={config.cdcFlushIntervalMs ?? 200}
+              onChange={e => setConfig({ ...config, cdcFlushIntervalMs: Number(e.target.value) })}
+              style={{
+                width: '100%',
+                padding: '4px 8px',
+                border: `1px solid ${COLORS.border.light}`,
+                borderRadius: BORDER_RADIUS.sm,
+                fontSize: FONT.size.xs,
+                boxSizing: 'border-box',
+                background: '#fff'
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '11px', color: COLORS.text.secondary, display: 'block', marginBottom: '2px' }}>
+              Micro-batch Size (events)
+            </label>
+            <input
+              data-testid="input-cdc-batch-size"
+              type="number"
+              min="10"
+              max="10000"
+              step="50"
+              value={config.cdcBatchSize ?? 500}
+              onChange={e => setConfig({ ...config, cdcBatchSize: Number(e.target.value) })}
+              style={{
+                width: '100%',
+                padding: '4px 8px',
+                border: `1px solid ${COLORS.border.light}`,
+                borderRadius: BORDER_RADIUS.sm,
+                fontSize: FONT.size.xs,
+                boxSizing: 'border-box',
+                background: '#fff'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    )}
   </div>
 );
 
@@ -180,10 +383,24 @@ const StepReview = ({ config, namespaces, connections }) => {
   const source = connections.find(c => c.id === config.source);
   const target = connections.find(c => c.id === config.target);
   const ns = namespaces.find(n => n.id === config.namespaceId);
+  const isCdc = config.pipelineMode === 'CDC';
   return (
     <div style={{ maxWidth: '560px' }}>
       <h3 style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, marginBottom: SPACING.lg }}>Review pipeline</h3>
-      {[['Name', config.name], ['Description', config.description || '(none)'], ['Namespace', ns?.name || 'Default'], ['Source', source ? `${source.name} (${source.dbType})` : '—'], ['Target', target ? `${target.name} (${target.dbType})` : '—']].map(([l, v]) => (
+      {[
+        ['Name', config.name],
+        ['Description', config.description || '(none)'],
+        ['Namespace', ns?.name || 'Default'],
+        ['Execution Mode', isCdc ? 'CDC Streaming (Continuous)' : 'Batch Migration (Snapshot)'],
+        ...(isCdc ? [
+          ['Trail Directory', config.cdcDirectoryPath || '—'],
+          ['File Pattern', config.cdcFilePattern || 'aa.*'],
+          ['Starting SCN', config.cdcStartingScn ? config.cdcStartingScn : 'Auto-detected from snapshot SCN'],
+          ['Micro-Batching', `${config.cdcBatchSize || 500} events / ${config.cdcFlushIntervalMs || 200}ms`],
+        ] : []),
+        ['Source', source ? `${source.name} (${source.dbType})` : '—'],
+        ['Target', target ? `${target.name} (${target.dbType})` : '—'],
+      ].map(([l, v]) => (
         <div key={l} style={{ ...FRSC, gap: SPACING.md, marginBottom: SPACING.sm, fontSize: FONT.size.md }}><span style={{ width: '140px', color: COLORS.text.secondary, flexShrink: 0 }}>{l}</span><span style={{ fontWeight: FONT.weight.medium }}>{v}</span></div>
       ))}
       <div style={{ marginTop: SPACING.md }}><p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginBottom: SPACING.xs }}>Source tables ({config.selectedSourceTables.length}):</p><div style={{ ...FRSC, gap: '4px', flexWrap: 'wrap' }}>{config.selectedSourceTables.map(t => <Chip key={t} label={t} colorScheme="purple" />)}</div></div>
@@ -195,7 +412,13 @@ const StepReview = ({ config, namespaces, connections }) => {
 const validateStep = (step, config) => {
   const e = {};
   switch (step) {
-    case 0: if (!config.name.trim()) e.name = 'Required'; else if (config.name.trim().length < 3) e.name = 'Min 3 characters'; break;
+    case 0:
+      if (!config.name.trim()) e.name = 'Required';
+      else if (config.name.trim().length < 3) e.name = 'Min 3 characters';
+      if (config.pipelineMode === 'CDC' && (!config.cdcDirectoryPath || !config.cdcDirectoryPath.trim())) {
+        e.cdcDirectoryPath = 'Trail directory path is required for CDC mode';
+      }
+      break;
     case 1: if (!config.source) e.source = 'Select source'; if (!config.target) e.target = 'Select target'; break;
     case 2: if (!config.selectedSourceTables.length) e.selectedSourceTables = 'Select at least one source table'; if (!config.selectedTargetTables.length) e.selectedTargetTables = 'Select at least one target table'; break;
     default: break;
@@ -217,7 +440,21 @@ const PipelineWizard = () => {
   const [showCreateNs, setShowCreateNs] = useState(false);
   const [errors, setErrors] = useState({});
   const [creating, setCreating] = useState(false);
-  const [config, setConfig] = useState({ name: '', description: '', namespaceId: '', source: '', target: '', selectedSourceTables: [], selectedTargetTables: [] });
+  const [config, setConfig] = useState({
+    name: '',
+    description: '',
+    namespaceId: '',
+    source: '',
+    target: '',
+    selectedSourceTables: [],
+    selectedTargetTables: [],
+    pipelineMode: 'BATCH',
+    cdcDirectoryPath: '',
+    cdcFilePattern: 'aa.*',
+    cdcStartingScn: '',
+    cdcFlushIntervalMs: 200,
+    cdcBatchSize: 500,
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -240,7 +477,7 @@ const PipelineWizard = () => {
     connectionApi.listTables(config.target).then(r => setTargetTables(r.data || [])).catch(() => setTargetTables([])).finally(() => setLoadingTargetTables(false));
   }, [config.target]);
 
-  useEffect(() => { setErrors({}); }, [config.name, config.source, config.target, config.selectedSourceTables.length, config.selectedTargetTables.length]);
+  useEffect(() => { setErrors({}); }, [config.name, config.source, config.target, config.selectedSourceTables.length, config.selectedTargetTables.length, config.pipelineMode, config.cdcDirectoryPath]);
 
   const handleNamespaceCreated = (ns) => { setNamespaces(p => [...p, ns]); setConfig(p => ({ ...p, namespaceId: ns.id })); };
   const handleNext = () => { const e = validateStep(step, config); if (Object.keys(e).length) { setErrors(e); return; } setErrors({}); setStep(step + 1); };
@@ -250,6 +487,7 @@ const PipelineWizard = () => {
   const handleCreate = async () => {
     setCreating(true);
     try {
+      const isCdc = config.pipelineMode === 'CDC';
       const payload = {
         name: config.name.trim(), description: config.description.trim(),
         namespaceId: config.namespaceId || null,
@@ -257,6 +495,12 @@ const PipelineWizard = () => {
         sourceTables: config.selectedSourceTables,
         targetTables: config.selectedTargetTables,
         tables: config.selectedSourceTables.map((t, i) => ({ sourceTable: t, executionOrder: i })),
+        pipelineMode: config.pipelineMode || 'BATCH',
+        cdcDirectoryPath: isCdc ? config.cdcDirectoryPath?.trim() : null,
+        cdcFilePattern: isCdc ? (config.cdcFilePattern?.trim() || 'aa.*') : null,
+        cdcStartingScn: isCdc ? (config.cdcStartingScn?.trim() || null) : null,
+        cdcFlushIntervalMs: isCdc ? Number(config.cdcFlushIntervalMs || 200) : null,
+        cdcBatchSize: isCdc ? Number(config.cdcBatchSize || 500) : null,
       };
       const res = await pipelineApi.create(payload);
       notification.success(`Pipeline "${config.name.trim()}" created successfully!`);

@@ -490,6 +490,46 @@ export const notifyHubApi = {
     apiClient.delete(`/notifyhub/listeners/${id}`),
 };
 
+/* ----- CDC (pipeline-service via gateway:8080) ----- */
+
+export const cdcApi = {
+
+  getCheckpoint: (pipelineId) => USE_MOCK
+    ? mockResponse({
+        id: 'cp-' + pipelineId,
+        pipelineId,
+        executionLogId: 'exec-1',
+        sourceFile: 'o1_mf_1_1_abc.arc',
+        fileOffset: 1048576,
+        lastScn: '24589120',
+        lastLsn: null,
+        txId: 'tx-100',
+        eventsProcessed: 45200,
+        checkpointAt: new Date().toISOString(),
+        status: 'ACTIVE'
+      })
+    : apiClient.get(`/pipelines/${pipelineId}/cdc/checkpoint`),
+
+  resetCheckpoint: (pipelineId, payload = {}) => USE_MOCK
+    ? mockResponse({
+        id: 'cp-' + pipelineId,
+        pipelineId,
+        sourceFile: payload.targetSourceFile || 'o1_mf_1_1_abc.arc',
+        fileOffset: payload.targetFileOffset || 0,
+        lastScn: payload.targetScn || '0',
+        lastLsn: payload.targetLsn || null,
+        eventsProcessed: 0,
+        checkpointAt: new Date().toISOString(),
+        status: 'RESET'
+      }, 'CDC checkpoint updated')
+    : apiClient.post(`/pipelines/${pipelineId}/cdc/checkpoint/reset`, payload),
+
+  clearCheckpoint: (pipelineId) => USE_MOCK
+    ? mockResponse(null, 'Checkpoint cleared')
+    : apiClient.delete(`/pipelines/${pipelineId}/cdc/checkpoint`),
+};
+
 export { authApi } from './authApi';
 export { aiApi } from './aiApi';
+
 
