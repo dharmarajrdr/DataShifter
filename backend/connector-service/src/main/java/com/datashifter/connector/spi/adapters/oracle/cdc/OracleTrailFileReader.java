@@ -28,6 +28,8 @@ public class OracleTrailFileReader implements CdcSourceReader {
 
     private CdcReaderConfig config;
     private OracleTrailSequenceTracker sequenceTracker;
+    private com.datashifter.connector.cdc.segregation.CdcTableFilter tableFilter;
+    private com.datashifter.connector.cdc.segregation.CdcOperationFilter operationFilter;
     private RandomAccessFile currentRaf;
     private FileChannel currentChannel;
     private boolean isBinaryFormat;
@@ -55,6 +57,8 @@ public class OracleTrailFileReader implements CdcSourceReader {
     public synchronized void open(CdcReaderConfig config) throws Exception {
         this.config = config;
         this.sequenceTracker = new OracleTrailSequenceTracker(config.getDirectoryPath(), config.getFilePattern());
+        this.tableFilter = com.datashifter.connector.cdc.segregation.CdcTableFilter.of(config.getTargetTableNames());
+        this.operationFilter = com.datashifter.connector.cdc.segregation.CdcOperationFilter.of(config.getAllowedOperations());
 
         File startFile = sequenceTracker.resolveStartingFile(config.getStartingPosition());
         if (startFile == null) {
@@ -96,9 +100,9 @@ public class OracleTrailFileReader implements CdcSourceReader {
 
             OracleTrailRecord rawRecord = null;
             if (isBinaryFormat) {
-                rawRecord = parser.parseNextBinaryRecord(currentChannel, currentFileName);
+                rawRecord = parser.parseNextBinaryRecord(currentChannel, currentFileName, tableFilter);
             } else {
-                rawRecord = parser.parseNextJsonRecord(currentRaf, currentFileName);
+                rawRecord = parser.parseNextJsonRecord(currentRaf, currentFileName, tableFilter);
             }
 
             if (rawRecord != null) {
@@ -107,9 +111,17 @@ public class OracleTrailFileReader implements CdcSourceReader {
                     this.currentScn = rawRecord.getScn();
                 }
 
+                // If record was filtered at the byte level, advance position without buffering
+                if (rawRecord.isFiltered()) {
+                    continue;
+                }
+
                 // Pass to transaction buffer (handles atomicity and commit boundaries)
                 List<OracleTrailRecord> emitted = transactionBuffer.processRecord(rawRecord);
                 for (OracleTrailRecord r : emitted) {
+                    if (operationFilter != null && !operationFilter.matches(r.getOperationType())) {
+                        continue;
+                    }
                     CdcEvent event = convertToCdcEvent(r);
                     if (event != null) {
                         results.add(event);

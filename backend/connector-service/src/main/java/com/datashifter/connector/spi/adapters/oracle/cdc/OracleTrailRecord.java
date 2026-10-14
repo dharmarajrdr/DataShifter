@@ -60,6 +60,10 @@ public class OracleTrailRecord {
     @Builder.Default
     private Map<String, Object> afterColumns = new LinkedHashMap<>();
 
+    /** Flag indicating record was filtered out at the byte header level */
+    @Builder.Default
+    private boolean filtered = false;
+
     /** Is this record a transaction boundary marker (COMMIT or BEGIN)? */
     public boolean isTransactionBoundary() {
         return opCode == OracleTrailConstants.OP_COMMIT || opCode == OracleTrailConstants.OP_BEGIN;

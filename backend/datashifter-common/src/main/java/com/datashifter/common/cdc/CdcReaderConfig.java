@@ -1,5 +1,6 @@
 package com.datashifter.common.cdc;
 
+import com.datashifter.common.enums.CdcOperationType;
 import com.datashifter.common.enums.DatabaseType;
 import lombok.*;
 
@@ -40,6 +41,10 @@ public class CdcReaderConfig implements Serializable {
     /** Set of table names to filter (empty = include all) */
     @Builder.Default
     private Set<String> targetTableNames = new LinkedHashSet<>();
+
+    /** Set of allowed CDC operations (empty = allow all) */
+    @Builder.Default
+    private Set<CdcOperationType> allowedOperations = new LinkedHashSet<>();
 
     /** Max events per poll batch */
     @Builder.Default
