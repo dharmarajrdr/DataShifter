@@ -35,11 +35,23 @@ public class Pipeline extends BaseEntity {
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
 
-    @Column(name = "source_connection_id", nullable = false, length = 36)
+    @Column(name = "source_connection_id", length = 36)
     private String sourceConnectionId;
 
-    @Column(name = "target_connection_id", nullable = false, length = 36)
+    @Column(name = "target_connection_id", length = 36)
     private String targetConnectionId;
+
+    @Column(name = "source_adapter_id", length = 36)
+    private String sourceAdapterId;
+
+    @Column(name = "target_adapter_id", length = 36)
+    private String targetAdapterId;
+
+    @Column(name = "source_config", columnDefinition = "TEXT")
+    private String sourceConfig;
+
+    @Column(name = "target_config", columnDefinition = "TEXT")
+    private String targetConfig;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

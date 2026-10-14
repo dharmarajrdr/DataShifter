@@ -27,7 +27,7 @@
 ## Phases Tracker
 
 - [x] **Phase 1: Adapter SDK Core Contracts & Envelope (`adapter-sdk`)** (Completed)
-- [ ] **Phase 2: Database Schema & Migration (`V20`) and Common Models**
+- [x] **Phase 2: Database Schema & Migration (`V20`) and Common Models** (Completed)
 - [ ] **Phase 3: Aggregator POM & Oracle Reader / Writer Adapters**
 - [ ] **Phase 4: PostgreSQL Reader & Writer Adapters**
 - [ ] **Phase 5: CDC Streaming Adapters (Oracle GG & Postgres WAL)**
