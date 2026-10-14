@@ -7,7 +7,7 @@ import { MONITOR } from '../constants/literals';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { useEventSource } from '../hooks/useEventSource';
-import { monitorApi, pipelineApi } from '../services/api';
+import { monitorApi, pipelineApi, cdcApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 const TERMINAL_STATES = ['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'];
@@ -82,6 +82,7 @@ const LiveMonitor = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [updateCount, setUpdateCount] = useState(0);
   const [error, setError] = useState(null);
+  const [cdcCheckpoint, setCdcCheckpoint] = useState(null);
 
   const getHumanReadableCurrentTime = () => {
     const now = new Date();
@@ -131,7 +132,13 @@ const LiveMonitor = () => {
       return;
     }
     if (showLoading) setLoading(true);
-    try { const r = await monitorApi.getByPipelineId(pipelineId); setData(r.data); }
+    try {
+      const r = await monitorApi.getByPipelineId(pipelineId);
+      setData(r.data);
+      if (r.data?.pipelineMode === 'CDC' || r.data?.tableName === 'CDC_STREAM') {
+        cdcApi.getCheckpoint(pipelineId).then(cp => setCdcCheckpoint(cp.data)).catch(() => {});
+      }
+    }
     catch (e) { setError(e); } finally { if (showLoading) setLoading(false); }
   }, [pipelineId, canViewPipeline, canViewMonitor]);
 
@@ -140,7 +147,31 @@ const LiveMonitor = () => {
   const sseEnabled = data && !TERMINAL_STATES.includes(data.status);
   const { connected, reconnectCount, exhausted, retry } = useEventSource({
     channels: [`pipeline:${pipelineId}`], enabled: sseEnabled,
-    onProgress: (ev) => { setData(p => { if (!p) return p; const d = ev.payload; return { ...p, rowsProcessed: d.totalRowsProcessed ?? p.rowsProcessed, rowsPerSec: d.rowsPerSec ?? p.rowsPerSec, avgRowsPerSec: d.avgRowsPerSec ?? p.avgRowsPerSec, overallProgress: d.overallProgress ?? p.overallProgress, eta: d.eta ?? p.eta, inflightRecords: d.inflightRecords ?? p.inflightRecords }; }); setUpdateCount(c => c + 1); },
+    onProgress: (ev) => {
+      setData(p => {
+        if (!p) return p;
+        const d = ev.payload;
+        return {
+          ...p,
+          rowsProcessed: d.totalRowsProcessed ?? p.rowsProcessed,
+          rowsPerSec: d.rowsPerSec ?? p.rowsPerSec,
+          avgRowsPerSec: d.avgRowsPerSec ?? p.avgRowsPerSec,
+          overallProgress: d.overallProgress ?? p.overallProgress,
+          eta: d.eta ?? p.eta,
+          inflightRecords: d.inflightRecords ?? p.inflightRecords,
+          currentScn: d.currentScn ?? p.currentScn,
+          currentLsn: d.currentLsn ?? p.currentLsn,
+          currentSourceFile: d.currentSourceFile ?? p.currentSourceFile,
+          lagSeconds: d.lagSeconds ?? p.lagSeconds,
+          insertCount: d.insertCount ?? p.insertCount,
+          updateCount: d.updateCount ?? p.updateCount,
+          deleteCount: d.deleteCount ?? p.deleteCount,
+          filteredCount: d.filteredCount ?? p.filteredCount,
+          pipelineMode: d.pipelineMode ?? p.pipelineMode,
+        };
+      });
+      setUpdateCount(c => c + 1);
+    },
     onStatusChange: (ev) => { setData(p => p ? { ...p, status: ev.payload.newStatus } : p); fetchData(); },
     onError: (ev) => { setData(p => p ? { ...p, errorsSkipped: (p.errorsSkipped || 0) + 1 } : p); },
   });
@@ -203,6 +234,7 @@ const LiveMonitor = () => {
   const tColor = (s) => s === 'COMPLETED' ? 'purple' : s === 'RUNNING' ? 'teal' : 'default';
   const iCols = data.inflightRecords?.length > 0 ? Object.keys(data.inflightRecords[0]) : [];
   const isLockedToWorkflow = Boolean(data.workflowId);
+  const isCdc = data.pipelineMode === 'CDC' || data.tableName === 'CDC_STREAM' || (data.eta && data.eta.startsWith('SCN:'));
   const acts = getActions(data.status, isLockedToWorkflow);
 
   if (!canViewPipeline) {
@@ -275,6 +307,26 @@ const LiveMonitor = () => {
                   <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '10px' }} />
                 </span>
               )}
+              {isCdc && (
+                <span
+                  data-testid="cdc-streaming-badge"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '4px 10px',
+                    borderRadius: '99px',
+                    background: '#CCFBF1',
+                    color: '#0F766E',
+                    border: '1px solid #0D9488',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0D9488', animation: 'pulse 1.2s infinite' }} />
+                  <span>CDC Stream Active</span>
+                </span>
+              )}
               {data.status && data.status !== 'VALIDATED' && data.status !== 'NOT_VALIDATED' && data.status !== 'INVALID' && (
                 <StatusBadge status={data.status} />
               )}
@@ -323,19 +375,6 @@ const LiveMonitor = () => {
           </div>
         )}
 
-        {/* {data.status === 'NOT_VALIDATED' && (
-          <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: '8px', padding: `${SPACING.sm} ${SPACING.md}`, marginBottom: SPACING.md }}>
-            <div style={{ ...FRBC }}>
-              <span style={{ fontSize: FONT.size.sm, fontWeight: 500, color: '#854F0B' }}>
-                Pipeline mappings were modified and not yet validated. Validate the pipeline before starting.
-              </span>
-              <Button variant="secondary" size="sm" onClick={() => handleAction('VALIDATE')} disabled={actionLoading === 'VALIDATE'}>
-                {actionLoading === 'VALIDATE' ? 'Validating...' : 'Validate now'}
-              </Button>
-            </div>
-          </div>
-        )} */}
-
         {/* Connection bar */}
         <div style={{ ...FRBC, marginBottom: SPACING.md, padding: `${SPACING.xs} ${SPACING.md}`, background: '#F7F7F5', borderRadius: '8px' }}>
           <div style={{ ...FRSC, gap: SPACING.sm }}>
@@ -352,18 +391,67 @@ const LiveMonitor = () => {
         </div>
 
         {/* Metrics */}
-        <div key={updateCount} style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.lg, /* animation: updateCount > 1 ? 'fadeIn .3s ease' : 'none' */ }}>
-          <MetricCard label={MONITOR.rowsProcessed} value={data.rowsProcessed ? data.rowsProcessed.toLocaleString() : '0'} />
-          <MetricCard label={MONITOR.rowsPerSec} value={data.rowsPerSec ? data.rowsPerSec.toLocaleString() : '0'} />
-          <MetricCard label="Avg rows/sec" value={data.avgRowsPerSec ? data.avgRowsPerSec.toLocaleString() : '0'} color="#534AB7" />
-          <MetricCard label={MONITOR.errorsSkipped} value={data.errorsSkipped || 0} color="#A32D2D" />
-          <MetricCard label={MONITOR.eta} value={data.eta || '—'} />
-        </div>
+        {isCdc ? (
+          <div data-testid="cdc-metrics-grid" key={updateCount} style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.lg, flexWrap: 'wrap' }}>
+            <MetricCard
+              label="Current SCN"
+              value={data.currentScn || cdcCheckpoint?.lastScn || (data.eta?.startsWith('SCN:') ? data.eta.replace('SCN: ', '') : 'Tracking...')}
+              color="#0D9488"
+            />
+            <MetricCard
+              label="Replication Lag"
+              value={data.lagSeconds != null ? `${data.lagSeconds}s` : '< 1s'}
+              color={data.lagSeconds > 30 ? '#A32D2D' : data.lagSeconds > 5 ? '#854F0B' : '#0F6E56'}
+            />
+            <MetricCard
+              label="Events Streamed"
+              value={(data.totalRowsProcessed || data.rowsProcessed || cdcCheckpoint?.eventsProcessed || 0).toLocaleString()}
+            />
+            <MetricCard
+              label="Throughput"
+              value={`${(data.rowsPerSec || 0).toLocaleString()} evt/s`}
+              color="#534AB7"
+            />
+            <MetricCard
+              label="Active Trail File"
+              value={data.currentSourceFile || cdcCheckpoint?.sourceFile || data.cdcFilePattern || 'aa.*'}
+            />
+          </div>
+        ) : (
+          <div key={updateCount} style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.lg }}>
+            <MetricCard label={MONITOR.rowsProcessed} value={data.rowsProcessed ? data.rowsProcessed.toLocaleString() : '0'} />
+            <MetricCard label={MONITOR.rowsPerSec} value={data.rowsPerSec ? data.rowsPerSec.toLocaleString() : '0'} />
+            <MetricCard label="Avg rows/sec" value={data.avgRowsPerSec ? data.avgRowsPerSec.toLocaleString() : '0'} color="#534AB7" />
+            <MetricCard label={MONITOR.errorsSkipped} value={data.errorsSkipped || 0} color="#A32D2D" />
+            <MetricCard label={MONITOR.eta} value={data.eta || '—'} />
+          </div>
+        )}
+
+        {/* CDC Operations Breakdown */}
+        {isCdc && (
+          <div data-testid="cdc-operations-breakdown" style={{ marginBottom: SPACING.lg, padding: `${SPACING.xs} ${SPACING.md}`, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', ...FRBC }}>
+            <div style={{ ...FRSC, gap: SPACING.sm }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>Operations:</span>
+              <Chip label={`Inserts: ${(data.insertCount || 0).toLocaleString()}`} colorScheme="teal" />
+              <Chip label={`Updates: ${(data.updateCount || 0).toLocaleString()}`} colorScheme="purple" />
+              <Chip label={`Deletes: ${(data.deleteCount || 0).toLocaleString()}`} colorScheme="default" />
+              {(data.filteredCount || 0) > 0 && <Chip label={`Filtered: ${data.filteredCount.toLocaleString()}`} colorScheme="default" />}
+            </div>
+            <span style={{ fontSize: '11px', color: '#64748B' }}>Micro-batch Replay Active</span>
+          </div>
+        )}
 
         {/* Progress */}
         <div style={{ marginBottom: SPACING.lg }}>
-          <div style={{ ...FRBC, marginBottom: '6px' }}><span style={{ fontSize: '13px', color: '#6B6B6B' }}>{MONITOR.overallProgress}</span><span style={{ fontSize: '13px', fontWeight: 500 }}>{data.overallProgress ? data.overallProgress.toFixed(1) : 0}%</span></div>
-          <ProgressBar progress={data.overallProgress || 0} height="8px" showLabel={false} />
+          <div style={{ ...FRBC, marginBottom: '6px' }}>
+            <span style={{ fontSize: '13px', color: '#6B6B6B' }}>
+              {isCdc ? 'CDC Streaming Progress' : MONITOR.overallProgress}
+            </span>
+            <span style={{ fontSize: '13px', fontWeight: 500 }}>
+              {isCdc ? 'Real-time replication • Continuous' : `${data.overallProgress ? data.overallProgress.toFixed(1) : 0}%`}
+            </span>
+          </div>
+          <ProgressBar progress={isCdc ? 100 : (data.overallProgress || 0)} height="8px" showLabel={false} />
         </div>
 
         {/* Tables */}

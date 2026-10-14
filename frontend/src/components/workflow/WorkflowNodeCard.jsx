@@ -92,6 +92,7 @@ const WorkflowNodeCard = ({
   }
 
   const status = node.pipelineStatus || 'VALIDATED';
+  const isCdc = node.pipelineMode === 'CDC' || node.isCdc;
 
   const getIconConfig = () => {
     if (isRunningNode || status === 'RUNNING') {
@@ -289,19 +290,44 @@ const WorkflowNodeCard = ({
             justifyContent: 'center',
           }}
         >
-          <span
-            style={{
-              fontSize: FONT.size.md,
-              fontWeight: FONT.weight.semibold,
-              color: COLORS.text.primary,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-            title={node.pipelineName}
-          >
-            {node.pipelineName}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+            <span
+              style={{
+                fontSize: FONT.size.md,
+                fontWeight: FONT.weight.semibold,
+                color: COLORS.text.primary,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                flex: 1,
+              }}
+              title={node.pipelineName}
+            >
+              {node.pipelineName}
+            </span>
+            {isCdc && (
+              <span
+                data-testid="workflow-node-cdc-badge"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: FONT.weight.bold,
+                  color: '#0F766E',
+                  background: '#CCFBF1',
+                  border: '1px solid #0D9488',
+                  padding: '1px 6px',
+                  borderRadius: BORDER_RADIUS.pill,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  letterSpacing: '0.03em',
+                  flexShrink: 0,
+                }}
+              >
+                <i className="fa-solid fa-bolt" style={{ fontSize: '8px' }} />
+                CDC
+              </span>
+            )}
+          </div>
 
           {mode === 'monitor' && (
             <div style={{ marginTop: 8 }}>

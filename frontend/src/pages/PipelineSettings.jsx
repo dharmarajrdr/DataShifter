@@ -6,7 +6,7 @@ import { FRBC, FRSC } from '../constants/layouts';
 import { SETTINGS } from '../constants/literals';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { connectionApi, pipelineApi, settingsApi } from '../services/api';
+import { connectionApi, pipelineApi, settingsApi, cdcApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
 const SectionTitle = ({ title, subtitle }) => (
@@ -33,12 +33,18 @@ const PipelineSettings = () => {
   const canViewPipeline = hasPermission('pipeline:view');
   const canEditSettings = hasPermission('settings:edit');
   const canDeletePipeline = hasPermission('pipeline:delete');
+  const canManageCdc = hasPermission('cdc:manage') || hasPermission('settings:edit');
   const [accessDenied, setAccessDenied] = useState(false);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [tableOverrides, setTableOverrides] = useState({});
+  const [cdcCheckpoint, setCdcCheckpoint] = useState(null);
+  const [loadingCheckpoint, setLoadingCheckpoint] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetTargetScn, setResetTargetScn] = useState('');
+  const [resettingCheckpoint, setResettingCheckpoint] = useState(false);
   const { pipelineId } = useParams();
   const navigate = useNavigate();
 
@@ -66,6 +72,15 @@ const PipelineSettings = () => {
         });
       });
       setTableOverrides(overrides);
+
+      // Fetch CDC checkpoint if pipeline is in CDC mode
+      if (res.data.pipelineMode === 'CDC') {
+        setLoadingCheckpoint(true);
+        cdcApi.getCheckpoint(pipelineId)
+          .then(cp => setCdcCheckpoint(cp.data))
+          .catch(() => setCdcCheckpoint(null))
+          .finally(() => setLoadingCheckpoint(false));
+      }
 
       // Fetch available tables from source and target connections
       if (res.data.sourceConnectionId) {
@@ -109,6 +124,25 @@ const PipelineSettings = () => {
 
   const isRunning = settings.status === 'RUNNING';
 
+  const handleResetCheckpoint = async () => {
+    if (!canManageCdc || isRunning || resettingCheckpoint) return;
+    setResettingCheckpoint(true);
+    try {
+      await cdcApi.resetCheckpoint(pipelineId, {
+        targetScn: resetTargetScn ? resetTargetScn.trim() : null,
+      });
+      setShowResetModal(false);
+      setResetTargetScn('');
+      notification.success('CDC checkpoint reset successfully');
+      // Refresh checkpoint
+      cdcApi.getCheckpoint(pipelineId).then(cp => setCdcCheckpoint(cp.data)).catch(() => {});
+    } catch (e) {
+      notification.error('Failed to reset checkpoint: ' + (e?.response?.data?.message || e.message));
+    } finally {
+      setResettingCheckpoint(false);
+    }
+  };
+
   const handleSave = async () => {
     if (isRunning) {
       notification.warning('Pause the pipeline before updating settings');
@@ -123,6 +157,12 @@ const PipelineSettings = () => {
         maxErrorThreshold: settings.maxErrorThreshold, logSourceRow: settings.logSourceRow,
         sourcePoolSize: settings.sourcePoolSize, targetPoolSize: settings.targetPoolSize,
         previewInflightRecords: settings.previewInflightRecords,
+        pipelineMode: settings.pipelineMode || 'BATCH',
+        cdcDirectoryPath: settings.cdcDirectoryPath,
+        cdcFilePattern: settings.cdcFilePattern,
+        cdcStartingScn: settings.cdcStartingScn,
+        cdcFlushIntervalMs: settings.cdcFlushIntervalMs,
+        cdcBatchSize: settings.cdcBatchSize,
         tableWriteModeOverrides: Object.entries(tableOverrides).map(([ttmId, mode]) => ({ targetTableMappingId: ttmId, writeMode: mode })),
       };
       await settingsApi.save(pipelineId, payload);
@@ -219,6 +259,190 @@ const PipelineSettings = () => {
             <input value={settings.description} onChange={e => update('description', e.target.value)}
               style={{ width: '100%', padding: `${SPACING.xs} 10px`, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.md, boxSizing: 'border-box' }} />
           </div>
+
+          <Divider />
+
+          {/* ============================================================ */}
+          {/* EXECUTION MODE & CDC CONFIGURATION */}
+          {/* ============================================================ */}
+          <SectionTitle title="Execution mode & CDC" subtitle="Configure whether this pipeline operates in batch mode or real-time CDC streaming mode." />
+          <div style={{ marginBottom: SPACING.md }}>
+            <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: SPACING.xs }}>Execution mode</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sm }}>
+              <div
+                data-testid="settings-mode-batch"
+                onClick={() => !isRunning && update('pipelineMode', 'BATCH')}
+                style={{
+                  padding: SPACING.sm,
+                  borderRadius: BORDER_RADIUS.md,
+                  cursor: isRunning ? 'not-allowed' : 'pointer',
+                  border: (settings.pipelineMode || 'BATCH') === 'BATCH' ? `2px solid ${COLORS.brand.primary}` : `1px solid ${COLORS.border.light}`,
+                  background: (settings.pipelineMode || 'BATCH') === 'BATCH' ? COLORS.accent.purpleLight : COLORS.background.primary,
+                  opacity: isRunning ? 0.7 : 1,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ ...FRBC, marginBottom: '2px' }}>
+                  <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="fa-solid fa-layer-group" style={{ color: (settings.pipelineMode || 'BATCH') === 'BATCH' ? COLORS.brand.primary : COLORS.text.secondary }} />
+                    Batch Migration
+                  </span>
+                  {(settings.pipelineMode || 'BATCH') === 'BATCH' && <span style={{ fontSize: '10px', color: COLORS.brand.primary, fontWeight: 600 }}>Active</span>}
+                </div>
+                <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, margin: 0 }}>Full table snapshot migration</p>
+              </div>
+
+              <div
+                data-testid="settings-mode-cdc"
+                onClick={() => !isRunning && update('pipelineMode', 'CDC')}
+                style={{
+                  padding: SPACING.sm,
+                  borderRadius: BORDER_RADIUS.md,
+                  cursor: isRunning ? 'not-allowed' : 'pointer',
+                  border: settings.pipelineMode === 'CDC' ? `2px solid #0D9488` : `1px solid ${COLORS.border.light}`,
+                  background: settings.pipelineMode === 'CDC' ? '#F0FDFA' : COLORS.background.primary,
+                  opacity: isRunning ? 0.7 : 1,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ ...FRBC, marginBottom: '2px' }}>
+                  <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="fa-solid fa-bolt" style={{ color: settings.pipelineMode === 'CDC' ? '#0D9488' : COLORS.text.secondary }} />
+                    CDC Streaming
+                  </span>
+                  <span style={{ fontSize: '9px', fontWeight: 600, color: '#0D9488', background: '#CCFBF1', padding: '1px 5px', borderRadius: BORDER_RADIUS.pill }}>Real-time</span>
+                </div>
+                <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, margin: 0 }}>Continuous trail/WAL capture</p>
+              </div>
+            </div>
+          </div>
+
+          {settings.pipelineMode === 'CDC' && (
+            <div data-testid="settings-cdc-panel" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md }}>
+              <p style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, color: '#0F766E', marginBottom: SPACING.sm, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <i className="fa-solid fa-sliders" />
+                Change Data Capture Settings
+              </p>
+
+              <div style={{ marginBottom: SPACING.sm }}>
+                <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+                  Trail / WAL Directory Path
+                </label>
+                <input
+                  data-testid="settings-cdc-directory"
+                  value={settings.cdcDirectoryPath || ''}
+                  onChange={e => update('cdcDirectoryPath', e.target.value)}
+                  placeholder="e.g. /u01/app/oracle/dirdat"
+                  disabled={isRunning}
+                  style={{ width: '100%', padding: '6px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.sm, fontFamily: 'monospace', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sm, marginBottom: SPACING.sm }}>
+                <div>
+                  <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+                    File Pattern
+                  </label>
+                  <input
+                    data-testid="settings-cdc-pattern"
+                    value={settings.cdcFilePattern || 'aa.*'}
+                    onChange={e => update('cdcFilePattern', e.target.value)}
+                    placeholder="aa.*"
+                    disabled={isRunning}
+                    style={{ width: '100%', padding: '6px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.sm, fontFamily: 'monospace', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+                    Starting SCN
+                  </label>
+                  <input
+                    data-testid="settings-cdc-scn"
+                    value={settings.cdcStartingScn || ''}
+                    onChange={e => update('cdcStartingScn', e.target.value)}
+                    placeholder="Leave empty for snapshot SCN"
+                    disabled={isRunning}
+                    style={{ width: '100%', padding: '6px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.sm, fontFamily: 'monospace', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sm, marginBottom: SPACING.md }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: COLORS.text.secondary, display: 'block', marginBottom: '2px' }}>
+                    Flush Interval (ms)
+                  </label>
+                  <input
+                    data-testid="settings-cdc-flush-interval"
+                    type="number"
+                    min="50"
+                    max="10000"
+                    step="50"
+                    value={settings.cdcFlushIntervalMs ?? 200}
+                    onChange={e => update('cdcFlushIntervalMs', Number(e.target.value))}
+                    disabled={isRunning}
+                    style={{ width: '100%', padding: '5px 8px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs, boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: COLORS.text.secondary, display: 'block', marginBottom: '2px' }}>
+                    Micro-batch Size (events)
+                  </label>
+                  <input
+                    data-testid="settings-cdc-batch-size"
+                    type="number"
+                    min="10"
+                    max="10000"
+                    step="50"
+                    value={settings.cdcBatchSize ?? 500}
+                    onChange={e => update('cdcBatchSize', Number(e.target.value))}
+                    disabled={isRunning}
+                    style={{ width: '100%', padding: '5px 8px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.xs, boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              {/* Checkpoint Status & Reset */}
+              <div style={{ borderTop: `1px solid #CBD5E1`, paddingTop: SPACING.sm }}>
+                <div style={{ ...FRBC, marginBottom: '6px' }}>
+                  <span style={{ fontSize: FONT.size.xs, fontWeight: 600, color: COLORS.text.primary }}>
+                    Active Checkpoint State
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={isRunning || !canManageCdc}
+                    title={isRunning ? 'Cannot reset checkpoint while pipeline is running' : 'Rewind or adjust checkpoint position'}
+                    onClick={() => setShowResetModal(true)}
+                    style={{ fontSize: '11px', padding: '3px 8px' }}
+                  >
+                    Reset Checkpoint
+                  </Button>
+                </div>
+                {cdcCheckpoint ? (
+                  <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: BORDER_RADIUS.sm, padding: '8px 12px', fontSize: '11px', fontFamily: 'monospace' }}>
+                    <div style={{ ...FRBC, marginBottom: '4px' }}>
+                      <span style={{ color: COLORS.text.secondary }}>Last SCN:</span>
+                      <span style={{ fontWeight: 600, color: '#0F766E' }}>{cdcCheckpoint.lastScn || '—'}</span>
+                    </div>
+                    <div style={{ ...FRBC, marginBottom: '4px' }}>
+                      <span style={{ color: COLORS.text.secondary }}>Source File:</span>
+                      <span>{cdcCheckpoint.sourceFile || '—'} (offset {cdcCheckpoint.fileOffset ?? 0})</span>
+                    </div>
+                    <div style={{ ...FRBC }}>
+                      <span style={{ color: COLORS.text.secondary }}>Events Replayed:</span>
+                      <span>{(cdcCheckpoint.eventsProcessed || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '11px', color: COLORS.text.tertiary, margin: 0 }}>
+                    {loadingCheckpoint ? 'Loading checkpoint...' : 'No checkpoint recorded yet. Checkpoint will be established upon first stream start.'}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           <Divider />
 
@@ -362,9 +586,9 @@ const PipelineSettings = () => {
           <div style={{ marginBottom: SPACING.md }}>
             <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: SPACING.xxs }}>{SETTINGS.processing.chunkSize}</label>
             <div style={{ ...FRSC, gap: SPACING.sm }}>
-              <input type="range" min="1000" max="100000" step="1000" value={settings.chunkSize}
+              <input type="range" min="1000" max="100000" step="1000" value={settings.chunkSize || 10000}
                 onChange={e => update('chunkSize', Number(e.target.value))} style={{ flex: 1 }} />
-              <span style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, fontFamily: 'monospace', minWidth: '70px', textAlign: 'right' }}>{settings.chunkSize.toLocaleString()}</span>
+              <span style={{ fontSize: FONT.size.md, fontWeight: FONT.weight.medium, fontFamily: 'monospace', minWidth: '70px', textAlign: 'right' }}>{(settings.chunkSize || 10000).toLocaleString()}</span>
             </div>
             <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, marginTop: SPACING.xxs }}>{SETTINGS.processing.chunkHint}</p>
           </div>
@@ -504,6 +728,83 @@ const PipelineSettings = () => {
           { label: deleting ? 'Deleting...' : 'Yes, delete', variant: 'danger', onClick: confirmDeletePipeline },
         ]}
       />
+
+      {/* Reset CDC Checkpoint Modal */}
+      {showResetModal && (
+        <div
+          data-testid="cdc-reset-modal"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: BORDER_RADIUS.lg,
+              padding: SPACING.xl,
+              width: '420px',
+              maxWidth: '90%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            }}
+          >
+            <h3 style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, marginBottom: SPACING.xs, color: COLORS.text.primary }}>
+              Reset CDC Checkpoint
+            </h3>
+            <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginBottom: SPACING.md, lineHeight: 1.4 }}>
+              Rewind or reset the change tracking checkpoint. On the next execution, the stream reader will resume from the specified SCN, or restart from the beginning if left blank.
+            </p>
+
+            <div style={{ marginBottom: SPACING.lg }}>
+              <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+                Target SCN / Position (Optional)
+              </label>
+              <input
+                data-testid="input-reset-target-scn"
+                value={resetTargetScn}
+                onChange={e => setResetTargetScn(e.target.value)}
+                placeholder="Leave blank to rewind to start"
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  border: `1px solid ${COLORS.border.light}`,
+                  borderRadius: BORDER_RADIUS.sm,
+                  fontSize: FONT.size.sm,
+                  fontFamily: 'monospace',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <span style={{ fontSize: '11px', color: COLORS.text.tertiary, marginTop: '4px', display: 'block' }}>
+                Enter an SCN (e.g. 24589000) or leave empty to clear the checkpoint.
+              </span>
+            </div>
+
+            <div style={{ ...FRBC }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => { setShowResetModal(false); setResetTargetScn(''); }}
+                disabled={resettingCheckpoint}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleResetCheckpoint}
+                disabled={resettingCheckpoint}
+              >
+                {resettingCheckpoint ? 'Resetting...' : 'Confirm Reset'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1400,6 +1400,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                     .rowsPerSec(rowsPerSec)
                     .errorsSkipped(errorsSkipped)
                     .eta(eta)
+                    .pipelineMode(p.getPipelineMode())
                     .build());
         }
 

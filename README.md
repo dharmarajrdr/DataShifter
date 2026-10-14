@@ -10,6 +10,7 @@ A visual database migration platform that moves data between heterogeneous datab
 - **Row filtering** — filter source rows before migration using configurable operators
 - **Chunk-based processing** — processes large tables in configurable chunks (default 10K rows) with auto-tuning
 - **Parallel execution** — split chunk processing across multiple worker threads
+- **Change Data Capture (CDC)** — continuous real-time replication from Oracle GoldenGate trail files and PostgreSQL WAL with SCN/LSN checkpointing and automatic DAG workflow hand-off ([CDC Guide](docs/CDC_GUIDE.md))
 - **Pause/resume** — checkpoint-based recovery so migrations can be paused and resumed without data loss
 - **Real-time monitoring** — SSE-powered live progress, throughput metrics, and error tracking
 - **Multi-tenant RBAC** — organizations, roles, and fine-grained permissions (22 permission types)
