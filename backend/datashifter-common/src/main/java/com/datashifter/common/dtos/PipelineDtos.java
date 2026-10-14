@@ -25,6 +25,12 @@ public class PipelineDtos {
         private Boolean ignoreExceptions;
         private Integer maxErrorThreshold;
         private Boolean logSourceRow;
+        private PipelineMode pipelineMode;
+        private String cdcDirectoryPath;
+        private String cdcFilePattern;
+        private String cdcStartingScn;
+        private Integer cdcFlushIntervalMs;
+        private Integer cdcBatchSize;
  
         /** Source tables with execution order */
         private List<PipelineTableRequest> tables;
@@ -45,6 +51,12 @@ public class PipelineDtos {
         private Integer sourcePoolSize;
         private Integer targetPoolSize;
         private Boolean previewInflightRecords;
+        private PipelineMode pipelineMode;
+        private String cdcDirectoryPath;
+        private String cdcFilePattern;
+        private String cdcStartingScn;
+        private Integer cdcFlushIntervalMs;
+        private Integer cdcBatchSize;
         /** Per-table write mode overrides: list of {targetTableMappingId, writeMode} */
         private List<TableWriteModeOverride> tableWriteModeOverrides;
     }
@@ -77,6 +89,12 @@ public class PipelineDtos {
         private Integer sourcePoolSize;
         private Integer targetPoolSize;
         private Boolean previewInflightRecords;
+        private PipelineMode pipelineMode;
+        private String cdcDirectoryPath;
+        private String cdcFilePattern;
+        private String cdcStartingScn;
+        private Integer cdcFlushIntervalMs;
+        private Integer cdcBatchSize;
         private List<PipelineTableResponse> tables;
         private List<String> validationErrors;
         private String workflowId;
@@ -96,6 +114,7 @@ public class PipelineDtos {
         private String sourceName;
         private String targetName;
         private PipelineStatus status;
+        private PipelineMode pipelineMode;
         private List<String> validationErrors;
         private int tableCount;
         private double progress;
@@ -260,6 +279,12 @@ public class PipelineDtos {
         private Integer sourcePoolSize;
         private Integer targetPoolSize;
         private Boolean previewInflightRecords;
+        private PipelineMode pipelineMode;
+        private String cdcDirectoryPath;
+        private String cdcFilePattern;
+        private String cdcStartingScn;
+        private Integer cdcFlushIntervalMs;
+        private Integer cdcBatchSize;
         private List<PipelineTableConfigDto> tables;
     }
 

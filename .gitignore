@@ -1,0 +1,18 @@
+# Planning and Checklist files
+CDC_CHECKLIST.md
+*CHECKLIST*.md
+*checklist*.md
+*PLAN*.md
+*plan*.md
+optimizations*.md
+
+# OS & Editors
+.DS_Store
+.vscode/
+**/.idea/
+
+# Build artifacts
+**/target/
+.logs/
+*.pids
+.env.properties
