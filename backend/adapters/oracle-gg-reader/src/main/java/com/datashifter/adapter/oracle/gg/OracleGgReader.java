@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         name = "Oracle GoldenGate CDC Reader",
         description = "High-throughput Change Data Capture streaming reader for Oracle GoldenGate trail files",
         type = AdapterType.READER,
-        mode = AdapterMode.STREAMING,
+        mode = AdapterMode.CDC,
         category = "cdc",
         version = "1.0.0"
 )
