@@ -1,6 +1,7 @@
 package com.datashifter.pipeline.services.implementations;
 
 import com.datashifter.common.dtos.PipelineDtos.*;
+import com.datashifter.common.enums.PipelineMode;
 import com.datashifter.common.enums.PipelineStatus;
 import com.datashifter.common.enums.TableMappingType;
 import com.datashifter.common.enums.WriteMode;
@@ -87,6 +88,12 @@ public class PipelineServiceImpl implements PipelineService {
                 .ignoreExceptions(req.getIgnoreExceptions() != null ? req.getIgnoreExceptions() : false)
                 .maxErrorThreshold(req.getMaxErrorThreshold() != null ? req.getMaxErrorThreshold() : 1000)
                 .logSourceRow(req.getLogSourceRow() != null ? req.getLogSourceRow() : true)
+                .pipelineMode(req.getPipelineMode() != null ? req.getPipelineMode() : PipelineMode.BATCH)
+                .cdcDirectoryPath(req.getCdcDirectoryPath())
+                .cdcFilePattern(req.getCdcFilePattern())
+                .cdcStartingScn(req.getCdcStartingScn())
+                .cdcFlushIntervalMs(req.getCdcFlushIntervalMs() != null ? req.getCdcFlushIntervalMs() : 200)
+                .cdcBatchSize(req.getCdcBatchSize() != null ? req.getCdcBatchSize() : 500)
                 .build();
 
         // Create PipelineTable entries for each source table
@@ -163,6 +170,12 @@ public class PipelineServiceImpl implements PipelineService {
         if (req.getSourcePoolSize() != null) entity.setSourcePoolSize(req.getSourcePoolSize());
         if (req.getTargetPoolSize() != null) entity.setTargetPoolSize(req.getTargetPoolSize());
         if (req.getPreviewInflightRecords() != null) entity.setPreviewInflightRecords(req.getPreviewInflightRecords());
+        if (req.getPipelineMode() != null) entity.setPipelineMode(req.getPipelineMode());
+        if (req.getCdcDirectoryPath() != null) entity.setCdcDirectoryPath(req.getCdcDirectoryPath());
+        if (req.getCdcFilePattern() != null) entity.setCdcFilePattern(req.getCdcFilePattern());
+        if (req.getCdcStartingScn() != null) entity.setCdcStartingScn(req.getCdcStartingScn());
+        if (req.getCdcFlushIntervalMs() != null) entity.setCdcFlushIntervalMs(req.getCdcFlushIntervalMs());
+        if (req.getCdcBatchSize() != null) entity.setCdcBatchSize(req.getCdcBatchSize());
 
         // Per-table write mode overrides
         if (req.getTableWriteModeOverrides() != null && !req.getTableWriteModeOverrides().isEmpty()) {
@@ -595,6 +608,12 @@ public class PipelineServiceImpl implements PipelineService {
                 .logSourceRow(e.getLogSourceRow())
                 .sourcePoolSize(e.getSourcePoolSize()).targetPoolSize(e.getTargetPoolSize())
                 .previewInflightRecords(e.getPreviewInflightRecords())
+                .pipelineMode(e.getPipelineMode())
+                .cdcDirectoryPath(e.getCdcDirectoryPath())
+                .cdcFilePattern(e.getCdcFilePattern())
+                .cdcStartingScn(e.getCdcStartingScn())
+                .cdcFlushIntervalMs(e.getCdcFlushIntervalMs())
+                .cdcBatchSize(e.getCdcBatchSize())
                 .tables(tableResponses)
                 .validationErrors(mappingService.parseValidationErrors(e.getValidationErrors()))
                 .workflowId(workflowId)
@@ -626,6 +645,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .id(e.getId()).name(e.getName()).status(e.getStatus())
                 .sourceConnectionId(e.getSourceConnectionId())
                 .targetConnectionId(e.getTargetConnectionId())
+                .pipelineMode(e.getPipelineMode())
                 .progress(progress)
                 .validationErrors(mappingService.parseValidationErrors(e.getValidationErrors()))
                 .tableCount(e.getPipelineTables().size()).createdAt(e.getCreatedAt())
@@ -746,6 +766,12 @@ public class PipelineServiceImpl implements PipelineService {
                 .sourcePoolSize(pipeline.getSourcePoolSize())
                 .targetPoolSize(pipeline.getTargetPoolSize())
                 .previewInflightRecords(pipeline.getPreviewInflightRecords())
+                .pipelineMode(pipeline.getPipelineMode())
+                .cdcDirectoryPath(pipeline.getCdcDirectoryPath())
+                .cdcFilePattern(pipeline.getCdcFilePattern())
+                .cdcStartingScn(pipeline.getCdcStartingScn())
+                .cdcFlushIntervalMs(pipeline.getCdcFlushIntervalMs())
+                .cdcBatchSize(pipeline.getCdcBatchSize())
                 .tables(tableDtos)
                 .build();
 
@@ -904,6 +930,12 @@ public class PipelineServiceImpl implements PipelineService {
                 .sourcePoolSize(pipeConfig.getSourcePoolSize() != null ? pipeConfig.getSourcePoolSize() : 5)
                 .targetPoolSize(pipeConfig.getTargetPoolSize() != null ? pipeConfig.getTargetPoolSize() : 10)
                 .previewInflightRecords(pipeConfig.getPreviewInflightRecords() != null ? pipeConfig.getPreviewInflightRecords() : true)
+                .pipelineMode(pipeConfig.getPipelineMode() != null ? pipeConfig.getPipelineMode() : PipelineMode.BATCH)
+                .cdcDirectoryPath(pipeConfig.getCdcDirectoryPath())
+                .cdcFilePattern(pipeConfig.getCdcFilePattern())
+                .cdcStartingScn(pipeConfig.getCdcStartingScn())
+                .cdcFlushIntervalMs(pipeConfig.getCdcFlushIntervalMs() != null ? pipeConfig.getCdcFlushIntervalMs() : 200)
+                .cdcBatchSize(pipeConfig.getCdcBatchSize() != null ? pipeConfig.getCdcBatchSize() : 500)
                 .status(PipelineStatus.NOT_VALIDATED)
                 .build();
 
