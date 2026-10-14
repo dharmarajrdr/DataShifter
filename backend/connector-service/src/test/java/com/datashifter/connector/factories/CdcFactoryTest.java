@@ -56,5 +56,16 @@ class CdcFactoryTest {
         assertNotNull(factory.getWriter(DatabaseType.POSTGRESQL));
 
         assertThrows(DatashifterException.class, () -> factory.getWriter(DatabaseType.ORACLE));
+
+        var poolManager = org.mockito.Mockito.mock(com.datashifter.connector.spi.adapters.postgres.ConnectionPoolManager.class);
+        CdcTargetWriterFactory realWriterFactory = new CdcTargetWriterFactory(List.of(
+                new com.datashifter.connector.spi.adapters.postgres.cdc.PostgresCdcWriter(poolManager),
+                new com.datashifter.connector.spi.adapters.oracle.cdc.OracleCdcWriter(poolManager),
+                new com.datashifter.connector.spi.adapters.spanner.cdc.SpannerCdcWriter()
+        ));
+
+        assertTrue(realWriterFactory.isSupported(DatabaseType.POSTGRESQL));
+        assertTrue(realWriterFactory.isSupported(DatabaseType.ORACLE));
+        assertTrue(realWriterFactory.isSupported(DatabaseType.SPANNER));
     }
 }
