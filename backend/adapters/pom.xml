@@ -19,6 +19,8 @@
     <modules>
         <module>oracle-reader</module>
         <module>oracle-writer</module>
+        <module>postgres-reader</module>
+        <module>postgres-writer</module>
     </modules>
 
     <dependencies>
