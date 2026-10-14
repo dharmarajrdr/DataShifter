@@ -204,4 +204,28 @@ class CdcStreamExecutorTest {
         verify(kafkaTemplate, atLeastOnce()).send(eq(KafkaTopics.PIPELINE_STATUS), any());
     }
 
+    @Test
+    @DisplayName("Executes PostgreSQL WAL stream with LSN starting position")
+    void testPostgresWalStreamExecutionWithLsn() throws Exception {
+        sourceConnection.setDbType(DatabaseType.POSTGRESQL);
+        pipeline.setCdcLogType("POSTGRES_WAL");
+        pipeline.setCdcStartingScn("0/3D7E5D8");
+        pipeline.setCdcDirectoryPath("/var/lib/postgresql/data/pg_wal");
+
+        when(readerFactory.getReader(DatabaseType.POSTGRESQL)).thenReturn(sourceReader);
+        when(checkpointManager.getResumePosition("pipe-cdc-1")).thenReturn(Optional.empty());
+        when(commandRegistry.isPauseRequested("pipe-cdc-1")).thenReturn(false);
+        when(commandRegistry.isStopRequested("pipe-cdc-1")).thenReturn(true);
+
+        executor.executeCdcStream(pipeline, "exec-wal-1");
+
+        verify(readerFactory).getReader(DatabaseType.POSTGRESQL);
+        verify(sourceReader).open(argThat(cfg ->
+                cfg.getStartingPosition() != null &&
+                cfg.getStartingPosition().getLsn() != null &&
+                cfg.getStartingPosition().getLsn() == 64480728L &&
+                "0/3D7E5D8".equals(cfg.getStartingPosition().getToken())
+        ));
+        verify(sourceReader).close();
+    }
 }

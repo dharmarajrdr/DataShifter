@@ -35,9 +35,14 @@ class CdcFactoryTest {
 
         assertThrows(DatashifterException.class, () -> factory.getReader(DatabaseType.POSTGRESQL));
 
-        CdcSourceReaderFactory realFactory = new CdcSourceReaderFactory(List.of(new com.datashifter.connector.spi.adapters.oracle.cdc.OracleTrailFileReader()));
+        CdcSourceReaderFactory realFactory = new CdcSourceReaderFactory(List.of(
+                new com.datashifter.connector.spi.adapters.oracle.cdc.OracleTrailFileReader(),
+                new com.datashifter.connector.spi.adapters.postgres.cdc.PostgresWalFileReader()
+        ));
         assertTrue(realFactory.isSupported(DatabaseType.ORACLE));
+        assertTrue(realFactory.isSupported(DatabaseType.POSTGRESQL));
         assertInstanceOf(com.datashifter.connector.spi.adapters.oracle.cdc.OracleTrailFileReader.class, realFactory.getReader(DatabaseType.ORACLE));
+        assertInstanceOf(com.datashifter.connector.spi.adapters.postgres.cdc.PostgresWalFileReader.class, realFactory.getReader(DatabaseType.POSTGRESQL));
     }
 
     @Test

@@ -158,6 +158,7 @@ const PipelineSettings = () => {
         sourcePoolSize: settings.sourcePoolSize, targetPoolSize: settings.targetPoolSize,
         previewInflightRecords: settings.previewInflightRecords,
         pipelineMode: settings.pipelineMode || 'BATCH',
+        cdcLogType: settings.cdcLogType || 'ORACLE_TRAIL',
         cdcDirectoryPath: settings.cdcDirectoryPath,
         cdcFilePattern: settings.cdcFilePattern,
         cdcStartingScn: settings.cdcStartingScn,
@@ -324,15 +325,69 @@ const PipelineSettings = () => {
                 Change Data Capture Settings
               </p>
 
+              {/* CDC Log Format Selection */}
               <div style={{ marginBottom: SPACING.sm }}>
                 <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
-                  Trail / WAL Directory Path
+                  CDC Log Format
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sm }}>
+                  <div
+                    data-testid="settings-logtype-oracle-trail"
+                    onClick={() => !isRunning && update('cdcLogType', 'ORACLE_TRAIL')}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: BORDER_RADIUS.sm,
+                      cursor: isRunning ? 'not-allowed' : 'pointer',
+                      border: (settings.cdcLogType || 'ORACLE_TRAIL') === 'ORACLE_TRAIL' ? '2px solid #0D9488' : `1px solid ${COLORS.border.light}`,
+                      background: (settings.cdcLogType || 'ORACLE_TRAIL') === 'ORACLE_TRAIL' ? '#fff' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      opacity: isRunning ? 0.7 : 1,
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <i className="fa-solid fa-database" style={{ fontSize: '12px', color: (settings.cdcLogType || 'ORACLE_TRAIL') === 'ORACLE_TRAIL' ? '#0D9488' : COLORS.text.secondary }} />
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: COLORS.text.primary }}>Oracle Trail</div>
+                      <div style={{ fontSize: '9px', color: COLORS.text.secondary }}>GoldenGate SCN</div>
+                    </div>
+                  </div>
+
+                  <div
+                    data-testid="settings-logtype-postgres-wal"
+                    onClick={() => !isRunning && update('cdcLogType', 'POSTGRES_WAL')}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: BORDER_RADIUS.sm,
+                      cursor: isRunning ? 'not-allowed' : 'pointer',
+                      border: settings.cdcLogType === 'POSTGRES_WAL' ? '2px solid #0D9488' : `1px solid ${COLORS.border.light}`,
+                      background: settings.cdcLogType === 'POSTGRES_WAL' ? '#fff' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      opacity: isRunning ? 0.7 : 1,
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <i className="fa-solid fa-file-waveform" style={{ fontSize: '12px', color: settings.cdcLogType === 'POSTGRES_WAL' ? '#0D9488' : COLORS.text.secondary }} />
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: COLORS.text.primary }}>PostgreSQL WAL</div>
+                      <div style={{ fontSize: '9px', color: COLORS.text.secondary }}>Write-Ahead Log LSN</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: SPACING.sm }}>
+                <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
+                  {settings.cdcLogType === 'POSTGRES_WAL' ? 'PostgreSQL WAL Directory Path' : 'Oracle Trail Directory Path'}
                 </label>
                 <input
                   data-testid="settings-cdc-directory"
                   value={settings.cdcDirectoryPath || ''}
                   onChange={e => update('cdcDirectoryPath', e.target.value)}
-                  placeholder="e.g. /u01/app/oracle/dirdat"
+                  placeholder={settings.cdcLogType === 'POSTGRES_WAL' ? 'e.g. /var/lib/postgresql/data/pg_wal' : 'e.g. /u01/app/oracle/dirdat'}
                   disabled={isRunning}
                   style={{ width: '100%', padding: '6px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.sm, fontFamily: 'monospace', boxSizing: 'border-box' }}
                 />
@@ -345,9 +400,9 @@ const PipelineSettings = () => {
                   </label>
                   <input
                     data-testid="settings-cdc-pattern"
-                    value={settings.cdcFilePattern || 'aa.*'}
+                    value={settings.cdcFilePattern || (settings.cdcLogType === 'POSTGRES_WAL' ? '000000010000.*' : 'aa.*')}
                     onChange={e => update('cdcFilePattern', e.target.value)}
-                    placeholder="aa.*"
+                    placeholder={settings.cdcLogType === 'POSTGRES_WAL' ? '000000010000.*' : 'aa.*'}
                     disabled={isRunning}
                     style={{ width: '100%', padding: '6px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.sm, fontFamily: 'monospace', boxSizing: 'border-box' }}
                   />
@@ -355,13 +410,13 @@ const PipelineSettings = () => {
 
                 <div>
                   <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
-                    Starting SCN
+                    {settings.cdcLogType === 'POSTGRES_WAL' ? 'Starting LSN' : 'Starting SCN'}
                   </label>
                   <input
                     data-testid="settings-cdc-scn"
                     value={settings.cdcStartingScn || ''}
                     onChange={e => update('cdcStartingScn', e.target.value)}
-                    placeholder="Leave empty for snapshot SCN"
+                    placeholder={settings.cdcLogType === 'POSTGRES_WAL' ? 'e.g. 0/3D7E5D8 (empty for snapshot)' : 'Leave empty for snapshot SCN'}
                     disabled={isRunning}
                     style={{ width: '100%', padding: '6px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.sm, fontSize: FONT.size.sm, fontFamily: 'monospace', boxSizing: 'border-box' }}
                   />
@@ -423,11 +478,11 @@ const PipelineSettings = () => {
                 {cdcCheckpoint ? (
                   <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: BORDER_RADIUS.sm, padding: '8px 12px', fontSize: '11px', fontFamily: 'monospace' }}>
                     <div style={{ ...FRBC, marginBottom: '4px' }}>
-                      <span style={{ color: COLORS.text.secondary }}>Last SCN:</span>
+                      <span style={{ color: COLORS.text.secondary }}>{settings.cdcLogType === 'POSTGRES_WAL' ? 'Last LSN:' : 'Last SCN:'}</span>
                       <span style={{ fontWeight: 600, color: '#0F766E' }}>{cdcCheckpoint.lastScn || '—'}</span>
                     </div>
                     <div style={{ ...FRBC, marginBottom: '4px' }}>
-                      <span style={{ color: COLORS.text.secondary }}>Source File:</span>
+                      <span style={{ color: COLORS.text.secondary }}>{settings.cdcLogType === 'POSTGRES_WAL' ? 'Active Segment:' : 'Source File:'}</span>
                       <span>{cdcCheckpoint.sourceFile || '—'} (offset {cdcCheckpoint.fileOffset ?? 0})</span>
                     </div>
                     <div style={{ ...FRBC }}>
@@ -757,12 +812,12 @@ const PipelineSettings = () => {
               Reset CDC Checkpoint
             </h3>
             <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, marginBottom: SPACING.md, lineHeight: 1.4 }}>
-              Rewind or reset the change tracking checkpoint. On the next execution, the stream reader will resume from the specified SCN, or restart from the beginning if left blank.
+              Rewind or reset the change tracking checkpoint. On the next execution, the stream reader will resume from the specified {settings.cdcLogType === 'POSTGRES_WAL' ? 'LSN' : 'SCN'}, or restart from the beginning if left blank.
             </p>
 
             <div style={{ marginBottom: SPACING.lg }}>
               <label style={{ fontSize: FONT.size.xs, fontWeight: 500, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
-                Target SCN / Position (Optional)
+                {settings.cdcLogType === 'POSTGRES_WAL' ? 'Target LSN / Position (Optional)' : 'Target SCN / Position (Optional)'}
               </label>
               <input
                 data-testid="input-reset-target-scn"
@@ -780,7 +835,7 @@ const PipelineSettings = () => {
                 }}
               />
               <span style={{ fontSize: '11px', color: COLORS.text.tertiary, marginTop: '4px', display: 'block' }}>
-                Enter an SCN (e.g. 24589000) or leave empty to clear the checkpoint.
+                {settings.cdcLogType === 'POSTGRES_WAL' ? 'Enter an LSN (e.g. 0/3D7E5D8) or leave empty to clear the checkpoint.' : 'Enter an SCN (e.g. 24589000) or leave empty to clear the checkpoint.'}
               </span>
             </div>
 

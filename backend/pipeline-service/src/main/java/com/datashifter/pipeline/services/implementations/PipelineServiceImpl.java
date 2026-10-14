@@ -92,6 +92,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .cdcDirectoryPath(req.getCdcDirectoryPath())
                 .cdcFilePattern(req.getCdcFilePattern())
                 .cdcStartingScn(req.getCdcStartingScn())
+                .cdcLogType(req.getCdcLogType() != null ? req.getCdcLogType() : "ORACLE_TRAIL")
                 .cdcFlushIntervalMs(req.getCdcFlushIntervalMs() != null ? req.getCdcFlushIntervalMs() : 200)
                 .cdcBatchSize(req.getCdcBatchSize() != null ? req.getCdcBatchSize() : 500)
                 .build();
@@ -174,6 +175,7 @@ public class PipelineServiceImpl implements PipelineService {
         if (req.getCdcDirectoryPath() != null) entity.setCdcDirectoryPath(req.getCdcDirectoryPath());
         if (req.getCdcFilePattern() != null) entity.setCdcFilePattern(req.getCdcFilePattern());
         if (req.getCdcStartingScn() != null) entity.setCdcStartingScn(req.getCdcStartingScn());
+        if (req.getCdcLogType() != null) entity.setCdcLogType(req.getCdcLogType());
         if (req.getCdcFlushIntervalMs() != null) entity.setCdcFlushIntervalMs(req.getCdcFlushIntervalMs());
         if (req.getCdcBatchSize() != null) entity.setCdcBatchSize(req.getCdcBatchSize());
 
@@ -612,6 +614,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .cdcDirectoryPath(e.getCdcDirectoryPath())
                 .cdcFilePattern(e.getCdcFilePattern())
                 .cdcStartingScn(e.getCdcStartingScn())
+                .cdcLogType(e.getCdcLogType())
                 .cdcFlushIntervalMs(e.getCdcFlushIntervalMs())
                 .cdcBatchSize(e.getCdcBatchSize())
                 .tables(tableResponses)
@@ -770,6 +773,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .cdcDirectoryPath(pipeline.getCdcDirectoryPath())
                 .cdcFilePattern(pipeline.getCdcFilePattern())
                 .cdcStartingScn(pipeline.getCdcStartingScn())
+                .cdcLogType(pipeline.getCdcLogType())
                 .cdcFlushIntervalMs(pipeline.getCdcFlushIntervalMs())
                 .cdcBatchSize(pipeline.getCdcBatchSize())
                 .tables(tableDtos)
@@ -934,6 +938,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .cdcDirectoryPath(pipeConfig.getCdcDirectoryPath())
                 .cdcFilePattern(pipeConfig.getCdcFilePattern())
                 .cdcStartingScn(pipeConfig.getCdcStartingScn())
+                .cdcLogType(pipeConfig.getCdcLogType() != null ? pipeConfig.getCdcLogType() : "ORACLE_TRAIL")
                 .cdcFlushIntervalMs(pipeConfig.getCdcFlushIntervalMs() != null ? pipeConfig.getCdcFlushIntervalMs() : 200)
                 .cdcBatchSize(pipeConfig.getCdcBatchSize() != null ? pipeConfig.getCdcBatchSize() : 500)
                 .status(PipelineStatus.NOT_VALIDATED)

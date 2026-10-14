@@ -1,6 +1,7 @@
 package com.datashifter.execution.cdc;
 
 import com.datashifter.common.cdc.*;
+import com.datashifter.common.enums.DatabaseType;
 import com.datashifter.common.enums.PipelineMode;
 import com.datashifter.common.enums.PipelineStatus;
 import com.datashifter.common.events.KafkaTopics;
@@ -100,7 +101,14 @@ public class CdcStreamExecutor {
 
 
 
-        CdcSourceReader reader = readerFactory.getReader(sourceConn.getDbType());
+        DatabaseType readerDbType = sourceConn.getDbType();
+        if ("POSTGRES_WAL".equalsIgnoreCase(pipeline.getCdcLogType())) {
+            readerDbType = DatabaseType.POSTGRESQL;
+        } else if ("ORACLE_TRAIL".equalsIgnoreCase(pipeline.getCdcLogType())) {
+            readerDbType = DatabaseType.ORACLE;
+        }
+
+        CdcSourceReader reader = readerFactory.getReader(readerDbType);
         CdcMicroBatchAggregator aggregator = new CdcMicroBatchAggregator(batchSize, flushIntervalMs);
 
         Instant streamStartedAt = Instant.now();
@@ -220,10 +228,26 @@ public class CdcStreamExecutor {
             }
         }
 
-        // If no checkpoint, check if starting SCN was injected from snapshot or configured
+        // If no checkpoint, check if starting SCN/LSN was injected from snapshot or configured
         if (pipeline.getCdcStartingScn() != null && !pipeline.getCdcStartingScn().isBlank()) {
             String scnStr = pipeline.getCdcStartingScn().trim();
-            log.info("Initializing CDC pipeline {} from configured starting SCN: {}", pipeline.getId(), scnStr);
+            log.info("Initializing CDC pipeline {} from configured starting SCN/LSN: {}", pipeline.getId(), scnStr);
+
+            if (scnStr.contains("/")) {
+                String[] parts = scnStr.split("/");
+                if (parts.length == 2) {
+                    try {
+                        long high = Long.parseUnsignedLong(parts[0], 16);
+                        long low = Long.parseUnsignedLong(parts[1], 16);
+                        long lsn = (high << 32) | low;
+                        return CdcPosition.builder()
+                                .lsn(lsn)
+                                .token(scnStr)
+                                .build();
+                    } catch (Exception ignored) {}
+                }
+            }
+
             try {
                 long scn = Long.parseLong(scnStr);
                 return CdcPosition.builder()
@@ -231,12 +255,10 @@ public class CdcStreamExecutor {
                         .token(scnStr)
                         .build();
             } catch (NumberFormatException e) {
-                // Non-numeric LSN / token
                 return CdcPosition.builder()
                         .token(scnStr)
                         .build();
             }
-
         }
 
         // Fallback: start from stream beginning
@@ -261,9 +283,11 @@ public class CdcStreamExecutor {
         long elapsedSec = Math.max(1, (Instant.now().toEpochMilli() - startedAt.toEpochMilli()) / 1000);
         long avgRate = totalRowsProcessed / elapsedSec;
 
-        String scnDisplay = (currentPos != null && currentPos.getScn() != null)
-                ? String.valueOf(currentPos.getScn())
-                : (currentPos != null && currentPos.getToken() != null ? currentPos.getToken() : "N/A");
+        String posDisplay = (currentPos != null && currentPos.getScn() != null && currentPos.getScn() > 0)
+                ? "SCN: " + currentPos.getScn()
+                : (currentPos != null && currentPos.getLsn() != null && currentPos.getLsn() > 0)
+                    ? "LSN: " + (currentPos.getToken() != null ? currentPos.getToken() : Long.toHexString(currentPos.getLsn()))
+                    : (currentPos != null && currentPos.getToken() != null ? currentPos.getToken() : "N/A");
 
         kafkaTemplate.send(KafkaTopics.PIPELINE_PROGRESS, ProgressEvent.builder()
                 .pipelineId(pipelineId)
@@ -278,7 +302,7 @@ public class CdcStreamExecutor {
                 .overallProgress(100.0) // CDC is streaming
                 .rowsPerSec(avgRate)
                 .avgRowsPerSec(avgRate)
-                .eta("SCN: " + scnDisplay)
+                .eta(posDisplay)
                 .timestamp(Instant.now())
                 .build());
     }

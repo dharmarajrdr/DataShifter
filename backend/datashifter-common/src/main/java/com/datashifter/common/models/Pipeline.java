@@ -101,6 +101,10 @@ public class Pipeline extends BaseEntity {
     @Column(name = "cdc_starting_scn", length = 50)
     private String cdcStartingScn;
 
+    @Column(name = "cdc_log_type", length = 50)
+    @Builder.Default
+    private String cdcLogType = "ORACLE_TRAIL";
+
     @Column(name = "cdc_flush_interval_ms")
     @Builder.Default
     private Integer cdcFlushIntervalMs = 200;
