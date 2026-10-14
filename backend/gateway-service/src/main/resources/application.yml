@@ -15,7 +15,7 @@ spring:
         - id: udf-service
           uri: http://udf-service:8088
           predicates:
-            - Path=/api/v1/udfs/**
+            - Path=/api/v1/udfs/**,/api/v1/adapters/**,/api/v1/library/**
 
         # Monitor routes — MUST be before pipeline-service
         - id: monitor-service
