@@ -62,6 +62,7 @@ public class ExecutionServiceImpl implements ExecutionService {
     private final ParallelChunkProcessor parallelChunkProcessor;
     private final ParallelConfig parallelConfig;
     private final com.datashifter.execution.strategies.transformers.UdfExecutionManager udfExecutionManager;
+    private final com.datashifter.execution.cdc.CdcStreamExecutor cdcStreamExecutor;
 
     @Override
     @Transactional
@@ -77,13 +78,42 @@ public class ExecutionServiceImpl implements ExecutionService {
             pipeline = pipelineRepo.findByIdWithFullGraph(pipelineId)
                     .orElseThrow(() -> new ResourceNotFoundException("Pipeline", pipelineId));
 
+            // Check if CDC continuous streaming mode
+            if (pipeline.getPipelineMode() == PipelineMode.CDC) {
+                log.info("Pipeline {} is in CDC continuous streaming mode. Delegating to CdcStreamExecutor.", pipelineId);
+                cdcStreamExecutor.executeCdcStream(pipeline, executionLogId);
+                return;
+            }
+
             // 2. Build execution context (validates mappings, connects to DBs)
             ctx = buildContext(pipeline, executionLogId);
+
+            // 2b. Capture snapshot position (SCN for Oracle, LSN for Postgres) at migration start for downstream CDC hand-off
+            try {
+                DatabaseConnector srcConnector = connectorFactory.getConnector(ctx.getSourceConfig().getDbType());
+                Optional<String> snapshotPos = srcConnector.getCurrentSnapshotPosition(ctx.getSourceConfig());
+                if (snapshotPos.isPresent()) {
+                    String pos = snapshotPos.get();
+                    ctx.setSnapshotPosition(pos);
+                    try {
+                        ctx.setSnapshotScn(Long.parseLong(pos));
+                    } catch (NumberFormatException ignored) {}
+                    if (pipeline.getCdcStartingScn() == null || pipeline.getCdcStartingScn().isBlank()) {
+                        pipeline.setCdcStartingScn(pos);
+                        pipelineRepo.saveAndFlush(pipeline);
+                    }
+                    log.info("Captured source database snapshot position '{}' for pipeline '{}' at migration start", pos, pipelineId);
+                }
+            } catch (Exception e) {
+                log.warn("Could not capture initial snapshot position for pipeline {}: {}", pipelineId, e.getMessage());
+            }
+
 
             // 3. Persist and publish RUNNING status
             pipeline.setStatus(PipelineStatus.RUNNING);
             pipelineRepo.saveAndFlush(pipeline);
             publishStatus(ctx, PipelineStatus.VALIDATED, PipelineStatus.RUNNING, "Execution started");
+
 
             // 4. Table loop — sequential, user-defined order
             executeTableLoop(ctx);

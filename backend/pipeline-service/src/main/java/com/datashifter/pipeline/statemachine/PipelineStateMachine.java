@@ -28,12 +28,20 @@ public final class PipelineStateMachine {
         TRANSITIONS.put(PipelineStatus.INVALID,       EnumSet.of(PipelineStatus.VALIDATED, PipelineStatus.INVALID, PipelineStatus.NOT_VALIDATED));
         TRANSITIONS.put(PipelineStatus.VALIDATED,     EnumSet.of(PipelineStatus.VALIDATED, PipelineStatus.RUNNING, PipelineStatus.NOT_VALIDATED, PipelineStatus.INVALID));
         TRANSITIONS.put(PipelineStatus.RUNNING,       EnumSet.of(PipelineStatus.PAUSED, PipelineStatus.COMPLETED, PipelineStatus.ERRORED));
-        TRANSITIONS.put(PipelineStatus.PAUSED,        EnumSet.of(PipelineStatus.RUNNING, PipelineStatus.ERRORED));
-        TRANSITIONS.put(PipelineStatus.ERRORED,       EnumSet.of(PipelineStatus.RUNNING, PipelineStatus.NOT_VALIDATED));
+        TRANSITIONS.put(PipelineStatus.PAUSED,        EnumSet.of(PipelineStatus.RUNNING, PipelineStatus.ERRORED, PipelineStatus.VALIDATED));
+        TRANSITIONS.put(PipelineStatus.ERRORED,       EnumSet.of(PipelineStatus.RUNNING, PipelineStatus.NOT_VALIDATED, PipelineStatus.VALIDATED));
         TRANSITIONS.put(PipelineStatus.COMPLETED,     EnumSet.of(PipelineStatus.RUNNING, PipelineStatus.NOT_VALIDATED));
     }
 
     private PipelineStateMachine() {}
+
+    /**
+     * Checks if the pipeline mode implies continuous, endless streaming (CDC).
+     */
+    public static boolean isContinuousStreaming(com.datashifter.common.enums.PipelineMode mode) {
+        return mode == com.datashifter.common.enums.PipelineMode.CDC;
+    }
+
 
     public static boolean canTransition(PipelineStatus from, PipelineStatus to) {
         if (from == to) return true; // idempotent self-transition

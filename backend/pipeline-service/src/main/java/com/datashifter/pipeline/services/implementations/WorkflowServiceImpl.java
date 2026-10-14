@@ -666,10 +666,11 @@ public class WorkflowServiceImpl implements WorkflowService {
                 if (canTriggerSuccessor(nextPipelineId, allEdges, pipelineMap)) {
                     log.info("Workflow '{}': pipeline '{}' completed. Triggering successor pipeline '{}'.",
                             workflow.getName(), pipelineId, nextPipelineId);
-                    triggerSuccessorPipeline(workflow, allNodes, nextPipelineId, pipelineMap);
+                    triggerSuccessorPipeline(workflow, allNodes, nextPipelineId, pipelineMap, pipelineId);
                 }
             }
             finalizeOrUpdateWorkflowExecutionState(workflow, allNodes, pipelineMap);
+
         } else if (newStatus == PipelineStatus.ERRORED) {
             if (outgoingEdges.isEmpty()) {
                 finalizeOrUpdateWorkflowExecutionState(workflow, allNodes, pipelineMap);
@@ -898,6 +899,15 @@ public class WorkflowServiceImpl implements WorkflowService {
             List<WorkflowNode> allNodes,
             String nextPipelineId,
             Map<String, Pipeline> pipelineMap) {
+        triggerSuccessorPipeline(workflow, allNodes, nextPipelineId, pipelineMap, null);
+    }
+
+    private void triggerSuccessorPipeline(
+            Workflow workflow,
+            List<WorkflowNode> allNodes,
+            String nextPipelineId,
+            Map<String, Pipeline> pipelineMap,
+            String upstreamPipelineId) {
         WorkflowNode nextNode = allNodes.stream()
                 .filter(n -> n.getPipelineId().equals(nextPipelineId))
                 .findFirst()
@@ -911,6 +921,30 @@ public class WorkflowServiceImpl implements WorkflowService {
             workflowRepository.save(workflow);
             publishWorkflowStatus(workflow, allNodes);
             return;
+        }
+
+        // Automatic Workflow DAG Hand-off:
+        // When successor is a continuous CDC pipeline, inject captured snapshot SCN from upstream pipeline
+        if (nextPipeline.getPipelineMode() == com.datashifter.common.enums.PipelineMode.CDC) {
+            String sourcePid = upstreamPipelineId;
+            if (sourcePid == null) {
+                List<WorkflowEdge> incoming = edgeRepository.findByWorkflow_Id(workflow.getId()).stream()
+                        .filter(e -> nextPipelineId.equals(e.getTargetPipelineId()))
+                        .toList();
+                if (!incoming.isEmpty()) {
+                    sourcePid = incoming.get(0).getSourcePipelineId();
+                }
+            }
+            if (sourcePid != null) {
+                Pipeline upstreamPipeline = resolvePipeline(sourcePid, pipelineMap);
+                if (upstreamPipeline != null && upstreamPipeline.getCdcStartingScn() != null && !upstreamPipeline.getCdcStartingScn().isBlank()) {
+                    if (nextPipeline.getCdcStartingScn() == null || nextPipeline.getCdcStartingScn().isBlank()) {
+                        nextPipeline.setCdcStartingScn(upstreamPipeline.getCdcStartingScn());
+                        log.info("Workflow '{}': Injected snapshot SCN '{}' from upstream batch pipeline '{}' into downstream CDC pipeline '{}'.",
+                                workflow.getName(), upstreamPipeline.getCdcStartingScn(), upstreamPipeline.getId(), nextPipeline.getId());
+                    }
+                }
+            }
         }
 
         nextPipeline.setStatus(PipelineStatus.RUNNING);
@@ -929,6 +963,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
         publishWorkflowStatus(workflow, allNodes);
     }
+
 
     private void publishWorkflowStatus(Workflow workflow, List<WorkflowNode> nodes) {
         Map<String, String> statuses = new HashMap<>();

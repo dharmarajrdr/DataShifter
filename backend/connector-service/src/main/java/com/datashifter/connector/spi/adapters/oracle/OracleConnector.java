@@ -358,4 +358,43 @@ public class OracleConnector implements DatabaseConnector {
             colList, String.join(", ", sColList)
         );
     }
+
+    @Override
+    public Optional<Long> getCurrentSystemChangeNumber(ConnectionConfig config) {
+        int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 5;
+        // Primary: Query V$DATABASE
+        String sqlVDatabase = "SELECT CURRENT_SCN FROM V$DATABASE";
+        try (Connection conn = poolManager.getConnection(config, maxPoolSize);
+             PreparedStatement ps = conn.prepareStatement(sqlVDatabase);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                long scn = rs.getLong(1);
+                log.info("Captured Oracle snapshot SCN from V$DATABASE: {}", scn);
+                return Optional.of(scn);
+            }
+        } catch (Exception e) {
+            log.debug("Could not query V$DATABASE ({}). Falling back to DBMS_FLASHBACK...", e.getMessage());
+        }
+
+        // Secondary fallback: Query DBMS_FLASHBACK.GET_SYSTEM_CHANGE_NUMBER
+        String sqlFlashback = "SELECT DBMS_FLASHBACK.GET_SYSTEM_CHANGE_NUMBER FROM DUAL";
+        try (Connection conn = poolManager.getConnection(config, maxPoolSize);
+             PreparedStatement ps = conn.prepareStatement(sqlFlashback);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                long scn = rs.getLong(1);
+                log.info("Captured Oracle snapshot SCN from DBMS_FLASHBACK: {}", scn);
+                return Optional.of(scn);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to retrieve current SCN from Oracle: {}", e.getMessage());
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<String> getCurrentSnapshotPosition(ConnectionConfig config) {
+        return getCurrentSystemChangeNumber(config).map(String::valueOf);
+    }
 }
+

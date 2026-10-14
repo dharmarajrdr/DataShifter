@@ -104,7 +104,7 @@ public class PipelineJobConsumer {
             return;
         }
 
-        commandRegistry.setCommand(pipelineId, "PAUSE");
+        commandRegistry.setCommand(pipelineId, command != null ? command.toUpperCase() : "PAUSE");
     }
 
     // =========================================================================
@@ -112,11 +112,11 @@ public class PipelineJobConsumer {
     // =========================================================================
 
     public boolean isPauseRequested(String pipelineId) {
-        return "PAUSE".equals(pendingCommands.get(pipelineId));
+        return commandRegistry.isPauseRequested(pipelineId);
     }
 
     public boolean isStopRequested(String pipelineId) {
-        return "STOP".equals(pendingCommands.get(pipelineId));
+        return commandRegistry.isStopRequested(pipelineId);
     }
 
     /**
@@ -124,12 +124,14 @@ public class PipelineJobConsumer {
      * Use this for a single check in the chunk loop instead of two separate calls.
      */
     public boolean isInterruptRequested(String pipelineId) {
-        return pendingCommands.containsKey(pipelineId);
+        return commandRegistry.isPauseRequested(pipelineId) || commandRegistry.isStopRequested(pipelineId);
     }
 
     public void clearCommand(String pipelineId) {
+        commandRegistry.clearCommand(pipelineId);
         pendingCommands.remove(pipelineId);
     }
+
 
     // =========================================================================
     // STATUS QUERIES

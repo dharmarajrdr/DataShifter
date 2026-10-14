@@ -650,6 +650,75 @@ class WorkflowServiceTest {
         assertEquals(PipelineStatus.RUNNING, p3.getStatus(), "Only failed branch p-3 must be restarted");
         assertEquals(PipelineStatus.VALIDATED, p4.getStatus(), "Downstream join p-4 must remain VALIDATED");
     }
+
+    @Test
+    @DisplayName("Phase 5: Automatically hands off from Batch migration to continuous CDC pipeline and injects snapshot SCN")
+    void startAndHandoffToCdcWithSnapshotScnPropagation() {
+        Workflow wf = buildWorkflow("wf-cdc-1", "Batch to CDC Workflow", WorkflowStatus.READY);
+        Pipeline p1Batch = buildPipeline("p-1", "Oracle Initial Migration", PipelineStatus.VALIDATED);
+        p1Batch.setPipelineMode(PipelineMode.BATCH);
+        p1Batch.setCdcStartingScn("2489104250"); // SCN captured during initial migration chunking
+
+        Pipeline p2Cdc = buildPipeline("p-2", "Oracle CDC Continuous Sync", PipelineStatus.VALIDATED);
+        p2Cdc.setPipelineMode(PipelineMode.CDC);
+        p2Cdc.setCdcDirectoryPath("/u01/app/oracle/dirdat");
+        p2Cdc.setCdcFilePattern("aa.*");
+        p2Cdc.setCdcStartingScn(null); // Unset, must be injected by hand-off
+
+        WorkflowNode n1 = WorkflowNode.builder().workflow(wf).pipelineId("p-1").positionY(80.0).build();
+        WorkflowNode n2 = WorkflowNode.builder().workflow(wf).pipelineId("p-2").positionY(220.0).build();
+        WorkflowEdge e12 = WorkflowEdge.builder()
+                .workflow(wf)
+                .sourcePipelineId("p-1")
+                .targetPipelineId("p-2")
+                .onFailureAction(WorkflowFailureAction.STOP_WORKFLOW)
+                .build();
+
+        Query mockQuery = mock(Query.class);
+        when(entityManager.createQuery(anyString())).thenReturn(mockQuery);
+        when(mockQuery.setParameter(anyString(), any())).thenReturn(mockQuery);
+
+        when(workflowRepository.findByIdAndOrgId("wf-cdc-1", orgId)).thenReturn(Optional.of(wf));
+        when(nodeRepository.findByWorkflow_Id("wf-cdc-1")).thenReturn(List.of(n1, n2));
+        when(edgeRepository.findByWorkflow_Id("wf-cdc-1")).thenReturn(List.of(e12));
+        when(pipelineRepository.findAllById(anyList())).thenReturn(List.of(p1Batch, p2Cdc));
+        when(pipelineRepository.findByOrgId(orgId)).thenReturn(List.of(p1Batch, p2Cdc));
+
+        // 1. Start workflow -> starts initial batch pipeline p-1
+        WorkflowActionRequest startReq = WorkflowActionRequest.builder().action(WorkflowAction.START).build();
+        workflowService.performAction("wf-cdc-1", startReq);
+
+        assertEquals(WorkflowStatus.RUNNING, wf.getStatus());
+        assertEquals("p-1", wf.getCurrentPipelineId());
+        assertEquals(PipelineStatus.RUNNING, p1Batch.getStatus());
+
+        // 2. Initial batch pipeline completes -> triggers downstream CDC pipeline p-2
+        when(nodeRepository.findByPipelineIdWithWorkflow("p-1")).thenReturn(Optional.of(n1));
+        when(edgeRepository.findByWorkflow_IdAndSourcePipelineId("wf-cdc-1", "p-1")).thenReturn(List.of(e12));
+        lenient().when(pipelineRepository.findById("p-1")).thenReturn(Optional.of(p1Batch));
+        lenient().when(pipelineRepository.findById("p-2")).thenReturn(Optional.of(p2Cdc));
+
+
+        workflowService.handlePipelineStatusChange(StatusChangeEvent.builder()
+                .pipelineId("p-1")
+                .newStatus(PipelineStatus.COMPLETED)
+                .timestamp(Instant.now())
+                .build());
+
+        // 3. Verify downstream CDC pipeline received starting SCN from batch pipeline
+        assertEquals(PipelineStatus.COMPLETED, p1Batch.getStatus());
+        assertEquals(PipelineStatus.RUNNING, p2Cdc.getStatus());
+        assertEquals("2489104250", p2Cdc.getCdcStartingScn(), "Downstream CDC pipeline must inherit SCN from upstream batch");
+        assertEquals("p-2", wf.getCurrentPipelineId());
+        assertEquals(WorkflowStatus.RUNNING, wf.getStatus(), "Workflow must remain RUNNING while CDC pipeline streams");
+
+        ArgumentCaptor<PipelineJobEvent> jobCaptor = ArgumentCaptor.forClass(PipelineJobEvent.class);
+        verify(kafkaTemplate, atLeastOnce()).send(eq(KafkaTopics.PIPELINE_JOBS), jobCaptor.capture());
+        PipelineJobEvent latestJob = jobCaptor.getAllValues().get(jobCaptor.getAllValues().size() - 1);
+        assertEquals("p-2", latestJob.getPipelineId());
+        assertEquals("START", latestJob.getAction());
+    }
 }
+
 
 

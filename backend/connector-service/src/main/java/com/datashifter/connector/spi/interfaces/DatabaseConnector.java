@@ -54,4 +54,26 @@ public interface DatabaseConnector {
 
     /** Get the primary key column name for a table */
     String getPrimaryKeyColumn(ConnectionConfig config, String tableName);
+
+    /**
+     * Get the current snapshot position (e.g. SCN for Oracle, LSN for PostgreSQL)
+     * taken at the beginning of an initial snapshot migration.
+     */
+    default java.util.Optional<String> getCurrentSnapshotPosition(ConnectionConfig config) {
+        return java.util.Optional.empty();
+    }
+
+    /**
+     * Get the current System Change Number (SCN) for Oracle.
+     */
+    default java.util.Optional<Long> getCurrentSystemChangeNumber(ConnectionConfig config) {
+        return getCurrentSnapshotPosition(config).flatMap(pos -> {
+            try {
+                return java.util.Optional.of(Long.parseLong(pos));
+            } catch (NumberFormatException e) {
+                return java.util.Optional.empty();
+            }
+        });
+    }
 }
+

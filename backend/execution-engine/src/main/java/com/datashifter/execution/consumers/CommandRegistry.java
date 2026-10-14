@@ -31,12 +31,13 @@ public class CommandRegistry {
     }
 
     public boolean isPauseRequested(String pipelineId) {
-        return "PAUSE".equals(pendingCommands.get(pipelineId));
+        return "PAUSE".equalsIgnoreCase(pendingCommands.get(pipelineId));
     }
 
     public boolean isStopRequested(String pipelineId) {
-        return "STOP".equals(pendingCommands.get(pipelineId));
+        return "STOP".equalsIgnoreCase(pendingCommands.get(pipelineId));
     }
+
 
     public void clearCommand(String pipelineId) {
         pendingCommands.remove(pipelineId);
