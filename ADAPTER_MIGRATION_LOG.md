@@ -28,7 +28,7 @@
 
 - [x] **Phase 1: Adapter SDK Core Contracts & Envelope (`adapter-sdk`)** (Completed)
 - [x] **Phase 2: Database Schema & Migration (`V20`) and Common Models** (Completed)
-- [ ] **Phase 3: Aggregator POM & Oracle Reader / Writer Adapters**
+- [x] **Phase 3: Aggregator POM & Oracle Reader / Writer Adapters** (Completed)
 - [ ] **Phase 4: PostgreSQL Reader & Writer Adapters**
 - [ ] **Phase 5: CDC Streaming Adapters (Oracle GG & Postgres WAL)**
 - [ ] **Phase 6: Non-Relational Target Adapters (FileSystem & Kafka Writers)**
