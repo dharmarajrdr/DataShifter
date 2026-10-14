@@ -83,14 +83,16 @@ public class CdcEvent implements Serializable {
         return (schemaName + "." + tableName).toUpperCase();
     }
 
-    /**
-     * Helper to compute partition key for parallel in-order processing.
-     * Events with the same primary key in the same table produce the same hash key.
-     */
+    @JsonIgnore
     public String computePartitionKey() {
         if (primaryKeyValues != null && !primaryKeyValues.isEmpty()) {
             return getFullTableName() + "#" + primaryKeyValues.toString();
         }
         return getFullTableName();
+    }
+
+    @JsonIgnore
+    public boolean isTransactionBoundary() {
+        return operationType == CdcOperationType.COMMIT || operationType == CdcOperationType.BEGIN;
     }
 }
