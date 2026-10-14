@@ -30,7 +30,7 @@
 - [x] **Phase 2: Database Schema & Migration (`V20`) and Common Models** (Completed)
 - [x] **Phase 3: Aggregator POM & Oracle Reader / Writer Adapters** (Completed)
 - [x] **Phase 4: PostgreSQL Reader & Writer Adapters** (Completed)
-- [ ] **Phase 5: CDC Streaming Adapters (Oracle GG & Postgres WAL)**
+- [x] **Phase 5: CDC Streaming Adapters (Oracle GG & Postgres WAL)** (Completed)
 - [ ] **Phase 6: Non-Relational Target Adapters (FileSystem & Kafka Writers)**
 - [ ] **Phase 7: Generalize UDF Service to Library Service (Adapter Registry)**
 - [ ] **Phase 8: Marketplace Catalog & Payment Integration**
