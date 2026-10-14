@@ -433,18 +433,6 @@ const StepTables = ({ config, setConfig, sourceTables, targetTables, loadingSour
   </div>
 );
 
-const StepMapping = () => (
-  <div style={{ ...FCCC, padding: SPACING.xxxl, color: COLORS.text.secondary }}>
-    <div style={{ width: 64, height: 64, borderRadius: '50%', background: COLORS.brand.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md }}>
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M3 9h6M3 15h6M15 9h6M15 15h6M9 9l6 6M9 15l6-6" stroke={COLORS.brand.primary} strokeWidth="1.5" strokeLinecap="round" /></svg>
-    </div>
-    <p style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, marginBottom: SPACING.xs, color: COLORS.text.primary }}>Column mapping</p>
-    <p style={{ fontSize: FONT.size.md, textAlign: 'center', maxWidth: '440px', lineHeight: 1.5 }}>
-      After creating the pipeline, map columns from source to target tables on the mapping board. Supports 1:1, 1:N, and N:1 patterns — any source column can map to any target column across tables.
-    </p>
-  </div>
-);
-
 const StepReview = ({ config, namespaces, connections }) => {
   const source = connections.find(c => c.id === config.source);
   const target = connections.find(c => c.id === config.target);
@@ -598,7 +586,6 @@ const PipelineWizard = () => {
     <StepBasics config={config} setConfig={setConfig} namespaces={namespaces} onCreateNamespace={() => setShowCreateNs(true)} errors={errors} />,
     <StepConnections config={config} setConfig={setConfig} connections={connections} errors={errors} />,
     <StepTables config={config} setConfig={setConfig} sourceTables={sourceTables} targetTables={targetTables} loadingSourceTables={loadingSourceTables} loadingTargetTables={loadingTargetTables} errors={errors} />,
-    <StepMapping />,
     <StepReview config={config} namespaces={namespaces} connections={connections} />,
   ];
 

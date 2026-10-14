@@ -131,6 +131,11 @@ describe('CDC Pipeline Configuration and Monitoring', () => {
     });
 
     expect(container.textContent).toContain('Execution Mode');
+    expect(container.textContent).toContain('Basics');
+    expect(container.textContent).toContain('Connections');
+    expect(container.textContent).toContain('Tables');
+    expect(container.textContent).toContain('Review');
+    expect(container.textContent).not.toContain('Mapping');
     const batchCard = container.querySelector('[data-testid="mode-card-batch"]');
     const cdcCard = container.querySelector('[data-testid="mode-card-cdc"]');
     expect(batchCard).not.toBeNull();
