@@ -89,7 +89,7 @@ export const MONITOR = {
 };
 
 export const WIZARD = {
-  steps: ['Basics', 'Connections', 'Tables', 'Review'],
+  steps: ['Basics', 'Source', 'Target', 'Entities', 'Review'],
   back: 'Back',
   next: 'Next',
   create: 'Create pipeline',
