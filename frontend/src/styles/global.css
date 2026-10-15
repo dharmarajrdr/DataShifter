@@ -1,54 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
 :root {
-  /* Global Positioning & Layout Variables */
   --notification-position-top: 20px;
   --notification-position-right: 20px;
   --notification-position-bottom: 20px;
   --notification-position-left: 20px;
   --notification-max-width: 420px;
   --notification-z-index: 9999;
-
   --modal-z-index: 9000;
-  --modal-backdrop-bg: rgba(0, 0, 0, 0.45);
-
+  --modal-backdrop-bg: rgba(15, 23, 42, 0.45);
   --loader-z-index: 8000;
   --loader-top-bar-height: 3px;
 }
 
 body {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
-  color: #1A1A1A;
-  background: #F7F7F5;
+  color: #0F172A;
+  background-color: #F8FAFC;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  text-decoration: none;
-  color: inherit;
-}
-
-button {
-  cursor: pointer;
-  font-family: inherit;
-  border: none;
-  background: none;
-  outline: none;
-}
-
-input, select, textarea {
-  font-family: inherit;
-  outline: none;
-}
-
-table {
-  border-collapse: collapse;
+:focus-visible {
+  outline: 2px solid #4F46E5;
+  outline-offset: 2px;
 }
 
 ::-webkit-scrollbar {
@@ -61,6 +43,6 @@ table {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D4D4D0;
-  border-radius: 3px;
+  background: #CBD5E1;
+  border-radius: 9999px;
 }

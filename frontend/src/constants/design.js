@@ -1,61 +1,57 @@
 /* ============================================================
-   DESIGN TOKENS — single source of truth for all visual values
+   DESIGN TOKENS — Theme B (Modern SaaS Indigo & Slate)
    ============================================================ */
 
 export const COLORS = {
   brand: {
-    primary: '#534AB7',
-    primaryLight: '#EEEDFE',
-    primaryDark: '#3C3489',
-    primaryHover: '#6359C7',
+    primary: '#4F46E5',
+    primaryLight: '#EEF2FF',
+    primaryDark: '#312E81',
+    primaryHover: '#4338CA',
   },
   text: {
-    primary: '#1A1A1A',
-    secondary: '#6B6B6B',
-    tertiary: '#9B9B9B',
+    primary: '#0F172A',
+    secondary: '#64748B',
+    tertiary: '#94A3B8',
     inverse: '#FFFFFF',
   },
   background: {
     primary: '#FFFFFF',
-    secondary: '#F7F7F5',
-    tertiary: '#EFEFEC',
+    secondary: '#F8FAFC',
+    tertiary: '#F1F5F9',
   },
   border: {
-    light: '#E8E8E5',
-    medium: '#D4D4D0',
-    dark: '#B0B0AB',
+    light: '#E2E8F0',
+    medium: '#CBD5E1',
+    dark: '#94A3B8',
   },
   status: {
-    success: '#1D9E75',
-    successLight: '#E1F5EE',
-    successDark: '#0F6E56',
-    successText: '#085041',
-    warning: '#BA7517',
-    warningLight: '#FAEEDA',
-    warningDark: '#854F0B',
-    warningText: '#633806',
-    error: '#E24B4A',
-    errorLight: '#FCEBEB',
-    errorDark: '#A32D2D',
-    errorText: '#791F1F',
-    info: '#378ADD',
-    infoLight: '#E6F1FB',
-    infoDark: '#185FA5',
-    infoText: '#0C447C',
+    success: '#059669',
+    successLight: '#ECFDF5',
+    successDark: '#047857',
+    successText: '#065F46',
+    warning: '#D97706',
+    warningLight: '#FFFBEB',
+    warningDark: '#B45309',
+    warningText: '#92400E',
+    error: '#DC2626',
+    errorLight: '#FEF2F2',
+    errorDark: '#B91C1C',
+    errorText: '#991B1B',
+    info: '#0284C7',
+    infoLight: '#F0F9FF',
+    infoDark: '#0369A1',
+    infoText: '#075985',
   },
   accent: {
-    purple: '#534AB7',
-    purpleLight: '#EEEDFE',
-    purpleText: '#3C3489',
-    teal: '#1D9E75',
-    tealLight: '#E1F5EE',
-    tealText: '#085041',
-    coral: '#D85A30',
-    coralLight: '#FAECE7',
-    coralText: '#712B13',
-    amber: '#BA7517',
-    amberLight: '#FAEEDA',
-    amberText: '#633806',
+    indigo: '#4F46E5',
+    indigoLight: '#EEF2FF',
+    teal: '#059669',
+    tealLight: '#ECFDF5',
+    amber: '#D97706',
+    amberLight: '#FFFBEB',
+    rose: '#E11D48',
+    roseLight: '#FFE4E6',
   },
 };
 
@@ -67,7 +63,6 @@ export const SPACING = {
   lg: '20px',
   xl: '24px',
   xxl: '32px',
-  xxxl: '40px',
 };
 
 export const FONT = {
@@ -81,11 +76,7 @@ export const FONT = {
     xl: '18px',
     xxl: '22px',
   },
-  weight: {
-    regular: 400,
-    medium: 500,
-    semibold: 600,
-  },
+  weight: { regular: 400, medium: 500, semibold: 600 },
 };
 
 export const BORDER_RADIUS = {
@@ -93,12 +84,12 @@ export const BORDER_RADIUS = {
   md: '8px',
   lg: '12px',
   xl: '16px',
-  pill: '99px',
+  pill: '9999px',
 };
 
 export const SHADOWS = {
-  sm: '0 1px 2px rgba(0,0,0,0.04)',
-  md: '0 2px 8px rgba(0,0,0,0.06)',
+  sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+  md: '0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.04)',
 };
 
 export const SIDEBAR_WIDTH = '220px';
