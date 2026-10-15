@@ -121,7 +121,7 @@ describe('CDC Pipeline Configuration and Monitoring', () => {
     expect(noBadge).toBeNull();
   });
 
-  test('PipelineWizard renders mode selector and toggles CDC parameters', async () => {
+  test('PipelineWizard renders 5 steps and advances to CDC source adapter', async () => {
     await act(async () => {
       root.render(
         <MemoryRouter>
@@ -130,33 +130,30 @@ describe('CDC Pipeline Configuration and Monitoring', () => {
       );
     });
 
-    expect(container.textContent).toContain('Execution Mode');
     expect(container.textContent).toContain('Basics');
-    expect(container.textContent).toContain('Connections');
-    expect(container.textContent).toContain('Tables');
+    expect(container.textContent).toContain('Source');
+    expect(container.textContent).toContain('Target');
+    expect(container.textContent).toContain('Entities');
     expect(container.textContent).toContain('Review');
-    expect(container.textContent).not.toContain('Mapping');
-    const batchCard = container.querySelector('[data-testid="mode-card-batch"]');
-    const cdcCard = container.querySelector('[data-testid="mode-card-cdc"]');
-    expect(batchCard).not.toBeNull();
-    expect(cdcCard).not.toBeNull();
 
-    // Default is BATCH, CDC config panel should not be present initially
-    expect(container.querySelector('[data-testid="cdc-config-panel"]')).toBeNull();
-
-    // Click CDC mode card
+    const nameInput = container.querySelector('#wizard-step-basics-name-input');
+    expect(nameInput).not.toBeNull();
     await act(async () => {
-      cdcCard.click();
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(nameInput, 'CDC Stream Pipeline');
+      nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    // CDC config panel should now be visible with inputs
-    const cdcPanel = container.querySelector('[data-testid="cdc-config-panel"]');
-    expect(cdcPanel).not.toBeNull();
-    expect(container.querySelector('[data-testid="input-cdc-directory"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="input-cdc-pattern"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="input-cdc-scn"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="input-cdc-flush-interval"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="input-cdc-batch-size"]')).not.toBeNull();
+    const nextBtn = container.querySelector('#pipeline-wizard-footer-next-btn');
+    expect(nextBtn).not.toBeNull();
+    await act(async () => {
+      nextBtn.click();
+    });
+
+    expect(container.textContent).toContain('Select Source Adapter');
+    expect(container.querySelector('#wizard-step-source-card-oracle-trail')).not.toBeNull();
+    expect(container.querySelector('#wizard-step-source-card-postgres-wal')).not.toBeNull();
   });
 
   test('PipelineSettings displays CDC configuration and handles reset checkpoint', async () => {
@@ -295,7 +292,7 @@ describe('CDC Pipeline Configuration and Monitoring', () => {
     expect(ops.textContent).toContain('Deletes: 2,500');
   });
 
-  test('PipelineWizard switches to PostgreSQL WAL log format and defaults pattern', async () => {
+  test('PipelineWizard switches to PostgreSQL WAL adapter and defaults pattern', async () => {
     await act(async () => {
       root.render(
         <MemoryRouter>
@@ -304,27 +301,28 @@ describe('CDC Pipeline Configuration and Monitoring', () => {
       );
     });
 
-    // Switch to CDC mode
-    const cdcCard = container.querySelector('[data-testid="mode-card-cdc"]');
+    const nameInput = container.querySelector('#wizard-step-basics-name-input');
     await act(async () => {
-      cdcCard.click();
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(nameInput, 'WAL Pipeline');
+      nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    const oracleOption = container.querySelector('[data-testid="logtype-oracle-trail"]');
-    const walOption = container.querySelector('[data-testid="logtype-postgres-wal"]');
-    expect(oracleOption).not.toBeNull();
-    expect(walOption).not.toBeNull();
-
-    // Click PostgreSQL WAL
+    const nextBtn = container.querySelector('#pipeline-wizard-footer-next-btn');
     await act(async () => {
-      walOption.click();
+      nextBtn.click();
     });
 
-    expect(container.textContent).toContain('PostgreSQL WAL Directory Path');
-    expect(container.textContent).toContain('Starting LSN (Optional)');
+    const walCard = container.querySelector('#wizard-step-source-card-postgres-wal');
+    expect(walCard).not.toBeNull();
+    await act(async () => {
+      walCard.click();
+    });
 
-    const patternInput = container.querySelector('[data-testid="input-cdc-pattern"]');
-    expect(patternInput.value).toBe('000000010000.*');
+    expect(container.textContent).toContain('WAL Directory');
+    expect(container.querySelector('#wizard-step-source-fields-wal-dir')).not.toBeNull();
+    expect(container.querySelector('#wizard-step-source-fields-wal-slot')).not.toBeNull();
   });
 
   test('PipelineSettings renders PostgreSQL WAL checkpoints and LSN target reset', async () => {

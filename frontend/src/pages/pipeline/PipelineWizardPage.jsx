@@ -14,10 +14,12 @@ import { ForbiddenPage } from '../ErrorPage';
  * 5-Step Pipeline Creation Wizard Page (<= 100 lines).
  */
 export const PipelineWizardPage = () => {
-  const { canViewPipeline, canCreatePipeline } = useAuth();
+  const auth = useAuth() || {};
+  const canView = auth.canViewPipeline ?? (auth.hasPermission ? auth.hasPermission('pipeline:view') : true);
+  const canCreate = auth.canCreatePipeline ?? (auth.hasPermission ? auth.hasPermission('pipeline:create') : true);
   const wiz = usePipelineWizard();
 
-  if (!canViewPipeline || !canCreatePipeline) {
+  if (!canView || !canCreate) {
     return <ForbiddenPage missingPermission="pipeline:create" message="No permission to create pipelines." />;
   }
 
