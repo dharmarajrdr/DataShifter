@@ -21,22 +21,28 @@ const STATUS_MAP = {
   ERROR: { bg: COLORS.status.errorLight, color: COLORS.status.errorText },
 };
 
-const StatusBadge = ({ status, label }) => {
+const StatusBadge = ({ id, className = '', style = {}, status, label }) => {
   const scheme = STATUS_MAP[status] || STATUS_MAP.DRAFT;
   return (
-    <span style={{
-      background: scheme.bg,
-      color: scheme.color,
-      fontSize: FONT.size.xs,
-      width: '100px',
-      textAlign: 'center',
-      padding: '3px 10px',
-      borderRadius: BORDER_RADIUS.pill,
-      fontWeight: FONT.weight.medium,
-      whiteSpace: 'nowrap',
-      lineHeight: '15px',
-      border: `1px solid ${scheme.color}`,
-    }}>
+    <span
+      id={id}
+      className={`ds-status-badge ${className}`}
+      style={{
+        background: scheme.bg,
+        color: scheme.color,
+        fontSize: FONT.size.xs,
+        minWidth: '80px',
+        display: 'inline-block',
+        textAlign: 'center',
+        padding: '3px 10px',
+        borderRadius: BORDER_RADIUS.pill,
+        fontWeight: FONT.weight.medium,
+        whiteSpace: 'nowrap',
+        lineHeight: '15px',
+        border: `1px solid ${scheme.color}`,
+        ...style,
+      }}
+    >
       {label || scheme.label || status}
     </span>
   );

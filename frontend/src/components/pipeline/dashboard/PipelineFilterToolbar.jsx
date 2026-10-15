@@ -36,7 +36,8 @@ export const PipelineFilterToolbar = ({
           <input
             id={`${id}-search-input`}
             type="text"
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-indigo-500"
+            aria-label="Search pipelines, tables"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
             placeholder="Search pipelines, tables..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}

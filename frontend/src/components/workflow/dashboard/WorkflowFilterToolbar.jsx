@@ -57,7 +57,8 @@ export const WorkflowFilterToolbar = ({
           <input
             id={`${id}-search-input`}
             type="text"
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-indigo-500 transition-all"
+            aria-label="Search workflows or member pipelines"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
             placeholder="Search workflows or member pipelines..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}

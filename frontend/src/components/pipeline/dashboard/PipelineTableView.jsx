@@ -22,19 +22,19 @@ export const PipelineTableView = ({
         >
           <thead id={`${id}-thead`} className="sticky top-0 z-20">
             <tr id={`${id}-header-row`} className="bg-slate-100/95 backdrop-blur-xs border-b-2 border-slate-200 shadow-2xs">
-              <th id={`${id}-th-name`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[28%]">
+              <th id={`${id}-th-name`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[28%] whitespace-nowrap">
                 Pipeline &amp; Namespace
               </th>
-              <th id={`${id}-th-route`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[32%]">
+              <th id={`${id}-th-route`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[32%] whitespace-nowrap">
                 Route (Connectors)
               </th>
-              <th id={`${id}-th-status`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[14%]">
+              <th id={`${id}-th-status`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[14%] whitespace-nowrap">
                 Status
               </th>
-              <th id={`${id}-th-progress`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[16%]">
+              <th id={`${id}-th-progress`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[16%] whitespace-nowrap">
                 Progress / Rate
               </th>
-              <th id={`${id}-th-owner`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[10%]">
+              <th id={`${id}-th-owner`} className="px-4 py-3 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-[10%] whitespace-nowrap">
                 Owner
               </th>
             </tr>
