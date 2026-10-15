@@ -15,8 +15,9 @@ export const SidebarNotifications = ({
   const notifRef = useRef(null);
 
   useEffect(() => {
-    if (user) {
-      authApi.myInvitations().then((r) => setInvitations(r.data || [])).catch(() => {});
+    if (user && typeof authApi?.myInvitations === 'function') {
+      const p = authApi.myInvitations();
+      if (p && typeof p.then === 'function') p.then((r) => setInvitations(r.data || [])).catch(() => {});
     }
   }, [user]);
 

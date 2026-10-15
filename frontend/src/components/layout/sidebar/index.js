@@ -1,3 +1,4 @@
+export { default as Sidebar } from './Sidebar';
 export { default as SidebarHeader } from './SidebarHeader';
 export { default as SidebarNavItem } from './SidebarNavItem';
 export { default as SidebarNav, NAV_ITEMS } from './SidebarNav';

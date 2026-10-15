@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { SidebarHeader, SidebarNav, SidebarNotifications, SidebarFooter } from './sidebar';
+import SidebarHeader from './SidebarHeader';
+import SidebarNav from './SidebarNav';
+import SidebarNotifications from './SidebarNotifications';
+import SidebarFooter from './SidebarFooter';
 
 /**
  * Collapsible responsive Sidebar navigation component (<= 100 lines).
