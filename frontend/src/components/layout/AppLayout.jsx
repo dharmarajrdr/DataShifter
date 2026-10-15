@@ -1,24 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { Header } from './header';
 import BeetelSplitPanel from '../ai/BeetelSplitPanel';
-import { SIDEBAR_WIDTH, SPACING } from '../../constants/design';
 
-const AppLayout = () => (
-  <div style={{ display: 'flex', minHeight: '100vh' }}>
-    <Sidebar />
-    <div style={{
-      marginLeft: SIDEBAR_WIDTH,
-      flex: 1,
-      padding: SPACING.xl,
-      minWidth: 0,
-      backgroundColor: '#fff'
-    }}>
-      <Outlet />
+/**
+ * App layout shell with responsive collapsible sidebar and minimal header bar.
+ */
+export const AppLayout = ({ id = 'app-root-layout', className = '' }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  return (
+    <div id={id} className={`flex min-h-screen bg-surface-50 ${className}`}>
+      <Sidebar
+        id="main-sidebar"
+        isCollapsed={isCollapsed}
+        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+      />
+
+      <div
+        id="app-main-container"
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ease-in-out
+          ${isCollapsed ? 'ml-16' : 'ml-60'}`}
+      >
+        <Header id="main-top-header" />
+        <main id="main-content-viewport" className="flex-1 p-6 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
+
+      <BeetelSplitPanel />
     </div>
-    <BeetelSplitPanel />
-  </div>
-);
+  );
+};
 
 export default AppLayout;
-
