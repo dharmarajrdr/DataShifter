@@ -45,7 +45,8 @@ public class ColumnMappingValidationStep implements PipelineValidationStep {
             return errors;
         }
 
-        if (context.getTargetConnection() == null || context.getTargetConnector() == null) {
+        boolean isTargetAdapter = pipeline.getTargetAdapterId() != null;
+        if (!isTargetAdapter && (context.getTargetConnection() == null || context.getTargetConnector() == null)) {
             errors.add("Target connection not found: " + pipeline.getTargetConnectionId());
             return errors;
         }
@@ -60,6 +61,17 @@ public class ColumnMappingValidationStep implements PipelineValidationStep {
                 String targetTable = ttm.getTargetTable();
                 if (targetTable == null || targetTable.isBlank()) {
                     errors.add(String.format("Source table '%s' has an empty target table name", pt.getSourceTable()));
+                    continue;
+                }
+
+                if (isTargetAdapter) {
+                    if (ttm.getColumnMappings() != null && !ttm.getColumnMappings().isEmpty()) {
+                        boolean anyMapped = ttm.getColumnMappings().stream()
+                                .anyMatch(cm -> cm.getTargetColumn() != null && !cm.getTargetColumn().isBlank());
+                        if (!anyMapped) {
+                            errors.add(String.format("%s: At least one column must be mapped", targetTable));
+                        }
+                    }
                     continue;
                 }
 
