@@ -288,6 +288,10 @@ public class PipelineDtos {
         private String description;
         private String sourceConnectionName;
         private String targetConnectionName;
+        private String sourceAdapterId;
+        private String targetAdapterId;
+        private String sourceConfig;
+        private String targetConfig;
         private Integer chunkSize;
         private WriteMode defaultWriteMode;
         private Boolean ignoreExceptions;
