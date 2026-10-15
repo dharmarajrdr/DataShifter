@@ -63,6 +63,8 @@ public class ExecutionServiceImpl implements ExecutionService {
     private final ParallelConfig parallelConfig;
     private final com.datashifter.execution.strategies.transformers.UdfExecutionManager udfExecutionManager;
     private final com.datashifter.execution.cdc.CdcStreamExecutor cdcStreamExecutor;
+    private final com.datashifter.execution.adapters.AdapterExecutionManager adapterExecutionManager;
+    private final com.datashifter.execution.adapters.AdapterExecutionBridge adapterExecutionBridge;
 
     @Override
     @Transactional
@@ -89,23 +91,25 @@ public class ExecutionServiceImpl implements ExecutionService {
             ctx = buildContext(pipeline, executionLogId);
 
             // 2b. Capture snapshot position (SCN for Oracle, LSN for Postgres) at migration start for downstream CDC hand-off
-            try {
-                DatabaseConnector srcConnector = connectorFactory.getConnector(ctx.getSourceConfig().getDbType());
-                Optional<String> snapshotPos = srcConnector.getCurrentSnapshotPosition(ctx.getSourceConfig());
-                if (snapshotPos.isPresent()) {
-                    String pos = snapshotPos.get();
-                    ctx.setSnapshotPosition(pos);
-                    try {
-                        ctx.setSnapshotScn(Long.parseLong(pos));
-                    } catch (NumberFormatException ignored) {}
-                    if (pipeline.getCdcStartingScn() == null || pipeline.getCdcStartingScn().isBlank()) {
-                        pipeline.setCdcStartingScn(pos);
-                        pipelineRepo.saveAndFlush(pipeline);
+            if (ctx.getSourceConfig() != null && ctx.getSourceConfig().getDbType() != null) {
+                try {
+                    DatabaseConnector srcConnector = connectorFactory.getConnector(ctx.getSourceConfig().getDbType());
+                    Optional<String> snapshotPos = srcConnector.getCurrentSnapshotPosition(ctx.getSourceConfig());
+                    if (snapshotPos.isPresent()) {
+                        String pos = snapshotPos.get();
+                        ctx.setSnapshotPosition(pos);
+                        try {
+                            ctx.setSnapshotScn(Long.parseLong(pos));
+                        } catch (NumberFormatException ignored) {}
+                        if (pipeline.getCdcStartingScn() == null || pipeline.getCdcStartingScn().isBlank()) {
+                            pipeline.setCdcStartingScn(pos);
+                            pipelineRepo.saveAndFlush(pipeline);
+                        }
+                        log.info("Captured source database snapshot position '{}' for pipeline '{}' at migration start", pos, pipelineId);
                     }
-                    log.info("Captured source database snapshot position '{}' for pipeline '{}' at migration start", pos, pipelineId);
+                } catch (Exception e) {
+                    log.warn("Could not capture initial snapshot position for pipeline {}: {}", pipelineId, e.getMessage());
                 }
-            } catch (Exception e) {
-                log.warn("Could not capture initial snapshot position for pipeline {}: {}", pipelineId, e.getMessage());
             }
 
 
@@ -229,22 +233,29 @@ public class ExecutionServiceImpl implements ExecutionService {
     private void executeChunkLoop(ExecutionContext ctx, PipelineTable pt,
                                   Checkpoint resumeCheckpoint, long totalRowsAllTables) {
 
-        DatabaseConnector sourceConnector = connectorFactory.getConnector(ctx.getSourceConfig().getDbType());
-        DatabaseConnector targetConnector = connectorFactory.getConnector(ctx.getTargetConfig().getDbType());
+        DatabaseConnector sourceConnector = (ctx.getSourceConfig() != null && ctx.getSourceConfig().getDbType() != null)
+                ? connectorFactory.getConnector(ctx.getSourceConfig().getDbType())
+                : null;
+        DatabaseConnector targetConnector = (ctx.getTargetConfig() != null && ctx.getTargetConfig().getDbType() != null)
+                ? connectorFactory.getConnector(ctx.getTargetConfig().getDbType())
+                : null;
 
         int workerCount = parallelConfig.resolveWorkerCount(ctx.getPipeline().getParallelWorkers());
 
-        if (workerCount > 1) {
+        if (workerCount > 1 && sourceConnector != null && targetConnector != null) {
             // Parallel path
             parallelChunkProcessor.process(ctx, pt, sourceConnector, targetConnector, resumeCheckpoint, totalRowsAllTables, workerCount);
             return;
         }
 
-        String pkColumn = sourceConnector.getPrimaryKeyColumn(ctx.getSourceConfig(), pt.getSourceTable());
+        String pkColumn = sourceConnector != null ? sourceConnector.getPrimaryKeyColumn(ctx.getSourceConfig(), pt.getSourceTable()) : "id";
 
-        // int chunkSize = ctx.getPipeline().getChunkSize();
-        ChunkSizeTuner.TuningResult tuning = chunkSizeTuner.tune(sourceConnector, ctx.getSourceConfig(), pt.getSourceTable(), ctx.getPipeline().getChunkSize());
-        int chunkSize = tuning.getRecommendedChunkSize();
+        int baseChunkSize = ctx.getPipeline().getChunkSize() != null ? ctx.getPipeline().getChunkSize() : 1000;
+        int chunkSize = baseChunkSize;
+        if (sourceConnector != null) {
+            ChunkSizeTuner.TuningResult tuning = chunkSizeTuner.tune(sourceConnector, ctx.getSourceConfig(), pt.getSourceTable(), baseChunkSize);
+            chunkSize = tuning.getRecommendedChunkSize();
+        }
 
         // Resume: pick up from last committed PK
         String lastPkValue = (resumeCheckpoint != null) ? resumeCheckpoint.getLastCommittedPk() : null;
@@ -254,7 +265,7 @@ public class ExecutionServiceImpl implements ExecutionService {
         FilterChain filterChain = ctx.getFilterChains().getOrDefault(pt.getId(), new FilterChain(List.of()));
 
         // Pre-compute estimated row count once (not per chunk — was being called every iteration before)
-        long totalRowsInTable = sourceConnector.getEstimatedRowCount(ctx.getSourceConfig(), pt.getSourceTable());
+        long totalRowsInTable = sourceConnector != null ? sourceConnector.getEstimatedRowCount(ctx.getSourceConfig(), pt.getSourceTable()) : 0;
 
         // ===================================================================
         // READ-AHEAD PIPELINE: while writing chunk N, read chunk N+1 async
@@ -291,8 +302,21 @@ public class ExecutionServiceImpl implements ExecutionService {
                 }
                 readAheadFuture = null;
             } else {
-                sourceRecords = sourceConnector.readChunk(
-                        ctx.getSourceConfig(), pt.getSourceTable(), pkColumn, lastPkValue, chunkSize);
+                if (ctx.getPipeline().getSourceAdapterId() != null && !ctx.getPipeline().getSourceAdapterId().isBlank()) {
+                    try {
+                        com.datashifter.adapter.sdk.AdapterConfig srcConfig = adapterExecutionManager.parseConfig(ctx.getPipeline().getSourceConfig());
+                        com.datashifter.adapter.sdk.DataReader srcReader = adapterExecutionManager.getReader(ctx.getPipeline().getSourceAdapterId(), srcConfig);
+                        List<com.datashifter.adapter.sdk.DataRecord> records = srcReader.readChunk(srcConfig, pt.getSourceTable(), pkColumn, lastPkValue, chunkSize);
+                        sourceRecords = adapterExecutionBridge.fromDataRecords(records);
+                    } catch (Exception ex) {
+                        throw new DatashifterException("Source adapter read failed on " + pt.getSourceTable() + ": " + ex.getMessage(), ex);
+                    }
+                } else if (sourceConnector != null) {
+                    sourceRecords = sourceConnector.readChunk(
+                            ctx.getSourceConfig(), pt.getSourceTable(), pkColumn, lastPkValue, chunkSize);
+                } else {
+                    sourceRecords = Collections.emptyList();
+                }
             }
 
             long t1 = System.currentTimeMillis();
@@ -306,9 +330,24 @@ public class ExecutionServiceImpl implements ExecutionService {
             String currentLastPk = extractLastPk(sourceRecords, pkColumn);
             final String readAheadPk = currentLastPk;
             final DatabaseConnector srcConn = sourceConnector;
-            readAheadFuture = java.util.concurrent.CompletableFuture.supplyAsync(() ->
-                    srcConn.readChunk(ctx.getSourceConfig(), pt.getSourceTable(), pkColumn, readAheadPk, chunkSize)
-            );
+            final String srcAdapterId = ctx.getPipeline().getSourceAdapterId();
+            final String srcAdapterCfg = ctx.getPipeline().getSourceConfig();
+            final int nextChunkSize = chunkSize;
+            readAheadFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                if (srcAdapterId != null && !srcAdapterId.isBlank()) {
+                    try {
+                        com.datashifter.adapter.sdk.AdapterConfig cfg = adapterExecutionManager.parseConfig(srcAdapterCfg);
+                        com.datashifter.adapter.sdk.DataReader r = adapterExecutionManager.getReader(srcAdapterId, cfg);
+                        List<com.datashifter.adapter.sdk.DataRecord> recs = r.readChunk(cfg, pt.getSourceTable(), pkColumn, readAheadPk, nextChunkSize);
+                        return adapterExecutionBridge.fromDataRecords(recs);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Adapter read-ahead failed on " + pt.getSourceTable() + ": " + e.getMessage(), e);
+                    }
+                } else if (srcConn != null) {
+                    return srcConn.readChunk(ctx.getSourceConfig(), pt.getSourceTable(), pkColumn, readAheadPk, nextChunkSize);
+                }
+                return Collections.emptyList();
+            });
 
             // --- STEP 2: FILTER rows ---
             List<Map<String, Object>> filteredRecords = filterChain.apply(sourceRecords);
@@ -353,7 +392,45 @@ public class ExecutionServiceImpl implements ExecutionService {
                 long tw1 = System.currentTimeMillis();
 
                 // WRITE to target
-                WriteResult result = writeStrategyExecutor.write(targetConnector, ctx.getTargetConfig(), ttc, targetRecords);
+                WriteResult result;
+                if (ctx.getPipeline().getTargetAdapterId() != null && !ctx.getPipeline().getTargetAdapterId().isBlank()) {
+                    try {
+                        com.datashifter.adapter.sdk.AdapterConfig adapterConfig = adapterExecutionManager.parseConfig(ctx.getPipeline().getTargetConfig());
+                        com.datashifter.adapter.sdk.DataWriter writer = adapterExecutionManager.getWriter(ctx.getPipeline().getTargetAdapterId(), adapterConfig);
+                        String modeStr = ttc.getWriteMode() != null ? ttc.getWriteMode().toUpperCase() : "INSERT_ONLY";
+                        com.datashifter.adapter.sdk.WriteMode sdkWriteMode;
+                        switch (modeStr) {
+                            case "UPSERT":
+                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.UPSERT;
+                                break;
+                            case "UPDATE_ONLY":
+                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.UPDATE_ONLY;
+                                break;
+                            case "REPLACE":
+                            case "OVERWRITE":
+                            case "TRUNCATE_INSERT":
+                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.REPLACE;
+                                break;
+                            case "INSERT_IGNORE":
+                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.INSERT_IGNORE;
+                                break;
+                            default:
+                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.INSERT_ONLY;
+                                break;
+                        }
+                        com.datashifter.adapter.sdk.WriteResult sdkResult = adapterExecutionBridge.writeBatch(
+                                writer, adapterConfig, ttc.getTargetTable(), targetRecords, sdkWriteMode, ttc.getPrimaryKeyColumn()
+                        );
+                        result = adapterExecutionBridge.toConnectorWriteResult(sdkResult);
+                    } catch (Exception ex) {
+                        log.error("Target adapter write error on {}: {}", ttc.getTargetTable(), ex.getMessage(), ex);
+                        throw new DatashifterException("Target adapter write failed on " + ttc.getTargetTable() + ": " + ex.getMessage(), ex);
+                    }
+                } else if (targetConnector != null) {
+                    result = writeStrategyExecutor.write(targetConnector, ctx.getTargetConfig(), ttc, targetRecords);
+                } else {
+                    result = WriteResult.builder().totalRecords(targetRecords.size()).successCount(targetRecords.size()).build();
+                }
                 long tw2 = System.currentTimeMillis();
 
                 handleWriteResult(ctx, pt, ttm, result, chunkNumber);
@@ -595,17 +672,26 @@ public class ExecutionServiceImpl implements ExecutionService {
     // =========================================================================
 
     private ExecutionContext buildContext(Pipeline pipeline, String executionLogId) {
-        Connection sourceConn = connectionRepo.findById(pipeline.getSourceConnectionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Source connection", pipeline.getSourceConnectionId()));
-        Connection targetConn = connectionRepo.findById(pipeline.getTargetConnectionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Target connection", pipeline.getTargetConnectionId()));
+        Connection sourceConn = pipeline.getSourceConnectionId() != null
+                ? connectionRepo.findById(pipeline.getSourceConnectionId()).orElse(null)
+                : null;
+        Connection targetConn = pipeline.getTargetConnectionId() != null
+                ? connectionRepo.findById(pipeline.getTargetConnectionId()).orElse(null)
+                : null;
+
+        ConnectionConfig srcConfig = sourceConn != null
+                ? toConnectionConfig(sourceConn, pipeline.getSourcePoolSize(), pipeline)
+                : ConnectionConfig.builder().build();
+        ConnectionConfig tgtConfig = targetConn != null
+                ? toConnectionConfig(targetConn, pipeline.getTargetPoolSize(), pipeline)
+                : ConnectionConfig.builder().build();
 
         ExecutionContext ctx = ExecutionContext.builder()
                 .pipelineId(pipeline.getId())
                 .executionLogId(executionLogId)
                 .pipeline(pipeline)
-                .sourceConfig(toConnectionConfig(sourceConn, pipeline.getSourcePoolSize(), pipeline))
-                .targetConfig(toConnectionConfig(targetConn, pipeline.getTargetPoolSize(), pipeline))
+                .sourceConfig(srcConfig)
+                .targetConfig(tgtConfig)
                 .startedAt(Instant.now())
                 .build();
 
@@ -614,8 +700,12 @@ public class ExecutionServiceImpl implements ExecutionService {
         log.info("Connection pools: Source DB = {} connections, Target DB = {} connections", srcPool, tgtPool);
 
         // Pre-build filter chains and target table contexts
-        DatabaseConnector sourceConnector = connectorFactory.getConnector(ctx.getSourceConfig().getDbType());
-        DatabaseConnector targetConnector = connectorFactory.getConnector(ctx.getTargetConfig().getDbType());
+        DatabaseConnector sourceConnector = (ctx.getSourceConfig() != null && ctx.getSourceConfig().getDbType() != null)
+                ? connectorFactory.getConnector(ctx.getSourceConfig().getDbType())
+                : null;
+        DatabaseConnector targetConnector = (ctx.getTargetConfig() != null && ctx.getTargetConfig().getDbType() != null)
+                ? connectorFactory.getConnector(ctx.getTargetConfig().getDbType())
+                : null;
 
         for (PipelineTable pt : pipeline.getPipelineTables()) {
             // Build filter chain
@@ -627,12 +717,21 @@ public class ExecutionServiceImpl implements ExecutionService {
 
             // Build target table contexts via ColumnMappingResolver
             for (TargetTableMapping ttm : pt.getTargetTableMappings()) {
-                TargetTableContext ttc = columnMappingResolver.resolve(
-                        ttm, sourceConnector, targetConnector,
-                        ctx.getSourceConfig(), ctx.getTargetConfig(), pt.getSourceTable());
-                columnMappingResolver.validate(ttc);
-                writeStrategyExecutor.validateStrategy(ttc);
-                ctx.getTargetTableContexts().put(ttm.getId(), ttc);
+                if (sourceConnector != null && targetConnector != null) {
+                    TargetTableContext ttc = columnMappingResolver.resolve(
+                            ttm, sourceConnector, targetConnector,
+                            ctx.getSourceConfig(), ctx.getTargetConfig(), pt.getSourceTable());
+                    columnMappingResolver.validate(ttc);
+                    writeStrategyExecutor.validateStrategy(ttc);
+                    ctx.getTargetTableContexts().put(ttm.getId(), ttc);
+                } else {
+                    TargetTableContext ttc = TargetTableContext.builder()
+                            .targetTable(ttm.getTargetTable())
+                            .writeMode(ttm.getWriteMode() != null ? ttm.getWriteMode().name() : "INSERT_ONLY")
+                            .columnMappings(Collections.emptyList())
+                            .build();
+                    ctx.getTargetTableContexts().put(ttm.getId(), ttc);
+                }
             }
         }
 
@@ -724,12 +823,20 @@ public class ExecutionServiceImpl implements ExecutionService {
     }
 
     private long estimateTotalRows(ExecutionContext ctx, List<PipelineTable> tables) {
-        DatabaseConnector sourceConnector = connectorFactory.getConnector(ctx.getSourceConfig().getDbType());
-        long total = 0;
-        for (PipelineTable pt : tables) {
-            total += sourceConnector.getEstimatedRowCount(ctx.getSourceConfig(), pt.getSourceTable());
+        if (ctx.getSourceConfig() == null || ctx.getSourceConfig().getDbType() == null) {
+            return 0;
         }
-        return total;
+        try {
+            DatabaseConnector sourceConnector = connectorFactory.getConnector(ctx.getSourceConfig().getDbType());
+            long total = 0;
+            for (PipelineTable pt : tables) {
+                total += sourceConnector.getEstimatedRowCount(ctx.getSourceConfig(), pt.getSourceTable());
+            }
+            return total;
+        } catch (Exception e) {
+            log.debug("Could not estimate total rows: {}", e.getMessage());
+            return 0;
+        }
     }
 
     private String extractLastPk(List<Map<String, Object>> records, String pkColumn) {

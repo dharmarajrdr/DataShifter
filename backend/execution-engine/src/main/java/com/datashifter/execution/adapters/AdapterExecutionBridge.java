@@ -141,14 +141,103 @@ public class AdapterExecutionBridge {
         if (events == null || events.isEmpty()) {
             return WriteResult.empty();
         }
-        List<DataRecord> records = new ArrayList<>(events.size());
-        for (CdcEvent event : events) {
-            DataRecord r = cdcEventToDataRecord(event);
-            if (r != null) {
-                records.add(r);
+        if (targetTable != null && !targetTable.isBlank()) {
+            List<DataRecord> records = new ArrayList<>(events.size());
+            for (CdcEvent event : events) {
+                DataRecord r = cdcEventToDataRecord(event);
+                if (r != null) {
+                    records.add(r);
+                }
+            }
+            return writer.applyBatch(config, targetTable, records, primaryKeyColumn);
+        }
+
+        Map<String, List<CdcEvent>> byTable = new LinkedHashMap<>();
+        for (CdcEvent e : events) {
+            String tbl = e.getFullTableName() != null ? e.getFullTableName() : "DEFAULT";
+            byTable.computeIfAbsent(tbl, k -> new ArrayList<>()).add(e);
+        }
+
+        int total = 0;
+        int success = 0;
+        int failure = 0;
+        List<WriteResult.FailedRecord> failedRecords = new ArrayList<>();
+
+        for (Map.Entry<String, List<CdcEvent>> entry : byTable.entrySet()) {
+            List<DataRecord> records = new ArrayList<>(entry.getValue().size());
+            for (CdcEvent event : entry.getValue()) {
+                DataRecord r = cdcEventToDataRecord(event);
+                if (r != null) {
+                    records.add(r);
+                }
+            }
+            WriteResult res = writer.applyBatch(config, entry.getKey(), records, primaryKeyColumn);
+            total += res.getTotalRecords();
+            success += res.getSuccessCount();
+            failure += res.getFailureCount();
+            if (res.getFailedRecords() != null) {
+                failedRecords.addAll(res.getFailedRecords());
             }
         }
-        return writer.applyBatch(config, targetTable, records, primaryKeyColumn);
+
+        return WriteResult.builder()
+                .totalRecords(total)
+                .successCount(success)
+                .failureCount(failure)
+                .failedRecords(failedRecords)
+                .build();
+    }
+
+    /**
+     * Converts an adapter WriteResult into a connector SPI WriteResult.
+     */
+    public com.datashifter.connector.spi.interfaces.WriteResult toConnectorWriteResult(WriteResult adapterResult) {
+        if (adapterResult == null) {
+            return com.datashifter.connector.spi.interfaces.WriteResult.builder().build();
+        }
+        List<com.datashifter.connector.spi.interfaces.WriteResult.FailedRecord> failedList = new ArrayList<>();
+        if (adapterResult.getFailedRecords() != null) {
+            for (WriteResult.FailedRecord fr : adapterResult.getFailedRecords()) {
+                failedList.add(com.datashifter.connector.spi.interfaces.WriteResult.FailedRecord.builder()
+                        .record(fr.getRecord() != null ? fr.getRecord().getData() : Collections.emptyMap())
+                        .errorMessage(fr.getErrorMessage())
+                        .errorType(fr.getErrorType() != null ? fr.getErrorType() : "WRITE_ERROR")
+                        .build());
+            }
+        }
+        return com.datashifter.connector.spi.interfaces.WriteResult.builder()
+                .totalRecords(adapterResult.getTotalRecords())
+                .successCount(adapterResult.getSuccessCount())
+                .failureCount(adapterResult.getFailureCount())
+                .failedRecords(failedList)
+                .build();
+    }
+
+    /**
+     * Converts an adapter DataRecord into a CDC stream event.
+     */
+    public CdcEvent dataRecordToCdcEvent(DataRecord record) {
+        if (record == null) {
+            return null;
+        }
+        CdcOperationType op = switch (record.getOperation() != null ? record.getOperation() : RecordOperation.READ) {
+            case INSERT -> CdcOperationType.INSERT;
+            case UPDATE -> CdcOperationType.UPDATE;
+            case DELETE -> CdcOperationType.DELETE;
+            default -> CdcOperationType.INSERT;
+        };
+        String tableName = record.getHeaders() != null && record.getHeaders().get("tableName") != null
+                ? record.getHeaders().get("tableName").toString() : null;
+        String transactionId = record.getHeaders() != null && record.getHeaders().get("transactionId") != null
+                ? record.getHeaders().get("transactionId").toString() : null;
+
+        return CdcEvent.builder()
+                .operationType(op)
+                .tableName(tableName)
+                .transactionId(transactionId)
+                .beforeData(record.getBeforeData())
+                .afterData(record.getData())
+                .build();
     }
 
     private RecordOperation mapCdcOperation(CdcOperationType op) {
