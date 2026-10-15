@@ -1,5 +1,6 @@
-/**
- * Barrel export for Marketplace components.
- * Sub-components will be modularized into this domain folder (<100 lines each).
- */
-export const MARKETPLACE_DOMAIN = 'marketplace';
+export { default as MarketplaceHeader } from './MarketplaceHeader';
+export { default as MarketplaceFilters } from './MarketplaceFilters';
+export { default as MarketplaceCategories } from './MarketplaceCategories';
+export { default as MarketplaceCard } from './MarketplaceCard';
+export { default as MarketplaceDrawer } from './MarketplaceDrawer';
+export { ADAPTER_REGISTRY, CATEGORIES } from './marketplaceData';

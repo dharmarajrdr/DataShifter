@@ -4,7 +4,7 @@ import AuthLayout from '../components/auth/AuthLayout';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import SubscriptionGuard from '../components/auth/SubscriptionGuard';
 import AppLayout from '../components/layout/AppLayout';
-import MarketplacePlaceholder from '../pages/marketplace/MarketplacePlaceholder';
+import MarketplacePage from '../pages/marketplace/MarketplacePage';
 import {
   BeetelAgentPage, BillingPage, ColumnMappingBoard, ConnectionsManager,
   DocsPage, ErrorLogViewer, ForgotPasswordPage, LiveMonitor, LoginPage,
@@ -33,7 +33,7 @@ export const AppRoutes = () => (
       {/* Authenticated app shell */}
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/" element={<Navigate to="/pipelines" replace />} />
-        <Route path="/marketplace" element={<SubscriptionGuard><MarketplacePlaceholder /></SubscriptionGuard>} />
+        <Route path="/marketplace" element={<SubscriptionGuard><MarketplacePage /></SubscriptionGuard>} />
         <Route path="/settings/billing" element={<BillingPage />} />
 
         {/* Pipelines module */}
