@@ -35,26 +35,44 @@ const SIZES = {
   lg: { padding: `${SPACING.xs} ${SPACING.lg}`, fontSize: FONT.size.md },
 };
 
-const Button = ({ children, variant = 'primary', size = 'md', style = {}, onClick, disabled, ...props }) => {
+export const Button = ({
+  id,
+  className = '',
+  children,
+  variant = 'primary',
+  size = 'md',
+  type = 'button',
+  style = {},
+  onClick,
+  disabled = false,
+  ...props
+}) => {
   const v = VARIANTS[variant] || VARIANTS.primary;
   const s = SIZES[size] || SIZES.md;
+
   return (
     <button
+      id={id}
+      type={type}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
+      className={`inline-flex items-center justify-center font-medium transition-all select-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2
+        disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       style={{
         ...v,
         ...s,
         borderRadius: BORDER_RADIUS.md,
         fontWeight: FONT.weight.medium,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.45 : 1,
-        transition: 'opacity 0.15s ease',
         whiteSpace: 'nowrap',
         ...style,
       }}
-      onMouseEnter={e => { if (!disabled) e.target.style.opacity = '0.85'; }}
-      onMouseLeave={e => { if (!disabled) e.target.style.opacity = '1'; }}
+      onMouseEnter={(e) => {
+        if (!disabled) e.currentTarget.style.opacity = '0.9';
+      }}
+      onMouseLeave={(e) => {
+        if (!disabled) e.currentTarget.style.opacity = '1';
+      }}
       {...props}
     >
       {children}
