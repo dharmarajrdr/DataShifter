@@ -184,12 +184,16 @@ public class MappingService {
         Connection targetConn = pipeline.getTargetConnectionId() != null
                 ? connectionRepository.findById(pipeline.getTargetConnectionId()).orElse(null)
                 : null;
-        if (targetConn == null) {
+        if (targetConn == null && pipeline.getTargetAdapterId() == null) {
             return List.of("Target connection not found: " + pipeline.getTargetConnectionId());
         }
 
-        DatabaseConnector targetConnector = connectorFactory.getConnector(targetConn.getDbType());
-        ConnectionConfig targetConfig = toConfig(targetConn);
+        DatabaseConnector targetConnector = targetConn != null
+                ? connectorFactory.getConnector(targetConn.getDbType())
+                : null;
+        ConnectionConfig targetConfig = targetConn != null
+                ? toConfig(targetConn)
+                : null;
 
         Connection sourceConn = pipeline.getSourceConnectionId() != null
                 ? connectionRepository.findById(pipeline.getSourceConnectionId()).orElse(null)
