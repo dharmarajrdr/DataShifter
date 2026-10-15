@@ -50,7 +50,7 @@ export const MarketplacePage = ({ id = 'marketplace-page', className = '' }) => 
         totalCount={adapters.length}
       />
 
-      <Card id="marketplace-controls-card" variant="elevated" className="p-4 space-y-4">
+      <Card id="marketplace-controls-card" variant="elevated" padding={false} className="p-4 space-y-4">
         <MarketplaceFilters
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}

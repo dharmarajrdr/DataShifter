@@ -27,7 +27,7 @@ export const Header = ({
   return (
     <header
       id={id}
-      className={`h-[50px] bg-white border-b border-surface-200 px-6 flex items-center justify-between shrink-0 select-none ${className}`}
+      className={`sticky top-0 z-30 h-[50px] bg-white/95 backdrop-blur-sm border-b border-surface-200 px-6 flex items-center justify-between shrink-0 select-none shadow-xs transition-shadow ${className}`}
     >
       <nav aria-label="Breadcrumbs" className="flex items-center gap-1.5 text-xs text-content-secondary">
         <Link to="/pipelines" className="hover:text-content-primary transition-colors">App</Link>
