@@ -12,6 +12,7 @@ import {
   ForbiddenPage, NotFoundPage, ServerErrorPage, PipelineSettings, PipelineWizard,
   ResetPasswordPage, RolesPage, SignupPage, UdfLibrary, UserProfile,
   WorkflowBuilderPage, WorkflowDashboard, WorkflowMonitor, WorkflowSettings, NotifyHubPage,
+  MonitoringHubPage,
 } from '../pages';
 
 /**
@@ -33,6 +34,7 @@ export const AppRoutes = () => (
       {/* Authenticated app shell */}
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/" element={<Navigate to="/pipelines" replace />} />
+        <Route path="/monitoring" element={<SubscriptionGuard><ProtectedRoute permission="monitor:view"><MonitoringHubPage /></ProtectedRoute></SubscriptionGuard>} />
         <Route path="/marketplace" element={<SubscriptionGuard><MarketplacePage /></SubscriptionGuard>} />
         <Route path="/settings/billing" element={<BillingPage />} />
 

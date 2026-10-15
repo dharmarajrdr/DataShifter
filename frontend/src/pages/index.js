@@ -25,4 +25,5 @@ export { default as WorkflowDashboard } from './WorkflowDashboard';
 export { default as WorkflowMonitor } from './WorkflowMonitor';
 export { default as WorkflowSettings } from './WorkflowSettings';
 export { default as NotifyHubPage } from './NotifyHubPage';
+export { default as MonitoringHubPage } from './monitor/MonitoringHubPage';
 
