@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Play, Pause, Square, RotateCw, Download, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, Play, Pause, Square, Download } from 'lucide-react';
 
 const STATUS_BADGES = {
   RUNNING: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -29,7 +29,11 @@ export const MonitorHeader = ({
           {status === 'RUNNING' && <span id="monitor-pulse-dot" className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
           <span id="monitor-status-text">{status}</span>
         </span>
-        {isCdc && <span id="monitor-cdc-badge" className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">CDC Stream Active</span>}
+        {isCdc && (
+          <span id="monitor-cdc-badge" data-testid="cdc-streaming-badge" className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+            CDC Stream Active
+          </span>
+        )}
       </div>
     </div>
     <div id="monitor-header-actions" className="flex items-center gap-2 flex-wrap">
