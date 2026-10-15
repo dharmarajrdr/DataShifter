@@ -1,46 +1,33 @@
-import React, { useState } from 'react';
-import { BORDER_RADIUS, COLORS, FONT, SHADOWS } from '../../constants/design';
+import React from 'react';
 
-const AddWorkflowStepPill = ({ onClick, active = false, label = '+ Add Workflow Steps', disabled = false }) => {
-  const [hovered, setHovered] = useState(false);
+const AddWorkflowStepPill = ({
+  onClick,
+  active = false,
+  label = '+ Add Workflow Steps',
+  disabled = false,
+}) => {
+  const displayLabel = label.replace(/^\+\s*/, '');
 
   return (
     <button
+      id={`workflow-add-step-pill-${displayLabel.toLowerCase().replace(/\s+/g, '-')}`}
       type="button"
       disabled={disabled}
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        padding: '9px 20px',
-        borderRadius: BORDER_RADIUS.pill,
-        background: active
-          ? COLORS.accent.purpleLight
-          : hovered
-            ? COLORS.background.secondary
-            : COLORS.background.primary,
-        color: active || hovered ? COLORS.brand.primary : COLORS.text.primary,
-        border: active
-          ? `1.5px solid ${COLORS.brand.primary}`
-          : `1px solid ${hovered ? COLORS.brand.primary : COLORS.border.medium}`,
-        boxShadow: hovered ? SHADOWS.md : SHADOWS.sm,
-        fontSize: FONT.size.md,
-        fontWeight: FONT.weight.medium,
-        fontFamily: FONT.family,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.55 : 1,
-        transition: 'all 0.15s ease',
-      }}
+      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-medium text-xs md:text-sm tracking-tight transition-all duration-150 shadow-sm ${
+        active
+          ? 'bg-indigo-50 text-indigo-700 border-2 border-indigo-600 ring-2 ring-indigo-500/20'
+          : 'bg-white text-slate-800 border border-slate-300 hover:border-indigo-500 hover:text-indigo-600 hover:bg-slate-50'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
-      <i className="fa-solid fa-plus" style={{ fontSize: 12, color: COLORS.brand.primary }} />
-      <span>{label.replace(/^\+\s*/, '')}</span>
+      <i
+        id="workflow-add-step-pill-icon"
+        className="fa-solid fa-plus text-xs text-indigo-600"
+        aria-hidden="true"
+      />
+      <span id="workflow-add-step-pill-label">{displayLabel}</span>
     </button>
   );
 };
 
 export default AddWorkflowStepPill;
-
