@@ -57,6 +57,7 @@ export const NotificationProvider = ({ children }) => {
               message={n.message}
               duration={n.duration}
               position={n.position}
+              isFixed={false}
               onDismiss={() => dismiss(n.id)}
             />
           </div>
