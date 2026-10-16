@@ -1,0 +1,44 @@
+/* ============================================================
+   STICKY MODAL HEADERS AND FOOTERS
+   Ensures modal headers and action footers stay sticky
+   while modal body contents scroll smoothly.
+   ============================================================ */
+
+div[style*="position: fixed"] > div[style*="maxHeight"],
+div[style*="position: fixed"] > div[style*="max-height"],
+div[style*="position: fixed"] > div[style*="overflow"],
+.ds-modal-card {
+  position: relative;
+  overflow-y: auto !important;
+  scroll-behavior: smooth;
+}
+
+div[style*="position: fixed"] > div > div:first-child,
+div[style*="position: fixed"] > div[style*="maxHeight"] > div:first-child,
+div[style*="position: fixed"] > div[style*="max-height"] > div:first-child,
+.ds-modal-header,
+.modal-header {
+  position: sticky !important;
+  top: 0 !important;
+  background-color: #FFFFFF !important;
+  z-index: 30 !important;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+
+div[style*="position: fixed"] form > div:last-child,
+div[style*="position: fixed"] > div > div:last-child > div:last-child,
+.ds-modal-footer,
+.modal-footer {
+  position: sticky !important;
+  bottom: 0 !important;
+  background-color: #FFFFFF !important;
+  z-index: 30 !important;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+  box-shadow: 0 -2px 6px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+div[style*="position: fixed"] form {
+  position: relative;
+}
