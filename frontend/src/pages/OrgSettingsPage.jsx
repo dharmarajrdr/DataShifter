@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ApiGuard, BarLoader, Loader } from '../components/common';
 import SettingsTabs from '../components/common/SettingsTabs';
-import { OrgPreviewCard, OrgDetailsForm } from '../components/settings';
+import { OrgPreviewCard, OrgDetailsForm, OrgSecurityGovernanceCard, OrgQuotasUsageCard } from '../components/settings';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { authApi } from '../services/authApi';
@@ -31,10 +31,7 @@ const OrgSettingsPage = () => {
           setLogoUrl(data.logoUrl || '');
         }
       } catch (err) {
-        if (mounted) {
-          setError(err);
-          setName(user?.orgName || '');
-        }
+        if (mounted) { setError(err); setName(user?.orgName || ''); }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -46,11 +43,7 @@ const OrgSettingsPage = () => {
   const isChanged = org && (name.trim() !== (org.name || '') || (logoUrl.trim() || '') !== (org.logoUrl || ''));
 
   const handleCancel = () => {
-    if (org) {
-      setName(org.name || '');
-      setLogoUrl(org.logoUrl || '');
-      setError(null);
-    }
+    if (org) { setName(org.name || ''); setLogoUrl(org.logoUrl || ''); setError(null); }
   };
 
   const handleSave = async (e) => {
@@ -68,18 +61,24 @@ const OrgSettingsPage = () => {
       updateUser?.({ orgName: updated.name });
       refreshOrganizations?.();
     } catch (err) {
-      setError(err.message || 'Failed to update organization details');
-      notification.error(err.message || 'Failed to update organization details');
+      setError(err.message || 'Failed to update organization');
+      notification.error(err.message || 'Failed to update organization');
     } finally { setSaving(false); }
   };
 
   return (
-    <ApiGuard error={error} loading={loading} loadingComponent={<div><BarLoader /><div className="max-w-2xl pt-6"><Loader message="Loading organization settings..." /></div></div>}>
-      <div id="org-settings-page" className="ds-org-settings-page">
+    <ApiGuard error={error} loading={loading} loadingComponent={<div><BarLoader /><div className="max-w-7xl pt-6"><Loader message="Loading settings..." /></div></div>}>
+      <div id="org-settings-page" className="ds-org-settings-page max-w-7xl mx-auto pb-12">
         <SettingsTabs title="Organization settings" subtitle={org?.name || user?.orgName || 'Your organization'} />
-        <div className="max-w-2xl pt-6">
-          <OrgPreviewCard name={name || user?.orgName} logoUrl={logoUrl} memberCount={org?.memberCount} createdAt={org?.createdAt} />
-          <OrgDetailsForm org={org} name={name} onNameChange={setName} logoUrl={logoUrl} onLogoUrlChange={setLogoUrl} canEditOrg={canEditOrg} saving={saving} isChanged={isChanged} onCancel={handleCancel} onSave={handleSave} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6 items-start">
+          <div className="lg:col-span-2 space-y-6">
+            <OrgDetailsForm org={org} name={name} onNameChange={setName} logoUrl={logoUrl} onLogoUrlChange={setLogoUrl} canEditOrg={canEditOrg} saving={saving} isChanged={isChanged} onCancel={handleCancel} onSave={handleSave} />
+            <OrgSecurityGovernanceCard />
+          </div>
+          <div className="space-y-6">
+            <OrgPreviewCard name={name || user?.orgName} logoUrl={logoUrl} memberCount={org?.memberCount} createdAt={org?.createdAt} />
+            <OrgQuotasUsageCard />
+          </div>
         </div>
       </div>
     </ApiGuard>
