@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { ApiGuard, BarLoader, Loader } from '../components/common';
+import { ApiGuard, BarLoader, Button, Loader } from '../components/common';
 import SettingsTabs from '../components/common/SettingsTabs';
 import { OrgPreviewCard, OrgDetailsForm, OrgSecurityGovernanceCard, OrgQuotasUsageCard } from '../components/settings';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { authApi } from '../services/authApi';
 
-const OrgSettingsPage = () => {
+export const OrgSettingsPage = () => {
   const { user, updateUser, refreshOrganizations, hasPermission } = useAuth();
   const [org, setOrg] = useState(null);
   const [name, setName] = useState('');
@@ -15,7 +15,6 @@ const OrgSettingsPage = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const notification = useNotification();
-
   const canEditOrg = hasPermission('org:manage_roles') || hasPermission('org:manage_members') || !!user?.orgOwner;
 
   useEffect(() => {
@@ -68,16 +67,20 @@ const OrgSettingsPage = () => {
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<div><BarLoader /><div className="max-w-7xl pt-6"><Loader message="Loading settings..." /></div></div>}>
-      <div id="org-settings-page" className="ds-org-settings-page max-w-7xl mx-auto pb-12 flex flex-col">
-        <SettingsTabs title="Organization settings" subtitle={org?.name || user?.orgName || 'Your organization'} />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          <div className="lg:col-span-2 space-y-6">
+      <div id="org-settings-page" className="ds-org-settings-page max-w-7xl mx-auto pb-12 flex flex-col gap-4">
+        <SettingsTabs
+          title="Organization Settings"
+          subtitle="Manage profile, authentication policies, audit retention, and enterprise quotas"
+          actions={canEditOrg && <Button variant="primary" disabled={!isChanged || !name?.trim() || saving} onClick={handleSave}>{saving ? 'Saving...' : 'Save Changes'}</Button>}
+        />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+          <div className="lg:col-span-2 flex flex-col gap-5">
             <OrgDetailsForm org={org} name={name} onNameChange={setName} logoUrl={logoUrl} onLogoUrlChange={setLogoUrl} canEditOrg={canEditOrg} saving={saving} isChanged={isChanged} onCancel={handleCancel} onSave={handleSave} />
             <OrgSecurityGovernanceCard />
           </div>
-          <div className="space-y-6">
-            <OrgPreviewCard name={name || user?.orgName} logoUrl={logoUrl} memberCount={org?.memberCount} createdAt={org?.createdAt} />
+          <div className="flex flex-col gap-5">
             <OrgQuotasUsageCard />
+            <OrgPreviewCard name={name || user?.orgName} logoUrl={logoUrl} memberCount={org?.memberCount} createdAt={org?.createdAt} />
           </div>
         </div>
       </div>
