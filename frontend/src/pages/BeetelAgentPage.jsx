@@ -65,7 +65,7 @@ const BeetelAgentPage = () => {
   if (accessDenied) return <ErrorPage status={403} />;
 
   return (
-    <div id="beetel-agent-page" className="ds-beetel-agent-page flex flex-col h-[calc(100vh-64px)]">
+    <div id="beetel-agent-page" className="ds-beetel-agent-page flex flex-col h-[calc(100vh-64px)] gap-4">
       <BeetelAgentHeader keyStatus={keyStatus} onNewChat={handleNewChat} onConfigureKeys={() => navigate('/profile')} />
       <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 flex-1 min-h-0">
         <BeetelSessionSidebar sessions={sessions} selectedSessionId={selectedSessionId} loading={loadingSessions} onSelectSession={(id) => { hasAutoSelectedRef.current = true; setSelectedSessionId(id); navigate(`/beetel/${id}`); }} />

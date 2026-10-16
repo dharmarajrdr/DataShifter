@@ -68,7 +68,7 @@ const NotifyHubPage = () => {
   const filteredListeners = listeners.filter(l => (listenerResourceFilter === 'ALL' || l.resourceType === listenerResourceFilter) && (!searchQuery || l.name?.toLowerCase().includes(searchQuery.toLowerCase()) || l.eventKey?.toLowerCase().includes(searchQuery.toLowerCase())));
 
   return (
-    <div id="notifyhub-page" className="ds-notifyhub-page max-w-7xl mx-auto pb-12">
+    <div id="notifyhub-page" className="ds-notifyhub-page max-w-7xl mx-auto pb-12 flex flex-col gap-6">
       <NotifyHubHeader activeTab={activeTab} onNewListener={() => { setEditingListener(null); setShowListenerModal(true); }} onNewChannel={() => { setEditingChannel(null); setShowChannelModal(true); }} onNewTemplate={() => { setEditingTemplate(null); setShowTemplateModal(true); }} onSendTestAlert={handleSendTestAlert} />
       <NotifyHubTabs activeTab={activeTab} onTabChange={setActiveTab} listenerCount={listeners.length} channelCount={channels.length} templateCount={templates.length} listenerResourceFilter={listenerResourceFilter} onResourceFilterChange={setListenerResourceFilter} channelTypeFilter={channelTypeFilter} onChannelTypeFilterChange={setChannelTypeFilter} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
       {loading ? <Loader message="Loading NotifyHub configurations..." height="40vh" /> : (

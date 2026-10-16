@@ -66,7 +66,7 @@ const ConnectionsManager = () => {
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<div><BarLoader /><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"><SkeletonLoader variant="card" count={4} /></div></div>}>
-      <div id="connections-manager-page" className="ds-connections-manager-page max-w-7xl mx-auto pb-12">
+      <div id="connections-manager-page" className="ds-connections-manager-page max-w-7xl mx-auto pb-12 flex flex-col gap-6">
         <ConnectionsHeader canCreate={perms.create} onNewConnection={() => { setEditingConn(null); setShowForm(true); }} onTestAll={handleTestAll} testingAll={testingAll} />
         <ConnectionsKpiGrid connections={connections} />
         <ConnectionsFilterBar selectedCategory={category} onCategoryChange={setCategory} searchQuery={searchQuery} onSearchChange={setSearchQuery} categoryCounts={categoryCounts} />
