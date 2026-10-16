@@ -53,7 +53,7 @@ export const ConnectionCard = ({
     : { text: 'Connected', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' };
 
   return (
-    <div id={id || `conn-card-${conn.id}`} className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all">
+    <div id={id || `conn-card-${conn.id}`} className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all">
       <div>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">

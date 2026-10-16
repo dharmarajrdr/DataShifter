@@ -78,7 +78,7 @@ export const ConnectionsManager = () => {
             <Button variant="primary" onClick={() => { setEditingConn(null); setShowForm(true); }} disabled={!perms.create}>Add Connection</Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredConnections.map((conn) => (
               <ConnectionCard key={conn.id} conn={conn} onEdit={(c) => { setEditingConn(c); setShowForm(true); }} onDelete={(id) => setConnections((p) => p.filter((c) => c.id !== id))} onUpdate={(id, u) => setConnections((p) => p.map((c) => c.id === id ? { ...c, ...u } : c))} onBrowse={setBrowsingConn} canEdit={perms.edit} canDelete={perms.delete} canTest={perms.test} canBrowse={perms.browse} />
             ))}
