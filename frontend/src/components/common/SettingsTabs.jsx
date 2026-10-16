@@ -1,14 +1,11 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../../constants/design';
-import { FRBC } from '../../constants/layouts';
 import { useAuth } from '../../contexts/AuthContext';
 
 /**
- * Sticky settings header: title + subtitle + optional actions on top, tabs below.
- * Props: title, subtitle, actions (optional)
+ * Settings header with title, subtitle, actions, and tabs using flex layout (<= 100 lines).
  */
-const SettingsTabs = ({ title, subtitle, actions }) => {
+export const SettingsTabs = ({ title, subtitle, actions }) => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
@@ -22,46 +19,43 @@ const SettingsTabs = ({ title, subtitle, actions }) => {
   ];
 
   return (
-    <div style={{
-      position: 'sticky', top: 0, zIndex: 10,
-      background: '#fff',
-      margin: `-${SPACING.xl} -${SPACING.xl} 0`,
-      padding: `${SPACING.xl} ${SPACING.xl} 0`,
-    }}>
-      {/* Header */}
-      <div style={{ ...FRBC, marginBottom: SPACING.sm }}>
+    <div
+      id="settings-tabs-header"
+      className="ds-settings-tabs-header flex flex-col gap-3.5 mb-6 w-full"
+    >
+      {/* Header Title + Actions */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 style={{ fontSize: FONT.size.xl, fontWeight: FONT.weight.medium, color: COLORS.text.primary }}>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
             {title}
           </h1>
           {subtitle && (
-            <p style={{ fontSize: FONT.size.md, color: COLORS.text.secondary, marginTop: SPACING.xxs }}>
+            <p className="text-sm text-slate-500 mt-1">
               {subtitle}
             </p>
           )}
         </div>
-        {actions && <div style={{ display: 'flex', gap: SPACING.xs, alignItems: 'center' }}>{actions}</div>}
+        {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
       </div>
 
-      {/* Tabs */}
-      <div style={{
-        display: 'flex', gap: '2px',
-        borderBottom: `1px solid ${COLORS.border.light}`,
-      }}>
+      {/* Navigation Tabs Bar */}
+      <div className="flex items-center gap-1 border-b border-slate-200 flex-wrap">
         {tabs.filter(t => t.show).map(tab => {
           const active = pathname === tab.path;
           return (
-            <div key={tab.path} onClick={() => navigate(tab.path)}
-              style={{
-                padding: `${SPACING.xs} ${SPACING.md}`,
-                fontSize: FONT.size.sm, fontWeight: active ? 600 : 400, cursor: 'pointer',
-                color: active ? COLORS.brand.primary : COLORS.text.secondary,
-                borderBottom: `2px solid ${active ? COLORS.brand.primary : 'transparent'}`,
-                marginBottom: '-1px',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={e => { if (!active) e.currentTarget.style.color = COLORS.text.primary; }}
-              onMouseLeave={e => { if (!active) e.currentTarget.style.color = COLORS.text.secondary; }}>
+            <div
+              key={tab.path}
+              id={`tab-${tab.label.toLowerCase().replace(/\s+/g, '-')}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(tab.path)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(tab.path); } }}
+              className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition -mb-[1px] cursor-pointer flex items-center select-none ${
+                active
+                  ? 'text-indigo-600 border-indigo-600 font-bold'
+                  : 'text-slate-500 hover:text-slate-800 border-transparent'
+              }`}
+            >
               {tab.label}
             </div>
           );

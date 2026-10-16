@@ -68,9 +68,9 @@ const OrgSettingsPage = () => {
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<div><BarLoader /><div className="max-w-7xl pt-6"><Loader message="Loading settings..." /></div></div>}>
-      <div id="org-settings-page" className="ds-org-settings-page max-w-7xl mx-auto pb-12">
+      <div id="org-settings-page" className="ds-org-settings-page max-w-7xl mx-auto pb-12 flex flex-col">
         <SettingsTabs title="Organization settings" subtitle={org?.name || user?.orgName || 'Your organization'} />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <div className="lg:col-span-2 space-y-6">
             <OrgDetailsForm org={org} name={name} onNameChange={setName} logoUrl={logoUrl} onLogoUrlChange={setLogoUrl} canEditOrg={canEditOrg} saving={saving} isChanged={isChanged} onCancel={handleCancel} onSave={handleSave} />
             <OrgSecurityGovernanceCard />

@@ -13,13 +13,13 @@ const OrgApiKeysPage = () => {
     Boolean(user?.orgOwner);
 
   return (
-    <div>
+    <div id="org-api-keys-page" className="max-w-7xl mx-auto pb-12 flex flex-col">
       <SettingsTabs
         title={`${AGENT.name} AI — Organization Shared LLM API Keys`}
         subtitle="Manage shared Groq and Ollama API keys with automatic multi-key failover across your organization"
       />
 
-      <div style={{ maxWidth: '680px', paddingTop: SPACING.xl }}>
+      <div style={{ maxWidth: '680px' }}>
         <AiKeyManagerSection
           scope="ORG"
           canEdit={canEditOrg}
