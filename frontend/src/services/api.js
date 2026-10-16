@@ -303,6 +303,10 @@ export const mappingApi = {
     ? mockResponse(MOCK_MAPPING)
     : apiClient.get(`/pipelines/${id}/mappings`),
 
+  get: (id) => USE_MOCK
+    ? mockResponse(MOCK_MAPPING)
+    : apiClient.get(`/pipelines/${id}/mappings`),
+
   save: (id, payload) => USE_MOCK
     ? mockResponse(payload)
     : apiClient.put(`/pipelines/${id}/mappings`, payload),

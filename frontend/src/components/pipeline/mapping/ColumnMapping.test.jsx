@@ -68,4 +68,10 @@ describe('Column Mapping Board Components and Utilities', () => {
     expect(simulateOne('hello', 'UPPER').val).toBe('HELLO');
     expect(simulateOne('12.3456', 'ROUND', '2').val).toBe(12.35);
   });
+
+  test('mappingApi defines both get and getByPipelineId methods', () => {
+    const { mappingApi } = require('../../../services/api');
+    expect(typeof mappingApi.getByPipelineId).toBe('function');
+    expect(typeof mappingApi.get).toBe('function');
+  });
 });

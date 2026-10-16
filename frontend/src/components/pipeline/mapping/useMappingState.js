@@ -21,7 +21,7 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
     (async () => {
       try {
         setLoading(true);
-        const res = await mappingApi.get(pipelineId);
+        const res = await (mappingApi.getByPipelineId || mappingApi.get)(pipelineId);
         setData(res.data);
         const ex = [];
         (res.data?.tablePairs || []).forEach((p) => {
