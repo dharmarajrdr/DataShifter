@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ModalHeader, ModalFooter } from './index';
+import { ModalHeader, ModalFooter, ModalBackdrop } from './index';
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -76,5 +76,21 @@ describe('Modal Sticky Header and Footer', () => {
     expect(el.className).toContain('ds-notification-item');
     expect(el.className).not.toContain('modal-footer');
     expect(el.className).not.toContain('ds-modal-card');
+  });
+
+  test('ModalBackdrop renders full screen fixed overlay', () => {
+    act(() => {
+      root.render(
+        <ModalBackdrop id="test-backdrop" isOpen={true}>
+          <div>Modal Dialog Card</div>
+        </ModalBackdrop>
+      );
+    });
+    const bd = document.querySelector('#test-backdrop');
+    expect(bd).not.toBeNull();
+    expect(bd.style.position).toBe('fixed');
+    expect(bd.style.width).toBe('100vw');
+    expect(bd.style.height).toBe('100vh');
+    expect(bd.textContent).toContain('Modal Dialog Card');
   });
 });

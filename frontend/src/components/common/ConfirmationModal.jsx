@@ -40,7 +40,7 @@ export const ConfirmationModal = ({
     >
       <div
         id={id ? `${id}-card` : undefined}
-        className={`w-full ${sizeClass} bg-white rounded-xl shadow-elevated border border-surface-200 overflow-hidden flex flex-col max-h-[90vh] ${className}`}
+        className={`relative w-full ${sizeClass} bg-white rounded-xl shadow-elevated border border-surface-200 overflow-hidden flex flex-col max-h-[90vh] ${className}`}
         style={color ? { borderTop: `4px solid ${color}` } : undefined}
       >
         <ModalHeader id={id} title={title} color={color} onClose={onClose} />

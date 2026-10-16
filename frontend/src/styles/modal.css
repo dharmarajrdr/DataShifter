@@ -4,24 +4,20 @@
    to bottom while modal body contents scroll smoothly.
    ============================================================ */
 
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"],
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"],
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="overflow"],
+div[style*="1000"] > div,
 .ds-modal-card {
   position: relative !important;
   display: flex !important;
   flex-direction: column !important;
-  max-height: 85vh !important;
+  max-height: 88vh !important;
   overflow: hidden !important;
 }
 
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div > div:first-child,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"] > div:first-child,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"] > div:first-child,
+div[style*="1000"] > div > div:first-child,
 .ds-modal-header,
 .modal-header {
   flex-shrink: 0 !important;
-  position: relative !important;
+  position: sticky !important;
   top: 0 !important;
   background-color: #FFFFFF !important;
   z-index: 30 !important;
@@ -29,47 +25,35 @@ div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-ite
   border-top-right-radius: inherit;
 }
 
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"] > form,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"] > form,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="overflow"] > form,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"] > div:last-child,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"] > div:last-child,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="overflow"] > div:last-child,
-.ds-modal-card > form,
-.ds-modal-card > div:last-child {
+div[style*="1000"] > div > form,
+.ds-modal-card > form {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow-y: auto !important;
   display: flex !important;
   flex-direction: column !important;
-  position: static !important;
   scroll-behavior: smooth;
-  padding-bottom: 74px !important;
 }
 
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) form > div:last-child,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"] > div:last-child > div:last-child,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"] > div:last-child > div:last-child,
-div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="overflow"] > div:last-child > div:last-child,
+div[style*="1000"] > div form > div:last-child,
 .ds-modal-footer,
 .modal-footer {
-  position: absolute !important;
+  flex-shrink: 0 !important;
+  position: sticky !important;
   bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
   background-color: #FFFFFF !important;
-  z-index: 40 !important;
+  z-index: 30 !important;
   border-bottom-left-radius: inherit;
   border-bottom-right-radius: inherit;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
-  padding: 14px 24px !important;
   border-top: 1px solid #E2E8F0 !important;
 }
 
-/* Explicit notification protection: prevents modal padding from affecting toasts */
+/* Explicit notification protection */
 .ds-notification-item,
-.ds-notification-item div,
+.ds-notification-popup,
+.ds-notification-toast,
 [id*="notification"],
-[id*="notification"] div {
+[id*="notification"] * {
+  background-color: inherit;
   padding-bottom: 0;
 }
