@@ -14,7 +14,7 @@ export const ModalFooter = ({
   return (
     <div
       id={id ? `${id}-footer` : undefined}
-      className={`sticky bottom-0 z-20 flex items-center justify-end gap-2.5 px-6 py-3.5 bg-white border-t border-surface-200 flex-wrap shadow-xs ${className}`}
+      className={`modal-footer ds-modal-footer sticky bottom-0 z-20 flex items-center justify-end gap-2.5 px-6 py-3.5 bg-white border-t border-surface-200 flex-wrap shadow-xs ${className}`}
     >
       {children ? (
         children

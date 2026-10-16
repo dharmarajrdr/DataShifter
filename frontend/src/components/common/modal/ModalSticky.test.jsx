@@ -27,6 +27,7 @@ describe('Modal Sticky Header and Footer', () => {
     });
     const header = container.querySelector('#test-modal-header');
     expect(header).not.toBeNull();
+    expect(header.className).toContain('modal-header');
     expect(header.className).toContain('sticky');
     expect(header.className).toContain('top-0');
     expect(header.textContent).toContain('Edit Event Listener');
@@ -52,6 +53,7 @@ describe('Modal Sticky Header and Footer', () => {
     });
     const footer = container.querySelector('#test-modal-footer');
     expect(footer).not.toBeNull();
+    expect(footer.className).toContain('modal-footer');
     expect(footer.className).toContain('sticky');
     expect(footer.className).toContain('bottom-0');
 
@@ -61,3 +63,4 @@ describe('Modal Sticky Header and Footer', () => {
     expect(handleSave).toHaveBeenCalledTimes(1);
   });
 });
+
