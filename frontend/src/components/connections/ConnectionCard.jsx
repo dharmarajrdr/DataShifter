@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, ConfirmationModal, StatusBadge } from '../common';
+import { ConfirmationModal } from '../common';
 import ConnectionDbIcon from './ConnectionDbIcon';
-import { COLORS } from '../../constants/design';
-import { CONNECTION } from '../../constants/literals';
 import { useNotification } from '../../contexts/NotificationContext';
 import { connectionApi } from '../../services/api';
 
@@ -15,9 +13,9 @@ export const ConnectionCard = ({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const notification = useNotification();
   const isReferenced = (conn.pipelineCount || 0) > 0;
-  const testTimerRef = useRef(null);
+  const timerRef = useRef(null);
 
-  useEffect(() => () => { if (testTimerRef.current) clearTimeout(testTimerRef.current); }, []);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
   const handleTest = async () => {
     if (!canTest) return;
@@ -27,14 +25,12 @@ export const ConnectionCard = ({
     try {
       const res = await connectionApi.test(conn.id);
       setTestResult(res.data);
-      testTimerRef.current = setTimeout(() => setTestResult(null), 3000);
-      notification[res.data?.success ? 'success' : 'error'](
-        res.data?.success ? `Connection to "${conn.name}" tested successfully` : (res.data?.message || 'Connection test failed')
-      );
+      timerRef.current = setTimeout(() => setTestResult(null), 3000);
+      notification[res.data?.success ? 'success' : 'error'](res.data?.success ? `Connection to "${conn.name}" tested successfully` : (res.data?.message || 'Connection test failed'));
       onUpdate?.(conn.id, { status: res.data?.success ? 'CONNECTED' : 'FAILED', error: res.data?.success ? null : res.data?.message });
     } catch (e) {
       setTestResult({ success: false, message: e.message });
-      testTimerRef.current = setTimeout(() => setTestResult(null), 3000);
+      timerRef.current = setTimeout(() => setTestResult(null), 3000);
       notification.error(e.message || 'Connection test failed');
       onUpdate?.(conn.id, { status: 'FAILED', error: e.message });
     } finally { setTesting(false); }
@@ -50,41 +46,49 @@ export const ConnectionCard = ({
     finally { setConfirmDelete(false); }
   };
 
-  const cardId = id || `conn-card-${conn.id}`;
+  const isFailed = conn.status === 'FAILED';
+  const isTesting = conn.status === 'TESTING' || testing;
+  const statusBadge = isFailed ? { text: 'Auth Failure', cls: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' }
+    : isTesting ? { text: 'Testing', cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500 animate-pulse' }
+    : { text: 'Connected', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' };
 
   return (
-    <div id={cardId} className="ds-connection-card bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between">
+    <div id={id || `conn-card-${conn.id}`} className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all">
       <div>
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-3">
-            <ConnectionDbIcon dbType={conn.dbType} id={`${cardId}-icon`} />
-            <div>
-              <p id={`${cardId}-name`} className="text-sm font-bold text-slate-900">{conn.name}</p>
-              <p id={`${cardId}-host`} className="text-xs text-slate-500 font-mono mt-0.5">{conn.host}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <ConnectionDbIcon dbType={conn.dbType} id={`${conn.id}-icon`} />
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-slate-900 truncate">{conn.name}</h3>
+              <p className="text-[11px] text-slate-500 truncate mt-0.5">{conn.dbType} • {conn.host || 'Direct'}</p>
             </div>
           </div>
-          <StatusBadge status={conn.status} label={CONNECTION.statuses[conn.status]} />
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shrink-0 ${statusBadge.cls}`}>
+            <span className={`w-2 h-2 rounded-full ${statusBadge.dot}`} />{statusBadge.text}
+          </span>
         </div>
-        <div className="flex items-center gap-4 text-xs text-slate-500 mb-3 pb-3 border-b border-slate-100 flex-wrap">
-          <span>Type: <strong className="text-slate-800">{conn.dbType}</strong></span>
-          <span>Schema: <strong className="text-slate-800">{conn.schemaName}</strong></span>
-          <span>Tables: <strong className="text-slate-800">{conn.tableCount || '0'}</strong></span>
-          {isReferenced && <span>Pipelines: <strong className="text-indigo-600">{conn.pipelineCount}</strong></span>}
+
+        <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-col gap-1.5 text-xs">
+          <div className="flex justify-between items-center"><span className="text-slate-500">Endpoint:</span><span className="font-mono text-slate-800 truncate max-w-[200px]">{conn.host}{conn.port ? `:${conn.port}` : ''}</span></div>
+          <div className="flex justify-between items-center"><span className="text-slate-500">Database:</span><span className="font-semibold text-slate-800 truncate max-w-[200px]">{conn.databaseName || conn.schemaName || 'default'}</span></div>
+          <div className="flex justify-between items-center"><span className="text-slate-500">Active Pipelines:</span><span className="font-bold text-indigo-600">{conn.pipelineCount ? `${conn.pipelineCount} Pipelines` : 'None'}</span></div>
         </div>
-        {conn.error && <div className="bg-rose-50 text-rose-700 text-xs p-2 rounded-lg mb-3 border border-rose-200">{conn.error}</div>}
-        {testResult && (
-          <div className={`text-xs p-2 rounded-lg mb-3 border ${testResult.success ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
-            {testResult.success ? `Connected (${testResult.latencyMs}ms) — ${testResult.tableCount} tables found` : `Failed: ${testResult.message}`}
-          </div>
-        )}
+
+        {conn.error && <div className="mt-2.5 p-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-medium truncate">{conn.error}</div>}
+        {testResult && <div className={`mt-2.5 p-2 rounded-lg text-xs font-medium border ${testResult.success ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{testResult.success ? `Connected (${testResult.latencyMs}ms)` : testResult.message}</div>}
       </div>
-      <div className="flex items-center gap-2 pt-2">
-        <Button variant="secondary" size="sm" onClick={handleTest} disabled={!canTest || testing}>{testing ? 'Testing...' : (conn.status === 'FAILED' ? CONNECTION.retry : CONNECTION.test)}</Button>
-        <Button variant="secondary" size="sm" onClick={() => onEdit(conn)} disabled={!canEdit}>{CONNECTION.edit}</Button>
-        {conn.status === 'CONNECTED' && <Button variant="secondary" size="sm" onClick={() => onBrowse(conn)} disabled={!canBrowse}>{CONNECTION.browseSchema}</Button>}
-        <Button variant="danger" size="sm" disabled={!canDelete || isReferenced} onClick={() => setConfirmDelete(true)}>{CONNECTION.delete}</Button>
+
+      <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+        <button type="button" onClick={() => onBrowse?.(conn)} disabled={!canBrowse} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg transition-colors disabled:opacity-50">
+          <i className="fa-solid fa-table-list text-[11px] text-slate-500" />Inspect Schema ({conn.tableCount || 0} Tables)
+        </button>
+        <div className="flex items-center gap-1.5">
+          <button type="button" onClick={handleTest} disabled={!canTest || testing} className="px-2.5 py-1 text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg transition-colors disabled:opacity-50">{testing ? 'Testing...' : (isFailed ? 'Retry' : 'Test')}</button>
+          <button type="button" onClick={() => onEdit?.(conn)} disabled={!canEdit} className="px-2.5 py-1 text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg transition-colors disabled:opacity-50">Edit</button>
+          <button type="button" onClick={() => setConfirmDelete(true)} disabled={!canDelete || isReferenced} className="px-2.5 py-1 text-xs font-medium bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 rounded-lg transition-colors disabled:opacity-40">Delete</button>
+        </div>
       </div>
-      <ConfirmationModal isOpen={confirmDelete && !isReferenced && canDelete} title="Delete Connection" message={`Are you sure you want to delete connection "${conn.name}" permanently?`} color={COLORS.status.error} onClose={() => setConfirmDelete(false)} actions={[{ label: 'Cancel', variant: 'secondary', onClick: () => setConfirmDelete(false) }, { label: 'Yes, delete', variant: 'danger', onClick: handleDelete }]} />
+      <ConfirmationModal isOpen={confirmDelete && !isReferenced && canDelete} title="Delete Connection" message={`Are you sure you want to delete connection "${conn.name}" permanently?`} color="#EF4444" onClose={() => setConfirmDelete(false)} actions={[{ label: 'Cancel', variant: 'secondary', onClick: () => setConfirmDelete(false) }, { label: 'Yes, delete', variant: 'danger', onClick: handleDelete }]} />
     </div>
   );
 };

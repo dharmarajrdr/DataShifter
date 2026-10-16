@@ -13,7 +13,7 @@ const CATS = {
   OBJECT_STORE: ['S3', 'GCS', 'AZUREBLOB'],
 };
 
-const ConnectionsManager = () => {
+export const ConnectionsManager = () => {
   const { hasPermission } = useAuth();
   const perms = { view: hasPermission('connection:view'), create: hasPermission('connection:create'), edit: hasPermission('connection:edit'), delete: hasPermission('connection:delete'), test: hasPermission('connection:test'), browse: hasPermission('connection:browse_schema') };
   const [connections, setConnections] = useState([]);
@@ -49,13 +49,13 @@ const ConnectionsManager = () => {
 
   const categoryCounts = useMemo(() => ({
     ALL: connections.length,
-    RDBMS: connections.filter(c => CATS.RDBMS.includes(c.dbType?.toUpperCase())).length,
-    CLOUD_DW: connections.filter(c => CATS.CLOUD_DW.includes(c.dbType?.toUpperCase())).length,
-    STREAMING: connections.filter(c => CATS.STREAMING.includes(c.dbType?.toUpperCase())).length,
-    OBJECT_STORE: connections.filter(c => CATS.OBJECT_STORE.includes(c.dbType?.toUpperCase())).length,
+    RDBMS: connections.filter((c) => CATS.RDBMS.includes(c.dbType?.toUpperCase())).length,
+    CLOUD_DW: connections.filter((c) => CATS.CLOUD_DW.includes(c.dbType?.toUpperCase())).length,
+    STREAMING: connections.filter((c) => CATS.STREAMING.includes(c.dbType?.toUpperCase())).length,
+    OBJECT_STORE: connections.filter((c) => CATS.OBJECT_STORE.includes(c.dbType?.toUpperCase())).length,
   }), [connections]);
 
-  const filteredConnections = useMemo(() => connections.filter(c => {
+  const filteredConnections = useMemo(() => connections.filter((c) => {
     const t = c.dbType?.toUpperCase() || '';
     const matchCat = category === 'ALL' || (CATS[category] && CATS[category].includes(t));
     const q = searchQuery.toLowerCase().trim();
@@ -66,7 +66,7 @@ const ConnectionsManager = () => {
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<div><BarLoader /><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"><SkeletonLoader variant="card" count={4} /></div></div>}>
-      <div id="connections-manager-page" className="ds-connections-manager-page max-w-7xl mx-auto pb-12 flex flex-col gap-6">
+      <div id="connections-manager-page" className="ds-connections-manager-page max-w-7xl mx-auto pb-12 flex flex-col gap-5">
         <ConnectionsHeader canCreate={perms.create} onNewConnection={() => { setEditingConn(null); setShowForm(true); }} onTestAll={handleTestAll} testingAll={testingAll} />
         <ConnectionsKpiGrid connections={connections} />
         <ConnectionsFilterBar selectedCategory={category} onCategoryChange={setCategory} searchQuery={searchQuery} onSearchChange={setSearchQuery} categoryCounts={categoryCounts} />
@@ -78,14 +78,19 @@ const ConnectionsManager = () => {
             <Button variant="primary" onClick={() => { setEditingConn(null); setShowForm(true); }} disabled={!perms.create}>Add Connection</Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredConnections.map(conn => (
-              <ConnectionCard key={conn.id} conn={conn} onEdit={(c) => { setEditingConn(c); setShowForm(true); }} onDelete={(id) => setConnections(p => p.filter(c => c.id !== id))} onUpdate={(id, u) => setConnections(p => p.map(c => c.id === id ? { ...c, ...u } : c))} onBrowse={setBrowsingConn} canEdit={perms.edit} canDelete={perms.delete} canTest={perms.test} canBrowse={perms.browse} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
+            {filteredConnections.map((conn) => (
+              <ConnectionCard key={conn.id} conn={conn} onEdit={(c) => { setEditingConn(c); setShowForm(true); }} onDelete={(id) => setConnections((p) => p.filter((c) => c.id !== id))} onUpdate={(id, u) => setConnections((p) => p.map((c) => c.id === id ? { ...c, ...u } : c))} onBrowse={setBrowsingConn} canEdit={perms.edit} canDelete={perms.delete} canTest={perms.test} canBrowse={perms.browse} />
             ))}
           </div>
         )}
         {showForm && <ConnectionFormModal connection={editingConn} onClose={() => { setShowForm(false); setEditingConn(null); }} onSave={async (d) => { if (editingConn) await connectionApi.update(editingConn.id, d); else await connectionApi.create(d); notification.success(`Connection saved`); loadConnections(); setShowForm(false); setEditingConn(null); }} />}
-        {browsingConn && (<><div className="fixed inset-0 bg-slate-900/30 z-[999]" onClick={() => setBrowsingConn(null)} /><SchemaDrawer connectionId={browsingConn.id} connectionName={browsingConn.name} onClose={() => setBrowsingConn(null)} /></>)}
+        {browsingConn && (
+          <div className="fixed inset-0 z-50">
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity" onClick={() => setBrowsingConn(null)} />
+            <SchemaDrawer connectionId={browsingConn.id} connectionName={browsingConn.name} onClose={() => setBrowsingConn(null)} />
+          </div>
+        )}
       </div>
     </ApiGuard>
   );
