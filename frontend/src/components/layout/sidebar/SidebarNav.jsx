@@ -1,12 +1,11 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Library, Activity, Code2 } from 'lucide-react';
+import { ShoppingBag, Library } from 'lucide-react';
 import { PipelineIcon, WorkflowIcon, ConnectionIcon, SettingsIcon, NotifyHubIcon, BeetelIcon } from '../Icons';
 import SidebarNavItem from './SidebarNavItem';
 
 export const NAV_ITEMS = [
   { label: 'Pipelines', path: '/pipelines', icon: PipelineIcon },
-  { label: 'Monitoring', path: '/monitoring', icon: Activity },
   { label: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
   { label: 'Library', path: '/udfs', icon: Library },
   { label: 'Workflows', path: '/workflows', icon: WorkflowIcon },
