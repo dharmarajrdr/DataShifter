@@ -1,81 +1,77 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '../common';
-import { notifyHubApi } from '../../services/api';
-import { useNotification } from '../../contexts/NotificationContext';
+import { CHANNEL_TYPES, parseChannelConfig } from './channelConfigConstants';
 
-const TYPE_CONFIG = {
-  SLACK: { icon: 'fa-brands fa-slack', cls: 'bg-pink-50 text-pink-700 border-pink-200' },
-  EMAIL: { icon: 'fa-solid fa-envelope', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-  TEAMS: { icon: 'fa-solid fa-people-group', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
-  CLIQ: { icon: 'fa-solid fa-comments', cls: 'bg-teal-50 text-teal-700 border-teal-200' },
-  WEBHOOK: { icon: 'fa-solid fa-network-wired', cls: 'bg-orange-50 text-orange-700 border-orange-200' },
-};
-
-export const NotifyHubChannelList = ({
-  channels = [],
-  onEdit,
-  onDelete,
-  onNewChannel,
-}) => {
-  const notification = useNotification();
-  const [testingId, setTestingId] = useState(null);
-
-  const handleTest = async (channel) => {
-    setTestingId(channel.id);
-    try {
-      await notifyHubApi.testChannel(channel.id);
-      notification.success(`Test alert sent to ${channel.name}`);
-    } catch (err) {
-      notification.error(err.message || 'Failed to send test alert');
-    } finally {
-      setTestingId(null);
-    }
-  };
-
+export const NotifyHubChannelList = ({ channels = [], onEdit, onDelete, onNewChannel }) => {
   if (channels.length === 0) {
     return (
       <div className="bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center shadow-xs">
-        <i className="fa-solid fa-bullhorn text-3xl text-slate-300 mb-3 block" />
-        <p className="text-base font-bold text-slate-800 mb-1">No notification channels configured</p>
-        <p className="text-xs text-slate-500 mb-4">Add your team's Slack, Email, Microsoft Teams, Zoho Cliq or custom Webhook endpoints.</p>
-        <Button variant="primary" onClick={onNewChannel}>+ Create Channel Configuration</Button>
+        <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center text-xl mx-auto mb-3">
+          <i className="fa-solid fa-bullhorn" />
+        </div>
+        <p className="text-base font-bold text-slate-900 mb-1">No notification channels configured</p>
+        <p className="text-xs text-slate-500 mb-4">Add your team's Slack, Email, Microsoft Teams, Zoho Cliq, or custom Webhook endpoints.</p>
+        <Button variant="primary" onClick={onNewChannel}>+ Add Channel</Button>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {channels.map((ch) => {
-        const typeCfg = TYPE_CONFIG[ch.channelType] || TYPE_CONFIG.WEBHOOK;
-        let cfg = {};
-        try { cfg = JSON.parse(ch.configJson || '{}'); } catch (e) {}
+        const typeCfg = CHANNEL_TYPES.find((t) => t.value === ch.channelType) || {
+          tag: 'WH', tagCls: 'bg-indigo-50 text-indigo-700', sub: 'Custom Webhook',
+        };
+        const cfg = parseChannelConfig(ch);
+        const active = ch.enabled !== false;
+        const totalDispatched = ch.dispatchedCount ?? (ch.stats?.dispatched ?? 0);
+        const scope = cfg.scope || ch.scope || 'On Error / Halt';
 
         return (
-          <div key={ch.id} id={`channel-card-${ch.id}`} className="ds-channel-card bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between">
+          <div
+            key={ch.id}
+            id={`channel-card-${ch.id}`}
+            className="card bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between"
+          >
             <div>
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1.5 uppercase ${typeCfg.cls}`}>
-                  <i className={`${typeCfg.icon} text-[10px]`} />
-                  {ch.channelType}
+              <div className="flex items-center justify-between">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm ${typeCfg.tagCls}`}>
+                  {typeCfg.tag}
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                  active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
+                }`}>
+                  {active ? 'Active' : 'Paused'}
                 </span>
-                <span className="text-[10px] font-mono text-slate-400">ID: {ch.id.slice(0, 8)}</span>
               </div>
-              <h3 className="text-sm font-bold text-slate-900 mb-2 truncate" title={ch.name}>{ch.name}</h3>
-              <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-xs text-slate-600 mb-3 space-y-1">
-                {ch.channelType === 'EMAIL' ? (
-                  <p className="truncate"><strong className="text-slate-500">To:</strong> {Array.isArray(cfg.to) ? cfg.to.join(', ') : cfg.to || '—'}</p>
-                ) : (
-                  <p className="truncate font-mono text-[11px]"><strong className="text-slate-500">URL:</strong> {cfg.webhookUrl || cfg.endpointUrl || cfg.url || '—'}</p>
-                )}
-              </div>
+              <h3 className="text-sm font-bold text-slate-900 mt-3 truncate" title={ch.name}>
+                {ch.name}
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5 truncate" title={`${typeCfg.sub} • ${scope}`}>
+                {typeCfg.sub} • {scope}
+              </p>
             </div>
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <button onClick={() => handleTest(ch)} disabled={testingId === ch.id} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50">
-                {testingId === ch.id ? 'Sending...' : 'Test Alert'}
-              </button>
+
+            <div className="mt-3.5 pt-2.5 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+              <span>Total Dispatched: {totalDispatched}</span>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={() => onEdit(ch)}>Edit</Button>
-                <Button variant="danger" size="sm" onClick={() => onDelete(ch)}>Delete</Button>
+                <button
+                  type="button"
+                  id={`channel-edit-${ch.id}`}
+                  onClick={() => onEdit(ch)}
+                  className="text-indigo-600 hover:text-indigo-800 font-semibold text-[11px] cursor-pointer"
+                >
+                  Configure
+                </button>
+                <button
+                  type="button"
+                  id={`channel-delete-${ch.id}`}
+                  onClick={() => onDelete(ch)}
+                  className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                  title="Delete Channel"
+                >
+                  <i className="fa-solid fa-trash-can text-[11px]" />
+                </button>
               </div>
             </div>
           </div>

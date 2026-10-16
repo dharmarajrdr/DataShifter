@@ -72,12 +72,12 @@ const NotifyHubPage = () => {
       <NotifyHubHeader activeTab={activeTab} onNewListener={() => { setEditingListener(null); setShowListenerModal(true); }} onNewChannel={() => { setEditingChannel(null); setShowChannelModal(true); }} onNewTemplate={() => { setEditingTemplate(null); setShowTemplateModal(true); }} onSendTestAlert={handleSendTestAlert} />
       <NotifyHubTabs activeTab={activeTab} onTabChange={setActiveTab} listenerCount={listeners.length} channelCount={channels.length} templateCount={templates.length} listenerResourceFilter={listenerResourceFilter} onResourceFilterChange={setListenerResourceFilter} channelTypeFilter={channelTypeFilter} onChannelTypeFilterChange={setChannelTypeFilter} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
       {loading ? <Loader message="Loading NotifyHub configurations..." height="40vh" /> : (
-        <>
+        <div className="flex flex-col gap-6">
           {activeTab === 'channels' && <NotifyHubChannelList channels={filteredChannels} onEdit={(c) => { setEditingChannel(c); setShowChannelModal(true); }} onDelete={(c) => { setItemToDelete(c); setDeleteType('channel'); setShowDeleteConfirm(true); }} onNewChannel={() => { setEditingChannel(null); setShowChannelModal(true); }} />}
           {activeTab === 'listeners' && <NotifyHubListenerList listeners={filteredListeners} channels={channels} templates={templates} onEdit={(l) => { setEditingListener(l); setShowListenerModal(true); }} onDelete={(l) => { setItemToDelete(l); setDeleteType('listener'); setShowDeleteConfirm(true); }} onNewListener={() => { setEditingListener(null); setShowListenerModal(true); }} />}
           {activeTab === 'templates' && <NotifyHubTemplateList templates={filteredTemplates} onEdit={(t) => { setEditingTemplate(t); setShowTemplateModal(true); }} onDelete={(t) => { setItemToDelete(t); setDeleteType('template'); setShowDeleteConfirm(true); }} onNewTemplate={() => { setEditingTemplate(null); setShowTemplateModal(true); }} />}
-          {activeTab === 'logs' && <NotifyHubAuditLogList onClearLogs={() => notification.info('Audit log display refreshed')} />}
-        </>
+          {(activeTab === 'channels' || activeTab === 'logs') && <NotifyHubAuditLogList onClearLogs={() => notification.info('Audit log display refreshed')} />}
+        </div>
       )}
       {showChannelModal && <ChannelModal channel={editingChannel} onClose={() => { setShowChannelModal(false); setEditingChannel(null); }} onSave={() => { setShowChannelModal(false); setEditingChannel(null); loadData(); }} />}
       {showTemplateModal && <TemplateModal template={editingTemplate} onClose={() => { setShowTemplateModal(false); setEditingTemplate(null); }} onSave={() => { setShowTemplateModal(false); setEditingTemplate(null); loadData(); }} />}
