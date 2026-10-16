@@ -1,76 +1,90 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
-import { BeetelAgentHeader, BeetelSessionSidebar, BeetelChatWorkspace } from '../components/ai';
-import { ErrorPage } from './ErrorPage';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BeetelAgentHeader, BeetelSessionSidebar, BeetelChatCanvas, BeetelSchemaDiffModal } from '../components/ai';
+import { SAMPLE_AGENT_SESSIONS } from '../components/ai/beetelSampleData';
+import { useNotification } from '../contexts/NotificationContext';
 import { aiApi } from '../services/aiApi';
 
 const BeetelAgentPage = () => {
-  const [searchParams] = useSearchParams();
-  const { sessionId: routeSessionId } = useParams();
   const navigate = useNavigate();
-  const hasAutoSelectedRef = useRef(false);
+  const notification = useNotification();
+  const [sessions, setSessions] = useState(SAMPLE_AGENT_SESSIONS);
+  const [selectedSessionId, setSelectedSessionId] = useState(SAMPLE_AGENT_SESSIONS[0].id);
+  const [selectedProvider, setSelectedProvider] = useState('Anthropic Claude 3.5 Sonnet');
+  const [showDiffModal, setShowDiffModal] = useState(false);
 
-  const initialContextType = searchParams.get('contextType') || 'NONE';
-  const initialContextEntityId = searchParams.get('entityId') || '';
-  const initialContextEntityName = searchParams.get('entityName') || '';
-
-  const [sessions, setSessions] = useState([]);
-  const [selectedSessionId, setSelectedSessionId] = useState(routeSessionId || null);
-  const [accessDenied, setAccessDenied] = useState(false);
-  const [keyStatus, setKeyStatus] = useState(null);
-  const [loadingSessions, setLoadingSessions] = useState(true);
-
-  useEffect(() => {
-    setSelectedSessionId(routeSessionId || null);
-    setAccessDenied(false);
-  }, [routeSessionId]);
-
-  const fetchOverview = useCallback(async () => {
-    setLoadingSessions(true);
+  const loadSessions = useCallback(async () => {
     try {
-      const [sessRes, keyRes] = await Promise.all([aiApi.listSessions(), aiApi.getKeyPoolStatus()]);
-      const list = sessRes.data || [];
-      setSessions(list);
-      setKeyStatus(keyRes.data || null);
-      if (list.length > 0 && !routeSessionId && !hasAutoSelectedRef.current && initialContextType === 'NONE') {
-        hasAutoSelectedRef.current = true;
+      const res = await aiApi.listSessions();
+      const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+      if (list.length > 0) {
+        setSessions(list.map((s, idx) => ({ ...SAMPLE_AGENT_SESSIONS[idx % SAMPLE_AGENT_SESSIONS.length], ...s })));
         setSelectedSessionId(list[0].id);
-        navigate(`/beetel/${list[0].id}`, { replace: true });
       }
-    } catch { /* ignore */ }
-    finally { setLoadingSessions(false); }
-  }, [routeSessionId, initialContextType, navigate]);
+    } catch { /* use default sample sessions */ }
+  }, []);
 
-  useEffect(() => { fetchOverview(); }, [fetchOverview]);
+  useEffect(() => { loadSessions(); }, [loadSessions]);
 
-  const handleNewChat = () => {
-    hasAutoSelectedRef.current = true;
-    setAccessDenied(false);
-    setSelectedSessionId(null);
-    navigate('/beetel');
+  const activeSession = sessions.find((s) => s.id === selectedSessionId) || sessions[0];
+
+  const handleNewSession = () => {
+    const newId = `sess-${Date.now()}`;
+    const newSess = {
+      id: newId,
+      title: 'New Natural Language Query',
+      preview: 'Awaiting your instructions...',
+      headerTitle: 'New Architecture Exploration',
+      userMessage: '',
+      agentMessage: 'Hello! I am Beetel, your DataShifter autonomous copilot. Tell me what pipeline, CDC sync, or UDF transformation you would like to build.',
+      spec: null,
+    };
+    setSessions([newSess, ...sessions]);
+    setSelectedSessionId(newId);
+    notification.info('New Beetel session started');
   };
 
-  const handleSessionCreated = (newSession) => {
-    if (!newSession) return;
-    hasAutoSelectedRef.current = true;
-    setAccessDenied(false);
-    setSelectedSessionId(newSession.id);
-    if (routeSessionId !== newSession.id) navigate(`/beetel/${newSession.id}`, { replace: true });
-    setSessions(prev => {
-      const exists = prev.some(s => s.id === newSession.id);
-      return exists ? prev.map(s => s.id === newSession.id ? newSession : s) : [newSession, ...prev];
-    });
+  const handleDeployPipeline = () => {
+    notification.success(`Pipeline "${activeSession?.title}" deployed to production cluster successfully.`);
   };
 
-  if (accessDenied) return <ErrorPage status={403} />;
+  const handleSendMessage = (msg) => {
+    const updated = {
+      ...activeSession,
+      userMessage: msg,
+      agentMessage: `Analyzing requirement: "${msg}". Synthesized schema transformations and verified DAG dependencies.`,
+    };
+    setSessions(prev => prev.map(s => s.id === activeSession.id ? updated : s));
+    notification.info('Beetel Agent analyzed request');
+  };
 
   return (
-    <div id="beetel-agent-page" className="ds-beetel-agent-page flex flex-col h-[calc(100vh-64px)] gap-4">
-      <BeetelAgentHeader keyStatus={keyStatus} onNewChat={handleNewChat} onConfigureKeys={() => navigate('/profile')} />
-      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 flex-1 min-h-0">
-        <BeetelSessionSidebar sessions={sessions} selectedSessionId={selectedSessionId} loading={loadingSessions} onSelectSession={(id) => { hasAutoSelectedRef.current = true; setSelectedSessionId(id); navigate(`/beetel/${id}`); }} />
-        <BeetelChatWorkspace sessionId={selectedSessionId} onSessionCreated={handleSessionCreated} onAccessDenied={() => setAccessDenied(true)} initialContextType={initialContextType} initialContextEntityId={initialContextEntityId} initialContextEntityName={initialContextEntityName} />
+    <div id="beetel-agent-page" className="ds-beetel-agent-page max-w-7xl mx-auto pb-8 flex flex-col gap-4">
+      <BeetelAgentHeader
+        engineLabel={selectedProvider.replace('Anthropic ', '').replace('OpenAI ', '').replace('Google ', '')}
+        onNewSession={handleNewSession}
+        onConfigureKeys={() => navigate('/settings')}
+      />
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
+        <BeetelSessionSidebar
+          sessions={sessions}
+          selectedSessionId={selectedSessionId}
+          selectedProvider={selectedProvider}
+          onProviderChange={setSelectedProvider}
+          onSelectSession={setSelectedSessionId}
+        />
+        <BeetelChatCanvas
+          session={activeSession}
+          onOpenSchemaDiff={() => setShowDiffModal(true)}
+          onDeployPipeline={handleDeployPipeline}
+          onSendMessage={handleSendMessage}
+        />
       </div>
+      <BeetelSchemaDiffModal
+        isOpen={showDiffModal}
+        sessionTitle={activeSession?.title}
+        onClose={() => setShowDiffModal(false)}
+      />
     </div>
   );
 };

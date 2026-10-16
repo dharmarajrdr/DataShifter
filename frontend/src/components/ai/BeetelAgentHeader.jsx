@@ -1,61 +1,63 @@
 import React from 'react';
 import { Button } from '../common';
-import { BeetelIcon } from '../layout/Icons';
-import { AGENT } from '../../constants/literals';
-
-const POOL_LABELS = {
-  USER: { label: 'Personal Keys', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  ORG: { label: 'Org Keys', bg: 'bg-sky-50 text-sky-700 border-sky-200' },
-  SYSTEM: { label: 'System Pool', bg: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  OLLAMA_FALLBACK: { label: 'Local Ollama', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
-};
 
 export const BeetelAgentHeader = ({
   id = 'beetel-agent-header',
-  keyStatus,
-  onNewChat,
+  engineLabel = 'Claude 3.5 Sonnet',
+  onNewSession,
   onConfigureKeys,
 }) => {
-  const pool = POOL_LABELS[keyStatus?.activePool] || POOL_LABELS.SYSTEM;
-
   return (
     <div
       id={id}
-      className="ds-agent-header flex items-center justify-between flex-wrap gap-4 bg-white border border-slate-200 rounded-xl p-5 mb-4 shadow-xs"
+      className="card header-card bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4"
     >
       <div className="flex items-center gap-3.5">
-        <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0 shadow-xs">
-          <BeetelIcon color="#4F46E5" size={20} />
+        <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0 shadow-xs">
+          <svg className="w-6 h-6 stroke-current fill-none" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M12 2a2 2 0 0 1 2 2v2h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2z" />
+            <circle cx="9" cy="13" r="1" />
+            <circle cx="15" cy="13" r="1" />
+            <path d="M10 17h4" />
+          </svg>
         </div>
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 id={`${id}-title`} className="text-xl font-bold text-slate-900 leading-tight">
-              {AGENT.title}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 id={`${id}-title`} className="text-lg font-bold text-slate-900 leading-tight">
+              Beetel Agent Studio
             </h1>
             <span
-              id={`${id}-pool-badge`}
-              onClick={onConfigureKeys}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border cursor-pointer transition hover:opacity-80 ${pool.bg}`}
-              title="Click to configure AI API keys"
+              id={`${id}-status-badge`}
+              className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-              {pool.label}
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Engine Active: {engineLabel}
             </span>
           </div>
           <p id={`${id}-subtitle`} className="text-xs text-slate-500 mt-0.5">
-            {AGENT.subtitle}
+            Autonomous AI Copilot for natural language pipeline synthesis, schema migration, and SQL validation
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
         <Button
-          id={`${id}-btn-new`}
-          variant="primary"
-          onClick={onNewChat}
+          id={`${id}-btn-keys`}
+          variant="secondary"
+          onClick={onConfigureKeys}
+          title="Configure AI API keys"
         >
-          <i className="fa-solid fa-plus mr-1.5" />
-          {AGENT.newChat}
+          <svg className="w-3.5 h-3.5 mr-1.5 stroke-current fill-none inline" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+          </svg>
+          AI API Keys
+        </Button>
+        <Button id={`${id}-btn-new`} variant="primary" onClick={onNewSession}>
+          <svg className="w-3.5 h-3.5 mr-1.5 stroke-current fill-none inline" strokeWidth="2" viewBox="0 0 24 24">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New Session
         </Button>
       </div>
     </div>

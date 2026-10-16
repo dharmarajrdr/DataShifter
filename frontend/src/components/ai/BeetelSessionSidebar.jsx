@@ -1,62 +1,69 @@
 import React from 'react';
-import { BarLoader, SkeletonLoader } from '../common';
 
 export const BeetelSessionSidebar = ({
   id = 'beetel-session-sidebar',
   sessions = [],
   selectedSessionId,
-  loading = false,
+  selectedProvider = 'Anthropic Claude 3.5 Sonnet',
+  onProviderChange = () => {},
   onSelectSession,
 }) => {
   return (
     <div
       id={id}
-      className="ds-session-sidebar bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col shadow-xs"
+      className="card bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between h-[600px] shadow-xs"
     >
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
-        <div className="flex items-center gap-2">
-          <i className="fa-solid fa-comments text-indigo-600 text-xs" />
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-            Conversations
+      <div className="overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            Sessions
+          </span>
+          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+            {sessions.length} saved
           </span>
         </div>
-        <span
-          id={`${id}-count`}
-          className="text-[11px] font-bold bg-white text-indigo-600 border border-slate-200 px-2 py-0.5 rounded-full"
-        >
-          {sessions.length}
-        </span>
-      </div>
 
-      {loading && <BarLoader />}
-
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {loading ? (
-          <SkeletonLoader variant="table-row" count={4} height="36px" />
-        ) : sessions.length === 0 ? (
-          <div className="p-4 text-center text-xs text-slate-400">
-            No conversations yet. Start chatting or select a prompt preset!
-          </div>
-        ) : (
-          sessions.map((sess) => {
+        <div className="mt-3 flex flex-col gap-2 overflow-y-auto pr-0.5 flex-1 max-h-[460px]">
+          {sessions.map((sess) => {
             const active = sess.id === selectedSessionId;
             return (
               <div
                 key={sess.id}
                 id={`session-item-${sess.id}`}
                 onClick={() => onSelectSession(sess.id)}
-                className={`p-2.5 rounded-lg cursor-pointer transition flex items-center justify-between text-xs ${
+                className={`p-2.5 rounded-lg cursor-pointer transition border text-left ${
                   active
-                    ? 'bg-indigo-50 text-indigo-900 border border-indigo-200 font-semibold'
-                    : 'text-slate-700 hover:bg-slate-50 border border-transparent'
+                    ? 'bg-indigo-50/80 border-indigo-200'
+                    : 'bg-white hover:bg-slate-50 border-slate-200'
                 }`}
               >
-                <span className="truncate pr-2">{sess.title || 'New Conversation'}</span>
-                {active && <i className="fa-solid fa-chevron-right text-[10px] text-indigo-500 shrink-0" />}
+                <div className={`text-xs truncate ${active ? 'font-bold text-indigo-700' : 'font-semibold text-slate-800'}`}>
+                  {sess.title || 'Untitled Session'}
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                  {sess.preview || sess.lastMessage || 'Ask Beetel to synthesize pipelines...'}
+                </div>
               </div>
             );
-          })
-        )}
+          })}
+        </div>
+      </div>
+
+      <div className="pt-3 border-t border-slate-200 mt-auto">
+        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+          LLM Provider
+        </label>
+        <select
+          id={`${id}-llm-provider`}
+          value={selectedProvider}
+          onChange={(e) => onProviderChange(e.target.value)}
+          className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white font-medium text-slate-800 focus:outline-none focus:border-indigo-600"
+        >
+          <option value="Anthropic Claude 3.5 Sonnet">Anthropic Claude 3.5 Sonnet</option>
+          <option value="OpenAI GPT-4o">OpenAI GPT-4o</option>
+          <option value="Google Gemini 1.5 Pro">Google Gemini 1.5 Pro</option>
+          <option value="Local Ollama (Llama 3.2)">Local Ollama (Llama 3.2)</option>
+        </select>
       </div>
     </div>
   );
