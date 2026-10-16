@@ -12,18 +12,20 @@ export const ConnectionsHeader = ({
   return (
     <div
       id={id}
-      className={`ds-connections-header flex items-center justify-between flex-wrap gap-4 bg-white border border-slate-200 rounded-xl p-5 mb-5 shadow-xs ${className}`}
+      className={`ds-connections-header flex items-center justify-between flex-wrap gap-4 bg-white border border-slate-200 rounded-xl p-5 shadow-xs ${className}`}
     >
       <div className="flex items-center gap-3.5">
-        <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center text-lg flex-shrink-0 shadow-xs">
-          <i className="fa-solid fa-network-wired" />
+        <div className="w-11 h-11 rounded-xl bg-sky-50 border border-sky-200 text-sky-600 flex items-center justify-center text-lg shrink-0 shadow-xs">
+          <svg className="w-6 h-6 stroke-current fill-none" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+          </svg>
         </div>
         <div>
           <div className="flex items-center gap-2.5">
             <h1 id={`${id}-title`} className="text-lg font-bold text-slate-900 leading-tight">
               Connections Manager
             </h1>
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
               Live Gateway
             </span>
           </div>

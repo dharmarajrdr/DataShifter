@@ -1,31 +1,39 @@
 import React from 'react';
 import { OracleIcon, PostgresIcon, SpannerIcon } from '../layout/Icons';
-import { BORDER_RADIUS, COLORS } from '../../constants/design';
-
-const DB_ICON_CONFIG = {
-  ORACLE: { bg: COLORS.status.errorLight, Icon: OracleIcon },
-  SPANNER: { bg: COLORS.status.infoLight, Icon: SpannerIcon },
-  POSTGRESQL: { bg: COLORS.status.successLight, Icon: PostgresIcon },
-};
 
 export const ConnectionDbIcon = ({ dbType, id, className = '' }) => {
   const normalized = (dbType || 'POSTGRESQL').toUpperCase();
-  const config = DB_ICON_CONFIG[normalized] || DB_ICON_CONFIG.POSTGRESQL;
-  const IconComp = config.Icon;
+
+  const getIcon = () => {
+    switch (normalized) {
+      case 'ORACLE':
+        return { bg: 'bg-rose-50 text-rose-600 border-rose-200', comp: <OracleIcon size={20} /> };
+      case 'SPANNER':
+        return { bg: 'bg-sky-50 text-sky-600 border-sky-200', comp: <SpannerIcon size={20} /> };
+      case 'POSTGRESQL':
+      case 'POSTGRES':
+        return { bg: 'bg-indigo-50 text-indigo-600 border-indigo-200', comp: <PostgresIcon size={20} /> };
+      case 'SNOWFLAKE':
+        return { bg: 'bg-cyan-50 text-cyan-600 border-cyan-200', comp: <i className="fa-solid fa-snowflake text-base" /> };
+      case 'KAFKA':
+        return { bg: 'bg-amber-50 text-amber-600 border-amber-200', comp: <i className="fa-solid fa-bolt text-base" /> };
+      case 'S3':
+      case 'GCS':
+      case 'AZUREBLOB':
+        return { bg: 'bg-emerald-50 text-emerald-600 border-emerald-200', comp: <i className="fa-solid fa-box-archive text-base" /> };
+      default:
+        return { bg: 'bg-slate-100 text-slate-600 border-slate-200', comp: <i className="fa-solid fa-database text-base" /> };
+    }
+  };
+
+  const { bg, comp } = getIcon();
 
   return (
     <div
       id={id}
-      className={`ds-conn-db-icon flex items-center justify-center shrink-0 ${className}`}
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: BORDER_RADIUS.md,
-        background: config.bg,
-        border: `1px solid ${COLORS.border.light}`,
-      }}
+      className={`ds-conn-db-icon w-10 h-10 rounded-lg flex items-center justify-center border shrink-0 ${bg} ${className}`}
     >
-      <IconComp size={20} />
+      {comp}
     </div>
   );
 };
