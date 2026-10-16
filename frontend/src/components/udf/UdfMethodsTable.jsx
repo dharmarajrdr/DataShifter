@@ -1,4 +1,3 @@
-import React from 'react';
 import { Code2 } from 'lucide-react';
 
 export const UdfMethodsTable = ({ functions = [] }) => {
@@ -20,25 +19,22 @@ export const UdfMethodsTable = ({ functions = [] }) => {
             <tr>
               <th id="th-function" className="py-2.5 px-4 whitespace-nowrap">Callable Function</th>
               <th id="th-return" className="py-2.5 px-4 whitespace-nowrap">Return Type</th>
-              <th id="th-signature" className="py-2.5 px-4">Bytecode Signature</th>
             </tr>
           </thead>
           <tbody id="udf-methods-tbody" className="divide-y divide-surface-100">
             {functions.map((fn, idx) => {
               const fnName = fn.functionName || fn.methodName || 'unknownMethod';
-              const className = fn.className || '';
-              const params = (fn.parameterTypes || []).join(', ');
               const retType = fn.returnType || 'void';
 
               return (
-                <tr key={fn.id || `${className}.${fnName}-${idx}`} id={`udf-method-row-${idx}`} className="hover:bg-surface-50 transition-colors">
+                <tr key={fn.id || `${fn.className || ''}.${fnName}-${idx}`} id={`udf-method-row-${idx}`} className="hover:bg-surface-50 transition-colors">
                   <td id={`udf-method-name-cell-${idx}`} className="py-3 px-4 whitespace-nowrap">
                     <div id={`udf-method-name-wrap-${idx}`} className="flex items-center gap-2 whitespace-nowrap">
-                      <span id={`udf-method-name-${idx}`} className="font-mono font-semibold text-content-primary whitespace-nowrap">
-                        {fnName}()
-                      </span>
                       <span id={`udf-method-tag-${idx}`} className="font-mono text-[10px] font-medium bg-brand-50 text-brand-600 px-1.5 py-0.5 rounded border border-brand-100 whitespace-nowrap">
                         @UDF
+                      </span>
+                      <span id={`udf-method-name-${idx}`} className="font-mono font-semibold text-content-primary whitespace-nowrap">
+                        {fnName}()
                       </span>
                     </div>
                   </td>
@@ -46,13 +42,6 @@ export const UdfMethodsTable = ({ functions = [] }) => {
                     <span id={`udf-method-ret-badge-${idx}`} className="font-mono text-[11px] font-medium bg-cyan-50 text-cyan-700 border border-cyan-200 px-2 py-0.5 rounded inline-block whitespace-nowrap">
                       {retType}
                     </span>
-                  </td>
-                  <td id={`udf-method-sig-cell-${idx}`} className="py-3 px-4">
-                    <div id={`udf-method-sig-code-${idx}`} className="font-mono text-[11px] bg-surface-50 border border-surface-200 rounded px-2 py-1 inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
-                      {className && <span id={`udf-sig-cls-${idx}`} className="text-sky-600">{className}.</span>}
-                      <span id={`udf-sig-fn-${idx}`} className="text-brand-700 font-medium">{fnName}</span>
-                      <span id={`udf-sig-params-${idx}`} className="text-content-secondary">({params})</span>
-                    </div>
                   </td>
                 </tr>
               );

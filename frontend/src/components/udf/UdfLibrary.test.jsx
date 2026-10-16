@@ -82,6 +82,8 @@ describe('UDF Library Components', () => {
     expect(container.querySelector('#udf-method-name-0').textContent).toBe('maskEmail()');
     expect(container.querySelector('#udf-method-tag-0').textContent).toBe('@UDF');
     expect(container.querySelector('#udf-method-ret-badge-0').textContent).toBe('String');
+    expect(container.querySelector('#th-signature')).toBeNull();
+    expect(container.querySelector('#th-function')).not.toBeNull();
   });
 
   test('UdfDependencies displays reference stats and safety lock', () => {

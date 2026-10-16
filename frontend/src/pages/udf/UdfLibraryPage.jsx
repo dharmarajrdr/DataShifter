@@ -72,7 +72,7 @@ export const UdfLibraryPage = () => {
                 </div>
                 {activeTab === 'methods' ? <UdfMethodsTable functions={selectedJar.functions} /> : <UdfDependencies jar={selectedJar} activeTab={activeTab} />}
               </>
-            ) : <div id="udf-no-selection" className="p-8 text-center text-xs text-content-tertiary">Select a JAR artifact from the list to inspect bytecode.</div>}
+            ) : <div id="udf-no-selection" className="p-8 text-center text-xs text-content-tertiary">Select a JAR artifact from the list to inspect functions.</div>}
           </main>
         </div>
         {showUpload && <UdfUploadModal onClose={() => setShowUpload(false)} onUploaded={(newJar) => { setUdfs((prev) => [newJar, ...prev]); setSelectedId(newJar.id); notification.success(`UDF "${newJar.name}" uploaded successfully`); }} />}
