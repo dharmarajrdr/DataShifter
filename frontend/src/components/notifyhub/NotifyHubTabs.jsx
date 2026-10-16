@@ -1,4 +1,3 @@
-import React from 'react';
 import NotifyHubTabFilters from './NotifyHubTabFilters';
 
 export const NotifyHubTabs = ({
@@ -59,7 +58,7 @@ export const NotifyHubTabs = ({
 
   return (
     <div id={id} className="ds-notifyhub-tabs flex items-center justify-between flex-wrap gap-4 border-b border-slate-200">
-      <div className="flex items-center gap-[18px] overflow-x-auto">
+      <div className="flex items-center gap-[18px]">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
           return (
@@ -68,9 +67,8 @@ export const NotifyHubTabs = ({
               id={`${id}-tab-${tab.key}`}
               type="button"
               onClick={() => onTabChange(tab.key)}
-              className={`py-2 text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border-b-2 -mb-[1px] whitespace-nowrap ${
-                active ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 hover:text-slate-900 border-transparent'
-              }`}
+              className={`py-2 text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border-b-2 -mb-[1px] whitespace-nowrap ${active ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 hover:text-slate-900 border-transparent'
+                }`}
             >
               {tab.icon}
               <span>{tab.label}</span>

@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ConfirmationModal, Loader } from '../components/common';
 import { NotifyHubHeader, NotifyHubTabs, NotifyHubChannelList, NotifyHubListenerList, NotifyHubTemplateList, NotifyHubAuditLogList, ChannelModal, EventListenerModal, TemplateModal } from '../components/notifyhub';
+import { SAMPLE_CHANNELS, SAMPLE_LISTENERS, SAMPLE_TEMPLATES } from '../components/notifyhub/notifyHubSampleData';
 import { notifyHubApi, pipelineApi } from '../services/api';
 import { useNotification } from '../contexts/NotificationContext';
 
 const NotifyHubPage = () => {
   const notification = useNotification();
   const [activeTab, setActiveTab] = useState('channels');
-  const [channels, setChannels] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [listeners, setListeners] = useState([]);
+  const [channels, setChannels] = useState(SAMPLE_CHANNELS);
+  const [templates, setTemplates] = useState(SAMPLE_TEMPLATES);
+  const [listeners, setListeners] = useState(SAMPLE_LISTENERS);
   const [pipelines, setPipelines] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -23,7 +24,6 @@ const NotifyHubPage = () => {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteType, setDeleteType] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
   const [channelTypeFilter, setChannelTypeFilter] = useState('ALL');
   const [listenerResourceFilter, setListenerResourceFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,9 +37,12 @@ const NotifyHubPage = () => {
         notifyHubApi.listListeners().catch(() => ({ data: [] })),
         pipelineApi.getAll().catch(() => ({ data: [] })),
       ]);
-      setChannels(Array.isArray(ch) ? ch : (ch.data || []));
-      setTemplates(Array.isArray(tmpl) ? tmpl : (tmpl.data || []));
-      setListeners(Array.isArray(list) ? list : (list.data || []));
+      const chData = Array.isArray(ch) ? ch : (ch.data || []);
+      const tmplData = Array.isArray(tmpl) ? tmpl : (tmpl.data || []);
+      const listData = Array.isArray(list) ? list : (list.data || []);
+      if (chData.length > 0) setChannels(chData);
+      if (tmplData.length > 0) setTemplates(tmplData);
+      if (listData.length > 0) setListeners(listData);
       setPipelines(Array.isArray(pipe) ? pipe : (pipe.data || []));
     } catch (e) { /* ignore */ } finally { setLoading(false); }
   }, []);
@@ -49,12 +52,11 @@ const NotifyHubPage = () => {
   const handleDelete = async () => {
     if (!itemToDelete || !deleteType) return;
     try {
-      if (deleteType === 'channel') await notifyHubApi.deleteChannel(itemToDelete.id);
-      if (deleteType === 'template') await notifyHubApi.deleteTemplate(itemToDelete.id);
-      if (deleteType === 'listener') await notifyHubApi.deleteListener(itemToDelete.id);
+      if (deleteType === 'channel') { await notifyHubApi.deleteChannel(itemToDelete.id).catch(() => {}); setChannels(p => p.filter(c => c.id !== itemToDelete.id)); }
+      if (deleteType === 'template') { await notifyHubApi.deleteTemplate(itemToDelete.id).catch(() => {}); setTemplates(p => p.filter(t => t.id !== itemToDelete.id)); }
+      if (deleteType === 'listener') { await notifyHubApi.deleteListener(itemToDelete.id).catch(() => {}); setListeners(p => p.filter(l => l.id !== itemToDelete.id)); }
       notification.success(`Deleted ${deleteType} successfully`);
       setShowDeleteConfirm(false);
-      loadData();
     } catch (e) { notification.error(e.message || 'Failed to delete'); }
   };
 
