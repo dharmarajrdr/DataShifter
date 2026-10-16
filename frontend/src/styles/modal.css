@@ -4,9 +4,9 @@
    to bottom while modal body contents scroll smoothly.
    ============================================================ */
 
-div[style*="position: fixed"] > div[style*="maxHeight"],
-div[style*="position: fixed"] > div[style*="max-height"],
-div[style*="position: fixed"] > div[style*="overflow"],
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"],
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"],
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="overflow"],
 .ds-modal-card {
   position: relative !important;
   display: flex !important;
@@ -15,9 +15,9 @@ div[style*="position: fixed"] > div[style*="overflow"],
   overflow: hidden !important;
 }
 
-div[style*="position: fixed"] > div > div:first-child,
-div[style*="position: fixed"] > div[style*="maxHeight"] > div:first-child,
-div[style*="position: fixed"] > div[style*="max-height"] > div:first-child,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div > div:first-child,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"] > div:first-child,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"] > div:first-child,
 .ds-modal-header,
 .modal-header {
   flex-shrink: 0 !important;
@@ -29,8 +29,14 @@ div[style*="position: fixed"] > div[style*="max-height"] > div:first-child,
   border-top-right-radius: inherit;
 }
 
-div[style*="position: fixed"] > div > form,
-div[style*="position: fixed"] > div > div:last-child {
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"] > form,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"] > form,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="overflow"] > form,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"] > div:last-child,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"] > div:last-child,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="overflow"] > div:last-child,
+.ds-modal-card > form,
+.ds-modal-card > div:last-child {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow-y: auto !important;
@@ -41,8 +47,10 @@ div[style*="position: fixed"] > div > div:last-child {
   padding-bottom: 74px !important;
 }
 
-div[style*="position: fixed"] form > div:last-child,
-div[style*="position: fixed"] > div > div:last-child > div:last-child,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) form > div:last-child,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="maxHeight"] > div:last-child > div:last-child,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="max-height"] > div:last-child > div:last-child,
+div[style*="position: fixed"]:not([id*="notification"]):not(.ds-notification-item) > div[style*="overflow"] > div:last-child > div:last-child,
 .ds-modal-footer,
 .modal-footer {
   position: absolute !important;
@@ -56,4 +64,12 @@ div[style*="position: fixed"] > div > div:last-child > div:last-child,
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
   padding: 14px 24px !important;
   border-top: 1px solid #E2E8F0 !important;
+}
+
+/* Explicit notification protection: prevents modal padding from affecting toasts */
+.ds-notification-item,
+.ds-notification-item div,
+[id*="notification"],
+[id*="notification"] div {
+  padding-bottom: 0;
 }

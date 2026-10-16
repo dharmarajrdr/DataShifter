@@ -62,5 +62,19 @@ describe('Modal Sticky Header and Footer', () => {
     act(() => saveBtn.click());
     expect(handleSave).toHaveBeenCalledTimes(1);
   });
-});
 
+  test('Notification item is shielded from modal card classes', () => {
+    act(() => {
+      root.render(
+        <div id="notification-item-test" className="ds-notification-item">
+          <div>Notification text message</div>
+        </div>
+      );
+    });
+    const el = container.querySelector('#notification-item-test');
+    expect(el).not.toBeNull();
+    expect(el.className).toContain('ds-notification-item');
+    expect(el.className).not.toContain('modal-footer');
+    expect(el.className).not.toContain('ds-modal-card');
+  });
+});
