@@ -1,90 +1,92 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BeetelAgentHeader, BeetelSessionSidebar, BeetelChatCanvas, BeetelSchemaDiffModal } from '../components/ai';
-import { SAMPLE_AGENT_SESSIONS } from '../components/ai/beetelSampleData';
+import { BeetelAgentHeader, BeetelChatCanvas, BeetelSchemaDiffModal, BeetelSessionSidebar, BeetelShareModal } from '../components/ai';
 import { useNotification } from '../contexts/NotificationContext';
 import { aiApi } from '../services/aiApi';
 
 const BeetelAgentPage = () => {
   const navigate = useNavigate();
   const notification = useNotification();
-  const [sessions, setSessions] = useState(SAMPLE_AGENT_SESSIONS);
-  const [selectedSessionId, setSelectedSessionId] = useState(SAMPLE_AGENT_SESSIONS[0].id);
+  const [sessions, setSessions] = useState([]);
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [activeSession, setActiveSession] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('Anthropic Claude 3.5 Sonnet');
   const [showDiffModal, setShowDiffModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const loadSessions = useCallback(async () => {
     try {
       const res = await aiApi.listSessions();
       const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
-      if (list.length > 0) {
-        setSessions(list.map((s, idx) => ({ ...SAMPLE_AGENT_SESSIONS[idx % SAMPLE_AGENT_SESSIONS.length], ...s })));
-        setSelectedSessionId(list[0].id);
-      }
-    } catch { /* use default sample sessions */ }
-  }, []);
+      setSessions(list);
+      if (list.length > 0 && !selectedSessionId) setSelectedSessionId(list[0].id);
+    } catch (e) { notification.error(e?.message || 'Failed to load AI sessions'); }
+  }, [selectedSessionId, notification]);
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
-  const activeSession = sessions.find((s) => s.id === selectedSessionId) || sessions[0];
+  useEffect(() => {
+    if (!selectedSessionId) { setActiveSession(null); setMessages([]); return; }
+    setLoading(true);
+    aiApi.getSession(selectedSessionId)
+      .then(res => { const s = res?.data || res; setActiveSession(s); setMessages(s?.messages || []); })
+      .catch(e => notification.error(e?.message || 'Failed to load conversation'))
+      .finally(() => setLoading(false));
+  }, [selectedSessionId, notification]);
 
-  const handleNewSession = () => {
-    const newId = `sess-${Date.now()}`;
-    const newSess = {
-      id: newId,
-      title: 'New Natural Language Query',
-      preview: 'Awaiting your instructions...',
-      headerTitle: 'New Architecture Exploration',
-      userMessage: '',
-      agentMessage: 'Hello! I am Beetel, your DataShifter autonomous copilot. Tell me what pipeline, CDC sync, or UDF transformation you would like to build.',
-      spec: null,
-    };
-    setSessions([newSess, ...sessions]);
-    setSelectedSessionId(newId);
-    notification.info('New Beetel session started');
+  const handleNewSession = async () => {
+    try {
+      const res = await aiApi.createSession({ title: 'New Conversation' });
+      const newSess = res?.data || res;
+      setSessions(prev => [newSess, ...prev]);
+      setSelectedSessionId(newSess.id);
+      notification.info('New Beetel session started');
+    } catch (e) { notification.error(e?.message || 'Failed to create session'); }
   };
 
-  const handleDeployPipeline = () => {
-    notification.success(`Pipeline "${activeSession?.title}" deployed to production cluster successfully.`);
+  const handleSendMessage = async (msg) => {
+    let sessId = selectedSessionId;
+    if (!sessId) {
+      try {
+        const res = await aiApi.createSession({ title: msg.slice(0, 32) });
+        const s = res?.data || res;
+        sessId = s.id;
+        setSessions(p => [s, ...p]);
+        setSelectedSessionId(s.id);
+      } catch { notification.error('Could not initiate session'); return; }
+    }
+    setMessages(p => [...p, { id: 'u-' + Date.now(), role: 'USER', content: msg }]);
+    setSending(true);
+    try {
+      const res = await aiApi.sendMessage({ sessionId: sessId, message: msg });
+      const assistantMsg = res?.data || res;
+      if (assistantMsg) setMessages(p => [...p, assistantMsg]);
+      setSessions(p => p.map(s => s.id === sessId ? { ...s, preview: msg } : s));
+    } catch (e) { notification.error(e?.message || 'AI synthesis failed'); }
+    finally { setSending(false); }
   };
 
-  const handleSendMessage = (msg) => {
-    const updated = {
-      ...activeSession,
-      userMessage: msg,
-      agentMessage: `Analyzing requirement: "${msg}". Synthesized schema transformations and verified DAG dependencies.`,
-    };
-    setSessions(prev => prev.map(s => s.id === activeSession.id ? updated : s));
-    notification.info('Beetel Agent analyzed request');
+  const handlePlanDecision = async (planId, approve) => {
+    try {
+      const res = approve ? await aiApi.confirmPlan(planId) : await aiApi.rejectPlan(planId);
+      const updated = res?.data || res;
+      setMessages(p => p.map(m => m.plan?.id === planId ? { ...m, plan: updated?.plan || { ...m.plan, status: approve ? 'COMPLETED' : 'REJECTED' } } : m));
+      notification.success(approve ? 'Plan approved & executed' : 'Plan rejected');
+    } catch (e) { notification.error(e?.message || 'Plan decision failed'); }
   };
 
   return (
-    <div id="beetel-agent-page" className="ds-beetel-agent-page max-w-7xl mx-auto pb-8 flex flex-col gap-4">
-      <BeetelAgentHeader
-        engineLabel={selectedProvider.replace('Anthropic ', '').replace('OpenAI ', '').replace('Google ', '')}
-        onNewSession={handleNewSession}
-        onConfigureKeys={() => navigate('/settings')}
-      />
+    <div id="beetel-agent-page" className="ds-beetel-agent-page max-w-7xl mx-auto flex flex-col gap-4">
+      <BeetelAgentHeader engineLabel={selectedProvider.replace('Anthropic ', '').replace('OpenAI ', '').replace('Google ', '')} onNewSession={handleNewSession} onConfigureKeys={() => navigate('/settings')} />
       <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
-        <BeetelSessionSidebar
-          sessions={sessions}
-          selectedSessionId={selectedSessionId}
-          selectedProvider={selectedProvider}
-          onProviderChange={setSelectedProvider}
-          onSelectSession={setSelectedSessionId}
-        />
-        <BeetelChatCanvas
-          session={activeSession}
-          onOpenSchemaDiff={() => setShowDiffModal(true)}
-          onDeployPipeline={handleDeployPipeline}
-          onSendMessage={handleSendMessage}
-        />
+        <BeetelSessionSidebar sessions={sessions} selectedSessionId={selectedSessionId} selectedProvider={selectedProvider} onProviderChange={setSelectedProvider} onSelectSession={setSelectedSessionId} />
+        <BeetelChatCanvas session={activeSession} messages={messages} loading={loading} sending={sending} onOpenSchemaDiff={() => setShowDiffModal(true)} onDeployPipeline={() => notification.success(`Pipeline "${activeSession?.title || 'active'}" deployed.`)} onShareClick={() => setShowShareModal(true)} onConfirmPlan={(id) => handlePlanDecision(id, true)} onRejectPlan={(id) => handlePlanDecision(id, false)} onSendMessage={handleSendMessage} />
       </div>
-      <BeetelSchemaDiffModal
-        isOpen={showDiffModal}
-        sessionTitle={activeSession?.title}
-        onClose={() => setShowDiffModal(false)}
-      />
+      <BeetelSchemaDiffModal isOpen={showDiffModal} sessionTitle={activeSession?.title} onClose={() => setShowDiffModal(false)} />
+      <BeetelShareModal isOpen={showShareModal} session={activeSession} onClose={() => setShowShareModal(false)} onSessionUpdated={(upd) => { setActiveSession(upd); setSessions(p => p.map(s => s.id === upd.id ? upd : s)); }} />
     </div>
   );
 };

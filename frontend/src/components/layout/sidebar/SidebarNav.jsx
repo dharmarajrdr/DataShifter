@@ -1,7 +1,6 @@
-import React from 'react';
+import { Library, ShoppingBag } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Library } from 'lucide-react';
-import { PipelineIcon, WorkflowIcon, ConnectionIcon, SettingsIcon, NotifyHubIcon, BeetelIcon } from '../Icons';
+import { BeetelIcon, ConnectionIcon, NotifyHubIcon, PipelineIcon, SettingsIcon, WorkflowIcon } from '../Icons';
 import SidebarNavItem from './SidebarNavItem';
 
 export const NAV_ITEMS = [
@@ -10,8 +9,8 @@ export const NAV_ITEMS = [
   { label: 'Library', path: '/udfs', icon: Library },
   { label: 'Workflows', path: '/workflows', icon: WorkflowIcon },
   { label: 'Connections', path: '/connections', icon: ConnectionIcon },
-  { label: 'Agent', path: '/beetel', icon: BeetelIcon },
-  { label: 'NotifyHub', path: '/notifyhub', icon: NotifyHubIcon },
+  { label: 'Beetel AI', path: '/beetel', icon: BeetelIcon },
+  { label: 'Alerts', path: '/notifyhub', icon: NotifyHubIcon },
   { label: 'Settings', path: '/settings/org', icon: SettingsIcon },
 ];
 

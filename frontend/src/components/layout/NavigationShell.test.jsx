@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import { Sidebar } from './sidebar';
+import { AppLayout } from './AppLayout';
 import { Header } from './header/Header';
 import { MarketplacePlaceholder } from '../../pages/marketplace/MarketplacePlaceholder';
 
@@ -39,24 +39,22 @@ describe('Modern Navigation Shell & Minimal Header Layout', () => {
     container = null;
   });
 
-  test('Sidebar renders expanded with nav items and toggles collapse state', () => {
+  test('AppLayout renders expanded with nav items and toggles collapse state via navicon', () => {
     act(() => {
       root.render(
         <MemoryRouter initialEntries={['/marketplace']}>
-          <Sidebar id="test-sidebar" />
+          <AppLayout id="test-layout" />
         </MemoryRouter>
       );
     });
 
-    const sidebar = container.querySelector('#test-sidebar');
+    const sidebar = container.querySelector('#main-sidebar');
     expect(sidebar).not.toBeNull();
     expect(sidebar.className).toContain('w-60');
 
-    // Verify marketplace and udfs nav items exist
     expect(container.textContent).toContain('Marketplace');
     expect(container.textContent).toContain('Library');
 
-    // Click collapse toggle button
     const toggleBtn = container.querySelector('#sidebar-collapse-toggle');
     expect(toggleBtn).not.toBeNull();
     expect(toggleBtn.getAttribute('aria-expanded')).toBe('true');

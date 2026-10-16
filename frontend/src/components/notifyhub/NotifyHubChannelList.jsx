@@ -1,80 +1,84 @@
 import React from 'react';
-import { Button } from '../common';
+import { Card, Button } from '../common';
 import { CHANNEL_TYPES, parseChannelConfig } from './channelConfigConstants';
 
 export const NotifyHubChannelList = ({ channels = [], onEdit, onDelete, onNewChannel }) => {
   if (channels.length === 0) {
     return (
-      <div className="bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center shadow-xs">
-        <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center text-xl mx-auto mb-3">
-          <i className="fa-solid fa-bullhorn" />
-        </div>
-        <p className="text-base font-bold text-slate-900 mb-1">No notification channels configured</p>
-        <p className="text-xs text-slate-500 mb-4">Add your team's Slack, Email, Microsoft Teams, Zoho Cliq, or custom Webhook endpoints.</p>
-        <Button variant="primary" onClick={onNewChannel}>+ Add Channel</Button>
-      </div>
+      <Card id="channels-empty-card" variant="outlined" className="p-12 text-center text-slate-500 bg-white border border-slate-200 rounded-xl">
+        <p className="font-semibold text-slate-700">No notification channels configured</p>
+        <p className="text-xs mt-1 text-slate-500">Connect Slack, Email, Microsoft Teams, Zoho Cliq, or Webhook endpoints.</p>
+        <Button variant="primary" size="sm" className="mt-4" onClick={onNewChannel}>+ Add Channel</Button>
+      </Card>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div id="channels-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {channels.map((ch) => {
         const typeCfg = CHANNEL_TYPES.find((t) => t.value === ch.channelType) || {
-          tag: 'WH', tagCls: 'bg-indigo-50 text-indigo-700', sub: 'Custom Webhook',
+          tag: 'WH', tagCls: 'bg-indigo-50 text-indigo-700 border-indigo-100', sub: 'Custom Webhook',
         };
         const cfg = parseChannelConfig(ch);
         const active = ch.enabled !== false;
         const totalDispatched = ch.dispatchedCount ?? (ch.stats?.dispatched ?? 0);
-        const scope = cfg.scope || ch.scope || 'On Error / Halt';
+        const scope = cfg.scope || ch.scope || 'All Severity Levels';
 
         return (
-          <div
+          <Card
             key={ch.id}
             id={`channel-card-${ch.id}`}
-            className="card bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between"
+            variant="elevated"
+            padding={false}
+            className={`p-4 flex flex-col justify-between transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card bg-white border ${
+              active ? 'border-slate-200 ring-1 ring-slate-100' : 'border-slate-200 opacity-90'
+            }`}
           >
-            <div>
-              <div className="flex items-center justify-between">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm ${typeCfg.tagCls}`}>
+            <div className="space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs select-none border ${typeCfg.tagCls}`}>
                   {typeCfg.tag}
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide ${
                   active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
                 }`}>
                   {active ? 'Active' : 'Paused'}
                 </span>
               </div>
-              <h3 className="text-sm font-bold text-slate-900 mt-3 truncate" title={ch.name}>
-                {ch.name}
-              </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5 truncate" title={`${typeCfg.sub} • ${scope}`}>
-                {typeCfg.sub} • {scope}
-              </p>
+
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 truncate" title={ch.name}>
+                  {ch.name}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
+                  {typeCfg.sub} • {totalDispatched} Dispatched
+                </p>
+                <p className="text-xs text-slate-600 line-clamp-2 mt-2 leading-relaxed">
+                  Scope: {scope}. Auto-routes incident alerts to destination endpoints.
+                </p>
+              </div>
             </div>
 
-            <div className="mt-3.5 pt-2.5 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
-              <span>Total Dispatched: {totalDispatched}</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  id={`channel-edit-${ch.id}`}
-                  onClick={() => onEdit(ch)}
-                  className="text-indigo-600 hover:text-indigo-800 font-semibold text-[11px] cursor-pointer"
-                >
+            <div className="pt-2.5 mt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                {ch.channelType}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button id={`channel-edit-${ch.id}`} variant="ghost" size="sm" onClick={() => onEdit(ch)}>
                   Configure
-                </button>
+                </Button>
                 <button
                   type="button"
                   id={`channel-delete-${ch.id}`}
                   onClick={() => onDelete(ch)}
-                  className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors"
                   title="Delete Channel"
                 >
-                  <i className="fa-solid fa-trash-can text-[11px]" />
+                  <i className="fa-solid fa-trash-can text-xs" />
                 </button>
               </div>
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>
