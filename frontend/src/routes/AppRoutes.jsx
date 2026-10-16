@@ -13,6 +13,7 @@ import {
   ResetPasswordPage, RolesPage, SignupPage, UdfLibrary, UserProfile,
   WorkflowBuilderPage, WorkflowDashboard, WorkflowMonitor, WorkflowSettings, NotifyHubPage,
 } from '../pages';
+import { PipelineRedirect, WorkflowRedirect } from './RouteRedirects';
 
 /**
  * Top-level application routes configuration (<= 100 lines).
@@ -40,6 +41,7 @@ export const AppRoutes = () => (
         <Route path="/pipelines" element={<SubscriptionGuard><ProtectedRoute permission="pipeline:view"><Outlet /></ProtectedRoute></SubscriptionGuard>}>
           <Route index element={<PipelineDashboard />} />
           <Route path="new" element={<ProtectedRoute permission="pipeline:create"><PipelineWizard /></ProtectedRoute>} />
+          <Route path=":pipelineId" element={<PipelineRedirect />} />
           <Route path=":pipelineId/monitor" element={<ProtectedRoute permission="monitor:view"><LiveMonitor /></ProtectedRoute>} />
           <Route path=":pipelineId/mapping" element={<ColumnMappingBoard />} />
           <Route path=":pipelineId/errors" element={<ProtectedRoute permission="monitor:view_errors"><ErrorLogViewer /></ProtectedRoute>} />
@@ -50,6 +52,7 @@ export const AppRoutes = () => (
         <Route path="/workflows" element={<SubscriptionGuard><ProtectedRoute permission="workflow:view"><Outlet /></ProtectedRoute></SubscriptionGuard>}>
           <Route index element={<WorkflowDashboard />} />
           <Route path="new" element={<ProtectedRoute permission="workflow:create"><WorkflowBuilderPage /></ProtectedRoute>} />
+          <Route path=":workflowId" element={<WorkflowRedirect />} />
           <Route path=":workflowId/edit" element={<ProtectedRoute permission="workflow:edit"><WorkflowBuilderPage /></ProtectedRoute>} />
           <Route path=":workflowId/monitor" element={<ProtectedRoute permission="workflow:view"><WorkflowMonitor /></ProtectedRoute>} />
           <Route path=":workflowId/errors" element={<ProtectedRoute permission="monitor:view_errors"><WorkflowMonitor /></ProtectedRoute>} />
