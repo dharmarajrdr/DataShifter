@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ConfirmationModal, Loader } from '../components/common';
-import { NotifyHubHeader, NotifyHubTabs, NotifyHubChannelList, NotifyHubListenerList, NotifyHubTemplateList, NotifyHubAuditLogList, ChannelModal, EventListenerModal, TemplateModal } from '../components/notifyhub';
+import { ChannelModal, EventListenerModal, NotifyHubAuditLogList, NotifyHubChannelList, NotifyHubHeader, NotifyHubListenerList, NotifyHubTabs, NotifyHubTemplateList, TemplateModal } from '../components/notifyhub';
 import { SAMPLE_CHANNELS, SAMPLE_LISTENERS, SAMPLE_TEMPLATES } from '../components/notifyhub/notifyHubSampleData';
-import { notifyHubApi, pipelineApi } from '../services/api';
 import { useNotification } from '../contexts/NotificationContext';
+import { notifyHubApi, pipelineApi } from '../services/api';
 
 const NotifyHubPage = () => {
   const notification = useNotification();
@@ -52,9 +52,9 @@ const NotifyHubPage = () => {
   const handleDelete = async () => {
     if (!itemToDelete || !deleteType) return;
     try {
-      if (deleteType === 'channel') { await notifyHubApi.deleteChannel(itemToDelete.id).catch(() => {}); setChannels(p => p.filter(c => c.id !== itemToDelete.id)); }
-      if (deleteType === 'template') { await notifyHubApi.deleteTemplate(itemToDelete.id).catch(() => {}); setTemplates(p => p.filter(t => t.id !== itemToDelete.id)); }
-      if (deleteType === 'listener') { await notifyHubApi.deleteListener(itemToDelete.id).catch(() => {}); setListeners(p => p.filter(l => l.id !== itemToDelete.id)); }
+      if (deleteType === 'channel') { await notifyHubApi.deleteChannel(itemToDelete.id).catch(() => { }); setChannels(p => p.filter(c => c.id !== itemToDelete.id)); }
+      if (deleteType === 'template') { await notifyHubApi.deleteTemplate(itemToDelete.id).catch(() => { }); setTemplates(p => p.filter(t => t.id !== itemToDelete.id)); }
+      if (deleteType === 'listener') { await notifyHubApi.deleteListener(itemToDelete.id).catch(() => { }); setListeners(p => p.filter(l => l.id !== itemToDelete.id)); }
       notification.success(`Deleted ${deleteType} successfully`);
       setShowDeleteConfirm(false);
     } catch (e) { notification.error(e.message || 'Failed to delete'); }
@@ -78,7 +78,7 @@ const NotifyHubPage = () => {
           {activeTab === 'channels' && <NotifyHubChannelList channels={filteredChannels} onEdit={(c) => { setEditingChannel(c); setShowChannelModal(true); }} onDelete={(c) => { setItemToDelete(c); setDeleteType('channel'); setShowDeleteConfirm(true); }} onNewChannel={() => { setEditingChannel(null); setShowChannelModal(true); }} />}
           {activeTab === 'listeners' && <NotifyHubListenerList listeners={filteredListeners} channels={channels} templates={templates} onEdit={(l) => { setEditingListener(l); setShowListenerModal(true); }} onDelete={(l) => { setItemToDelete(l); setDeleteType('listener'); setShowDeleteConfirm(true); }} onNewListener={() => { setEditingListener(null); setShowListenerModal(true); }} />}
           {activeTab === 'templates' && <NotifyHubTemplateList templates={filteredTemplates} onEdit={(t) => { setEditingTemplate(t); setShowTemplateModal(true); }} onDelete={(t) => { setItemToDelete(t); setDeleteType('template'); setShowDeleteConfirm(true); }} onNewTemplate={() => { setEditingTemplate(null); setShowTemplateModal(true); }} />}
-          {(activeTab === 'channels' || activeTab === 'logs') && <NotifyHubAuditLogList onClearLogs={() => notification.info('Audit log display refreshed')} />}
+          {activeTab === 'logs' && <NotifyHubAuditLogList onClearLogs={() => notification.info('Audit log display refreshed')} />}
         </div>
       )}
       {showChannelModal && <ChannelModal channel={editingChannel} onClose={() => { setShowChannelModal(false); setEditingChannel(null); }} onSave={() => { setShowChannelModal(false); setEditingChannel(null); loadData(); }} />}
