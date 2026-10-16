@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../common';
+import SettingsSectionHeader from './SettingsSectionHeader';
 
 export const OrgDetailsForm = ({
   id = 'org-details-form',
@@ -27,10 +28,11 @@ export const OrgDetailsForm = ({
 
   return (
     <div id={id} className="ds-org-details-section">
-      <div className="mb-4">
-        <h3 id={`${id}-title`} className="text-base font-semibold text-slate-900 m-0">Organization details</h3>
-        <p id={`${id}-sub`} className="text-xs text-slate-500 mt-0.5 mb-0">Update your organization profile and public workspace settings</p>
-      </div>
+      <SettingsSectionHeader
+        id={`${id}-header`}
+        title="Organization details"
+        subtitle="Update your organization profile and public workspace settings"
+      />
 
       <form onSubmit={onSave} className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
         <div>
