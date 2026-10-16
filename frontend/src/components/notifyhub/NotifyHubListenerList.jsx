@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, StatusBadge } from '../common';
-import { EVENT_CATALOG } from './EventListenerModal';
+import { EVENT_CATALOG } from './eventCatalogConstants';
 
 export const NotifyHubListenerList = ({
   listeners = [],
@@ -13,8 +13,10 @@ export const NotifyHubListenerList = ({
   if (listeners.length === 0) {
     return (
       <div className="bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center shadow-xs">
-        <i className="fa-solid fa-bolt text-3xl text-slate-300 mb-3 block" />
-        <p className="text-base font-bold text-slate-800 mb-1">No event listeners configured</p>
+        <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center text-xl mx-auto mb-3">
+          <i className="fa-solid fa-bolt" />
+        </div>
+        <p className="text-base font-bold text-slate-900 mb-1">No event listeners configured</p>
         <p className="text-xs text-slate-500 mb-4">Listen to platform events (pipeline error, workflow finished, etc.) and trigger notifications.</p>
         <Button variant="primary" onClick={onNewListener}>+ Add Event Listener</Button>
       </div>
@@ -40,7 +42,7 @@ export const NotifyHubListenerList = ({
               </div>
               <h3 className="text-sm font-bold text-slate-900 mb-1 truncate" title={l.name}>{l.name}</h3>
               <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-mono text-slate-700 mb-2 truncate">
-                on {l.resourceType?.toLowerCase()} {l.eventAction?.toLowerCase()} ({l.eventKey})
+                on {l.resourceType?.toLowerCase()} {l.eventAction?.toLowerCase() || ''} ({l.eventKey})
               </div>
               <p className="text-xs text-slate-500 mb-3 line-clamp-2 min-h-[32px]">{l.description || 'No description provided'}</p>
               <div className="text-[11px] text-slate-500 space-y-1 mb-2 bg-slate-50/50 p-2 rounded border border-slate-100">
