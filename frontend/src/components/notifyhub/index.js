@@ -6,3 +6,4 @@ export { default as NotifyHubTabs } from './NotifyHubTabs';
 export { default as NotifyHubChannelList } from './NotifyHubChannelList';
 export { default as NotifyHubListenerList } from './NotifyHubListenerList';
 export { default as NotifyHubTemplateList } from './NotifyHubTemplateList';
+export { default as NotifyHubAuditLogList } from './NotifyHubAuditLogList';

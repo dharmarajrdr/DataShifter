@@ -15,14 +15,15 @@ export const NotifyHubTabs = ({
   onSearchChange,
 }) => {
   const tabs = [
-    { key: 'listeners', label: `Event Listeners (${listenerCount})`, icon: 'fa-solid fa-bolt' },
     { key: 'channels', label: `Channels (${channelCount})`, icon: 'fa-solid fa-bullhorn' },
-    { key: 'templates', label: `Templates (${templateCount})`, icon: 'fa-solid fa-envelope-open-text' },
+    { key: 'listeners', label: `Event Listeners (${listenerCount})`, icon: 'fa-solid fa-bolt' },
+    { key: 'templates', label: `Alert Templates (${templateCount})`, icon: 'fa-solid fa-envelope-open-text' },
+    { key: 'logs', label: 'Dispatch Audit Logs', icon: 'fa-solid fa-clock-rotate-left' },
   ];
 
   return (
     <div id={id} className="ds-notifyhub-tabs flex items-center justify-between flex-wrap gap-4 border-b border-slate-200 pb-3 mb-5">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 flex-wrap">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
           return (
@@ -76,17 +77,19 @@ export const NotifyHubTabs = ({
           </select>
         )}
 
-        <div className="relative">
-          <input
-            id={`${id}-search`}
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="text-xs pl-7 pr-3 py-1.5 rounded-lg border border-slate-300 bg-white w-48 focus:outline-none focus:border-indigo-600"
-          />
-          <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-[10px]" />
-        </div>
+        {activeTab !== 'logs' && (
+          <div className="relative">
+            <input
+              id={`${id}-search`}
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="text-xs pl-7 pr-3 py-1.5 rounded-lg border border-slate-300 bg-white w-48 focus:outline-none focus:border-indigo-600"
+            />
+            <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-[10px]" />
+          </div>
+        )}
       </div>
     </div>
   );
