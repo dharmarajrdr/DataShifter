@@ -20,7 +20,7 @@ export const AdapterPayloadPreview = ({ adapter }) => {
         <h4 id="adapter-payload-preview-title" className="font-semibold text-xs text-content-primary">
           Example Pipeline Configuration Payload
         </h4>
-        <span id="adapter-payload-format-badge" className="text-[11px] font-mono text-content-tertiary">
+        <span id="adapter-payload-format-badge" className="text-[11px] font-sans text-content-tertiary">
           JSON Configuration
         </span>
       </div>

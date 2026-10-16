@@ -17,14 +17,14 @@ export const AdapterConfigTable = ({ configSchema = [] }) => {
         </span>
       </div>
 
-      <div id="adapter-config-scroll" className="overflow-x-auto max-h-56 overflow-y-auto">
+      <div id="adapter-config-scroll" className="overflow-x-auto">
         {(!configSchema || configSchema.length === 0) ? (
           <div id="adapter-config-empty" className="p-6 text-center text-xs text-content-tertiary">
             No configuration parameters required for this adapter.
           </div>
         ) : (
           <table id="adapter-config-table" className="w-full text-left text-xs border-collapse">
-            <thead id="adapter-config-thead" className="sticky top-0 bg-surface-50 border-b border-surface-200 text-content-secondary uppercase text-[10.5px] font-semibold tracking-wider z-10 shadow-xs">
+            <thead id="adapter-config-thead" className="bg-surface-50 border-b border-surface-200 text-content-secondary uppercase text-[10.5px] font-semibold tracking-wider">
               <tr>
                 <th id="th-config-key" className="py-2 px-4 whitespace-nowrap">Parameter Key</th>
                 <th id="th-config-type" className="py-2 px-4 whitespace-nowrap">Type</th>

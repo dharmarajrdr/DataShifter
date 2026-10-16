@@ -72,5 +72,7 @@ describe('Library Components', () => {
     expect(container.querySelector('#th-config-key').textContent).toBe('Parameter Key');
     expect(container.querySelector('#adapter-cfg-key-0').textContent).toBe('trailDirPath');
     expect(container.querySelector('#adapter-payload-json-code')).not.toBeNull();
+    const scrollEl = container.querySelector('#adapter-config-scroll');
+    expect(scrollEl.className).not.toContain('overflow-y-auto');
   });
 });
