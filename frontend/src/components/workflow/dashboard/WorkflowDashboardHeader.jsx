@@ -15,13 +15,13 @@ export const WorkflowDashboardHeader = ({
       <div id={`${id}-title-group`} className="ds-workflow-title-group">
         <h1
           id={`${id}-title`}
-          className="ds-workflow-title text-xl font-bold text-slate-900 tracking-tight"
+          className="ds-workflow-title text-2xl font-bold text-slate-900 tracking-tight"
         >
           Workflows
         </h1>
         <p
           id={`${id}-subtitle`}
-          className="ds-workflow-subtitle text-xs text-slate-500 mt-0.5"
+          className="ds-workflow-subtitle text-sm text-slate-500"
         >
           Orchestrate multiple validated pipelines in series and parallel DAG execution
         </p>

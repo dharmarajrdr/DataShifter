@@ -16,13 +16,13 @@ export const PipelineDashboardHeader = ({
       <div id={`${id}-title-group`} className="ds-pipeline-header-title-group">
         <h1
           id={`${id}-title`}
-          className="ds-pipeline-header-title text-xl font-bold text-slate-900 tracking-tight"
+          className="ds-pipeline-header-title text-2xl font-bold text-slate-900 tracking-tight"
         >
           Pipelines
         </h1>
         <p
           id={`${id}-subtitle`}
-          className="ds-pipeline-header-subtitle text-xs text-slate-500 mt-0.5"
+          className="ds-pipeline-header-subtitle text-sm text-slate-500"
         >
           Monitor continuous CDC streams and scheduled batch replication pipelines
         </p>
