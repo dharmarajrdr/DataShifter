@@ -17,6 +17,7 @@ import com.datashifter.connector.repositories.ConnectionRepository;
 import com.datashifter.pipeline.repositories.NamespaceRepository;
 import com.datashifter.pipeline.repositories.PipelineRepository;
 import com.datashifter.pipeline.services.interfaces.WorkflowService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +48,8 @@ public class WorkflowServiceImpl implements WorkflowService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final StringRedisTemplate redisTemplate;
     private final SubscriptionLimitChecker limitChecker;
+    private final MappingService mappingService;
+    private final ObjectMapper objectMapper;
 
     // =========================================================================
     // CREATE
@@ -591,9 +594,66 @@ public class WorkflowServiceImpl implements WorkflowService {
                 }
                 log.info("Stopped workflow '{}' ({})", workflow.getName(), workflow.getId());
             }
+            case VALIDATE_PIPELINES -> {
+                return validatePipelines(id);
+            }
         }
 
         publishWorkflowStatus(workflow, nodes);
+        return toFullResponse(workflow);
+    }
+
+    @Override
+    @Transactional
+    @Tool(description = "Validate all unvalidated pipelines belonging to a workflow and refresh workflow readiness status.")
+    public WorkflowResponse validatePipelines(@ToolParam(description = "Workflow ID") String id) {
+        Workflow workflow = findEntity(id);
+        List<WorkflowNode> nodes = nodeRepository.findByWorkflow_Id(id);
+        if (nodes.isEmpty()) {
+            return toFullResponse(workflow);
+        }
+
+        List<String> pipelineIds = nodes.stream().map(WorkflowNode::getPipelineId).toList();
+        List<Pipeline> pipelines = pipelineRepository.findAllById(pipelineIds);
+
+        for (Pipeline pipeline : pipelines) {
+            if (pipeline.getStatus() == PipelineStatus.NOT_VALIDATED
+                    || pipeline.getStatus() == PipelineStatus.DRAFT
+                    || pipeline.getStatus() == PipelineStatus.INVALID) {
+                PipelineStatus prevStatus = pipeline.getStatus();
+                List<String> valErrors = mappingService.validatePipeline(pipeline);
+                if (valErrors.isEmpty()) {
+                    pipeline.setStatus(PipelineStatus.VALIDATED);
+                    pipeline.setValidationErrors(null);
+                } else {
+                    pipeline.setStatus(PipelineStatus.INVALID);
+                    try {
+                        pipeline.setValidationErrors(objectMapper.writeValueAsString(valErrors));
+                    } catch (Exception ex) {
+                        pipeline.setValidationErrors(String.join("\n", valErrors));
+                    }
+                }
+                pipelineRepository.save(pipeline);
+                try {
+                    kafkaTemplate.send(KafkaTopics.PIPELINE_STATUS,
+                            StatusChangeEvent.builder()
+                                    .pipelineId(pipeline.getId())
+                                    .previousStatus(prevStatus)
+                                    .newStatus(pipeline.getStatus())
+                                    .timestamp(Instant.now())
+                                    .build());
+                } catch (Exception e) {
+                    log.warn("Failed to publish pipeline status event for {}: {}", pipeline.getId(), e.getMessage());
+                }
+            }
+        }
+
+        pipelineRepository.flush();
+        refreshDerivedStatus(workflow);
+        workflow = workflowRepository.save(workflow);
+        publishWorkflowStatus(workflow, nodes);
+
+        log.info("Validated pipelines for workflow '{}' ({})", workflow.getName(), workflow.getId());
         return toFullResponse(workflow);
     }
 
