@@ -38,8 +38,10 @@ export const PipelineWizardPage = () => {
         id="pipeline-wizard-container"
         className="wizard-container max-w-7xl w-full mx-auto bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col flex-1 my-2"
       >
-        <WizardStepIndicator id="pipeline-step-indicator" steps={WIZARD.steps} currentStep={wiz.step} />
-        <div id="pipeline-step-content" className="step-content-area flex-1 py-2">
+        <div className="w-3/4 mx-auto mb-3">
+          <WizardStepIndicator id="pipeline-step-indicator" steps={WIZARD.steps} currentStep={wiz.step} />
+        </div>
+        <div id="pipeline-step-content" className="step-content-area flex-1 py-2 w-3/4 mr-auto text-left">
           {stepContents[wiz.step]}
         </div>
         <WizardFooter

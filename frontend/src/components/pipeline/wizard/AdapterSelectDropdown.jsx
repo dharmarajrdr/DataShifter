@@ -29,10 +29,10 @@ export const AdapterSelectDropdown = ({ id = 'adapter-select', label, adapters =
   }, [adapters, search]);
 
   return (
-    <div id={id} ref={dropRef} className="relative w-full mb-4">
+    <div id={id} ref={dropRef} className="relative w-full max-w-[320px] mb-4">
       {label && <label id={`${id}-label`} className="block text-xs font-semibold text-slate-700 mb-1.5">{label}</label>}
       <button
-        id={`${id}-trigger`}
+        id={`${id}-adapter-select-trigger`}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className="w-full p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between hover:border-slate-300 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
