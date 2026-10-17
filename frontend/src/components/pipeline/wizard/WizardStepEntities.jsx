@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { connectionApi } from '../../../services/api';
 import DdlSliderDrawer from './DdlSliderDrawer';
 import WizardStepEntitiesRow from './WizardStepEntitiesRow';
 
-export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setConfig }) => {
+export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setConfig, errors = {} }) => {
   const isSourceDb = ['oracle-jdbc', 'postgres-jdbc'].includes(config.sourceAdapter || '');
   const isSourceCdc = ['oracle-trail', 'postgres-wal'].includes(config.sourceAdapter || '') || !config.sourceAdapter;
   const isTargetDb = ['postgres-writer', 'oracle-writer'].includes(config.targetAdapter || '');
@@ -13,13 +13,11 @@ export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setCon
   const [activeDdlIdx, setActiveDdlIdx] = useState(null);
 
   useEffect(() => {
-    if (config.source) connectionApi.listTables(config.source).then((r) => setSourceTables(r.data || [])).catch(() => {});
-    if (config.target) connectionApi.listTables(config.target).then((r) => setTargetTables(r.data || [])).catch(() => {});
+    if (config.source) connectionApi.listTables(config.source).then((r) => setSourceTables(r.data || [])).catch(() => { });
+    if (config.target) connectionApi.listTables(config.target).then((r) => setTargetTables(r.data || [])).catch(() => { });
   }, [config.source, config.target]);
 
   const pairs = config.entityPairs || [
-    { sourceEntity: 'HR.CUSTOMERS', targetEntity: isTargetDb ? 'customers' : 'customers_parquet/' },
-    { sourceEntity: 'SALES.ORDERS', targetEntity: isTargetDb ? 'orders' : 'orders_parquet/' },
   ];
 
   const updatePair = (index, field, value) => {
@@ -53,6 +51,13 @@ export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setCon
           <i className="fa-solid fa-plus text-xs" /><span>Add Entity</span>
         </button>
       </div>
+
+      {errors.entityPairs && (
+        <div id={`${id}-error`} className="mb-3 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+          <i className="fa-solid fa-circle-exclamation text-rose-600" />
+          <span>{errors.entityPairs}</span>
+        </div>
+      )}
 
       {hasDuplicate && (
         <div id={`${id}-duplicate-warn`} className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
