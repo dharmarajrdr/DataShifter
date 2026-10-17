@@ -27,6 +27,7 @@ describe('Live Monitor Modular Components', () => {
     act(() => {
       root.render(<MonitorHeader pipelineName="Orders-CDC-Sync" status="RUNNING" isCdc={true} onNavigate={handleNavigate} errorCount={2} />);
     });
+    expect(container.querySelector('#monitor-breadcrumbs')).toBeNull();
     expect(container.querySelector('#monitor-pipeline-title').textContent).toBe('Orders-CDC-Sync');
     expect(container.querySelector('#monitor-status-text').textContent).toBe('RUNNING');
     expect(container.querySelector('#monitor-cdc-badge').textContent).toContain('CDC Stream Active');

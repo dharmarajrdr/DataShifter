@@ -19,29 +19,20 @@ export const MonitorHeader = ({
   actionLoading, exportLoading, errorCount = 0,
 }) => (
   <header id="monitor-header" className="bg-white border-b border-surface-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-shrink-0">
-    <div id="monitor-header-left" className="flex flex-col gap-1">
-      <nav id="monitor-breadcrumbs" className="flex items-center gap-1.5 text-xs text-content-secondary">
-        <button id="breadcrumb-pipelines-btn" type="button" onClick={() => onNavigate('/pipelines')} className="text-brand-600 hover:underline font-medium">Pipelines</button>
-        <span id="breadcrumb-sep-1">/</span>
-        <span id="breadcrumb-current-pipeline" className="truncate max-w-[200px]">{pipelineName}</span>
-        <span id="breadcrumb-sep-2">/</span>
-        <strong id="breadcrumb-monitor-label" className="text-content-primary font-semibold">Live Monitor</strong>
-      </nav>
-      <div id="monitor-title-row" className="flex items-center gap-3">
-        <h1 id="monitor-pipeline-title" className="text-lg font-semibold text-content-primary tracking-tight">{pipelineName}</h1>
-        <span id="monitor-status-pill" className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 ${STATUS_BADGES[status] || STATUS_BADGES.RUNNING}`}>
-          {status === 'RUNNING' && <span id="monitor-pulse-dot" className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
-          <span id="monitor-status-text">{status}</span>
-        </span>
-        {isCdc && <span id="monitor-cdc-badge" data-testid="cdc-streaming-badge" className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">CDC Stream Active</span>}
-        {isLockedToWorkflow && (
-          <button id="badge-workflow-lock" type="button" onClick={() => onNavigate(`/workflows/${workflowId || ''}/monitor`)} title="Locked to workflow" className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer">
-            <Lock id="icon-workflow-lock" className="w-3 h-3 text-indigo-600" />
-            <span>Workflow: {workflowName || 'View Workflow'}</span>
-            <ExternalLink className="w-2.5 h-2.5 text-indigo-400" />
-          </button>
-        )}
-      </div>
+    <div id="monitor-header-left" className="flex items-center gap-3">
+      <h1 id="monitor-pipeline-title" className="text-lg font-semibold text-content-primary tracking-tight">{pipelineName}</h1>
+      <span id="monitor-status-pill" className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 ${STATUS_BADGES[status] || STATUS_BADGES.RUNNING}`}>
+        {status === 'RUNNING' && <span id="monitor-pulse-dot" className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
+        <span id="monitor-status-text">{status}</span>
+      </span>
+      {isCdc && <span id="monitor-cdc-badge" data-testid="cdc-streaming-badge" className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">CDC Stream Active</span>}
+      {isLockedToWorkflow && (
+        <button id="badge-workflow-lock" type="button" onClick={() => onNavigate(`/workflows/${workflowId || ''}/monitor`)} title="Locked to workflow" className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer">
+          <Lock id="icon-workflow-lock" className="w-3 h-3 text-indigo-600" />
+          <span>Workflow: {workflowName || 'View Workflow'}</span>
+          <ExternalLink className="w-2.5 h-2.5 text-indigo-400" />
+        </button>
+      )}
     </div>
     <div id="monitor-header-actions" className="flex items-center gap-2 flex-wrap">
       <button id="btn-monitor-errors" type="button" onClick={() => onNavigate('errors')} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-status-danger bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg shadow-subtle transition-colors">

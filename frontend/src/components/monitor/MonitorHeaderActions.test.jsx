@@ -12,6 +12,7 @@ describe('MonitorHeader Actions & Workflow Disassociation', () => {
   test('renders Validate button when status is NOT_VALIDATED and triggers VALIDATE action', () => {
     const handleAction = jest.fn();
     act(() => { root.render(<MonitorHeader status="NOT_VALIDATED" onAction={handleAction} onNavigate={jest.fn()} />); });
+    expect(container.querySelector('#monitor-breadcrumbs')).toBeNull();
     const valBtn = container.querySelector('#btn-action-validate');
     expect(valBtn).not.toBeNull();
     expect(valBtn.textContent).toContain('Validate');
