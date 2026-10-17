@@ -5,16 +5,12 @@ import { useNotification } from '../contexts/NotificationContext';
 import { aiApi } from '../services/aiApi';
 
 const BeetelAgentPage = () => {
-  const { sessionId } = useParams();
-  const navigate = useNavigate();
-  const notification = useNotification();
-  const [sessions, setSessions] = useState([]);
-  const [activeSession, setActiveSession] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
+  const { sessionId } = useParams(), navigate = useNavigate(), notification = useNotification();
+  const [sessions, setSessions] = useState([]), [activeSession, setActiveSession] = useState(null);
+  const [messages, setMessages] = useState([]), [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false), [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false), [showShareModal, setShowShareModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('Anthropic Claude 3.5 Sonnet');
-  const [showShareModal, setShowShareModal] = useState(false);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -24,7 +20,6 @@ const BeetelAgentPage = () => {
       if (list.length > 0 && !sessionId) navigate(`/beetel/${list[0].id}`, { replace: true });
     } catch (e) { notification.error(e?.message || 'Failed to load AI sessions'); }
   }, [sessionId, navigate, notification]);
-
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
   useEffect(() => {
@@ -34,49 +29,54 @@ const BeetelAgentPage = () => {
       return;
     }
     setLoading(true);
-    aiApi.getSession(sessionId)
-      .then(res => { const s = res?.data || res; setActiveSession(s); setMessages(s?.messages || []); })
-      .catch(e => notification.error(e?.message || 'Failed to load conversation'))
-      .finally(() => setLoading(false));
+    aiApi.getSession(sessionId).then(res => {
+      const s = res?.data || res;
+      setActiveSession(s); setMessages(s?.messages || []);
+      setHasMore(Boolean(s?.hasMoreMessages ?? (s?.messages?.length >= 15)));
+    }).catch(e => notification.error(e?.message || 'Failed to load conversation')).finally(() => setLoading(false));
   }, [sessionId, sessions, navigate, notification]);
+
+  const handleLoadOlder = useCallback(async () => {
+    const oldest = messages.find(m => m.id && !String(m.id).startsWith('u-'));
+    if (!sessionId || !oldest || !hasMore || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const d = (await aiApi.getSessionMessages(sessionId, { beforeMessageId: oldest.id, limit: 15 }))?.data || {};
+      setHasMore(Boolean(d?.hasMoreMessages));
+      const b = Array.isArray(d?.messages) ? d.messages : (Array.isArray(d) ? d : []);
+      if (b.length) setMessages(p => [...b.filter(m => !p.some(x => x.id === m.id)), ...p]);
+    } catch {} finally { setLoadingOlder(false); }
+  }, [sessionId, messages, hasMore, loadingOlder]);
 
   const handleNewSession = async () => {
     try {
-      const res = await aiApi.createSession({ title: 'New Conversation' });
-      const newSess = res?.data || res;
-      setSessions(prev => [newSess, ...prev]);
-      navigate(`/beetel/${newSess.id}`);
-      notification.info('New Beetel session started');
+      const s = (await aiApi.createSession({ title: 'New Conversation' }))?.data || {};
+      setSessions(p => [s, ...p]); navigate(`/beetel/${s.id}`); notification.info('New Beetel session started');
     } catch (e) { notification.error(e?.message || 'Failed to create session'); }
   };
 
   const handleSendMessage = async (msg) => {
-    let sessId = sessionId;
-    if (!sessId) {
+    let sid = sessionId;
+    if (!sid) {
       try {
-        const res = await aiApi.createSession({ title: msg.slice(0, 32) });
-        const s = res?.data || res;
-        sessId = s.id;
-        setSessions(p => [s, ...p]);
-        navigate(`/beetel/${s.id}`);
+        const s = (await aiApi.createSession({ title: msg.slice(0, 32) }))?.data || {};
+        sid = s.id; setSessions(p => [s, ...p]); navigate(`/beetel/${sid}`);
       } catch { notification.error('Could not initiate session'); return; }
     }
     setMessages(p => [...p, { id: 'u-' + Date.now(), role: 'USER', content: msg }]);
     setSending(true);
     try {
-      const res = await aiApi.sendMessage({ sessionId: sessId, message: msg });
-      const assistantMsg = res?.data || res;
-      if (assistantMsg) setMessages(p => [...p, assistantMsg]);
-      setSessions(p => p.map(s => s.id === sessId ? { ...s, preview: msg } : s));
+      const ast = (await aiApi.sendMessage({ sessionId: sid, message: msg }))?.data;
+      if (ast) setMessages(p => [...p, ast]);
+      setSessions(p => p.map(s => s.id === sid ? { ...s, preview: msg } : s));
     } catch (e) { notification.error(e?.message || 'AI synthesis failed'); }
     finally { setSending(false); }
   };
 
   const handlePlanDecision = async (planId, approve) => {
     try {
-      const res = approve ? await aiApi.confirmPlan(planId) : await aiApi.rejectPlan(planId);
-      const updated = res?.data || res;
-      setMessages(p => p.map(m => m.plan?.id === planId ? { ...m, plan: updated?.plan || { ...m.plan, status: approve ? 'COMPLETED' : 'REJECTED' } } : m));
+      const upd = (approve ? await aiApi.confirmPlan(planId) : await aiApi.rejectPlan(planId))?.data;
+      setMessages(p => p.map(m => m.plan?.id === planId ? { ...m, plan: upd?.plan || { ...m.plan, status: approve ? 'COMPLETED' : 'REJECTED' } } : m));
       notification.success(approve ? 'Plan approved & executed' : 'Plan rejected');
     } catch (e) { notification.error(e?.message || 'Plan decision failed'); }
   };
@@ -86,7 +86,7 @@ const BeetelAgentPage = () => {
       <BeetelAgentHeader className="shrink-0" engineLabel={selectedProvider.replace('Anthropic ', '').replace('OpenAI ', '').replace('Google ', '')} onNewSession={handleNewSession} onConfigureKeys={() => navigate('/settings/api-keys')} />
       <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
         <BeetelSessionSidebar sessions={sessions} selectedSessionId={sessionId} selectedProvider={selectedProvider} onProviderChange={setSelectedProvider} onSelectSession={(id) => navigate(`/beetel/${id}`)} />
-        <BeetelChatCanvas session={activeSession} messages={messages} loading={loading} sending={sending} onShareClick={() => setShowShareModal(true)} onConfirmPlan={(id) => handlePlanDecision(id, true)} onRejectPlan={(id) => handlePlanDecision(id, false)} onSendMessage={handleSendMessage} />
+        <BeetelChatCanvas session={activeSession} messages={messages} loading={loading} sending={sending} hasMore={hasMore} loadingOlder={loadingOlder} onLoadOlder={handleLoadOlder} onShareClick={() => setShowShareModal(true)} onConfirmPlan={(id) => handlePlanDecision(id, true)} onRejectPlan={(id) => handlePlanDecision(id, false)} onSendMessage={handleSendMessage} />
       </div>
       <BeetelShareModal isOpen={showShareModal} session={activeSession} onClose={() => setShowShareModal(false)} onSessionUpdated={(upd) => { setActiveSession(upd); setSessions(p => p.map(s => s.id === upd.id ? upd : s)); }} />
     </div>

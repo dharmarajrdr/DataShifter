@@ -21,6 +21,7 @@ describe('Library Components', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    container = null;
   });
 
   test('LibraryHeader renders dual tabs with counts and responds to tab change', () => {
@@ -74,5 +75,17 @@ describe('Library Components', () => {
     expect(container.querySelector('#adapter-payload-json-code')).not.toBeNull();
     const scrollEl = container.querySelector('#adapter-config-scroll');
     expect(scrollEl.className).not.toContain('overflow-y-auto');
+  });
+
+  test('AdapterDetailPane toggles expand and collapse for config properties', () => {
+    act(() => {
+      root.render(<AdapterDetailPane adapter={MOCK_ADAPTERS[0]} onCreatePipeline={jest.fn()} />);
+    });
+    const toggleBtn = container.querySelector('#adapter-config-toggle-btn');
+    expect(toggleBtn.textContent).toContain('Collapse');
+    expect(container.querySelector('#adapter-config-table')).not.toBeNull();
+    act(() => { toggleBtn.click(); });
+    expect(toggleBtn.textContent).toContain('Expand');
+    expect(container.querySelector('#adapter-config-table')).toBeNull();
   });
 });
