@@ -22,10 +22,10 @@ export const BeetelChatCanvas = ({
   };
 
   return (
-    <div className="card bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col h-[600px] shadow-xs">
+    <div className="card bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col h-full shadow-xs">
       <BeetelCanvasHeader session={session} onShareClick={onShareClick} />
 
-      <div className="flex-1 p-5 overflow-y-auto flex flex-col gap-4">
+      <div className="flex-1 min-h-0 p-5 overflow-y-auto flex flex-col gap-4">
         {loading ? (
           <div className="flex items-center justify-center h-full text-xs text-slate-400">Loading conversation messages...</div>
         ) : messages.length === 0 ? (

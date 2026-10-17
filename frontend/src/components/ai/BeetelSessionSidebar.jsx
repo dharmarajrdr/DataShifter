@@ -9,16 +9,16 @@ export const BeetelSessionSidebar = ({
   onSelectSession,
 }) => {
   return (
-    <div id={id} className="card bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between h-[600px] shadow-xs">
-      <div className="overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
+    <div id={id} className="card bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between h-full shadow-xs overflow-hidden">
+      <div className="overflow-hidden flex flex-col flex-1 min-h-0">
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 shrink-0">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sessions</span>
           <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
             {sessions.length} saved
           </span>
         </div>
 
-        <div className="mt-3 flex flex-col gap-2 overflow-y-auto pr-0.5 flex-1 max-h-[460px]">
+        <div className="mt-3 flex flex-col gap-2 overflow-y-auto pr-0.5 flex-1 min-h-0">
           {sessions.length === 0 ? (
             <div className="py-10 text-center text-xs text-slate-400">
               <i className="fa-regular fa-comments text-base mb-1 block text-slate-300" />
@@ -49,7 +49,7 @@ export const BeetelSessionSidebar = ({
         </div>
       </div>
 
-      <div className="pt-3 border-t border-slate-200 mt-auto">
+      <div className="pt-3 border-t border-slate-200 mt-auto shrink-0">
         <label className="block text-xs font-semibold text-slate-700 mb-1.5">LLM Provider</label>
         <select
           id={`${id}-llm-provider`}

@@ -60,4 +60,28 @@ describe('Beetel Agent UI Components', () => {
     act(() => rejectBtn.click());
     expect(onReject).toHaveBeenCalledWith('plan-101');
   });
+
+  test('renders owner and sharedMembers DPs before share button', () => {
+    const session = {
+      id: 's-1',
+      title: 'CDC Sync Exploration',
+      owner: { fullName: 'Alex Rivera', displayInitials: 'AR', avatarColor: '#4f46e5' },
+      sharedMembers: [
+        { userId: 'u-1', fullName: 'Sarah Connor', displayInitials: 'SC', avatarColor: '#0284c7' },
+        { userId: 'u-2', fullName: 'John Doe', displayInitials: 'JD', avatarColor: '#10b981' },
+      ],
+    };
+
+    act(() => {
+      root.render(<BeetelChatCanvas session={session} messages={[]} onSendMessage={jest.fn()} onShareClick={jest.fn()} />);
+    });
+
+    expect(container.textContent).toContain('AR');
+    expect(container.textContent).toContain('SC');
+    expect(container.textContent).toContain('JD');
+    expect(container.querySelector('[title="Alex Rivera (Owner)"]')).not.toBeNull();
+    expect(container.querySelector('[title="Sarah Connor (Shared)"]')).not.toBeNull();
+    const shareBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Share'));
+    expect(shareBtn).not.toBeNull();
+  });
 });

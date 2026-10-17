@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { BeetelAgentHeader, BeetelChatCanvas, BeetelSessionSidebar, BeetelShareModal } from '../components/ai';
 import { useNotification } from '../contexts/NotificationContext';
 import { aiApi } from '../services/aiApi';
 
 const BeetelAgentPage = () => {
+  const { sessionId } = useParams();
   const navigate = useNavigate();
   const notification = useNotification();
   const [sessions, setSessions] = useState([]);
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -21,40 +21,44 @@ const BeetelAgentPage = () => {
       const res = await aiApi.listSessions();
       const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
       setSessions(list);
-      if (list.length > 0 && !selectedSessionId) setSelectedSessionId(list[0].id);
+      if (list.length > 0 && !sessionId) navigate(`/beetel/${list[0].id}`, { replace: true });
     } catch (e) { notification.error(e?.message || 'Failed to load AI sessions'); }
-  }, [selectedSessionId, notification]);
+  }, [sessionId, navigate, notification]);
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
   useEffect(() => {
-    if (!selectedSessionId) { setActiveSession(null); setMessages([]); return; }
+    if (!sessionId) {
+      if (sessions.length > 0) navigate(`/beetel/${sessions[0].id}`, { replace: true });
+      else { setActiveSession(null); setMessages([]); }
+      return;
+    }
     setLoading(true);
-    aiApi.getSession(selectedSessionId)
+    aiApi.getSession(sessionId)
       .then(res => { const s = res?.data || res; setActiveSession(s); setMessages(s?.messages || []); })
       .catch(e => notification.error(e?.message || 'Failed to load conversation'))
       .finally(() => setLoading(false));
-  }, [selectedSessionId, notification]);
+  }, [sessionId, sessions, navigate, notification]);
 
   const handleNewSession = async () => {
     try {
       const res = await aiApi.createSession({ title: 'New Conversation' });
       const newSess = res?.data || res;
       setSessions(prev => [newSess, ...prev]);
-      setSelectedSessionId(newSess.id);
+      navigate(`/beetel/${newSess.id}`);
       notification.info('New Beetel session started');
     } catch (e) { notification.error(e?.message || 'Failed to create session'); }
   };
 
   const handleSendMessage = async (msg) => {
-    let sessId = selectedSessionId;
+    let sessId = sessionId;
     if (!sessId) {
       try {
         const res = await aiApi.createSession({ title: msg.slice(0, 32) });
         const s = res?.data || res;
         sessId = s.id;
         setSessions(p => [s, ...p]);
-        setSelectedSessionId(s.id);
+        navigate(`/beetel/${s.id}`);
       } catch { notification.error('Could not initiate session'); return; }
     }
     setMessages(p => [...p, { id: 'u-' + Date.now(), role: 'USER', content: msg }]);
@@ -78,10 +82,10 @@ const BeetelAgentPage = () => {
   };
 
   return (
-    <div id="beetel-agent-page" className="ds-beetel-agent-page w-full max-w-7xl mx-auto flex flex-col gap-4">
-      <BeetelAgentHeader engineLabel={selectedProvider.replace('Anthropic ', '').replace('OpenAI ', '').replace('Google ', '')} onNewSession={handleNewSession} onConfigureKeys={() => navigate('/settings')} />
-      <div className="w-full grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
-        <BeetelSessionSidebar sessions={sessions} selectedSessionId={selectedSessionId} selectedProvider={selectedProvider} onProviderChange={setSelectedProvider} onSelectSession={setSelectedSessionId} />
+    <div id="beetel-agent-page" className="ds-beetel-agent-page w-full max-w-7xl mx-auto h-[calc(100vh-7rem)] min-h-[550px] flex flex-col gap-4">
+      <BeetelAgentHeader className="shrink-0" engineLabel={selectedProvider.replace('Anthropic ', '').replace('OpenAI ', '').replace('Google ', '')} onNewSession={handleNewSession} onConfigureKeys={() => navigate('/settings/api-keys')} />
+      <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
+        <BeetelSessionSidebar sessions={sessions} selectedSessionId={sessionId} selectedProvider={selectedProvider} onProviderChange={setSelectedProvider} onSelectSession={(id) => navigate(`/beetel/${id}`)} />
         <BeetelChatCanvas session={activeSession} messages={messages} loading={loading} sending={sending} onShareClick={() => setShowShareModal(true)} onConfirmPlan={(id) => handlePlanDecision(id, true)} onRejectPlan={(id) => handlePlanDecision(id, false)} onSendMessage={handleSendMessage} />
       </div>
       <BeetelShareModal isOpen={showShareModal} session={activeSession} onClose={() => setShowShareModal(false)} onSessionUpdated={(upd) => { setActiveSession(upd); setSessions(p => p.map(s => s.id === upd.id ? upd : s)); }} />
