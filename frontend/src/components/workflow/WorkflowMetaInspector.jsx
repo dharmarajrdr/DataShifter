@@ -2,10 +2,9 @@ import React from 'react';
 
 const WorkflowMetaInspector = ({
   workflowMeta = { name: '', description: '', namespaceId: '', status: 'DRAFT' },
-  onChangeWorkflowMeta,
-  namespaces = [],
+  onChangeWorkflowMeta, namespaces = [], readOnly = false,
   topologyInfo = { chainCount: 0, singleChainReady: false, validationErrors: [] },
-  readOnly = false,
+  onValidateAll, validating = false,
 }) => {
   return (
     <div id="workflow-meta-inspector" className="p-5 space-y-4">
@@ -78,6 +77,18 @@ const WorkflowMetaInspector = ({
               <li key={`val-err-${i}`}>{err}</li>
             ))}
           </ul>
+          {onValidateAll && (
+            <button
+              id="btn-meta-validate-all"
+              type="button"
+              disabled={validating}
+              onClick={onValidateAll}
+              className="w-full mt-2 py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <i className="fa-solid fa-check-double text-[11px]" aria-hidden="true" />
+              <span>{validating ? 'Validating...' : 'Validate All Pipelines'}</span>
+            </button>
+          )}
         </div>
       )}
     </div>

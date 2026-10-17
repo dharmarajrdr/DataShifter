@@ -11,7 +11,7 @@ const WorkflowInspectorPanel = ({
   inspectorState = { mode: 'workflow_meta' }, workflowMeta, onChangeWorkflowMeta,
   namespaces = [], nodes = [], edges = [], eligiblePipelines = [], topologyInfo,
   onAddStep, onUpdateNodeLinks, onUpdateEdge, onDeleteEdge, onCloseInspector,
-  onNavigatePipeline, onRemoveNode, readOnly = false,
+  onNavigatePipeline, onRemoveNode, readOnly = false, onValidateAll, validating = false,
 }) => {
   const mode = inspectorState?.mode || 'workflow_meta';
   const currentNode = nodes.find((n) => n.pipelineId === (inspectorState?.pipelineId || inspectorState?.nodeId));
@@ -25,7 +25,8 @@ const WorkflowInspectorPanel = ({
       <div id="workflow-inspector-content" className="flex-1 overflow-y-auto">
         {mode === 'workflow_meta' && (
           <WorkflowMetaInspector workflowMeta={workflowMeta} onChangeWorkflowMeta={onChangeWorkflowMeta}
-            namespaces={namespaces} topologyInfo={topologyInfo} readOnly={readOnly} />
+            namespaces={namespaces} topologyInfo={topologyInfo} readOnly={readOnly}
+            onValidateAll={onValidateAll} validating={validating} />
         )}
         {mode === 'add_step' && (
           <WorkflowAddStepInspector defaultAfterPipelineId={inspectorState?.defaultAfterPipelineId}
