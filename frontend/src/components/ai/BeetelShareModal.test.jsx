@@ -20,7 +20,7 @@ describe('BeetelShareModal', () => {
   });
   afterEach(() => { act(() => root.unmount()); container.remove(); container = null; });
 
-  test('fetches members and submits share request', async () => {
+  test('fetches max 5 members when no search and submits share', async () => {
     aiApi.listOrgMembers.mockResolvedValue({
       data: [
         { userId: 'u-1', fullName: 'Alice Engineer', email: 'alice@example.com' },
@@ -33,8 +33,8 @@ describe('BeetelShareModal', () => {
     await act(async () => {
       root.render(<BeetelShareModal isOpen={true} session={{ id: 's-1', title: 'Test Session', sharedMembers: [] }} onClose={onClose} onSessionUpdated={onSessionUpdated} />);
     });
+    expect(aiApi.listOrgMembers).toHaveBeenCalledWith(undefined, 5);
     expect(container.textContent).toContain('Alice Engineer');
-    expect(container.textContent).toContain('Bob Architect');
 
     const checkboxes = container.querySelectorAll('input[type="checkbox"]');
     expect(checkboxes.length).toBe(2);
@@ -47,11 +47,28 @@ describe('BeetelShareModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  test('fetches users dynamically when search input is changed', async () => {
+    aiApi.listOrgMembers.mockResolvedValue({
+      data: [{ userId: 'u-99', fullName: 'Search Result User', email: 'search@example.com' }],
+    });
+    await act(async () => {
+      root.render(<BeetelShareModal isOpen={true} session={{ id: 's-1', title: 'Test Session', sharedMembers: [] }} onClose={jest.fn()} />);
+    });
+    const searchInput = container.querySelector('#beetel-share-search-input');
+    expect(searchInput).not.toBeNull();
+
+    await act(async () => {
+      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      nativeSetter.call(searchInput, 'Search');
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(aiApi.listOrgMembers).toHaveBeenCalledWith('Search', undefined);
+  });
+
   test('excludes myself (current user or session owner) from share list', async () => {
     aiApi.listOrgMembers.mockResolvedValue({
       data: [
         { userId: 'u-1', fullName: 'Alice Engineer', email: 'alice@example.com' },
-        { userId: 'u-2', fullName: 'Bob Architect', email: 'bob@example.com' },
         { userId: 'u-current', fullName: 'Current Me', email: 'me@example.com' },
       ],
     });
@@ -66,8 +83,7 @@ describe('BeetelShareModal', () => {
       );
     });
     expect(container.textContent).toContain('Alice Engineer');
-    expect(container.textContent).toContain('Bob Architect');
     expect(container.textContent).not.toContain('Current Me');
-    expect(container.querySelectorAll('input[type="checkbox"]').length).toBe(2);
+    expect(container.querySelectorAll('input[type="checkbox"]').length).toBe(1);
   });
 });

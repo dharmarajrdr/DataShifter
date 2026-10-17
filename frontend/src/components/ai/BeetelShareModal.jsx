@@ -6,47 +6,43 @@ import { useNotification } from '../../contexts/NotificationContext';
 
 export const BeetelShareModal = ({ isOpen, onClose, session, onSessionUpdated, currentUser }) => {
   const notification = useNotification();
-  const [members, setMembers] = useState([]);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [members, setMembers] = useState([]), [selectedIds, setSelectedIds] = useState([]);
+  const [search, setSearch] = useState(''), [loading, setLoading] = useState(false), [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !session?.id) return;
-    setSelectedIds([]);
+    if (!isOpen || !session?.id) { setSearch(''); setSelectedIds([]); return; }
     setLoading(true);
-    aiApi.listOrgMembers()
+    const q = search.trim();
+    aiApi.listOrgMembers(q || undefined, q ? undefined : 5)
       .then((res) => setMembers(res?.data || res || []))
       .catch((e) => notification?.error?.(e?.message || 'Failed to load members'))
       .finally(() => setLoading(false));
-  }, [isOpen, session?.id]);
+  }, [isOpen, session?.id, search]);
 
   if (!isOpen || !session) return null;
   const existingShared = new Set((session.sharedMembers || []).map((m) => m.userId));
-
   const myUserId = currentUser?.id || currentUser?.userId || (() => {
     try { return JSON.parse(localStorage.getItem('ds_user') || 'null')?.id; } catch { return null; }
   })() || session?.ownerUserId || session?.owner?.userId || session?.userId;
-
   const myUserEmail = currentUser?.email || (() => {
     try { return JSON.parse(localStorage.getItem('ds_user') || 'null')?.email; } catch { return null; }
   })() || session?.owner?.email || session?.ownerEmail;
 
-  const shareableMembers = members.filter((m) => {
+  const filtered = members.filter((m) => {
     if (myUserId && (String(m.userId) === String(myUserId) || String(m.id) === String(myUserId))) return false;
     if (myUserEmail && m.email && m.email.toLowerCase() === myUserEmail.toLowerCase()) return false;
     if (session?.ownerUserId && String(m.userId) === String(session.ownerUserId)) return false;
     if (session?.owner?.userId && String(m.userId) === String(session.owner.userId)) return false;
     return true;
   });
+  const shareableMembers = search.trim() ? filtered : filtered.slice(0, 5);
 
   const handleShare = async () => {
     if (selectedIds.length === 0 || submitting) return;
     setSubmitting(true);
     try {
       const res = await aiApi.shareSession(session.id, selectedIds);
-      const updated = res?.data || res;
-      if (updated && onSessionUpdated) onSessionUpdated(updated);
+      if (onSessionUpdated) onSessionUpdated(res?.data || res);
       notification.success('Conversation shared with selected members');
       onClose();
     } catch (e) { notification.error(e?.message || 'Failed to share'); }
@@ -67,7 +63,7 @@ export const BeetelShareModal = ({ isOpen, onClose, session, onSessionUpdated, c
         </div>
 
         <div className="p-6 overflow-y-auto flex-1 space-y-2">
-          <p className="text-xs text-slate-600 mb-3">Select team members to collaborate on this session:</p>
+          <input id="beetel-share-search-input" type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search team members by name or email..." className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-surface-50 focus:bg-white focus:outline-none focus:border-indigo-600 mb-3" />
           {loading ? <div className="py-8 text-center text-xs text-slate-400">Loading members...</div> : shareableMembers.length === 0 ? <div className="py-8 text-center text-xs text-slate-400">No members found.</div> : (
             shareableMembers.map((m) => {
               const isShared = existingShared.has(m.userId);
