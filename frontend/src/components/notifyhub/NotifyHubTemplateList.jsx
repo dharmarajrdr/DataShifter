@@ -35,7 +35,7 @@ export const NotifyHubTemplateList = ({
             id={`template-card-${tmpl.id}`}
             variant="elevated"
             padding={false}
-            className="p-4 flex flex-col justify-between transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card bg-white border border-slate-200 ring-1 ring-slate-100"
+            className="p-4 flex flex-col justify-between cursor-pointer transition-all duration-200 ease-in-out hover:border-indigo-400 hover:shadow-md bg-white border border-slate-200 ring-1 ring-slate-100"
           >
             <div className="space-y-2.5">
               <div className="flex items-start justify-between gap-2">

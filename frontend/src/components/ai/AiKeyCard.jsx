@@ -24,7 +24,7 @@ export const AiKeyCard = ({
   const badge = STATUS_BADGE[k.status] || STATUS_BADGE.ACTIVE;
 
   return (
-    <div className={`p-3.5 border rounded-xl transition-all ${k.isActive ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-75'}`}>
+    <div className={`p-3.5 border rounded-xl cursor-pointer transition-all duration-200 ease-in-out hover:border-indigo-400 hover:shadow-md ${k.isActive ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-75'}`}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="flex items-center gap-1.5 flex-wrap">
