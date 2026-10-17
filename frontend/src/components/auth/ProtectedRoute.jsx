@@ -1,7 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-
 import { ForbiddenPage } from '../../pages/ErrorPage';
 
 const ProtectedRoute = ({ children, permission, anyOf }) => {
@@ -19,7 +18,7 @@ const ProtectedRoute = ({ children, permission, anyOf }) => {
   const getHomePath = () => {
     if (hasPermission('pipeline:view')) return '/pipelines';
     if (hasPermission('connection:view')) return '/connections';
-    if (hasPermission('udf:view')) return '/udfs';
+    if (hasPermission('udf:view')) return '/library/adapters';
     return '/settings/org';
   };
 

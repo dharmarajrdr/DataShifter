@@ -61,8 +61,9 @@ export const AppRoutes = () => (
 
         {/* Connectors & tooling */}
         <Route path="/connections" element={<SubscriptionGuard><ProtectedRoute permission="connection:view"><ConnectionsManager /></ProtectedRoute></SubscriptionGuard>} />
-        <Route path="/udfs" element={<SubscriptionGuard><ProtectedRoute permission="udf:view"><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />
-        <Route path="/library" element={<Navigate to="/udfs" replace />} />
+        <Route path="/library" element={<Navigate to="/library/adapters" replace />} />
+        <Route path="/library/:tab" element={<SubscriptionGuard><ProtectedRoute permission="udf:view"><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />
+        <Route path="/udfs" element={<Navigate to="/library/udfs" replace />} />
         <Route path="/beetel" element={<SubscriptionGuard><BeetelAgentPage /></SubscriptionGuard>} />
         <Route path="/beetel/:sessionId" element={<SubscriptionGuard><BeetelAgentPage /></SubscriptionGuard>} />
         <Route path="/notifyhub" element={<SubscriptionGuard><NotifyHubPage /></SubscriptionGuard>} />

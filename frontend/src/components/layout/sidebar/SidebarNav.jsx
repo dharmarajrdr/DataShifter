@@ -6,7 +6,7 @@ import SidebarNavItem from './SidebarNavItem';
 export const NAV_ITEMS = [
   { label: 'Pipelines', path: '/pipelines', icon: PipelineIcon },
   { label: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
-  { label: 'Library', path: '/udfs', icon: Library },
+  { label: 'Library', path: '/library/adapters', icon: Library },
   { label: 'Workflows', path: '/workflows', icon: WorkflowIcon },
   { label: 'Connections', path: '/connections', icon: ConnectionIcon },
   { label: 'Beetel AI', path: '/beetel', icon: BeetelIcon },
@@ -27,6 +27,7 @@ export const SidebarNav = ({
 
   const isActive = (path) => {
     if (path === '/settings/org') return location.pathname.startsWith('/settings');
+    if (path === '/library/adapters') return location.pathname.startsWith('/library') || location.pathname.startsWith('/udfs');
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 

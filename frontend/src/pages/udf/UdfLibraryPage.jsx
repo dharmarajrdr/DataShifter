@@ -1,17 +1,20 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { udfApi } from '../../services/api';
 import { adapterApi } from '../../services/adapterApi';
 import { ForbiddenPage } from '../ErrorPage';
 import { ApiGuard, BarLoader } from '../../components/common';
-import { LibraryHeader, AdapterMasterList, AdapterDetailPane, AdapterUploadModal } from '../../components/library';
-import { UdfMasterList, UdfDetailHeader, UdfMethodsTable, UdfDependencies, UdfUploadModal } from '../../components/udf';
+import { AdapterDetailPane, AdapterMasterList, AdapterUploadModal, LibraryHeader } from '../../components/library';
+import { UdfDependencies, UdfDetailHeader, UdfMasterList, UdfMethodsTable, UdfUploadModal } from '../../components/udf';
 
 export const UdfLibraryPage = () => {
+  const { tab = 'adapters' } = useParams();
+  const navigate = useNavigate();
+  const mainTab = tab === 'udfs' ? 'udfs' : 'adapters';
   const { hasPermission } = useAuth();
   const notification = useNotification();
-  const [mainTab, setMainTab] = useState('adapters');
   const [adapters, setAdapters] = useState([]);
   const [selectedAdapterId, setSelectedAdapterId] = useState(null);
   const [adapterQuery, setAdapterQuery] = useState('');
@@ -24,37 +27,24 @@ export const UdfLibraryPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
-
   const canView = hasPermission('udf:view');
 
   useEffect(() => {
     if (!canView) return setLoading(false);
-    Promise.all([adapterApi.getAll(), udfApi.getAll()])
-      .then(([adpRes, udfRes]) => {
-        const adpData = adpRes.data || [];
-        const udfData = udfRes.data || [];
-        setAdapters(adpData);
-        if (adpData.length > 0) setSelectedAdapterId(adpData[0].id);
-        setUdfs(udfData);
-        if (udfData.length > 0) setSelectedUdfId(udfData[0].id);
-      })
-      .catch(setError)
-      .finally(() => setLoading(false));
+    Promise.all([adapterApi.getAll(), udfApi.getAll()]).then(([adpRes, udfRes]) => {
+      const adpData = adpRes.data || [], udfData = udfRes.data || [];
+      setAdapters(adpData); if (adpData.length > 0) setSelectedAdapterId(adpData[0].id);
+      setUdfs(udfData); if (udfData.length > 0) setSelectedUdfId(udfData[0].id);
+    }).catch(setError).finally(() => setLoading(false));
   }, [canView]);
 
   const filteredAdapters = useMemo(() => adapters.filter((a) => {
-    const matchType = adapterFilter === 'ALL' || (adapterFilter === 'READER' && a.adapterType === 'READER') ||
-      (adapterFilter === 'WRITER' && a.adapterType === 'WRITER') || (adapterFilter === 'CDC' && a.supportedMode === 'CDC');
-    const matchQuery = !adapterQuery || a.name.toLowerCase().includes(adapterQuery.toLowerCase()) || a.adapterKey.toLowerCase().includes(adapterQuery.toLowerCase());
-    return matchType && matchQuery;
+    const matchType = adapterFilter === 'ALL' || (adapterFilter === 'READER' && a.adapterType === 'READER') || (adapterFilter === 'WRITER' && a.adapterType === 'WRITER') || (adapterFilter === 'CDC' && a.supportedMode === 'CDC');
+    return matchType && (!adapterQuery || a.name.toLowerCase().includes(adapterQuery.toLowerCase()) || a.adapterKey.toLowerCase().includes(adapterQuery.toLowerCase()));
   }), [adapters, adapterFilter, adapterQuery]);
-
   const selectedAdapter = useMemo(() => adapters.find((a) => a.id === selectedAdapterId) || filteredAdapters[0] || null, [adapters, selectedAdapterId, filteredAdapters]);
 
-  const filteredUdfs = useMemo(() => udfs.filter((j) => {
-    return (udfFilter === 'ALL' || j.status === udfFilter) && (!udfQuery || j.name.toLowerCase().includes(udfQuery.toLowerCase()));
-  }), [udfs, udfFilter, udfQuery]);
-
+  const filteredUdfs = useMemo(() => udfs.filter((j) => (udfFilter === 'ALL' || j.status === udfFilter) && (!udfQuery || j.name.toLowerCase().includes(udfQuery.toLowerCase()))), [udfs, udfFilter, udfQuery]);
   const selectedJar = useMemo(() => udfs.find((j) => j.id === selectedUdfId) || filteredUdfs[0] || null, [udfs, selectedUdfId, filteredUdfs]);
 
   if (!canView) return <ForbiddenPage missingPermission="udf:view" message="You don't have permission to view the Library." />;
@@ -62,7 +52,7 @@ export const UdfLibraryPage = () => {
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<div id="lib-loading-wrap" className="p-6"><BarLoader /></div>}>
       <div id="library-page" className="flex flex-col w-full max-w-7xl mx-auto h-[calc(100vh-7rem)] overflow-hidden bg-surface-50 font-sans">
-        <LibraryHeader activeTab={mainTab} onTabChange={setMainTab} adapterCount={adapters.length} udfCount={udfs.length} onUploadClick={() => setShowUpload(true)} canUpload={canView} />
+        <LibraryHeader activeTab={mainTab} onTabChange={(t) => navigate(`/library/${t}`)} adapterCount={adapters.length} udfCount={udfs.length} onUploadClick={() => setShowUpload(true)} canUpload={canView} />
         {mainTab === 'adapters' ? (
           <div id="library-adapters-split" className="flex flex-1 overflow-hidden flex-col md:flex-row">
             <AdapterMasterList adapters={filteredAdapters} selectedId={selectedAdapter?.id} onSelectAdapter={setSelectedAdapterId} searchQuery={adapterQuery} onSearchChange={setAdapterQuery} typeFilter={adapterFilter} onTypeFilterChange={setAdapterFilter} />
