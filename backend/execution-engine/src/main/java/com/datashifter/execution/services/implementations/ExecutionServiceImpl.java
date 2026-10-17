@@ -610,61 +610,7 @@ public class ExecutionServiceImpl implements ExecutionService {
      * Enrich a raw DB error message with human-readable context.
      */
     private String enrichErrorMessage(String rawError, Map<String, Object> record, String sourceTable, String targetTable) {
-        if (rawError == null) return "Unknown write error";
-
-        StringBuilder msg = new StringBuilder();
-
-        // Column index out of range — mismatch between mapped columns and INSERT SQL
-        if (rawError.contains("column index is out of range")) {
-            int recordCols = record != null ? record.size() : 0;
-            msg.append(String.format("Column count mismatch: target record has %d columns but INSERT expects fewer. ", recordCols));
-            msg.append("Check if auto-generated PK (e.g., SERIAL id) is mapped — it should be excluded for INSERT_ONLY, or use UPSERT mode. ");
-            if (record != null) msg.append("Columns in record: ").append(record.keySet());
-            return msg.toString();
-        }
-
-        // Type mismatch
-        if (rawError.contains("is of type") && rawError.contains("but expression is of type")) {
-            msg.append("Type mismatch: ").append(rawError);
-            msg.append(" — Add a transform (TO_DATE, TO_NUMBER, TO_STRING) to convert the source value before writing.");
-            return msg.toString();
-        }
-
-        // NOT NULL violation
-        if (rawError.contains("violates not-null constraint")) {
-            msg.append("NOT NULL violation: ").append(rawError);
-            msg.append(" — Either map a source column to this target column, add a system value (STATIC_VALUE/CURRENT_TIMESTAMP), or use DEFAULT_IF_NULL transform.");
-            return msg.toString();
-        }
-
-        // Unique constraint violation
-        if (rawError.contains("duplicate key") || rawError.contains("unique constraint")) {
-            msg.append("Duplicate key: ").append(rawError);
-            msg.append(" — The target table already has a row with this key. Use UPSERT write mode to handle duplicates, or TRUNCATE the target table before re-running.");
-            return msg.toString();
-        }
-
-        // Foreign key violation
-        if (rawError.contains("foreign key constraint")) {
-            msg.append("Foreign key violation: ").append(rawError);
-            msg.append(" — The referenced row doesn't exist in the parent table. Check table execution order and ensure parent tables are migrated first.");
-            return msg.toString();
-        }
-
-        // Check constraint violation
-        if (rawError.contains("check constraint")) {
-            msg.append("Check constraint violation: ").append(rawError);
-            msg.append(" — The value doesn't meet the table's CHECK constraint. Review the transform logic or source data.");
-            return msg.toString();
-        }
-
-        // Transaction aborted (cascading from a previous error)
-        if (rawError.contains("current transaction is aborted")) {
-            return "Cascading error: a previous row in this batch failed, causing the entire batch to abort. Enable 'Ignore Exceptions' in pipeline settings to skip bad rows.";
-        }
-
-        // Default — return raw error
-        return rawError;
+        return com.datashifter.execution.utils.ErrorMessageEnricher.enrich(rawError, record, sourceTable, targetTable);
     }
 
     // =========================================================================

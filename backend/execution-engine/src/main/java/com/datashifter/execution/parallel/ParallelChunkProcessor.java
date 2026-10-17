@@ -340,16 +340,19 @@ public class ParallelChunkProcessor {
         if (!ignoreExceptions) {
             ctx.incrementErrors(1);
             WriteResult.FailedRecord first = result.getFailedRecords().isEmpty() ? null : result.getFailedRecords().get(0);
+            String firstError = first != null
+                    ? com.datashifter.execution.utils.ErrorMessageEnricher.enrich(first.getErrorMessage(), first.getRecord(), pt.getSourceTable(), ttm.getTargetTable())
+                    : "Write failed";
             kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
                     .pipelineId(ctx.getPipelineId()).executionLogId(ctx.getExecutionLogId())
                     .errorType(first != null ? resolveErrorType(first.getErrorType()) : ErrorType.WRITE_FAILED)
                     .sourceTable(pt.getSourceTable()).targetTable(ttm.getTargetTable())
-                    .chunkNumber(chunkNumber).errorMessage(first != null ? first.getErrorMessage() : "Write failed")
+                    .chunkNumber(chunkNumber).errorMessage(firstError)
                     .sourceRowData(logSourceRow && first != null ? serializeRecord(first.getRecord()) : null)
                     .pipelineStopped(true)
                     .timestamp(Instant.now()).build());
-            throw new RuntimeException(String.format("Write failed: %d errors on %s → %s (chunk %d)",
-                    result.getFailureCount(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber));
+            throw new RuntimeException(String.format("Write failed: %d errors on %s → %s (chunk %d): %s",
+                    result.getFailureCount(), pt.getSourceTable(), ttm.getTargetTable(), chunkNumber, firstError));
         }
 
         int maxThreshold = ctx.getPipeline().getMaxErrorThreshold() != null
@@ -358,12 +361,14 @@ public class ParallelChunkProcessor {
         for (WriteResult.FailedRecord failed : result.getFailedRecords()) {
             long errorCount = ctx.incrementErrors(1);
             boolean thresholdExceeded = maxThreshold > 0 && errorCount >= maxThreshold;
+            String enriched = com.datashifter.execution.utils.ErrorMessageEnricher.enrich(
+                    failed.getErrorMessage(), failed.getRecord(), pt.getSourceTable(), ttm.getTargetTable());
 
             kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
                     .pipelineId(ctx.getPipelineId()).executionLogId(ctx.getExecutionLogId())
                     .errorType(resolveErrorType(failed.getErrorType()))
                     .sourceTable(pt.getSourceTable()).targetTable(ttm.getTargetTable())
-                    .chunkNumber(chunkNumber).errorMessage(failed.getErrorMessage())
+                    .chunkNumber(chunkNumber).errorMessage(enriched)
                     .sourceRowData(logSourceRow ? serializeRecord(failed.getRecord()) : null)
                     .pipelineStopped(thresholdExceeded)
                     .timestamp(Instant.now()).build());
