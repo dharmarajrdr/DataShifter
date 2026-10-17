@@ -83,10 +83,11 @@ public class OrgService {
     @Transactional(readOnly = true)
     public OrgQuotasResponse getOrgQuotas(String orgId) {
         var limits = limitChecker != null ? limitChecker.getLimits(orgId) : com.datashifter.common.services.SubscriptionLimitChecker.PlanLimits.FREE_TIER;
-        long pipelinesCount = commonPipelineRepository != null ? commonPipelineRepository.countByOrgId(orgId) : 0L;
-        long connectionsCount = commonConnectionRepository != null ? commonConnectionRepository.countByOrgId(orgId) : 0L;
+        boolean hasOrg = orgId != null && !orgId.isBlank();
+        long pipelinesCount = (hasOrg && commonPipelineRepository != null) ? commonPipelineRepository.countByOrgId(orgId) : 0L;
+        long connectionsCount = (hasOrg && commonConnectionRepository != null) ? commonConnectionRepository.countByOrgId(orgId) : 0L;
         Instant startOfMonth = Instant.now().minus(30, java.time.temporal.ChronoUnit.DAYS);
-        long rowsMigrated = commonExecutionLogRepository != null ? commonExecutionLogRepository.sumRowsProcessedSince(orgId, startOfMonth) : 0L;
+        long rowsMigrated = (hasOrg && commonExecutionLogRepository != null) ? commonExecutionLogRepository.sumRowsProcessedSince(orgId, startOfMonth) : 0L;
 
         List<QuotaItem> items = new java.util.ArrayList<>();
 

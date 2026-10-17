@@ -1,5 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import OrgQuotasUsageCard from './OrgQuotasUsageCard';
 import { authApi } from '../../services/authApi';
 
@@ -31,15 +32,10 @@ describe('OrgQuotasUsageCard dynamic quotas', () => {
         { key: 'rows', label: 'Custom Migrated Rows', current: '12.5M', max: '50M', pct: 25, color: 'bg-emerald-600' },
       ],
     };
-
-    jest.spyOn(authApi, 'getOrgQuotas').mockResolvedValue({
-      status: 200,
-      message: 'Success',
-      data: mockData,
-    });
+    jest.spyOn(authApi, 'getOrgQuotas').mockResolvedValue({ status: 200, message: 'Success', data: mockData });
 
     await act(async () => {
-      root.render(<OrgQuotasUsageCard />);
+      root.render(<MemoryRouter><OrgQuotasUsageCard /></MemoryRouter>);
     });
 
     expect(authApi.getOrgQuotas).toHaveBeenCalledTimes(1);
@@ -50,5 +46,30 @@ describe('OrgQuotasUsageCard dynamic quotas', () => {
     expect(container.textContent).toContain('5 / 10');
     expect(container.textContent).toContain('Custom Migrated Rows');
     expect(container.textContent).toContain('12.5M / 50M');
+  });
+
+  test('handles fetch failure and allows retry', async () => {
+    const spy = jest.spyOn(authApi, 'getOrgQuotas')
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { planName: 'Free', quotas: [{ key: 'pipelines', label: 'Pipelines', current: '1', max: '2', pct: 50 }] },
+      });
+
+    await act(async () => {
+      root.render(<MemoryRouter><OrgQuotasUsageCard /></MemoryRouter>);
+    });
+
+    expect(container.textContent).toContain('Network error');
+    const retryBtn = container.querySelector('button');
+    expect(retryBtn.textContent).toBe('Retry');
+
+    await act(async () => {
+      retryBtn.click();
+    });
+
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('Free');
+    expect(container.textContent).toContain('1 / 2');
   });
 });

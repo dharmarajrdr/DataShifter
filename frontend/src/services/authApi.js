@@ -91,16 +91,25 @@ export const authApi = {
       })
     : apiClient.get('/auth/org'),
 
-  getOrgQuotas: () => USE_MOCK
-    ? mockResponse({
-        planName: 'Enterprise',
-        quotas: [
-          { key: 'pipelines', label: 'Pipelines Used', current: '14', max: '50', pct: 28, color: 'bg-indigo-600' },
-          { key: 'connections', label: 'Active Connections', current: '12', max: '25', pct: 48, color: 'bg-indigo-600' },
-          { key: 'rows', label: 'Monthly Rows Migrated', current: '42.8M', max: '100M', pct: 43, color: 'bg-emerald-600' },
-        ],
-      })
-    : apiClient.get('/auth/org/quotas'),
+  getOrgQuotas: () => {
+    if (!USE_MOCK) return apiClient.get('/auth/org/quotas');
+    let pCount = 5;
+    let cCount = 3;
+    try {
+      const p = localStorage.getItem('ds_mock_pipelines');
+      if (p) pCount = JSON.parse(p).length;
+      const c = localStorage.getItem('ds_mock_connections');
+      if (c) cCount = JSON.parse(c).length;
+    } catch {}
+    return mockResponse({
+      planName: 'Enterprise',
+      quotas: [
+        { key: 'pipelines', label: 'Pipelines Used', current: String(pCount), max: '50', pct: Math.round((pCount * 100) / 50), color: 'bg-indigo-600' },
+        { key: 'connections', label: 'Active Connections', current: String(cCount), max: '25', pct: Math.round((cCount * 100) / 25), color: 'bg-indigo-600' },
+        { key: 'rows', label: 'Monthly Rows Migrated', current: '191.9M', max: '250M', pct: 77, color: 'bg-emerald-600' },
+      ],
+    });
+  },
 
   updateOrg: (payload) => USE_MOCK
     ? mockResponse({
