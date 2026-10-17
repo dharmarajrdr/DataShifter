@@ -33,7 +33,7 @@ public class PermissionInterceptor implements HandlerInterceptor {
         }
 
         if (!annotation.value().isEmpty()) {
-            if (permissions == null || !permissions.contains(annotation.value())) {
+            if (!checkPermission(permissions, annotation.value())) {
                 sendForbidden(response, annotation.value());
                 return false;
             }
@@ -43,7 +43,7 @@ public class PermissionInterceptor implements HandlerInterceptor {
             boolean matched = false;
             if (permissions != null) {
                 for (String perm : annotation.anyOf()) {
-                    if (permissions.contains(perm)) {
+                    if (checkPermission(permissions, perm)) {
                         matched = true;
                         break;
                     }
@@ -56,6 +56,20 @@ public class PermissionInterceptor implements HandlerInterceptor {
         }
 
         return true;
+    }
+
+    private boolean checkPermission(Set<String> permissions, String required) {
+        if (permissions == null) return false;
+        if (permissions.contains(required)) return true;
+        if (com.datashifter.common.enums.Permissions.PIPELINE_EDIT.equals(required)
+                && permissions.contains(com.datashifter.common.enums.Permissions.PIPELINE_COLUMN_MAPPING)) {
+            return true;
+        }
+        if (com.datashifter.common.enums.Permissions.PIPELINE_COLUMN_MAPPING.equals(required)
+                && permissions.contains(com.datashifter.common.enums.Permissions.PIPELINE_EDIT)) {
+            return true;
+        }
+        return false;
     }
 
     private void sendForbidden(HttpServletResponse response, String missingPermission) throws IOException {

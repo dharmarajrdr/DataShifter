@@ -31,6 +31,11 @@ public final class PermissionResolver {
                 }
             }
         }
+        if (effective.contains(com.datashifter.common.enums.Permissions.PIPELINE_COLUMN_MAPPING)
+                || effective.contains(com.datashifter.common.enums.Permissions.PIPELINE_EDIT)) {
+            effective.add(com.datashifter.common.enums.Permissions.PIPELINE_EDIT);
+            effective.add(com.datashifter.common.enums.Permissions.PIPELINE_COLUMN_MAPPING);
+        }
 
         return effective;
     }
