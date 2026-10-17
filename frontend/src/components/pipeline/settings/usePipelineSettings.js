@@ -61,7 +61,8 @@ export const usePipelineSettings = () => {
         cdcFlushIntervalMs: settings.cdcFlushIntervalMs, cdcBatchSize: settings.cdcBatchSize,
         tableWriteModeOverrides: Object.entries(tableOverrides).map(([ttmId, mode]) => ({ targetTableMappingId: ttmId, writeMode: mode })),
       };
-      await settingsApi.save(pipelineId, payload);
+      const res = await settingsApi.save(pipelineId, payload);
+      if (res?.data) setSettings(res.data);
       setHasChanges(false);
       notification.success('Settings saved successfully');
     } catch (e) {

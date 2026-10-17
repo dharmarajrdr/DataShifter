@@ -141,6 +141,7 @@ export const MOCK_ERRORS = {
 export const MOCK_SETTINGS = {
   pipelineId: 'p-001', name: 'Orders migration', description: 'Migrate order data from Oracle prod to Spanner US',
   chunkSize: 10000, defaultWriteMode: 'UPSERT', ignoreExceptions: false, maxErrorThreshold: 1000, logSourceRow: true,
+  clearLogsOnStart: true,
   tableOverrides: [
     { table: 'spn_customers', writeMode: 'UPSERT', isOverride: false }, { table: 'spn_orders', writeMode: 'INSERT_ONLY', isOverride: true },
     { table: 'spn_order_items', writeMode: 'UPSERT', isOverride: false }, { table: 'spn_products', writeMode: 'UPDATE_ONLY', isOverride: true },
