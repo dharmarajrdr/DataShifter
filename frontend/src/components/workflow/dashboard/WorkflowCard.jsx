@@ -17,7 +17,7 @@ export const WorkflowCard = ({
     <div
       id={cardId}
       onClick={() => navigate(`/workflows/${workflow.id}/monitor`)}
-      className={`ds-workflow-card bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between gap-3 shadow-2xs hover:shadow-md hover:border-indigo-400 transition-all cursor-pointer select-none ${className}`}
+      className={`ds-workflow-card bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between gap-3 shadow-2xs cursor-pointer transition-all duration-200 ease-in-out hover:border-indigo-400 hover:shadow-md select-none ${className}`}
     >
       <div id={`${cardId}-top`} className="ds-wf-card-top flex flex-col gap-2">
         <div id={`${cardId}-header`} className="flex items-start justify-between gap-2.5">

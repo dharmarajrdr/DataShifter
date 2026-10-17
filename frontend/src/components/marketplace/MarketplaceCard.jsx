@@ -18,7 +18,7 @@ export const MarketplaceCard = ({
       id={cardId}
       variant="elevated"
       padding={false}
-      className={`adapter-card p-3.5 flex flex-col justify-between cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card
+      className={`adapter-card p-3.5 flex flex-col justify-between cursor-pointer transition-all duration-200 ease-in-out hover:border-indigo-400 hover:shadow-md
         ${adapter.installed ? 'ring-1 ring-brand-200 border-brand-100 bg-white' : 'border-surface-200'} ${className}`}
       onClick={() => onInspect(adapter)}
     >
