@@ -25,13 +25,13 @@ public class SettingsController {
     }
 
     @GetMapping
-    @RequiresPermission(anyOf = {Permissions.SETTINGS_EDIT, "pipeline:settings"})
+    @RequiresPermission(Permissions.PIPELINE_SETTINGS)
     public ApiResponse<PipelineResponse> getSettings(@PathVariable String pipelineId) {
         return ApiResponse.success(pipelineService.getById(pipelineId));
     }
 
     @PutMapping
-    @RequiresPermission(anyOf = {Permissions.SETTINGS_EDIT, "pipeline:settings"})
+    @RequiresPermission(Permissions.PIPELINE_SETTINGS)
     public ApiResponse<PipelineResponse> updateSettings(
             @PathVariable String pipelineId,
             @RequestBody UpdatePipelineRequest request) {
@@ -39,7 +39,7 @@ public class SettingsController {
     }
 
     @PostMapping("/tables")
-    @RequiresPermission(anyOf = {Permissions.SETTINGS_EDIT, "pipeline:settings"})
+    @RequiresPermission(Permissions.PIPELINE_SETTINGS)
     public ApiResponse<PipelineResponse> addTablePair(
             @PathVariable String pipelineId,
             @RequestBody AddTablePairRequest request) {
@@ -47,7 +47,7 @@ public class SettingsController {
     }
 
     @DeleteMapping("/tables/{pipelineTableId}")
-    @RequiresPermission(anyOf = {Permissions.SETTINGS_EDIT, "pipeline:settings"})
+    @RequiresPermission(Permissions.PIPELINE_SETTINGS)
     public ApiResponse<PipelineResponse> removeTablePair(
             @PathVariable String pipelineId,
             @PathVariable String pipelineTableId) {

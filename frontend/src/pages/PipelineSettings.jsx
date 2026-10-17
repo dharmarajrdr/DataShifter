@@ -1,10 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, PageHeader } from '../components/common';
+import { Button, Loader, PageHeader } from '../components/common';
 import { COLORS, FONT, SPACING } from '../constants/design';
 import { FRSC } from '../constants/layouts';
 import { SETTINGS } from '../constants/literals';
-import { ForbiddenPage } from './ErrorPage';
+import { ForbiddenPage, ServerErrorPage } from './ErrorPage';
 import { usePipelineSettings } from '../components/pipeline/settings/usePipelineSettings';
 import PipelineSettingsGeneralCard from '../components/pipeline/settings/PipelineSettingsGeneralCard';
 import PipelineSettingsCdcCard from '../components/pipeline/settings/PipelineSettingsCdcCard';
@@ -18,7 +18,8 @@ export const PipelineSettings = () => {
   const navigate = useNavigate();
   const {
     pipelineId, settings, saving, hasChanges, allTargetMappings,
-    canViewPipeline, canEditSettings, accessDenied,
+    canViewPipeline, canEditSettings, accessDenied, deniedPermission,
+    loading, error,
     update, updateTableWriteMode, handleSave, fetchSettings,
   } = usePipelineSettings();
 
@@ -27,10 +28,24 @@ export const PipelineSettings = () => {
   }
 
   if (!canEditSettings || accessDenied) {
-    return <ForbiddenPage missingPermission="settings:edit" message="You don't have permission to edit pipeline settings." />;
+    return <ForbiddenPage missingPermission={deniedPermission || 'pipeline:settings'} message="You don't have permission to edit pipeline settings." />;
   }
 
-  if (!settings) return null;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh] p-8">
+        <Loader message="Loading pipeline settings..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return <ServerErrorPage message={error} onRetry={fetchSettings} />;
+  }
+
+  if (!settings) {
+    return <ForbiddenPage missingPermission="pipeline:settings" message="You don't have permission to edit pipeline settings." />;
+  }
 
   const isRunning = settings.status === 'RUNNING';
 

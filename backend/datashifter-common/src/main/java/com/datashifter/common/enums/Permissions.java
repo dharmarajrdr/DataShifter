@@ -25,6 +25,7 @@ public final class Permissions {
         public static final String PIPELINE_RUN = "pipeline:run";
         public static final String PIPELINE_PAUSE = "pipeline:pause";
         public static final String PIPELINE_STOP = "pipeline:stop";
+        public static final String PIPELINE_SETTINGS = "pipeline:settings";
 
         // --- Workflow ---
         public static final String WORKFLOW_CREATE = "workflow:create";
@@ -82,7 +83,7 @@ public final class Permissions {
         /** All permissions — for Admin role seed */
         public static final List<String> ALL = List.of(
                         PIPELINE_CREATE, PIPELINE_VIEW, PIPELINE_EDIT, PIPELINE_DELETE,
-                        PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP,
+                        PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP, PIPELINE_SETTINGS,
                         WORKFLOW_CREATE, WORKFLOW_VIEW, WORKFLOW_EDIT, WORKFLOW_DELETE,
                         WORKFLOW_RUN, WORKFLOW_PAUSE, WORKFLOW_STOP,
                         NAMESPACE_CREATE, NAMESPACE_EDIT, NAMESPACE_DELETE,
@@ -98,7 +99,7 @@ public final class Permissions {
         /** Default Agent system role permissions — all platform resource permissions excluding org:* */
         public static final List<String> AGENT = List.of(
                         PIPELINE_CREATE, PIPELINE_VIEW, PIPELINE_EDIT, PIPELINE_DELETE,
-                        PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP,
+                        PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP, PIPELINE_SETTINGS,
                         WORKFLOW_CREATE, WORKFLOW_VIEW, WORKFLOW_EDIT, WORKFLOW_DELETE,
                         WORKFLOW_RUN, WORKFLOW_PAUSE, WORKFLOW_STOP,
                         NAMESPACE_CREATE, NAMESPACE_EDIT, NAMESPACE_DELETE,
@@ -113,7 +114,7 @@ public final class Permissions {
         /** Default Editor permissions */
         public static final List<String> EDITOR = List.of(
                         PIPELINE_CREATE, PIPELINE_VIEW, PIPELINE_EDIT,
-                        PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP,
+                        PIPELINE_RUN, PIPELINE_PAUSE, PIPELINE_STOP, PIPELINE_SETTINGS,
                         WORKFLOW_CREATE, WORKFLOW_VIEW, WORKFLOW_EDIT,
                         WORKFLOW_RUN, WORKFLOW_PAUSE, WORKFLOW_STOP,
                         NAMESPACE_CREATE, NAMESPACE_EDIT,

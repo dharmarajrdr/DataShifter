@@ -7,8 +7,11 @@ import { settingsApi } from '../../../services/api';
 export const usePipelineSettings = () => {
   const { hasPermission } = useAuth();
   const canViewPipeline = hasPermission('pipeline:view');
-  const canEditSettings = hasPermission('settings:edit');
+  const canEditSettings = hasPermission('pipeline:settings');
   const [accessDenied, setAccessDenied] = useState(false);
+  const [deniedPermission, setDeniedPermission] = useState('pipeline:settings');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -17,38 +20,32 @@ export const usePipelineSettings = () => {
   const notification = useNotification();
 
   const fetchSettings = useCallback(() => {
-    if (!canViewPipeline || !canEditSettings) return;
+    if (!canViewPipeline || !canEditSettings) { setLoading(false); return; }
+    setLoading(true); setError(null);
     settingsApi.getByPipelineId(pipelineId).then((res) => {
       setSettings(res.data);
       const overrides = {};
       (res.data.tables || []).forEach((pt) => {
-        (pt.targetMappings || []).forEach((ttm) => {
-          overrides[ttm.id] = ttm.writeMode || 'UPSERT';
-        });
+        (pt.targetMappings || []).forEach((ttm) => { overrides[ttm.id] = ttm.writeMode || 'UPSERT'; });
       });
       setTableOverrides(overrides);
     }).catch((err) => {
-      if (err?.response?.status === 403) setAccessDenied(true);
-    });
+      if (err?.status === 403 || err?.response?.status === 403) {
+        setAccessDenied(true);
+        setDeniedPermission(err?.info?.missingPermission || err?.response?.data?.info?.missingPermission || 'pipeline:settings');
+      } else {
+        setError(err?.message || 'Failed to load pipeline settings');
+      }
+    }).finally(() => { setLoading(false); });
   }, [pipelineId, canViewPipeline, canEditSettings]);
 
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
 
-  const update = (key, value) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-    setHasChanges(true);
-  };
-
-  const updateTableWriteMode = (ttmId, mode) => {
-    setTableOverrides((prev) => ({ ...prev, [ttmId]: mode }));
-    setHasChanges(true);
-  };
+  const update = (key, value) => { setSettings((prev) => ({ ...prev, [key]: value })); setHasChanges(true); };
+  const updateTableWriteMode = (ttmId, mode) => { setTableOverrides((prev) => ({ ...prev, [ttmId]: mode })); setHasChanges(true); };
 
   const handleSave = async () => {
-    if (settings?.status === 'RUNNING') {
-      notification.warning('Pause the pipeline before updating settings');
-      return;
-    }
+    if (settings?.status === 'RUNNING') { notification.warning('Pause the pipeline before updating settings'); return; }
     if (!hasChanges || saving) return;
     setSaving(true);
     try {
@@ -57,17 +54,11 @@ export const usePipelineSettings = () => {
         defaultWriteMode: settings.defaultWriteMode || 'UPSERT', ignoreExceptions: settings.ignoreExceptions,
         maxErrorThreshold: settings.maxErrorThreshold, logSourceRow: settings.logSourceRow,
         sourcePoolSize: settings.sourcePoolSize, targetPoolSize: settings.targetPoolSize,
-        previewInflightRecords: settings.previewInflightRecords,
-        pipelineMode: settings.pipelineMode || 'BATCH',
-        cdcLogType: settings.cdcLogType || 'ORACLE_TRAIL',
-        cdcDirectoryPath: settings.cdcDirectoryPath,
-        cdcFilePattern: settings.cdcFilePattern,
-        cdcStartingScn: settings.cdcStartingScn,
-        cdcFlushIntervalMs: settings.cdcFlushIntervalMs,
-        cdcBatchSize: settings.cdcBatchSize,
-        tableWriteModeOverrides: Object.entries(tableOverrides).map(([ttmId, mode]) => ({
-          targetTableMappingId: ttmId, writeMode: mode,
-        })),
+        previewInflightRecords: settings.previewInflightRecords, pipelineMode: settings.pipelineMode || 'BATCH',
+        cdcLogType: settings.cdcLogType || 'ORACLE_TRAIL', cdcDirectoryPath: settings.cdcDirectoryPath,
+        cdcFilePattern: settings.cdcFilePattern, cdcStartingScn: settings.cdcStartingScn,
+        cdcFlushIntervalMs: settings.cdcFlushIntervalMs, cdcBatchSize: settings.cdcBatchSize,
+        tableWriteModeOverrides: Object.entries(tableOverrides).map(([ttmId, mode]) => ({ targetTableMappingId: ttmId, writeMode: mode })),
       };
       await settingsApi.save(pipelineId, payload);
       setHasChanges(false);
@@ -89,7 +80,7 @@ export const usePipelineSettings = () => {
 
   return {
     pipelineId, settings, saving, hasChanges, tableOverrides, allTargetMappings,
-    canViewPipeline, canEditSettings, accessDenied,
+    canViewPipeline, canEditSettings, accessDenied, deniedPermission, loading, error,
     update, updateTableWriteMode, handleSave, fetchSettings,
   };
 };
