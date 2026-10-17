@@ -2,7 +2,11 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
-export const SettingsTabs = ({ title = 'Organization Settings', subtitle = 'Manage profile, authentication policies, audit retention, and enterprise quotas', actions }) => {
+export const SettingsTabs = ({
+  title = 'Organization Settings',
+  subtitle = 'Manage profile, authentication policies, audit retention, and enterprise quotas',
+  actions,
+}) => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
@@ -16,21 +20,13 @@ export const SettingsTabs = ({ title = 'Organization Settings', subtitle = 'Mana
   ];
 
   return (
-    <div id="settings-tabs-header" className="flex flex-col mb-5 w-full">
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 shadow-xs">
-            <svg className="w-6 h-6 stroke-current fill-none" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 leading-tight">{title}</h1>
-            <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
-          </div>
+    <div id="settings-tabs-header" className="flex flex-col mb-5 w-full select-none">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 leading-tight">{title}</h1>
+          <p className="text-sm text-slate-500">{subtitle}</p>
         </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
       </div>
 
       <div className="flex items-center gap-5 border-b border-slate-200 mt-4 overflow-x-auto">
