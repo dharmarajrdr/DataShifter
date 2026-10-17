@@ -52,7 +52,7 @@ export const MonitorInflightPreview = ({
         </div>
       </div>
       {isCdc && tables.length > 0 && (
-        <div id="preview-cdc-tabs" className="px-4 bg-surface-50 border-b border-surface-200 flex items-center gap-1 overflow-x-auto">
+        <div id="preview-cdc-tabs" className="px-4 bg-surface-50 border-b border-surface-200 flex items-center gap-1">
           <button id="tab-table-all" type="button" onClick={() => setSelectedTable('ALL')} className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${selectedTable === 'ALL' ? 'border-brand-600 text-brand-600 font-semibold bg-white' : 'border-transparent text-content-secondary hover:text-content-primary'}`}>All Tables ({records.length})</button>
           {tables.map((t) => (
             <button key={t} id={`tab-table-${t}`} type="button" onClick={() => setSelectedTable(t)} className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${selectedTable === t ? 'border-brand-600 text-brand-600 font-semibold bg-white' : 'border-transparent text-content-secondary hover:text-content-primary'}`}>{t} ({records.filter((r) => r.table === t).length})</button>

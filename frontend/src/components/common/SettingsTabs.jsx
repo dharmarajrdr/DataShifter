@@ -29,7 +29,7 @@ export const SettingsTabs = ({
         {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
       </div>
 
-      <div className="flex items-center gap-5 border-b border-slate-200 mt-4 overflow-x-auto">
+      <div id="settings-tabs-list" className="flex items-center gap-5 border-b border-slate-200 mt-4">
         {tabs.filter((t) => t.show).map((tab) => {
           const active = pathname === tab.path;
           return (
