@@ -4,7 +4,7 @@ import { CloseIcon } from '../layout/Icons';
 import { aiApi } from '../../services/aiApi';
 import { useNotification } from '../../contexts/NotificationContext';
 
-export const BeetelShareModal = ({ isOpen, onClose, session, onSessionUpdated }) => {
+export const BeetelShareModal = ({ isOpen, onClose, session, onSessionUpdated, currentUser }) => {
   const notification = useNotification();
   const [members, setMembers] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -23,6 +23,22 @@ export const BeetelShareModal = ({ isOpen, onClose, session, onSessionUpdated })
 
   if (!isOpen || !session) return null;
   const existingShared = new Set((session.sharedMembers || []).map((m) => m.userId));
+
+  const myUserId = currentUser?.id || currentUser?.userId || (() => {
+    try { return JSON.parse(localStorage.getItem('ds_user') || 'null')?.id; } catch { return null; }
+  })() || session?.ownerUserId || session?.owner?.userId || session?.userId;
+
+  const myUserEmail = currentUser?.email || (() => {
+    try { return JSON.parse(localStorage.getItem('ds_user') || 'null')?.email; } catch { return null; }
+  })() || session?.owner?.email || session?.ownerEmail;
+
+  const shareableMembers = members.filter((m) => {
+    if (myUserId && (String(m.userId) === String(myUserId) || String(m.id) === String(myUserId))) return false;
+    if (myUserEmail && m.email && m.email.toLowerCase() === myUserEmail.toLowerCase()) return false;
+    if (session?.ownerUserId && String(m.userId) === String(session.ownerUserId)) return false;
+    if (session?.owner?.userId && String(m.userId) === String(session.owner.userId)) return false;
+    return true;
+  });
 
   const handleShare = async () => {
     if (selectedIds.length === 0 || submitting) return;
@@ -52,8 +68,8 @@ export const BeetelShareModal = ({ isOpen, onClose, session, onSessionUpdated })
 
         <div className="p-6 overflow-y-auto flex-1 space-y-2">
           <p className="text-xs text-slate-600 mb-3">Select team members to collaborate on this session:</p>
-          {loading ? <div className="py-8 text-center text-xs text-slate-400">Loading members...</div> : members.length === 0 ? <div className="py-8 text-center text-xs text-slate-400">No members found.</div> : (
-            members.map((m) => {
+          {loading ? <div className="py-8 text-center text-xs text-slate-400">Loading members...</div> : shareableMembers.length === 0 ? <div className="py-8 text-center text-xs text-slate-400">No members found.</div> : (
+            shareableMembers.map((m) => {
               const isShared = existingShared.has(m.userId);
               const isChecked = isShared || selectedIds.includes(m.userId);
               return (
@@ -71,9 +87,7 @@ export const BeetelShareModal = ({ isOpen, onClose, session, onSessionUpdated })
 
         <div className="px-6 py-3.5 border-t border-slate-200 flex items-center justify-end gap-2.5 shrink-0 bg-slate-50">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={selectedIds.length === 0 || submitting} onClick={handleShare}>
-            {submitting ? 'Sharing...' : `Share (${selectedIds.length})`}
-          </Button>
+          <Button variant="primary" disabled={selectedIds.length === 0 || submitting} onClick={handleShare}>{submitting ? 'Sharing...' : `Share (${selectedIds.length})`}</Button>
         </div>
       </div>
     </div>
@@ -81,4 +95,3 @@ export const BeetelShareModal = ({ isOpen, onClose, session, onSessionUpdated })
 };
 
 export default BeetelShareModal;
-

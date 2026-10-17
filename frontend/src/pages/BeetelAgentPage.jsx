@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BeetelAgentHeader, BeetelChatCanvas, BeetelSessionSidebar, BeetelShareModal } from '../components/ai';
+import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { aiApi } from '../services/aiApi';
 
 const BeetelAgentPage = () => {
   const { sessionId } = useParams(), navigate = useNavigate(), notification = useNotification();
+  const { user: currentUser } = useAuth();
   const [sessions, setSessions] = useState([]), [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]), [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false), [hasMore, setHasMore] = useState(false);
@@ -88,7 +90,7 @@ const BeetelAgentPage = () => {
         <BeetelSessionSidebar sessions={sessions} selectedSessionId={sessionId} selectedProvider={selectedProvider} onProviderChange={setSelectedProvider} onSelectSession={(id) => navigate(`/beetel/${id}`)} />
         <BeetelChatCanvas session={activeSession} messages={messages} loading={loading} sending={sending} hasMore={hasMore} loadingOlder={loadingOlder} onLoadOlder={handleLoadOlder} onShareClick={() => setShowShareModal(true)} onConfirmPlan={(id) => handlePlanDecision(id, true)} onRejectPlan={(id) => handlePlanDecision(id, false)} onSendMessage={handleSendMessage} />
       </div>
-      <BeetelShareModal isOpen={showShareModal} session={activeSession} onClose={() => setShowShareModal(false)} onSessionUpdated={(upd) => { setActiveSession(upd); setSessions(p => p.map(s => s.id === upd.id ? upd : s)); }} />
+      <BeetelShareModal isOpen={showShareModal} session={activeSession} currentUser={currentUser} onClose={() => setShowShareModal(false)} onSessionUpdated={(upd) => { setActiveSession(upd); setSessions(p => p.map(s => s.id === upd.id ? upd : s)); }} />
     </div>
   );
 };
