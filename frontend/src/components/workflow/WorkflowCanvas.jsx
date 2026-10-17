@@ -1,10 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import AddWorkflowStepPill from './AddWorkflowStepPill';
-import WorkflowCanvasToolbar from './WorkflowCanvasToolbar';
-import WorkflowCanvasWires from './WorkflowCanvasWires';
-import WorkflowEdgeBadges from './WorkflowEdgeBadges';
-import WorkflowNodeCard from './WorkflowNodeCard';
-import { BASE_SCALE, CARD_HEIGHT, CARD_WIDTH, TRIGGER_X, TRIGGER_Y } from './workflowLayout';
+import AddWorkflowStepPill from './AddWorkflowStepPill'; import WorkflowCanvasToolbar from './WorkflowCanvasToolbar';
+import WorkflowCanvasWires from './WorkflowCanvasWires'; import WorkflowEdgeBadges from './WorkflowEdgeBadges';
+import WorkflowNodeCard from './WorkflowNodeCard'; import { BASE_SCALE, CARD_HEIGHT, CARD_WIDTH, TRIGGER_X, TRIGGER_Y } from './workflowLayout';
 
 const CANVAS_PAD_X = 480; const CANVAS_PAD_Y = 320;
 
@@ -13,11 +10,8 @@ const WorkflowCanvas = ({
   topologyInfo = { chainCount: 0, singleChainReady: false }, onSelectTrigger, onSelectNode,
   onSelectEdge, onOpenAddStep, onMoveNode, onConnectNodes, onRemoveNode, onAutoArrange,
 }) => {
-  const scrollRef = useRef(null);
-  const containerRef = useRef(null);
-  const hasInitScroll = useRef(false);
-  const [zoom, setZoom] = useState(1);
-  const effectiveScale = zoom * BASE_SCALE;
+  const scrollRef = useRef(null); const containerRef = useRef(null); const hasInitScroll = useRef(false);
+  const [zoom, setZoom] = useState(1); const effectiveScale = zoom * BASE_SCALE;
   const [draggingNode, setDraggingNode] = useState(null);
   const [connectingFrom, setConnectingFrom] = useState(null);
 
@@ -32,8 +26,25 @@ const WorkflowCanvas = ({
     if (hasInitScroll.current || !scrollRef.current) return;
     hasInitScroll.current = true;
     const initialCenterX = CANVAS_PAD_X + (triggerX + CARD_WIDTH / 2) * effectiveScale;
-    scrollRef.current.scrollTo({ left: Math.max(0, initialCenterX - scrollRef.current.clientWidth / 2), top: Math.max(0, CANVAS_PAD_Y - 24) });
+    scrollRef.current.scrollTo?.({ left: Math.max(0, initialCenterX - scrollRef.current.clientWidth / 2), top: Math.max(0, CANVAS_PAD_Y - 24) });
   }, [triggerX, effectiveScale]);
+
+  useEffect(() => {
+    if (!draggingNode && !connectingFrom) return;
+    const onMove = (e) => {
+      if (draggingNode && onMoveNode) {
+        const dx = (e.clientX - draggingNode.startX) / effectiveScale;
+        const dy = (e.clientY - draggingNode.startY) / effectiveScale;
+        onMoveNode(draggingNode.pid, Math.max(24, Math.round(draggingNode.origX + dx)), Math.max(24, Math.round(draggingNode.origY + dy)));
+      } else if (connectingFrom && containerRef.current) {
+        const r = containerRef.current.getBoundingClientRect();
+        setConnectingFrom((prev) => prev ? { ...prev, mouseX: (e.clientX - r.left) / effectiveScale, mouseY: (e.clientY - r.top) / effectiveScale } : null);
+      }
+    };
+    const onUp = () => { setDraggingNode(null); setConnectingFrom(null); };
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [draggingNode, connectingFrom, effectiveScale, onMoveNode]);
 
   const handleNodeMouseDown = (pid, e) => {
     if (mode !== 'builder' || e.button !== 0) return;
@@ -43,27 +54,15 @@ const WorkflowCanvas = ({
   };
   const handleStartConnect = (sourcePipelineId, e) => {
     if (mode !== 'builder') return;
-    e.preventDefault();
-    const r = containerRef.current?.getBoundingClientRect();
+    e.preventDefault(); const r = containerRef.current?.getBoundingClientRect();
     setConnectingFrom({ sourcePipelineId, mouseX: r ? (e.clientX - r.left) / effectiveScale : 0, mouseY: r ? (e.clientY - r.top) / effectiveScale : 0 });
   };
-  const handleMouseMove = (e) => {
-    if (draggingNode && onMoveNode) {
-      const dx = (e.clientX - draggingNode.startX) / effectiveScale;
-      const dy = (e.clientY - draggingNode.startY) / effectiveScale;
-      onMoveNode(draggingNode.pid, Math.max(24, Math.round(draggingNode.origX + dx)), Math.max(24, Math.round(draggingNode.origY + dy)));
-    } else if (connectingFrom && containerRef.current) {
-      const r = containerRef.current.getBoundingClientRect();
-      setConnectingFrom((prev) => prev ? { ...prev, mouseX: (e.clientX - r.left) / effectiveScale, mouseY: (e.clientY - r.top) / effectiveScale } : null);
-    }
-  };
-  const handleMouseUp = () => { setDraggingNode(null); setConnectingFrom(null); };
 
   const canvasWidth = Math.max(920, ...nodes.map((n) => (n.positionX ?? TRIGGER_X) + CARD_WIDTH + 80), triggerX + CARD_WIDTH + 80);
   const canvasHeight = Math.max(680, ...nodes.map((n) => (n.positionY ?? 170) + 240), TRIGGER_Y + 300);
 
   return (
-    <div id="workflow-canvas-scroll-container" ref={scrollRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
+    <div id="workflow-canvas-scroll-container" ref={scrollRef}
       className="flex-1 h-full relative overflow-auto bg-slate-50 [background-image:radial-gradient(#CBD5E1_1.25px,transparent_1.25px)] [background-size:20px_20px]">
       <WorkflowCanvasToolbar mode={mode} onAutoArrange={onAutoArrange} zoom={zoom} onZoomChange={setZoom} topologyInfo={topologyInfo} nodeCount={nodes.length} />
       <div id="workflow-canvas-surface-wrapper" onClick={onSelectTrigger} className="relative" style={{ width: canvasWidth * effectiveScale + CANVAS_PAD_X * 2, height: canvasHeight * effectiveScale + CANVAS_PAD_Y * 2 }}>
