@@ -29,6 +29,7 @@ public class PipelineDtos {
         private Boolean ignoreExceptions;
         private Integer maxErrorThreshold;
         private Boolean logSourceRow;
+        private Boolean clearLogsOnStart;
         private PipelineMode pipelineMode;
         private String cdcDirectoryPath;
         private String cdcFilePattern;
@@ -60,6 +61,7 @@ public class PipelineDtos {
         private Integer sourcePoolSize;
         private Integer targetPoolSize;
         private Boolean previewInflightRecords;
+        private Boolean clearLogsOnStart;
         private PipelineMode pipelineMode;
         private String cdcDirectoryPath;
         private String cdcFilePattern;
@@ -103,6 +105,7 @@ public class PipelineDtos {
         private Integer sourcePoolSize;
         private Integer targetPoolSize;
         private Boolean previewInflightRecords;
+        private Boolean clearLogsOnStart;
         private PipelineMode pipelineMode;
         private String cdcDirectoryPath;
         private String cdcFilePattern;

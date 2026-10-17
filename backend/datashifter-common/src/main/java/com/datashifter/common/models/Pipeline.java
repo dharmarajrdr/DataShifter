@@ -99,6 +99,10 @@ public class Pipeline extends BaseEntity {
     @Builder.Default
     private Boolean previewInflightRecords = true;
 
+    @Column(name = "clear_logs_on_start")
+    @Builder.Default
+    private Boolean clearLogsOnStart = true;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "pipeline_mode", length = 20)
     @Builder.Default
