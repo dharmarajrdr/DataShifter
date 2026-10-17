@@ -78,7 +78,7 @@ public class OrgController {
     }
 
     private String extractOrgId(HttpServletRequest request) {
-        String orgId = com.datashifter.common.security.UserContext.getOrgId();
+        String orgId = com.datashifter.common.security.UserContext.getCurrentOrgId();
         if (orgId != null && !orgId.isBlank()) return orgId;
         String auth = request.getHeader("Authorization");
         if (auth != null && auth.startsWith("Bearer ") && auth.length() > 7) {
