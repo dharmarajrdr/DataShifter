@@ -5,7 +5,7 @@ import BeetelMarkdownRenderer from './BeetelMarkdownRenderer';
 
 export const BeetelChatCanvas = ({
   session, messages = [], loading = false, sending = false, userInitials = 'DR',
-  onOpenSchemaDiff, onDeployPipeline, onShareClick, onConfirmPlan, onRejectPlan, onSendMessage,
+  onShareClick, onConfirmPlan, onRejectPlan, onSendMessage,
 }) => {
   const [inputText, setInputText] = useState('');
   const endRef = useRef(null);
@@ -23,7 +23,7 @@ export const BeetelChatCanvas = ({
 
   return (
     <div className="card bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col h-[600px] shadow-xs">
-      <BeetelCanvasHeader session={session} onShareClick={onShareClick} onOpenSchemaDiff={onOpenSchemaDiff} onDeployPipeline={onDeployPipeline} />
+      <BeetelCanvasHeader session={session} onShareClick={onShareClick} />
 
       <div className="flex-1 p-5 overflow-y-auto flex flex-col gap-4">
         {loading ? (

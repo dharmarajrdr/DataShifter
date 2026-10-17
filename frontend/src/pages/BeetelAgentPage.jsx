@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BeetelAgentHeader, BeetelChatCanvas, BeetelSchemaDiffModal, BeetelSessionSidebar, BeetelShareModal } from '../components/ai';
+import { BeetelAgentHeader, BeetelChatCanvas, BeetelSessionSidebar, BeetelShareModal } from '../components/ai';
 import { useNotification } from '../contexts/NotificationContext';
 import { aiApi } from '../services/aiApi';
 
@@ -14,7 +14,6 @@ const BeetelAgentPage = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('Anthropic Claude 3.5 Sonnet');
-  const [showDiffModal, setShowDiffModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
   const loadSessions = useCallback(async () => {
@@ -83,9 +82,8 @@ const BeetelAgentPage = () => {
       <BeetelAgentHeader engineLabel={selectedProvider.replace('Anthropic ', '').replace('OpenAI ', '').replace('Google ', '')} onNewSession={handleNewSession} onConfigureKeys={() => navigate('/settings')} />
       <div className="w-full grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
         <BeetelSessionSidebar sessions={sessions} selectedSessionId={selectedSessionId} selectedProvider={selectedProvider} onProviderChange={setSelectedProvider} onSelectSession={setSelectedSessionId} />
-        <BeetelChatCanvas session={activeSession} messages={messages} loading={loading} sending={sending} onOpenSchemaDiff={() => setShowDiffModal(true)} onDeployPipeline={() => notification.success(`Pipeline "${activeSession?.title || 'active'}" deployed.`)} onShareClick={() => setShowShareModal(true)} onConfirmPlan={(id) => handlePlanDecision(id, true)} onRejectPlan={(id) => handlePlanDecision(id, false)} onSendMessage={handleSendMessage} />
+        <BeetelChatCanvas session={activeSession} messages={messages} loading={loading} sending={sending} onShareClick={() => setShowShareModal(true)} onConfirmPlan={(id) => handlePlanDecision(id, true)} onRejectPlan={(id) => handlePlanDecision(id, false)} onSendMessage={handleSendMessage} />
       </div>
-      <BeetelSchemaDiffModal isOpen={showDiffModal} sessionTitle={activeSession?.title} onClose={() => setShowDiffModal(false)} />
       <BeetelShareModal isOpen={showShareModal} session={activeSession} onClose={() => setShowShareModal(false)} onSessionUpdated={(upd) => { setActiveSession(upd); setSessions(p => p.map(s => s.id === upd.id ? upd : s)); }} />
     </div>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const BeetelCanvasHeader = ({ session, onShareClick, onOpenSchemaDiff, onDeployPipeline }) => {
+export const BeetelCanvasHeader = ({ session, onShareClick }) => {
   return (
     <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
       <div className="flex items-center gap-2 truncate">
@@ -16,20 +16,14 @@ export const BeetelCanvasHeader = ({ session, onShareClick, onOpenSchemaDiff, on
           </span>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        {session && (
+      {session && (
+        <div className="flex items-center gap-2">
           <button type="button" onClick={onShareClick} className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg flex items-center gap-1 shadow-xs cursor-pointer">
             <i className="fa-solid fa-user-plus text-[10px] text-indigo-600" />
             <span>Share</span>
           </button>
-        )}
-        <button type="button" onClick={onOpenSchemaDiff} className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-xs cursor-pointer">
-          View Schema Diff
-        </button>
-        <button type="button" onClick={onDeployPipeline} className="px-2.5 py-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs cursor-pointer">
-          Deploy Pipeline
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
