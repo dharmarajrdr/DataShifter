@@ -22,7 +22,7 @@ export const NotifyHubTemplateList = ({
   }
 
   return (
-    <div id="templates-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div id="templates-grid" className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {templates.map((tmpl) => {
         const fmtKey = (tmpl.format || 'STANDARD').toUpperCase();
         const meta = FORMAT_META[fmtKey] || FORMAT_META.STANDARD;

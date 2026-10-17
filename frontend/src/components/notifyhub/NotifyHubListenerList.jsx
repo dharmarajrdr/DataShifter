@@ -24,7 +24,7 @@ export const NotifyHubListenerList = ({
   }
 
   return (
-    <div id="listeners-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div id="listeners-grid" className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {listeners.map((l) => {
         const meta = RESOURCE_META[l.resourceType] || { tag: 'EV', cls: 'bg-indigo-50 text-indigo-700 border-indigo-100' };
         const ch = channels.find((c) => c.id === l.channelId);

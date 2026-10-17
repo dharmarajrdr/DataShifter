@@ -14,7 +14,7 @@ export const NotifyHubChannelList = ({ channels = [], onEdit, onDelete, onNewCha
   }
 
   return (
-    <div id="channels-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div id="channels-grid" className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {channels.map((ch) => {
         const typeCfg = CHANNEL_TYPES.find((t) => t.value === ch.channelType) || {
           tag: 'WH', tagCls: 'bg-indigo-50 text-indigo-700 border-indigo-100', sub: 'Custom Webhook',

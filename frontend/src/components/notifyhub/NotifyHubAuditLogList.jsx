@@ -3,7 +3,7 @@ import { Card, Button } from '../common';
 
 export const NotifyHubAuditLogList = ({ logs = [], onClearLogs, id = 'notify-audit-log' }) => {
   return (
-    <Card id={id} variant="elevated" padding={false} className="bg-white border border-slate-200 rounded-xl shadow-subtle overflow-hidden">
+    <Card id={id} variant="elevated" padding={false} className="w-full bg-white border border-slate-200 rounded-xl shadow-subtle overflow-hidden">
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Recent Notification Dispatches</span>
@@ -18,7 +18,7 @@ export const NotifyHubAuditLogList = ({ logs = [], onClearLogs, id = 'notify-aud
         )}
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="w-full overflow-x-auto">
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
             <tr>
