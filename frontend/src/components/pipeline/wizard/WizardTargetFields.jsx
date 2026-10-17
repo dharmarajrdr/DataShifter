@@ -1,4 +1,5 @@
 import React from 'react';
+import TargetConnectionField from './TargetConnectionField';
 
 /**
  * Real-world credentials & storage parameters for Target Adapter (<= 100 lines).
@@ -10,6 +11,18 @@ export const WizardTargetFields = ({
   setConfig,
   connections = [],
 }) => {
+  if (adapter === 'postgres-writer' || adapter === 'oracle-writer') {
+    return (
+      <TargetConnectionField
+        id={id}
+        adapter={adapter}
+        config={config}
+        setConfig={setConfig}
+        connections={connections}
+      />
+    );
+  }
+
   if (adapter === 's3-writer') {
     return (
       <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
@@ -59,14 +72,17 @@ export const WizardTargetFields = ({
   }
 
   return (
-    <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
-      <label className="block text-xs font-semibold text-slate-700 mb-1">Target Connection</label>
-      <select id={`${id}-conn-select`} className="w-full px-2.5 py-1.5 text-xs border rounded-lg bg-white" value={config.target || ''} onChange={(e) => setConfig({ ...config, target: e.target.value })}>
-        <option value="">Select target database connection...</option>
-        {connections.map((c) => (
-          <option key={c.id} value={c.id}>{c.name} ({c.dbType})</option>
-        ))}
-      </select>
+    <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">Snowflake Account Identifier</label>
+          <input id={`${id}-sf-account`} className="w-full px-2.5 py-1.5 text-xs font-mono border rounded-lg bg-white" value={config.snowflakeAccount || ''} onChange={(e) => setConfig({ ...config, snowflakeAccount: e.target.value })} placeholder="xy12345.us-east-1" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">Warehouse &amp; Database</label>
+          <input id={`${id}-sf-db`} className="w-full px-2.5 py-1.5 text-xs font-mono border rounded-lg bg-white" value={config.snowflakeDatabase || ''} onChange={(e) => setConfig({ ...config, snowflakeDatabase: e.target.value })} placeholder="COMPUTE_WH.ANALYTICS_DB" />
+        </div>
+      </div>
     </div>
   );
 };
