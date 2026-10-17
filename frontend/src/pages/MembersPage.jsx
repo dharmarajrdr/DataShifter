@@ -7,10 +7,10 @@ export const MembersPage = () => {
   const d = useMembersData();
 
   return (
-    <ApiGuard error={d.error} loading={d.loading} loadingComponent={<div><BarLoader /><div className="max-w-3xl pt-6"><SkeletonLoader variant="rect" height="120px" count={1} /><SkeletonLoader variant="table-row" count={4} /></div></div>}>
-      <div id="members-page" className="ds-members-page max-w-7xl mx-auto pb-12 flex flex-col">
+    <ApiGuard error={d.error} loading={d.loading} loadingComponent={<div><BarLoader /><div className="w-full pt-6"><SkeletonLoader variant="rect" height="120px" count={1} /><SkeletonLoader variant="table-row" count={4} /></div></div>}>
+      <div id="members-page" className="ds-members-page w-full max-w-7xl mx-auto pb-12 flex flex-col">
         <SettingsTabs title="Organization settings" subtitle={d.user?.orgName || 'Your organization'} />
-        <div className="max-w-3xl flex flex-col gap-6">
+        <div className="w-full flex flex-col gap-6">
           {d.canManageInvites && (
             <InviteMembersCard inviteEmail={d.inviteEmail} onInviteEmailChange={d.setInviteEmail} inviteRoleId={d.inviteRoleId} onInviteRoleIdChange={d.setInviteRoleId} roles={d.roles} onInvite={d.handleInvite} inviting={d.inviting} inviteSuccess={d.inviteSuccess} error={d.error} />
           )}

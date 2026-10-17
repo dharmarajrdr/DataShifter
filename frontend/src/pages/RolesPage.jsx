@@ -47,14 +47,14 @@ export const RolesPage = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto pb-12 flex flex-col">
+    <div className="w-full max-w-7xl mx-auto pb-12 flex flex-col">
       <SettingsTabs
         title="Roles & permissions"
         subtitle="Define what each role can do in your organization"
         actions={canManage && <Button onClick={() => setEditingRole({})}>Create role</Button>}
       />
 
-      <div className="max-w-3xl flex flex-col gap-3">
+      <div className="w-full flex flex-col gap-3">
         {roles.map((role) => (
           <RoleAccordionItem
             key={role.id}
