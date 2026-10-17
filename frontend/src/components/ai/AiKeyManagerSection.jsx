@@ -1,31 +1,26 @@
 import { useEffect, useState, useCallback } from 'react';
 import { aiApi } from '../../services/aiApi';
 import { Button, BarLoader } from '../common';
+import { useNotification } from '../../contexts/NotificationContext';
 import AiKeyCard from './AiKeyCard';
 import AiKeyAddForm from './AiKeyAddForm';
 
 const AiKeyManagerSection = ({ scope = 'USER', canEdit = true, style = {} }) => {
-  const [poolStatus, setPoolStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [provider, setProvider] = useState('GROQ');
-  const [label, setLabel] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [modelName, setModelName] = useState('openai/gpt-oss-120b');
-  const [saving, setSaving] = useState(false);
-  const [testingId, setTestingId] = useState(null);
-  const [testResults, setTestResults] = useState({});
-  const [errorMsg, setErrorMsg] = useState(null);
+  const notification = useNotification();
+  const [poolStatus, setPoolStatus] = useState(null); const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false); const [provider, setProvider] = useState('GROQ');
+  const [label, setLabel] = useState(''); const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState(''); const [modelName, setModelName] = useState('openai/gpt-oss-120b');
+  const [saving, setSaving] = useState(false); const [testingId, setTestingId] = useState(null);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
     try {
       const res = await aiApi.getKeyPoolStatus();
       setPoolStatus(res.data || null);
-    } catch (e) { setErrorMsg(e?.message || 'Could not load AI key pool status'); }
+    } catch (e) { notification.error(e?.message || 'Could not load AI key pool status'); }
     finally { setLoading(false); }
-  }, []);
+  }, [notification]);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
   const keys = scope === 'USER' ? (poolStatus?.userKeys || []) : (poolStatus?.orgKeys || []);
@@ -38,12 +33,14 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true, style = {} }) => 
 
   const handleAddKey = async (e) => {
     e.preventDefault();
-    if (provider === 'GROQ' && !apiKey.trim()) { setErrorMsg('Please enter a Groq API key'); return; }
+    if (provider === 'GROQ' && !apiKey.trim()) { notification.error('Please enter a Groq API key'); return; }
     setSaving(true);
     try {
       await aiApi.createKey({ scope, provider, label: label.trim() || `${provider} Key #${keys.length + 1}`, apiKey: apiKey.trim(), baseUrl: baseUrl.trim() || undefined, modelName: modelName.trim() || undefined, priorityOrder: keys.length, isActive: true });
-      setLabel(''); setApiKey(''); setShowAddForm(false); await loadStatus();
-    } catch (err) { setErrorMsg(err?.message || 'Failed to add key'); }
+      setLabel(''); setApiKey(''); setShowAddForm(false);
+      notification.success('AI API key added successfully');
+      await loadStatus();
+    } catch (err) { notification.error(err?.message || 'Failed to add key'); }
     finally { setSaving(false); }
   };
 
@@ -51,10 +48,16 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true, style = {} }) => 
     setTestingId(id);
     try {
       const res = await aiApi.testKey(id);
-      setTestResults(p => ({ ...p, [id]: res.data }));
+      const data = res?.data;
+      if (data?.success) {
+        notification.success(`Verified: Connected successfully (${data.latencyMs ?? 0}ms)`);
+      } else {
+        notification.error(data?.message ? `Test Failed: ${data.message}` : 'Test failed');
+      }
       await loadStatus();
-    } catch (err) { setTestResults(p => ({ ...p, [id]: { success: false, message: err?.message || 'Test failed' } })); }
-    finally { setTestingId(null); }
+    } catch (err) {
+      notification.error(err?.message ? `Test Failed: ${err.message}` : 'Test failed');
+    } finally { setTestingId(null); }
   };
 
   return (
@@ -75,8 +78,6 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true, style = {} }) => 
         </div>
       )}
 
-      {errorMsg && <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs">{errorMsg}</div>}
-
       {showAddForm && canEdit && (
         <AiKeyAddForm provider={provider} onProviderChange={handleProviderChange} label={label} onLabelChange={setLabel} apiKey={apiKey} onApiKeyChange={setApiKey} baseUrl={baseUrl} onBaseUrlChange={setBaseUrl} modelName={modelName} onModelNameChange={setModelName} saving={saving} onSubmit={handleAddKey} onCancel={() => setShowAddForm(false)} />
       )}
@@ -86,7 +87,7 @@ const AiKeyManagerSection = ({ scope = 'USER', canEdit = true, style = {} }) => 
           <p className="text-xs text-slate-400 py-4 text-center">No {scope === 'USER' ? 'personal' : 'organization'} LLM keys configured yet.</p>
         ) : (
           keys.map((k, idx) => (
-            <AiKeyCard key={k.id} keyItem={k} index={idx} testRes={testResults[k.id]} canEdit={canEdit} isTesting={testingId === k.id} onTest={handleTestKey} onReset={(id) => aiApi.resetKeyHealth(id).then(loadStatus)} onToggleActive={(kItem) => aiApi.updateKey(kItem.id, { isActive: !kItem.isActive }).then(loadStatus)} onDelete={(id) => aiApi.deleteKey(id).then(loadStatus)} />
+            <AiKeyCard key={k.id} keyItem={k} index={idx} canEdit={canEdit} isTesting={testingId === k.id} onTest={handleTestKey} onReset={(id) => aiApi.resetKeyHealth(id).then(() => { notification.success('Key health reset'); loadStatus(); }).catch(e => notification.error(e?.message || 'Reset failed'))} onToggleActive={(kItem) => aiApi.updateKey(kItem.id, { isActive: !kItem.isActive }).then(() => { notification.success(kItem.isActive ? 'Key disabled' : 'Key enabled'); loadStatus(); }).catch(e => notification.error(e?.message || 'Update failed'))} onDelete={(id) => aiApi.deleteKey(id).then(() => { notification.success('Key deleted'); loadStatus(); }).catch(e => notification.error(e?.message || 'Delete failed'))} />
           ))
         )}
       </div>

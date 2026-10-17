@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { ConfirmationModal } from '../common';
 import ConnectionDbIcon from './ConnectionDbIcon';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -9,28 +9,22 @@ export const ConnectionCard = ({
   canEdit, canDelete, canTest, canBrowse, id,
 }) => {
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const notification = useNotification();
   const isReferenced = (conn.pipelineCount || 0) > 0;
-  const timerRef = useRef(null);
-
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
   const handleTest = async () => {
     if (!canTest) return;
     setTesting(true);
-    setTestResult(null);
     onUpdate?.(conn.id, { status: 'TESTING' });
     try {
       const res = await connectionApi.test(conn.id);
-      setTestResult(res.data);
-      timerRef.current = setTimeout(() => setTestResult(null), 3000);
-      notification[res.data?.success ? 'success' : 'error'](res.data?.success ? `Connection to "${conn.name}" tested successfully` : (res.data?.message || 'Connection test failed'));
-      onUpdate?.(conn.id, { status: res.data?.success ? 'CONNECTED' : 'FAILED', error: res.data?.success ? null : res.data?.message });
+      const ok = res.data?.success;
+      notification[ok ? 'success' : 'error'](
+        ok ? `Verified: Connected successfully (${res.data?.latencyMs || 0}ms)` : (res.data?.message || 'Connection test failed')
+      );
+      onUpdate?.(conn.id, { status: ok ? 'CONNECTED' : 'FAILED', error: ok ? null : res.data?.message });
     } catch (e) {
-      setTestResult({ success: false, message: e.message });
-      timerRef.current = setTimeout(() => setTestResult(null), 3000);
       notification.error(e.message || 'Connection test failed');
       onUpdate?.(conn.id, { status: 'FAILED', error: e.message });
     } finally { setTesting(false); }
@@ -75,7 +69,6 @@ export const ConnectionCard = ({
         </div>
 
         {conn.error && <div className="mt-2.5 p-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-medium truncate">{conn.error}</div>}
-        {testResult && <div className={`mt-2.5 p-2 rounded-lg text-xs font-medium border ${testResult.success ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{testResult.success ? `Connected (${testResult.latencyMs}ms)` : testResult.message}</div>}
       </div>
 
       <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">

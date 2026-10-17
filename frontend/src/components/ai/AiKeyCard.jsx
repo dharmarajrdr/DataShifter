@@ -18,7 +18,7 @@ export const formatErrorMessage = (err) => {
 };
 
 export const AiKeyCard = ({
-  keyItem: k, index: idx, testRes, canEdit, isTesting,
+  keyItem: k, index: idx, canEdit, isTesting,
   onTest, onReset, onToggleActive, onDelete,
 }) => {
   const badge = STATUS_BADGE[k.status] || STATUS_BADGE.ACTIVE;
@@ -80,13 +80,6 @@ export const AiKeyCard = ({
               {formatErrorMessage(k.lastError)}
             </p>
           </div>
-        </div>
-      )}
-
-      {testRes && (
-        <div className={`mt-2 p-2.5 rounded-lg flex items-start gap-2 text-xs border ${testRes.success ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
-          <span className="font-bold">{testRes.success ? 'Verified:' : 'Test Failed:'}</span>
-          <span className="font-mono text-[11px]">{testRes.success ? `Connected successfully (${testRes.latencyMs}ms)` : testRes.message}</span>
         </div>
       )}
     </div>
