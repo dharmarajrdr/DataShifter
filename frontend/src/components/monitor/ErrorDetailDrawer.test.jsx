@@ -70,3 +70,4 @@ describe('ErrorDetailDrawer', () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 });
+
