@@ -66,7 +66,8 @@ export const AppRoutes = () => (
         <Route path="/udfs" element={<Navigate to="/library/udfs" replace />} />
         <Route path="/beetel" element={<SubscriptionGuard><BeetelAgentPage /></SubscriptionGuard>} />
         <Route path="/beetel/:sessionId" element={<SubscriptionGuard><BeetelAgentPage /></SubscriptionGuard>} />
-        <Route path="/notifyhub" element={<SubscriptionGuard><NotifyHubPage /></SubscriptionGuard>} />
+        <Route path="/notifyhub" element={<Navigate to="/notifyhub/channels" replace />} />
+        <Route path="/notifyhub/:tab" element={<SubscriptionGuard><NotifyHubPage /></SubscriptionGuard>} />
 
         {/* Admin settings */}
         <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />

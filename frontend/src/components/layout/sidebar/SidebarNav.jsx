@@ -10,7 +10,7 @@ export const NAV_ITEMS = [
   { label: 'Workflows', path: '/workflows', icon: WorkflowIcon },
   { label: 'Connections', path: '/connections', icon: ConnectionIcon },
   { label: 'Beetel AI', path: '/beetel', icon: BeetelIcon },
-  { label: 'Alerts', path: '/notifyhub', icon: NotifyHubIcon },
+  { label: 'Alerts', path: '/notifyhub/channels', icon: NotifyHubIcon },
   { label: 'Settings', path: '/settings/org', icon: SettingsIcon },
 ];
 
@@ -28,6 +28,7 @@ export const SidebarNav = ({
   const isActive = (path) => {
     if (path === '/settings/org') return location.pathname.startsWith('/settings');
     if (path === '/library/adapters') return location.pathname.startsWith('/library') || location.pathname.startsWith('/udfs');
+    if (path === '/notifyhub/channels') return location.pathname.startsWith('/notifyhub');
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 

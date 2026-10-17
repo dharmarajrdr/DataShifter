@@ -1,26 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationModal, Loader } from '../components/common';
 import { ChannelModal, EventListenerModal, NotifyHubAuditLogList, NotifyHubChannelList, NotifyHubHeader, NotifyHubListenerList, NotifyHubTabs, NotifyHubTemplateList, TemplateModal } from '../components/notifyhub';
 import { useNotification } from '../contexts/NotificationContext';
 import { notifyHubApi, pipelineApi } from '../services/api';
 
+const VALID_TABS = ['channels', 'listeners', 'templates', 'logs'];
+
 const NotifyHubPage = () => {
+  const { tab = 'channels' } = useParams();
+  const navigate = useNavigate();
+  const activeTab = VALID_TABS.includes(tab) ? tab : 'channels';
   const notification = useNotification();
-  const [activeTab, setActiveTab] = useState('channels');
   const [channels, setChannels] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [listeners, setListeners] = useState([]);
   const [pipelines, setPipelines] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
-
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [editingChannel, setEditingChannel] = useState(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [showListenerModal, setShowListenerModal] = useState(false);
   const [editingListener, setEditingListener] = useState(null);
-
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteType, setDeleteType] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -60,11 +63,6 @@ const NotifyHubPage = () => {
     } catch (e) { notification.error(e.message || 'Failed to delete'); }
   };
 
-  const handleSendTestAlert = () => {
-    if (channels.length === 0) { notification.error('Please configure at least one channel first.'); return; }
-    notification.success(`Test alert broadcast sent to ${channels.length} configured destinations.`);
-  };
-
   const q = searchQuery.toLowerCase().trim();
   const filteredChannels = channels.filter(c => (channelTypeFilter === 'ALL' || c.channelType === channelTypeFilter) && (!q || c.name.toLowerCase().includes(q)));
   const filteredTemplates = templates.filter(t => !q || t.name.toLowerCase().includes(q) || (t.subject || '').toLowerCase().includes(q));
@@ -73,8 +71,8 @@ const NotifyHubPage = () => {
 
   return (
     <div id="notifyhub-page" className="w-full max-w-7xl mx-auto space-y-6">
-      <NotifyHubHeader activeTab={activeTab} channelCount={channels.length} listenerCount={listeners.length} onNewListener={() => { setEditingListener(null); setShowListenerModal(true); }} onNewChannel={() => { setEditingChannel(null); setShowChannelModal(true); }} onNewTemplate={() => { setEditingTemplate(null); setShowTemplateModal(true); }} onSendTestAlert={handleSendTestAlert} />
-      <NotifyHubTabs activeTab={activeTab} onTabChange={setActiveTab} listenerCount={listeners.length} channelCount={channels.length} templateCount={templates.length} logCount={logs.length} listenerResourceFilter={listenerResourceFilter} onResourceFilterChange={setListenerResourceFilter} channelTypeFilter={channelTypeFilter} onChannelTypeFilterChange={setChannelTypeFilter} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+      <NotifyHubHeader activeTab={activeTab} channelCount={channels.length} listenerCount={listeners.length} onNewListener={() => { setEditingListener(null); setShowListenerModal(true); }} onNewChannel={() => { setEditingChannel(null); setShowChannelModal(true); }} onNewTemplate={() => { setEditingTemplate(null); setShowTemplateModal(true); }} onSendTestAlert={() => { if (!channels.length) { notification.error('Please configure at least one channel first.'); return; } notification.success(`Test alert broadcast sent to ${channels.length} configured destinations.`); }} />
+      <NotifyHubTabs activeTab={activeTab} onTabChange={(t) => navigate(`/notifyhub/${t}`)} listenerCount={listeners.length} channelCount={channels.length} templateCount={templates.length} logCount={logs.length} listenerResourceFilter={listenerResourceFilter} onResourceFilterChange={setListenerResourceFilter} channelTypeFilter={channelTypeFilter} onChannelTypeFilterChange={setChannelTypeFilter} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
       {loading ? <Loader message="Loading NotifyHub configurations..." height="40vh" /> : (
         <div className="w-full space-y-6">
           {activeTab === 'channels' && <NotifyHubChannelList channels={filteredChannels} onEdit={(c) => { setEditingChannel(c); setShowChannelModal(true); }} onDelete={(c) => { setItemToDelete(c); setDeleteType('channel'); setShowDeleteConfirm(true); }} onNewChannel={() => { setEditingChannel(null); setShowChannelModal(true); }} />}
