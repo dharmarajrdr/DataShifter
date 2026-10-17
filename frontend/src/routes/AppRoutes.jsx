@@ -48,9 +48,9 @@ export const AppRoutes = () => (
           <Route path="new" element={<ProtectedRoute permission="pipeline:create"><PipelineWizard /></ProtectedRoute>} />
           <Route path=":pipelineId" element={<PipelineRedirect />} />
           <Route path=":pipelineId/monitor" element={<ProtectedRoute permission="monitor:view"><LiveMonitor /></ProtectedRoute>} />
-          <Route path=":pipelineId/mapping" element={<ColumnMappingBoard />} />
+          <Route path=":pipelineId/mapping" element={<ProtectedRoute anyOf={['pipeline:column-mapping', 'pipeline:edit']}><ColumnMappingBoard /></ProtectedRoute>} />
           <Route path=":pipelineId/errors" element={<ProtectedRoute permission="monitor:view_errors"><ErrorLogViewer /></ProtectedRoute>} />
-          <Route path=":pipelineId/settings" element={<ProtectedRoute anyOf={['settings:edit', 'pipeline:settings', 'pipeline:edit']}><PipelineSettings /></ProtectedRoute>} />
+          <Route path=":pipelineId/settings" element={<ProtectedRoute permission="pipeline:settings"><PipelineSettings /></ProtectedRoute>} />
         </Route>
 
         {/* Workflows module */}

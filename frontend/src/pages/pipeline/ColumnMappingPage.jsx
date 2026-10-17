@@ -23,7 +23,7 @@ export const ColumnMappingPage = () => {
   const navigate = useNavigate();
   const auth = useAuth() || {};
   const canView = auth.canViewPipeline ?? (auth.hasPermission ? auth.hasPermission('pipeline:view') : true);
-  const canEdit = auth.canEditPipeline ?? (auth.hasPermission ? auth.hasPermission('pipeline:edit') : true);
+  const canEdit = auth.canEditPipeline ?? (auth.hasPermission ? (auth.hasPermission('pipeline:column-mapping') || auth.hasPermission('pipeline:edit')) : true);
   const [transformTarget, setTransformTarget] = useState(null);
   const [filterTarget, setFilterTarget] = useState(null);
 

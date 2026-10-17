@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }) => {
     if (!user?.effectivePermissions) return false;
     const p = user.effectivePermissions;
     if (permission === 'settings:edit' || permission === 'pipeline:settings') return p.includes('pipeline:settings') || p.includes('settings:edit');
+    if (permission === 'pipeline:edit' || permission === 'pipeline:column-mapping') return p.includes('pipeline:column-mapping') || p.includes('pipeline:edit');
     return p.includes(permission);
   }, [user]);
 
