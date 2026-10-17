@@ -18,7 +18,8 @@ const ProtectedRoute = ({ children, permission, anyOf }) => {
   const getHomePath = () => {
     if (hasPermission('pipeline:view')) return '/pipelines';
     if (hasPermission('connection:view')) return '/connections';
-    if (hasPermission('udf:view')) return '/library/adapters';
+    if (hasPermission('adapter:view')) return '/library/adapters';
+    if (hasPermission('udf:view')) return '/library/udfs';
     return '/settings/org';
   };
 

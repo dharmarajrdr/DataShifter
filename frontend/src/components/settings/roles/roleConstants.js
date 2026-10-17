@@ -45,6 +45,14 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
+    label: 'Adapters', permissions: [
+      { key: 'adapter:create', label: 'Install adapters' },
+      { key: 'adapter:view', label: 'View adapters' },
+      { key: 'adapter:delete', label: 'Delete adapters' },
+      { key: 'adapter:purchase', label: 'Purchase adapters' },
+    ],
+  },
+  {
     label: 'User-defined functions', permissions: [
       { key: 'udf:create', label: 'Upload UDFs' },
       { key: 'udf:view', label: 'View UDFs' },
