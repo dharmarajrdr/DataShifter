@@ -37,7 +37,7 @@ export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setCon
   };
 
   return (
-    <div id={id} className="wizard-step-entities-panel max-w-2xl mx-auto py-2">
+    <div id={id} className="wizard-step-entities-panel w-full py-2">
       <div id={`${id}-header`} className="mb-4 flex items-center justify-between">
         <div>
           <h3 id={`${id}-title`} className="text-base font-semibold text-slate-900">Configure Datasets &amp; Entity Pairing</h3>

@@ -15,7 +15,7 @@ export const WizardStepReview = ({
   ];
 
   return (
-    <div id={id} className="wizard-step-review-panel max-w-2xl mx-auto py-2">
+    <div id={id} className="wizard-step-review-panel w-full py-2">
       <div id={`${id}-header`} className="mb-4">
         <h3 id={`${id}-title`} className="text-base font-semibold text-slate-900">
           Review Pipeline Architecture
