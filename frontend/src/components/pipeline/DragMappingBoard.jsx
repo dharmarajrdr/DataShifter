@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { COL_ROW_H, DOT_R, LINE_COLORS, organize, TBL_HEADER_H, TBL_PAD, TBL_WIDTH } from './mapping/DragBoardConstants';
+import { COL_ROW_H, DOT_R, LINE_COLORS, MAX_ZOOM, MIN_ZOOM, organize, TBL_HEADER_H, TBL_PAD, TBL_WIDTH, WHEEL_ZOOM_FACTOR, ZOOM_STEP } from './mapping/DragBoardConstants';
 import DragBoardSvgWires from './mapping/DragBoardSvgWires';
 import DragBoardTableCard from './mapping/DragBoardTableCard';
 import DragBoardToolbar from './mapping/DragBoardToolbar';
 import TargetConfigModal from './mapping/TargetConfigModal';
 
-/**
- * Node-and-port drag-and-drop column mapping board (<= 100 lines).
- */
 export const DragMappingBoard = ({
   sourceTables = [], targetTables = [], mappings = [],
   onMappingsChange, onMappingClick, onAddSystemValue, onAddUdf,
@@ -17,35 +14,36 @@ export const DragMappingBoard = ({
   const ps = useRef({ x: 0, y: 0, px: 0, py: 0 }); const [tp, setTp] = useState({}); const [dTbl, setDTbl] = useState(null);
   const dOff = useRef({ x: 0, y: 0 }); const [dLine, setDLine] = useState(null); const [sel, setSel] = useState(null); const [sysTarget, setSysTarget] = useState(null);
 
+  useEffect(() => { const w = cRef.current?.offsetWidth || 800; setTp(organize(sourceTables, targetTables, w)); }, [sourceTables?.length, targetTables?.length]);
   useEffect(() => {
-    const w = cRef.current?.offsetWidth || 800; setTp(organize(sourceTables, targetTables, w));
-  }, [sourceTables?.length, targetTables?.length]);
+    const el = cRef.current; if (!el) return;
+    const onW = (e) => {
+      e.preventDefault();
+      if (e.ctrlKey) setZoom((p) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, p - e.deltaY * WHEEL_ZOOM_FACTOR)));
+      else setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+    };
+    el.addEventListener('wheel', onW, { passive: false });
+    return () => el.removeEventListener('wheel', onW);
+  }, []);
 
-  const doOrg = useCallback(() => {
-    const w = cRef.current?.offsetWidth || 800; setTp(organize(sourceTables, targetTables, w)); setZoom(1); setPan({ x: 0, y: 0 });
-  }, [sourceTables, targetTables]);
-
-  const zBy = useCallback((d) => setZoom((p) => Math.max(0.25, Math.min(2.5, p + d))), []);
-  const toC = useCallback((cx, cy) => {
-    const r = cRef.current.getBoundingClientRect(); return { x: (cx - r.left - pan.x) / zoom, y: (cy - r.top - pan.y) / zoom };
-  }, [pan, zoom]);
-
+  const doOrg = useCallback(() => { const w = cRef.current?.offsetWidth || 800; setTp(organize(sourceTables, targetTables, w)); setZoom(1); setPan({ x: 0, y: 0 }); }, [sourceTables, targetTables]);
+  const zBy = useCallback((d) => setZoom((p) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, p + d))), []);
+  const toC = useCallback((cx, cy) => { const r = cRef.current.getBoundingClientRect(); return { x: (cx - r.left - pan.x) / zoom, y: (cy - r.top - pan.y) / zoom }; }, [pan, zoom]);
   const dotP = useCallback((tn, ci, s) => {
     const t = tp[tn]; if (!t || ci < 0) return null;
     return { x: s === 'source' ? t.x + TBL_WIDTH - DOT_R - 4 : t.x + DOT_R + 4, y: t.y + TBL_HEADER_H + TBL_PAD + ci * COL_ROW_H + COL_ROW_H / 2 };
   }, [tp]);
 
   const onCD = useCallback((e) => {
-    if (e.button === 1 || (e.button === 0 && e.altKey)) { e.preventDefault(); setIsPan(true); ps.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; }
-    if (e.button === 0 && !e.altKey && e.target === e.currentTarget) setSel(null);
+    const isBg = e.target === cRef.current || e.target?.tagName === 'svg';
+    if (e.button === 1 || (e.button === 0 && (e.altKey || isBg))) { e.preventDefault(); setIsPan(true); ps.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; }
+    if (e.button === 0 && isBg) setSel(null);
   }, [pan]);
-
   const onCM = useCallback((e) => {
     if (isPan) setPan({ x: ps.current.px + (e.clientX - ps.current.x), y: ps.current.py + (e.clientY - ps.current.y) });
     if (dTbl) { const c = toC(e.clientX, e.clientY); setTp((p) => ({ ...p, [dTbl]: { x: c.x - dOff.current.x, y: c.y - dOff.current.y } })); }
     if (dLine) { const c = toC(e.clientX, e.clientY); setDLine((p) => ({ ...p, cx: c.x, cy: c.y })); }
   }, [isPan, dTbl, dLine, toC]);
-
   const onCU = useCallback(() => { setIsPan(false); setDTbl(null); setDLine(null); }, []);
   const onTD = useCallback((e, n) => { e.stopPropagation(); const c = toC(e.clientX, e.clientY); const t = tp[n] || { x: 0, y: 0 }; dOff.current = { x: c.x - t.x, y: c.y - t.y }; setDTbl(n); }, [tp, toC]);
 
@@ -73,8 +71,8 @@ export const DragMappingBoard = ({
 
   return (
     <div className="relative">
-      <DragBoardToolbar zoom={zoom} onZoomIn={() => zBy(0.15)} onZoomOut={() => zBy(-0.15)} onResetView={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} onOrganize={doOrg} />
-      <div ref={cRef} onMouseDown={onCD} onMouseMove={onCM} onMouseUp={onCU} style={{ width: '100%', height: '70vh', overflow: 'hidden', position: 'relative', border: '1px solid #E8E8E5', borderRadius: '12px', background: '#F7F7F5' }}>
+      <DragBoardToolbar zoom={zoom} onZoomIn={() => zBy(ZOOM_STEP)} onZoomOut={() => zBy(-ZOOM_STEP)} onResetView={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} onOrganize={doOrg} />
+      <div id="column-mapping-board-canvas" ref={cRef} onMouseDown={onCD} onMouseMove={onCM} onMouseUp={onCU} style={{ width: '100%', height: '70vh', overflow: 'hidden', position: 'relative', border: '1px solid #E8E8E5', borderRadius: '12px', background: '#F7F7F5', touchAction: 'none', overscrollBehavior: 'contain', cursor: isPan ? 'grabbing' : 'default' }}>
         <svg width="100%" height="100%">
           <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
             <DragBoardSvgWires mappings={mappings} sourceTables={sourceTables} targetTables={targetTables} dotP={dotP} sel={sel} setSel={setSel} onMappingClick={onMappingClick} dLine={dLine} />
