@@ -65,20 +65,20 @@ export const ConnectionsManager = () => {
   if (!perms.view) return <ForbiddenPage missingPermission="connection:view" message="No permission to view connections." />;
 
   return (
-    <ApiGuard error={error} loading={loading} loadingComponent={<div><BarLoader /><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"><SkeletonLoader variant="card" count={4} /></div></div>}>
-      <div id="connections-manager-page" className="ds-connections-manager-page max-w-7xl mx-auto pb-12 flex flex-col gap-5">
+    <ApiGuard error={error} loading={loading} loadingComponent={<div><BarLoader /><div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"><SkeletonLoader variant="card" count={4} /></div></div>}>
+      <div id="connections-manager-page" className="ds-connections-manager-page w-full max-w-7xl mx-auto pb-12 flex flex-col gap-5">
         <ConnectionsHeader canCreate={perms.create} onNewConnection={() => { setEditingConn(null); setShowForm(true); }} onTestAll={handleTestAll} testingAll={testingAll} />
         <ConnectionsKpiGrid connections={connections} />
         <ConnectionsFilterBar selectedCategory={category} onCategoryChange={setCategory} searchQuery={searchQuery} onSearchChange={setSearchQuery} categoryCounts={categoryCounts} />
         {filteredConnections.length === 0 ? (
-          <div className="bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center shadow-xs">
+          <div className="w-full bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center shadow-xs">
             <i className="fa-solid fa-network-wired text-3xl text-slate-300 mb-3 block" />
             <p className="text-base font-bold text-slate-800 mb-1">No matching connections</p>
             <p className="text-xs text-slate-500 mb-4">Try clearing filters or create a new database connection.</p>
             <Button variant="primary" onClick={() => { setEditingConn(null); setShowForm(true); }} disabled={!perms.create}>Add Connection</Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredConnections.map((conn) => (
               <ConnectionCard key={conn.id} conn={conn} onEdit={(c) => { setEditingConn(c); setShowForm(true); }} onDelete={(id) => setConnections((p) => p.filter((c) => c.id !== id))} onUpdate={(id, u) => setConnections((p) => p.map((c) => c.id === id ? { ...c, ...u } : c))} onBrowse={setBrowsingConn} canEdit={perms.edit} canDelete={perms.delete} canTest={perms.test} canBrowse={perms.browse} />
             ))}

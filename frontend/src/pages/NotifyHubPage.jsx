@@ -72,11 +72,11 @@ const NotifyHubPage = () => {
   const filteredLogs = logs.filter(l => !q || (l.event || l.eventType || '').toLowerCase().includes(q) || (l.resource || l.pipelineName || '').toLowerCase().includes(q) || (l.channel || l.channelName || '').toLowerCase().includes(q));
 
   return (
-    <div id="notifyhub-page" className="max-w-7xl mx-auto space-y-6">
+    <div id="notifyhub-page" className="w-full max-w-7xl mx-auto space-y-6">
       <NotifyHubHeader activeTab={activeTab} channelCount={channels.length} listenerCount={listeners.length} onNewListener={() => { setEditingListener(null); setShowListenerModal(true); }} onNewChannel={() => { setEditingChannel(null); setShowChannelModal(true); }} onNewTemplate={() => { setEditingTemplate(null); setShowTemplateModal(true); }} onSendTestAlert={handleSendTestAlert} />
       <NotifyHubTabs activeTab={activeTab} onTabChange={setActiveTab} listenerCount={listeners.length} channelCount={channels.length} templateCount={templates.length} logCount={logs.length} listenerResourceFilter={listenerResourceFilter} onResourceFilterChange={setListenerResourceFilter} channelTypeFilter={channelTypeFilter} onChannelTypeFilterChange={setChannelTypeFilter} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
       {loading ? <Loader message="Loading NotifyHub configurations..." height="40vh" /> : (
-        <div className="space-y-6">
+        <div className="w-full space-y-6">
           {activeTab === 'channels' && <NotifyHubChannelList channels={filteredChannels} onEdit={(c) => { setEditingChannel(c); setShowChannelModal(true); }} onDelete={(c) => { setItemToDelete(c); setDeleteType('channel'); setShowDeleteConfirm(true); }} onNewChannel={() => { setEditingChannel(null); setShowChannelModal(true); }} />}
           {activeTab === 'listeners' && <NotifyHubListenerList listeners={filteredListeners} channels={channels} templates={templates} onEdit={(l) => { setEditingListener(l); setShowListenerModal(true); }} onDelete={(l) => { setItemToDelete(l); setDeleteType('listener'); setShowDeleteConfirm(true); }} onNewListener={() => { setEditingListener(null); setShowListenerModal(true); }} />}
           {activeTab === 'templates' && <NotifyHubTemplateList templates={filteredTemplates} onEdit={(t) => { setEditingTemplate(t); setShowTemplateModal(true); }} onDelete={(t) => { setItemToDelete(t); setDeleteType('template'); setShowDeleteConfirm(true); }} onNewTemplate={() => { setEditingTemplate(null); setShowTemplateModal(true); }} />}

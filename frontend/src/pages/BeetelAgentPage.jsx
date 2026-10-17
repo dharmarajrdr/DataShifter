@@ -79,9 +79,9 @@ const BeetelAgentPage = () => {
   };
 
   return (
-    <div id="beetel-agent-page" className="ds-beetel-agent-page max-w-7xl mx-auto flex flex-col gap-4">
+    <div id="beetel-agent-page" className="ds-beetel-agent-page w-full max-w-7xl mx-auto flex flex-col gap-4">
       <BeetelAgentHeader engineLabel={selectedProvider.replace('Anthropic ', '').replace('OpenAI ', '').replace('Google ', '')} onNewSession={handleNewSession} onConfigureKeys={() => navigate('/settings')} />
-      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
+      <div className="w-full grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
         <BeetelSessionSidebar sessions={sessions} selectedSessionId={selectedSessionId} selectedProvider={selectedProvider} onProviderChange={setSelectedProvider} onSelectSession={setSelectedSessionId} />
         <BeetelChatCanvas session={activeSession} messages={messages} loading={loading} sending={sending} onOpenSchemaDiff={() => setShowDiffModal(true)} onDeployPipeline={() => notification.success(`Pipeline "${activeSession?.title || 'active'}" deployed.`)} onShareClick={() => setShowShareModal(true)} onConfirmPlan={(id) => handlePlanDecision(id, true)} onRejectPlan={(id) => handlePlanDecision(id, false)} onSendMessage={handleSendMessage} />
       </div>

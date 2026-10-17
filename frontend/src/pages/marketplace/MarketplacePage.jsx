@@ -44,7 +44,7 @@ export const MarketplacePage = ({ id = 'marketplace-page', className = '' }) => 
   }, [adapters, selectedCategory, searchQuery, roleFilter, sortMode]);
 
   return (
-    <div id={id} className={`max-w-7xl mx-auto space-y-6 ${className}`}>
+    <div id={id} className={`w-full max-w-7xl mx-auto space-y-6 ${className}`}>
       <MarketplaceHeader
         installedCount={adapters.filter((a) => a.installed).length}
         totalCount={adapters.length}
