@@ -142,6 +142,22 @@ public class AuthDtos {
         @NotBlank private String name;
     }
 
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class OrgQuotasResponse {
+        private String planName;
+        private List<QuotaItem> quotas;
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class QuotaItem {
+        private String key;
+        private String label;
+        private String current;
+        private String max;
+        private int pct;
+        private String color;
+    }
+
     // ================================================================
     // ROLE MANAGEMENT
     // ================================================================
