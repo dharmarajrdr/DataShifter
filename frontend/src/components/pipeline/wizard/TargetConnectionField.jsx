@@ -24,7 +24,7 @@ export const TargetConnectionField = ({ id, adapter, config, setConfig, connecti
       </div>
       <select
         id={`${id}-conn-select`}
-        className="w-full max-w-[320px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+        className="w-full max-w-[320px] px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
         value={config.target || ''}
         onChange={(e) => setConfig({ ...config, target: e.target.value })}
       >

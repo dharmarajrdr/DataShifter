@@ -30,8 +30,8 @@ export const WizardStepBasics = ({
       </label>
       <input
         id={`${id}-name-input`}
-        className="w-full max-w-[320px] px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        style={{ borderColor: errors.name ? '#EF4444' : '#E2E8F0' }}
+        className="w-full max-w-[320px] px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+        style={{ borderColor: errors.name ? '#EF4444' : undefined }}
         value={config.name || ''}
         onChange={(e) => setConfig({ ...config, name: e.target.value })}
         placeholder="e.g., Oracle to S3 Analytics Stream"
@@ -51,7 +51,7 @@ export const WizardStepBasics = ({
       <textarea
         id={`${id}-desc-textarea`}
         rows={3}
-        className="w-full max-w-[320px] px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-full max-w-[320px] px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-y"
         value={config.description || ''}
         onChange={(e) => setConfig({ ...config, description: e.target.value })}
         placeholder="Describe replication topology, target lake schemas, or SLA..."

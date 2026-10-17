@@ -53,12 +53,12 @@ export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setCon
             <span className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center justify-center shrink-0">#{idx + 1}</span>
             <div className="flex-1">
               <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Source Entity / Capture Filter</label>
-              <input id={`${id}-source-${idx}`} className="w-full max-w-[320px] px-2.5 py-1.5 text-xs font-mono border rounded-lg bg-slate-50 focus:bg-white" value={pair.sourceEntity} onChange={(e) => updatePair(idx, 'sourceEntity', e.target.value)} placeholder="e.g., SCHEMA.TABLE or regex" />
+              <input id={`${id}-source-${idx}`} className="w-full max-w-[320px] px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" value={pair.sourceEntity} onChange={(e) => updatePair(idx, 'sourceEntity', e.target.value)} placeholder="e.g., SCHEMA.TABLE or regex" />
             </div>
             <i className="fa-solid fa-arrow-right text-slate-400 text-xs mt-4" />
             <div className="flex-1">
               <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">{isStreamOrLake ? 'Target Prefix / Topic' : 'Destination Table'}</label>
-              <input id={`${id}-target-${idx}`} className="w-full max-w-[320px] px-2.5 py-1.5 text-xs font-mono border rounded-lg bg-slate-50 focus:bg-white" value={pair.targetEntity} onChange={(e) => updatePair(idx, 'targetEntity', e.target.value)} placeholder={isStreamOrLake ? 'e.g., entity_parquet/ or topic' : 'e.g., destination_table'} />
+              <input id={`${id}-target-${idx}`} className="w-full max-w-[320px] px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" value={pair.targetEntity} onChange={(e) => updatePair(idx, 'targetEntity', e.target.value)} placeholder={isStreamOrLake ? 'e.g., entity_parquet/ or topic' : 'e.g., destination_table'} />
             </div>
             {pairs.length > 1 && (
               <button type="button" id={`${id}-delete-${idx}`} onClick={() => removePair(idx)} className="mt-4 p-1.5 text-slate-400 hover:text-rose-600 rounded-md transition-all" title="Remove entity">
