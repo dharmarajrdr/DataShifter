@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { mappingApi, pipelineApi } from '../../../services/api';
 import { COLOR_KEYS } from '../../../constants/transformMeta';
+import { buildSavePayload, extractTablesFromResponse, parseMappingsFromResponse } from './mappingPayloadHelper';
 
 export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
   const [data, setData] = useState(null);
@@ -23,22 +24,9 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
         setLoading(true);
         const res = await (mappingApi.getByPipelineId || mappingApi.get)(pipelineId);
         setData(res.data);
-        const ex = [];
-        (res.data?.tablePairs || []).forEach((p) => {
-          (p.columnMappings || []).forEach((m) => {
-            const isTargetOnly = !m.sourceColumn;
-            ex.push({
-              source: isTargetOnly ? null : `${p.sourceTable}.${m.sourceColumn}`,
-              target: `${p.targetTable}.${m.targetColumn}`,
-              color: m.color || COLOR_KEYS[ex.length % COLOR_KEYS.length],
-              transforms: (m.transforms || []).map((t) => ({ fn: t.fn, args: t.args || '' })),
-              defaultValue: m.defaultValue, targetOnly: isTargetOnly,
-            });
-          });
-        });
-        setMappings(ex);
+        setMappings(parseMappingsFromResponse(res.data));
         const loadedFilters = {};
-        (res.data.tablePairs || []).forEach((p) => {
+        (res.data?.tablePairs || []).forEach((p) => {
           if (p.sourceTable && p.filters?.length) loadedFilters[p.sourceTable] = p.filters;
         });
         setFilters(loadedFilters);
@@ -46,18 +34,7 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
     })();
   }, [pipelineId, canViewPipeline]);
 
-  const sourceTables = [], targetTables = [];
-  const srcS = new Set(), tgtS = new Set();
-  (data?.tablePairs || []).forEach((p) => {
-    if (p.sourceTable && !srcS.has(p.sourceTable)) {
-      srcS.add(p.sourceTable);
-      sourceTables.push({ tableName: p.sourceTable, columns: (p.sourceColumns || []).map((c) => ({ name: c.name, type: c.dataType, nullable: c.nullable, primaryKey: c.primaryKey })) });
-    }
-    if (p.targetTable && !tgtS.has(p.targetTable)) {
-      tgtS.add(p.targetTable);
-      targetTables.push({ tableName: p.targetTable, columns: (p.targetColumns || []).map((c) => ({ name: c.name, type: c.dataType, nullable: c.nullable, primaryKey: c.primaryKey })) });
-    }
-  });
+  const { sourceTables, targetTables } = useMemo(() => extractTablesFromResponse(data), [data]);
 
   const handleChange = useCallback((m) => { setMappings(m); setHasChanges(true); setValidateDisabled(true); setValErrors([]); }, []);
   const handleAutoMap = useCallback(() => {
@@ -75,7 +52,8 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await mappingApi.save(pipelineId, mappings);
+      const payload = buildSavePayload(mappings, filters, sourceTables);
+      await mappingApi.save(pipelineId, payload);
       setHasChanges(false); setValidateDisabled(false); notification.success('Mappings saved successfully');
     } catch (err) { notification.error(err.message || 'Save failed'); } finally { setSaving(false); }
   };
