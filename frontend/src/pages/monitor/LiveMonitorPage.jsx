@@ -45,17 +45,16 @@ export const LiveMonitorPage = () => {
 
   useEffect(() => { fetchData(true); }, [fetchData]);
 
-  const handleSseMessage = useCallback((eventData) => {
-    try {
-      const parsed = typeof eventData === 'string' ? JSON.parse(eventData) : eventData;
-      setData((prev) => ({ ...prev, ...parsed }));
-      setUpdateCount((c) => c + 1);
-    } catch { /* ignore */ }
-  }, []);
-
-  const { connected, reconnectCount, retry, exhausted } = useEventSource(
-    pipelineId ? `/api/v1/monitor/pipelines/${pipelineId}/stream` : null, handleSseMessage, true
-  );
+  const isRunning = Boolean(data.status && !['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(data.status));
+  const { connected, reconnectCount, retry, exhausted } = useEventSource({
+    channels: pipelineId && isRunning ? [`pipeline:${pipelineId}`] : [],
+    enabled: isRunning,
+    onProgress: (ev) => {
+      const d = ev?.payload;
+      if (d) { setData((p) => ({ ...p, ...d, rowsProcessed: d.totalRowsProcessed ?? p.rowsProcessed })); setUpdateCount((c) => c + 1); }
+    },
+    onStatusChange: (ev) => { setData((p) => (p ? { ...p, status: ev.payload?.newStatus ?? p.status } : p)); },
+  });
 
   const handleAction = async (action) => {
     if (action === 'EXPORT') return handleExport();
@@ -87,7 +86,7 @@ export const LiveMonitorPage = () => {
       <div id="live-monitor-page" className="flex flex-col min-h-[calc(100vh-64px)] bg-surface-50 font-sans">
         <MonitorHeader pipelineName={data.pipelineName} status={data.status} isCdc={isCdc} isLockedToWorkflow={!!data.workflowId} workflowName={data.workflowName} onAction={handleAction} onNavigate={(path) => navigate(path.startsWith('/') ? path : `/pipelines/${pipelineId}/${path}`)} canViewErrors={canViewErrors} canEditSettings={canEditSettings} actionLoading={actionLoading} exportLoading={exportLoading} errorCount={data.errorsSkipped || 0} />
         <main id="monitor-main-content" className="flex-1 p-6 max-w-7xl mx-auto w-full flex flex-col gap-5">
-          <MonitorTelemetryBar connected={connected} exhausted={exhausted} reconnectCount={reconnectCount} updateCount={updateCount} lagSeconds={data.lagSeconds} currentLsn={data.currentLsn} onRefresh={() => fetchData(false)} onRetry={retry} isCdc={isCdc} />
+          <MonitorTelemetryBar connected={connected} exhausted={exhausted} reconnectCount={reconnectCount} updateCount={updateCount} lagSeconds={data.lagSeconds} currentLsn={data.currentLsn} onRefresh={() => fetchData(false)} onRetry={retry} isCdc={isCdc} status={data.status} isRunning={isRunning} />
           <MonitorMetricsGrid data={data} cdcCheckpoint={cdcCheckpoint} isCdc={isCdc} />
           {isCdc ? <MonitorCdcOperations insertCount={data.insertCount} updateCount={data.updateCount} deleteCount={data.deleteCount} filteredCount={data.filteredCount} /> : <MonitorSequentialTrack overallProgress={data.overallProgress} tables={data.tables || []} rowsProcessed={data.rowsProcessed || 0} totalRows={data.totalRows || 0} />}
           <MonitorInflightPreview records={data.inflightRecords || []} isCdc={isCdc} activeTable={data.currentTable || (data.tables?.[0]?.name)} targetTable={data.targetTable} previewDisabled={data.previewInflightRecords === false} status={data.status} />

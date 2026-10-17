@@ -48,6 +48,10 @@ describe('Live Monitor Modular Components', () => {
     expect(container.querySelector('#telemetry-connected').textContent).toContain('Telemetry Stream: Active');
     expect(container.querySelector('#telemetry-lsn-code').textContent).toBe('0/14B200');
     expect(container.querySelector('#metric-val-rate').textContent).toContain('42,000 evt/s');
+    act(() => { root.render(<MonitorTelemetryBar status="VALIDATED" isRunning={false} />); });
+    expect(container.querySelector('#telemetry-inactive').textContent).toContain('Telemetry Stream: Inactive');
+    expect(container.querySelector('#telemetry-batch-status').textContent).toBe('Standby');
+    expect(container.querySelector('#telemetry-reconnecting')).toBeNull();
   });
 
   test('MonitorCdcOperations renders operation counts', () => {
