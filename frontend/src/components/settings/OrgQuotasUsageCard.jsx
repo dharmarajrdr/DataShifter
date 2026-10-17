@@ -1,12 +1,34 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { authApi } from '../../services/authApi';
 
-const QUOTAS = [
-  { label: 'Pipelines Used', current: '14', max: '50', pct: 28, color: 'bg-indigo-600' },
-  { label: 'Active Connections', current: '12', max: '25', pct: 48, color: 'bg-indigo-600' },
-  { label: 'Monthly Rows Migrated', current: '42.8M', max: '100M', pct: 43, color: 'bg-emerald-600' },
+const DEFAULT_QUOTAS = [
+  { label: 'Pipelines Used', current: '0', max: '50', pct: 0, color: 'bg-indigo-600' },
+  { label: 'Active Connections', current: '0', max: '25', pct: 0, color: 'bg-indigo-600' },
+  { label: 'Monthly Rows Migrated', current: '0', max: '100M', pct: 0, color: 'bg-emerald-600' },
 ];
 
 export const OrgQuotasUsageCard = ({ id = 'org-quotas' }) => {
+  const [data, setData] = useState({ planName: 'Enterprise', quotas: DEFAULT_QUOTAS });
+
+  useEffect(() => {
+    let active = true;
+    if (typeof authApi?.getOrgQuotas === 'function') {
+      authApi.getOrgQuotas()
+        .then((res) => {
+          if (active && res?.data) {
+            setData({
+              planName: res.data.planName || 'Enterprise',
+              quotas: Array.isArray(res.data.quotas) && res.data.quotas.length > 0
+                ? res.data.quotas
+                : DEFAULT_QUOTAS,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+    return () => { active = false; };
+  }, []);
+
   return (
     <div id={id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
       <div className="flex items-center justify-between pb-2.5 mb-3.5 border-b border-slate-100">
@@ -14,19 +36,22 @@ export const OrgQuotasUsageCard = ({ id = 'org-quotas' }) => {
           Plan Usage & Quotas
         </h3>
         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase">
-          Enterprise
+          {data.planName}
         </span>
       </div>
 
       <div className="space-y-3.5">
-        {QUOTAS.map((item, idx) => (
-          <div key={idx}>
+        {data.quotas.map((item, idx) => (
+          <div key={item.key || idx}>
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="font-semibold text-slate-700">{item.label}</span>
               <span className="font-semibold text-slate-800">{item.current} / {item.max}</span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${item.color}`} style={{ width: `${item.pct}%` }} />
+              <div
+                className={`h-full rounded-full transition-all ${item.color || 'bg-indigo-600'}`}
+                style={{ width: `${Math.min(100, Math.max(0, item.pct || 0))}%` }}
+              />
             </div>
           </div>
         ))}

@@ -91,6 +91,17 @@ export const authApi = {
       })
     : apiClient.get('/auth/org'),
 
+  getOrgQuotas: () => USE_MOCK
+    ? mockResponse({
+        planName: 'Enterprise',
+        quotas: [
+          { key: 'pipelines', label: 'Pipelines Used', current: '14', max: '50', pct: 28, color: 'bg-indigo-600' },
+          { key: 'connections', label: 'Active Connections', current: '12', max: '25', pct: 48, color: 'bg-indigo-600' },
+          { key: 'rows', label: 'Monthly Rows Migrated', current: '42.8M', max: '100M', pct: 43, color: 'bg-emerald-600' },
+        ],
+      })
+    : apiClient.get('/auth/org/quotas'),
+
   updateOrg: (payload) => USE_MOCK
     ? mockResponse({
         id: 'org-001',

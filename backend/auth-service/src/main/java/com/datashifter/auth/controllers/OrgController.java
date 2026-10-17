@@ -36,6 +36,11 @@ public class OrgController {
         return ApiResponse.success(orgService.getOrg(extractOrgId(request)));
     }
 
+    @GetMapping("/org/quotas")
+    public ApiResponse<OrgQuotasResponse> getOrgQuotas(HttpServletRequest request) {
+        return ApiResponse.success(orgService.getOrgQuotas(extractOrgId(request)));
+    }
+
     @PutMapping("/org")
     @RequiresPermission(anyOf = {Permissions.ORG_MANAGE_ROLES, Permissions.ORG_MANAGE_MEMBERS})
     public ApiResponse<OrgResponse> updateOrg(HttpServletRequest request, @RequestBody UpdateOrgRequest body) {
