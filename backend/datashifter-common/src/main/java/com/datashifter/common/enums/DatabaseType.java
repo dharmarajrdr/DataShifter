@@ -4,5 +4,6 @@ public enum DatabaseType {
     ORACLE,
     SPANNER,
     POSTGRESQL,  // Phase 2
-    MONGODB;     // Phase 2
+    MONGODB,     // Phase 2
+    S3;
 }
