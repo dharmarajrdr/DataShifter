@@ -3,7 +3,6 @@ package com.datashifter.pipeline.services.implementations;
 import com.datashifter.common.enums.ErrorType;
 import com.datashifter.common.enums.PipelineStatus;
 import com.datashifter.common.events.KafkaTopics;
-import com.datashifter.common.events.PipelineEvents.ErrorEvent;
 import com.datashifter.common.events.PipelineEvents.StatusChangeEvent;
 import com.datashifter.common.models.ErrorLog;
 import com.datashifter.common.models.Pipeline;
@@ -64,23 +63,17 @@ public class EngineLivenessService {
                 .build();
         errorLogRepository.save(errorLog);
 
+        try {
+            redisTemplate.opsForHash().put("pipeline:" + pipeline.getId() + ":stats", "errorsSkipped", "1");
+        } catch (Exception ex) {
+            log.warn("Failed to set errorsSkipped in Redis: {}", ex.getMessage());
+        }
+
         kafkaTemplate.send(KafkaTopics.PIPELINE_STATUS, StatusChangeEvent.builder()
                 .pipelineId(pipeline.getId())
                 .previousStatus(prev)
                 .newStatus(PipelineStatus.ERRORED)
                 .reason("Execution engine is offline")
-                .timestamp(Instant.now())
-                .build());
-
-        kafkaTemplate.send(KafkaTopics.PIPELINE_ERRORS, ErrorEvent.builder()
-                .pipelineId(pipeline.getId())
-                .errorType(ErrorType.CONNECTION_LOST)
-                .sourceTable("SYSTEM")
-                .targetTable("EXECUTION_ENGINE")
-                .errorMessage(OFFLINE_MSG)
-                .chunkNumber(0L)
-                .rowNumber(0L)
-                .pipelineStopped(true)
                 .timestamp(Instant.now())
                 .build());
 

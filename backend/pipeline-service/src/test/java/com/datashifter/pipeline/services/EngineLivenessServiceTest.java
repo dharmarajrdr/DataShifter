@@ -16,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.*;
 class EngineLivenessServiceTest {
 
     @Mock private StringRedisTemplate redisTemplate;
+    @Mock private HashOperations<String, Object, Object> hashOperations;
     @Mock private PipelineRepository pipelineRepository;
     @Mock private CommonErrorLogRepository errorLogRepository;
     @Mock private KafkaTemplate<String, Object> kafkaTemplate;
@@ -54,6 +56,7 @@ class EngineLivenessServiceTest {
         pipe.setId(pipeId);
 
         when(pipelineRepository.findById(pipeId)).thenReturn(Optional.of(pipe));
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
 
         engineLivenessService.handleEngineOffline(pipeId, true);
 
@@ -70,7 +73,6 @@ class EngineLivenessServiceTest {
         assertThat(errorLog.getTargetTable()).isEqualTo("EXECUTION_ENGINE");
 
         verify(kafkaTemplate).send(eq(KafkaTopics.PIPELINE_STATUS), any());
-        verify(kafkaTemplate).send(eq(KafkaTopics.PIPELINE_ERRORS), any());
         verify(workflowService).syncWorkflowStatusForPipeline(pipeId);
     }
 }
