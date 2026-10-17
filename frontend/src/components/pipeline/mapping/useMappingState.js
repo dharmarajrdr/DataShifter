@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { mappingApi, pipelineApi } from '../../../services/api';
 import { COLOR_KEYS } from '../../../constants/transformMeta';
@@ -15,6 +15,7 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
   const [validating, setValidating] = useState(false);
   const [validateDisabled, setValidateDisabled] = useState(true);
   const [valErrors, setValErrors] = useState([]);
+  const savedState = useRef({ mappings: [], filters: {} });
   const notification = useNotification();
 
   useEffect(() => {
@@ -24,12 +25,14 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
         setLoading(true);
         const res = await (mappingApi.getByPipelineId || mappingApi.get)(pipelineId);
         setData(res.data);
-        setMappings(parseMappingsFromResponse(res.data));
+        const initM = parseMappingsFromResponse(res.data);
+        setMappings(initM);
         const loadedFilters = {};
         (res.data?.tablePairs || []).forEach((p) => {
           if (p.sourceTable && p.filters?.length) loadedFilters[p.sourceTable] = p.filters;
         });
         setFilters(loadedFilters);
+        savedState.current = { mappings: initM, filters: loadedFilters };
       } catch (err) { setError(err); } finally { setLoading(false); }
     })();
   }, [pipelineId, canViewPipeline]);
@@ -49,11 +52,21 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
     handleChange(a);
   }, [sourceTables, targetTables, handleChange]);
 
+  const handleCancel = useCallback(() => {
+    setMappings(savedState.current.mappings);
+    setFilters(savedState.current.filters);
+    setHasChanges(false);
+    setValErrors([]);
+    setValidateDisabled(savedState.current.mappings.length === 0);
+    notification.info?.('Unsaved changes discarded');
+  }, [notification]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
       const payload = buildSavePayload(mappings, filters, sourceTables);
       await mappingApi.save(pipelineId, payload);
+      savedState.current = { mappings, filters };
       setHasChanges(false); setValidateDisabled(false); notification.success('Mappings saved successfully');
     } catch (err) { notification.error(err.message || 'Save failed'); } finally { setSaving(false); }
   };
@@ -71,7 +84,7 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
   return {
     data, loading, error, mappings, setMappings, filters, setFilters, hasChanges, setHasChanges,
     saving, validating, validateDisabled, valErrors, setValErrors, sourceTables, targetTables,
-    handleChange, handleAutoMap, handleSave, handleValidate,
+    handleChange, handleAutoMap, handleCancel, handleSave, handleValidate,
   };
 };
 

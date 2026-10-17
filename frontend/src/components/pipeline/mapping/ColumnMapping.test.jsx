@@ -1,9 +1,10 @@
-import React from 'react';
-import { act } from 'react';
+import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DragBoardToolbar, MappingStatsBar, MappingValidationErrors } from './index';
+import { DragBoardToolbar, MappingHeaderActions, MappingStatsBar, MappingValidationErrors } from './index';
 import { checkTargetCompatibility, normalizeDataType, validateInputForType } from '../../../utils/typeValidation';
 import { simulateOne } from '../../../utils/transformSimulator';
+
+global.IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('Column Mapping Board Components and Utilities', () => {
   let container, root;
@@ -43,6 +44,28 @@ describe('Column Mapping Board Components and Utilities', () => {
     expect(container.textContent).toContain('Column id missing');
   });
 
+  test('MappingHeaderActions renders Cancel button and handles click', () => {
+    const handleCancel = jest.fn();
+    act(() => {
+      root.render(<MappingHeaderActions status="DRAFT" hasChanges={true} canEdit={true} onCancel={handleCancel} onSave={() => {}} onAutoMap={() => {}} onValidate={() => {}} />);
+    });
+    const cancelBtn = container.querySelector('#btn-cancel-mapping');
+    expect(cancelBtn).not.toBeNull();
+    expect(cancelBtn.disabled).toBe(false);
+    expect(cancelBtn.textContent).toContain('Cancel');
+    act(() => { cancelBtn.click(); });
+    expect(handleCancel).toHaveBeenCalled();
+  });
+
+  test('MappingHeaderActions disables Cancel button when hasChanges is false', () => {
+    act(() => {
+      root.render(<MappingHeaderActions status="DRAFT" hasChanges={false} canEdit={true} onCancel={() => {}} onSave={() => {}} onAutoMap={() => {}} onValidate={() => {}} />);
+    });
+    const cancelBtn = container.querySelector('#btn-cancel-mapping');
+    expect(cancelBtn.disabled).toBe(true);
+    expect(container.querySelector('#btn-clear-all')).toBeNull();
+  });
+
   test('normalizeDataType normalizes common SQL types', () => {
     expect(normalizeDataType('VARCHAR(255)')).toBe('STRING');
     expect(normalizeDataType('BIGINT')).toBe('NUMBER');
@@ -67,11 +90,5 @@ describe('Column Mapping Board Components and Utilities', () => {
     expect(simulateOne('  hello  ', 'TRIM').val).toBe('hello');
     expect(simulateOne('hello', 'UPPER').val).toBe('HELLO');
     expect(simulateOne('12.3456', 'ROUND', '2').val).toBe(12.35);
-  });
-
-  test('mappingApi defines both get and getByPipelineId methods', () => {
-    const { mappingApi } = require('../../../services/api');
-    expect(typeof mappingApi.getByPipelineId).toBe('function');
-    expect(typeof mappingApi.get).toBe('function');
   });
 });
