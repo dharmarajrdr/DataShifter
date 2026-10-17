@@ -12,14 +12,14 @@ export const BeetelShareModal = ({ isOpen, onClose, session, onSessionUpdated })
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !session) return;
+    if (!isOpen || !session?.id) return;
     setSelectedIds([]);
     setLoading(true);
     aiApi.listOrgMembers()
       .then((res) => setMembers(res?.data || res || []))
-      .catch((e) => notification.error(e?.message || 'Failed to load members'))
+      .catch((e) => notification?.error?.(e?.message || 'Failed to load members'))
       .finally(() => setLoading(false));
-  }, [isOpen, session, notification]);
+  }, [isOpen, session?.id]);
 
   if (!isOpen || !session) return null;
   const existingShared = new Set((session.sharedMembers || []).map((m) => m.userId));

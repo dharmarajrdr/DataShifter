@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import BeetelPlanCard from './BeetelPlanCard';
 import BeetelCanvasHeader from './BeetelCanvasHeader';
+import BeetelMarkdownRenderer from './BeetelMarkdownRenderer';
 
 export const BeetelChatCanvas = ({
   session, messages = [], loading = false, sending = false, userInitials = 'DR',
@@ -10,7 +11,7 @@ export const BeetelChatCanvas = ({
   const endRef = useRef(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    endRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages, sending]);
 
   const handleSubmit = (e) => {
@@ -44,7 +45,7 @@ export const BeetelChatCanvas = ({
                   {isUser ? (m.senderInitials || userInitials) : <i className="fa-solid fa-robot text-xs" />}
                 </div>
                 <div className={`rounded-2xl p-3.5 text-xs leading-relaxed text-left ${isUser ? 'bg-indigo-50/80 border border-indigo-200 text-indigo-950 rounded-tr-xs' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs shadow-xs'}`}>
-                  <p className="whitespace-pre-wrap">{m.content}</p>
+                  <BeetelMarkdownRenderer content={m.content} isUser={isUser} />
                   {m.plan && <BeetelPlanCard plan={m.plan} onConfirm={onConfirmPlan} onReject={onRejectPlan} />}
                 </div>
               </div>

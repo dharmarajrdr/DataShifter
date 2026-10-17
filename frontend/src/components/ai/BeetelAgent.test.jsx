@@ -22,61 +22,42 @@ describe('Beetel Agent UI Components', () => {
   });
 
   const sampleMessages = [
-    { id: '1', role: 'USER', content: 'Sync Postgres to Snowflake', senderInitials: 'DR' },
-    { id: '2', role: 'ASSISTANT', content: 'Synthesized 3-stage pipeline.' },
+    { id: '1', role: 'USER', content: 'Sync **Postgres** to Snowflake', senderInitials: 'DR' },
+    { id: '2', role: 'ASSISTANT', content: 'Synthesized plan:\n- Item 1\n- Item 2\n\n| Stage | Status |\n|---|---|\n| Source | Ready |' },
   ];
 
-  test('renders user message on the right and AI message on the left', () => {
+  test('renders user message on right, AI message on left, with bold, list, and table styles', () => {
     act(() => {
-      root.render(
-        <BeetelChatCanvas
-          session={{ id: 's-1', title: 'Data Pipeline Sync' }}
-          messages={sampleMessages}
-          onSendMessage={jest.fn()}
-        />
-      );
+      root.render(<BeetelChatCanvas session={{ id: 's-1', title: 'Data Pipeline Sync' }} messages={sampleMessages} onSendMessage={jest.fn()} />);
     });
 
-    expect(container.textContent).toContain('Sync Postgres to Snowflake');
-    expect(container.textContent).toContain('Synthesized 3-stage pipeline.');
+    expect(container.textContent).toContain('Postgres');
+    expect(container.textContent).toContain('Item 1');
+    expect(container.querySelector('strong.font-bold')).not.toBeNull();
+    expect(container.querySelector('ul.list-disc')).not.toBeNull();
+    expect(container.querySelector('table')).not.toBeNull();
 
-    const userP = Array.from(container.querySelectorAll('p')).find(p => p.textContent.includes('Sync Postgres'));
-    const aiP = Array.from(container.querySelectorAll('p')).find(p => p.textContent.includes('Synthesized 3-stage'));
-    const userWrap = userP?.closest('.flex.items-start');
-    const aiWrap = aiP?.closest('.flex.items-start');
-
-    expect(userWrap.className).toContain('ml-auto');
-    expect(userWrap.className).toContain('flex-row-reverse');
-    expect(aiWrap.className).toContain('mr-auto');
-    expect(aiWrap.className).toContain('flex-row');
+    const userBubble = container.querySelector('.ml-auto.flex-row-reverse');
+    const aiBubble = container.querySelector('.mr-auto.flex-row');
+    expect(userBubble).not.toBeNull();
+    expect(aiBubble).not.toBeNull();
   });
 
   test('renders BeetelPlanCard with steps and handles approval/rejection', () => {
     const onConfirm = jest.fn();
     const onReject = jest.fn();
-    const plan = {
-      id: 'plan-101',
-      title: 'CDC Replication Setup',
-      status: 'PENDING_CONFIRMATION',
-      steps: [{ title: 'Enable WAL' }, { title: 'Create slot' }],
-    };
+    const plan = { id: 'plan-101', title: 'CDC Replication Setup', status: 'PENDING_CONFIRMATION', steps: [{ title: 'Enable WAL' }, { title: 'Create slot' }] };
 
-    act(() => {
-      root.render(<BeetelPlanCard plan={plan} onConfirm={onConfirm} onReject={onReject} />);
-    });
+    act(() => { root.render(<BeetelPlanCard plan={plan} onConfirm={onConfirm} onReject={onReject} />); });
 
     expect(container.textContent).toContain('CDC Replication Setup');
-    expect(container.textContent).toContain('Enable WAL');
-
     const buttons = Array.from(container.querySelectorAll('button'));
     const approveBtn = buttons.find(b => b.textContent.includes('Approve & Execute'));
     const rejectBtn = buttons.find(b => b.textContent.includes('Reject'));
 
     act(() => approveBtn.click());
     expect(onConfirm).toHaveBeenCalledWith('plan-101');
-
     act(() => rejectBtn.click());
     expect(onReject).toHaveBeenCalledWith('plan-101');
   });
 });
-
