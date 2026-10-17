@@ -8,7 +8,7 @@ export const PERMISSION_GROUPS = [
       { key: 'pipeline:run', label: 'Run pipelines' },
       { key: 'pipeline:pause', label: 'Pause pipelines' },
       { key: 'pipeline:stop', label: 'Stop pipelines' },
-      { key: 'settings:edit', label: 'Pipeline settings' },
+      { key: 'pipeline:settings', label: 'Pipeline settings' },
     ],
   },
   {
