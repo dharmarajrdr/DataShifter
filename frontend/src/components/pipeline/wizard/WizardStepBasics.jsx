@@ -13,7 +13,7 @@ export const WizardStepBasics = ({
   onCreateNamespace,
   errors = {},
 }) => (
-  <div id={id} className="wizard-step-basics-panel max-w-xl mx-auto py-2">
+  <div id={id} className="wizard-step-basics-panel w-full py-2">
     <div id={`${id}-header`} className="mb-4">
       <h3 id={`${id}-title`} className="text-base font-semibold text-slate-900">
         Pipeline Basics

@@ -32,7 +32,7 @@ export const WizardStepSource = ({
   };
 
   return (
-    <div id={id} className="wizard-step-source-panel max-w-2xl mx-auto py-2">
+    <div id={id} className="wizard-step-source-panel w-full py-2">
       <div id={`${id}-header`} className="mb-4">
         <h3 id={`${id}-title`} className="text-base font-semibold text-slate-900">
           Select Source Adapter
