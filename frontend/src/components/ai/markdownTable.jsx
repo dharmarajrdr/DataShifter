@@ -1,5 +1,5 @@
 import React from 'react';
-import { renderInline } from './markdownInline';
+import { renderTableCell } from './markdownTableCell';
 
 export const isTableRow = (line) => {
   const trimmed = line.trim();
@@ -46,7 +46,7 @@ export const MarkdownTable = ({ headers, rows, isUser }) => (
               key={hIdx}
               className="px-3 py-2 font-bold text-slate-900 border-r border-slate-200 last:border-r-0"
             >
-              {renderInline(h, isUser)}
+              {renderTableCell(h, isUser)}
             </th>
           ))}
         </tr>
@@ -59,7 +59,7 @@ export const MarkdownTable = ({ headers, rows, isUser }) => (
                 key={cIdx}
                 className="px-3 py-2 text-slate-700 border-r border-slate-100 last:border-r-0"
               >
-                {renderInline(cell, isUser)}
+                {renderTableCell(cell, isUser)}
               </td>
             ))}
           </tr>
