@@ -8,6 +8,7 @@ export const PERMISSION_GROUPS = [
       { key: 'pipeline:run', label: 'Run pipelines' },
       { key: 'pipeline:pause', label: 'Pause pipelines' },
       { key: 'pipeline:stop', label: 'Stop pipelines' },
+      { key: 'settings:edit', label: 'Pipeline settings' },
     ],
   },
   {
@@ -61,11 +62,6 @@ export const PERMISSION_GROUPS = [
   },
   {
     label: 'Settings', permissions: [
-      { key: 'settings:edit', label: 'Edit pipeline settings' },
-    ],
-  },
-  {
-    label: 'Organization', permissions: [
       { key: 'org:manage_members', label: 'Manage members' },
       { key: 'org:manage_roles', label: 'Manage roles' },
       { key: 'org:manage_invites', label: 'Manage invitations' },

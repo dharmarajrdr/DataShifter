@@ -26,8 +26,8 @@ export const LiveMonitorPage = () => {
 
   const canViewPipeline = hasPermission('pipeline:view');
   const canViewMonitor = hasPermission('monitor:view');
-  const canEditSettings = hasPermission('pipeline:update');
-  const canViewErrors = hasPermission('error:view');
+  const canEditSettings = hasPermission('settings:edit') || hasPermission('pipeline:settings') || hasPermission('pipeline:edit');
+  const canViewErrors = hasPermission('monitor:view_errors') || hasPermission('error:view');
 
   const fetchData = useCallback(async (showLoading = true) => {
     if (!canViewPipeline || !canViewMonitor) return setLoading(false);

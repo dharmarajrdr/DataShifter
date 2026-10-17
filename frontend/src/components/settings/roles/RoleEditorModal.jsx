@@ -45,7 +45,7 @@ export const RoleEditorModal = ({ role, onClose, onSave }) => {
   };
 
   const isAgentRole = String(role?.name || '').toLowerCase() === 'agent';
-  const groups = isAgentRole ? PERMISSION_GROUPS.filter((g) => g.label !== 'Organization') : PERMISSION_GROUPS;
+  const groups = isAgentRole ? PERMISSION_GROUPS.filter((g) => !g.permissions.some((p) => p.key.startsWith('org:'))) : PERMISSION_GROUPS;
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
