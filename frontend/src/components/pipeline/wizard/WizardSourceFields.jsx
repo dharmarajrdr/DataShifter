@@ -9,6 +9,7 @@ export const WizardSourceFields = ({
   config,
   setConfig,
   connections = [],
+  errors = {},
 }) => {
   if (adapter === 'oracle-trail') {
     return (
@@ -67,10 +68,11 @@ export const WizardSourceFields = ({
             <label className="block text-xs font-semibold text-slate-700">{labelText} Source Connection *</label>
             <span className="text-[11px] text-slate-500 font-medium">{filtered.length} available</span>
           </div>
-          <select id={`${id}-conn-select`} className={NUM_CLS} value={config.source || ''} onChange={(e) => setConfig({ ...config, source: e.target.value })}>
+          <select id={`${id}-conn-select`} className={NUM_CLS} style={{ borderColor: errors.source ? '#EF4444' : undefined }} value={config.source || ''} onChange={(e) => setConfig({ ...config, source: e.target.value })}>
             <option value="">{`Select ${labelText} connection...`}</option>
             {filtered.map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.dbType})</option>))}
           </select>
+          {errors.source && <p id={`${id}-source-error`} className="text-xs text-rose-500 mt-1">{errors.source}</p>}
           {filtered.length === 0 && <p className="text-[11px] text-amber-600 mt-1">No {labelText} connections configured.</p>}
         </div>
       </div>

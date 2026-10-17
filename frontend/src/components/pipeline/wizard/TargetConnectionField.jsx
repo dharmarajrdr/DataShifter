@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * Filtered Connection selector for Oracle & PostgreSQL targets (<= 100 lines).
  */
-export const TargetConnectionField = ({ id, adapter, config, setConfig, connections = [] }) => {
+export const TargetConnectionField = ({ id, adapter, config, setConfig, connections = [], errors = {} }) => {
   const isOracle = adapter === 'oracle-writer';
   const labelText = isOracle ? 'Oracle' : 'PostgreSQL';
 
@@ -25,6 +25,7 @@ export const TargetConnectionField = ({ id, adapter, config, setConfig, connecti
       <select
         id={`${id}-conn-select`}
         className="w-full max-w-[320px] px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+        style={{ borderColor: errors.target ? '#EF4444' : undefined }}
         value={config.target || ''}
         onChange={(e) => setConfig({ ...config, target: e.target.value })}
       >
@@ -33,6 +34,7 @@ export const TargetConnectionField = ({ id, adapter, config, setConfig, connecti
           <option key={c.id} value={c.id}>{c.name} ({c.dbType})</option>
         ))}
       </select>
+      {errors.target && <p id={`${id}-target-error`} className="text-xs text-rose-500 mt-1">{errors.target}</p>}
       {filtered.length === 0 && (
         <p className="text-[11px] text-amber-600">
           No {labelText} connections configured. Create one in Connections.

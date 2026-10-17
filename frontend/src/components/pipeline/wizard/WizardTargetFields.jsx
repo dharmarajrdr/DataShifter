@@ -10,9 +10,10 @@ export const WizardTargetFields = ({
   config,
   setConfig,
   connections = [],
+  errors = {},
 }) => {
   if (adapter === 'postgres-writer' || adapter === 'oracle-writer') {
-    return <TargetConnectionField id={id} adapter={adapter} config={config} setConfig={setConfig} connections={connections} />;
+    return <TargetConnectionField id={id} adapter={adapter} config={config} setConfig={setConfig} connections={connections} errors={errors} />;
   }
 
   if (adapter === 's3-writer') {
@@ -24,10 +25,11 @@ export const WizardTargetFields = ({
             <label className="block text-xs font-semibold text-slate-700">AWS Connection *</label>
             <span className="text-[11px] text-slate-500 font-medium">{s3Conns.length} available</span>
           </div>
-          <select id={`${id}-s3-conn-select`} className={SELECT_CLS} value={config.target || ''} onChange={(e) => setConfig({ ...config, target: e.target.value })}>
+          <select id={`${id}-s3-conn-select`} className={SELECT_CLS} style={{ borderColor: errors.target ? '#EF4444' : undefined }} value={config.target || ''} onChange={(e) => setConfig({ ...config, target: e.target.value })}>
             <option value="">Select AWS S3 Connection...</option>
             {s3Conns.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
           </select>
+          {errors.target && <p id={`${id}-target-error`} className="text-xs text-rose-500 mt-1">{errors.target}</p>}
           {s3Conns.length === 0 && <p className="text-[11px] text-amber-600 mt-1">No AWS connections configured.</p>}
         </div>
         <div className="w-full max-w-[320px]">
@@ -39,8 +41,9 @@ export const WizardTargetFields = ({
           </select>
         </div>
         <div className="w-full max-w-[320px]">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">S3 Bucket Name &amp; Base Prefix</label>
-          <input id={`${id}-s3-bucket`} className={INPUT_CLS} value={config.s3Bucket || ''} onChange={(e) => setConfig({ ...config, s3Bucket: e.target.value })} placeholder="datashifter-analytics-lake/raw" />
+          <label className="block text-xs font-semibold text-slate-700 mb-1">S3 Bucket Name &amp; Base Prefix *</label>
+          <input id={`${id}-s3-bucket`} className={INPUT_CLS} style={{ borderColor: errors.s3Bucket ? '#EF4444' : undefined }} value={config.s3Bucket || ''} onChange={(e) => setConfig({ ...config, s3Bucket: e.target.value })} placeholder="datashifter-analytics-lake/raw" />
+          {errors.s3Bucket && <p id={`${id}-bucket-error`} className="text-xs text-rose-500 mt-1">{errors.s3Bucket}</p>}
         </div>
       </div>
     );

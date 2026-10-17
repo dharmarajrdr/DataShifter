@@ -47,6 +47,7 @@ export const WizardStepTarget = ({
         config={config}
         setConfig={setConfig}
         connections={connections}
+        errors={errors}
       />
     </div>
   );
