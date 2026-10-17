@@ -1,404 +1,95 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiGuard, BarLoader, Button, ConfirmationModal, PageHeader, SkeletonLoader, StatusBadge } from '../components/common';
-import ConnectionFormModal from '../components/connections/ConnectionFormModal';
-import SchemaDrawer from '../components/connections/SchemaDrawer';
-import { OracleIcon, PostgresIcon, SpannerIcon } from '../components/layout/Icons';
-import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../constants/design';
-import { FRBS, FRSC } from '../constants/layouts';
-import { CONNECTION } from '../constants/literals';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ApiGuard, BarLoader, Button, SkeletonLoader } from '../components/common';
+import { ConnectionCard, ConnectionsHeader, ConnectionsKpiGrid, ConnectionsFilterBar, ConnectionFormModal, SchemaDrawer } from '../components/connections';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { connectionApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 
-/* ================================================================
-   DB ICON
-   ================================================================ */
-const DB_ICON_CONFIG = {
-  ORACLE: { bg: COLORS.status.errorLight, Icon: OracleIcon },
-  SPANNER: { bg: COLORS.status.infoLight, Icon: SpannerIcon },
-  POSTGRESQL: { bg: COLORS.status.successLight, Icon: PostgresIcon },
+const CATS = {
+  RDBMS: ['POSTGRESQL', 'POSTGRES', 'MYSQL', 'ORACLE', 'SQLSERVER'],
+  CLOUD_DW: ['SNOWFLAKE', 'BIGQUERY', 'REDSHIFT', 'SPANNER', 'CLICKHOUSE'],
+  STREAMING: ['KAFKA', 'PUBSUB', 'KINESIS', 'RABBITMQ'],
+  OBJECT_STORE: ['S3', 'GCS', 'AZUREBLOB'],
 };
 
-const DBIcon = ({ dbType }) => {
-  const config = DB_ICON_CONFIG[dbType] || DB_ICON_CONFIG.ORACLE;
-  return (
-    <div style={{
-      width: 36, height: 36, borderRadius: BORDER_RADIUS.md, flexShrink: 0,
-      background: config.bg,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <config.Icon />
-    </div>
-  );
-};
-
-/* ================================================================
-   CONNECTION CARD
-   ================================================================ */
-const ConnectionCard = ({ conn, onEdit, onDelete, onUpdate, onTest, onBrowse, canEdit, canDelete, canTest, canBrowse }) => {
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const notification = useNotification();
-
-  const isReferenced = (conn.pipelineCount || 0) > 0;
-  const testTimerRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (testTimerRef.current) {
-        clearTimeout(testTimerRef.current);
-      }
-    };
-  }, []);
-
-  const handleTest = async () => {
-    if (!canTest) return;
-    if (testTimerRef.current) {
-      clearTimeout(testTimerRef.current);
-    }
-    setTesting(true);
-    setTestResult(null);
-    if (onUpdate) {
-      onUpdate(conn.id, { status: 'TESTING' });
-    }
-    try {
-      const res = await connectionApi.test(conn.id);
-      setTestResult(res.data);
-      if (testTimerRef.current) clearTimeout(testTimerRef.current);
-      testTimerRef.current = setTimeout(() => {
-        setTestResult(null);
-      }, 3000);
-      if (res.data?.success) {
-        notification.success(`Connection to "${conn.name}" tested successfully`);
-      } else {
-        notification.error(res.data?.message || 'Connection test failed');
-      }
-      if (onUpdate) {
-        onUpdate(conn.id, {
-          status: res.data.success ? 'CONNECTED' : 'FAILED',
-          error: res.data.success ? null : res.data.message
-        });
-      }
-    } catch (e) {
-      setTestResult({ success: false, message: e.message });
-      if (testTimerRef.current) clearTimeout(testTimerRef.current);
-      testTimerRef.current = setTimeout(() => {
-        setTestResult(null);
-      }, 3000);
-      notification.error(e.message || 'Connection test failed');
-      if (onUpdate) {
-        onUpdate(conn.id, { status: 'FAILED', error: e.message });
-      }
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!canDelete) return;
-    try {
-      await connectionApi.delete(conn.id);
-      notification.success(`Connection "${conn.name}" deleted successfully`);
-      onDelete(conn.id);
-    } catch (e) {
-      console.error('Delete failed:', e);
-      notification.error(e.message || 'Failed to delete connection');
-    } finally {
-      setConfirmDelete(false);
-    }
-  };
-
-  return (
-    <div style={{
-      background: COLORS.background.primary, border: `1px solid ${COLORS.border.light}`,
-      borderRadius: BORDER_RADIUS.lg, padding: SPACING.md,
-    }}>
-      {/* Header */}
-      <div style={{ ...FRBS, marginBottom: SPACING.sm }}>
-        <div style={{ ...FRSC, gap: '10px' }}>
-          <DBIcon dbType={conn.dbType} />
-          <div>
-            <p style={{ fontSize: FONT.size.base, fontWeight: FONT.weight.medium }}>{conn.name}</p>
-            <p style={{ fontSize: FONT.size.xs, color: COLORS.text.secondary, marginTop: '2px' }}>{conn.host}</p>
-          </div>
-        </div>
-        <StatusBadge status={conn.status} label={CONNECTION.statuses[conn.status]} />
-      </div>
-
-      {/* Details */}
-      <div style={{ ...FRSC, gap: SPACING.md, fontSize: FONT.size.xs, color: COLORS.text.secondary, marginBottom: SPACING.sm }}>
-        <span>Type: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.dbType}</span></span>
-        <span>Schema: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.schemaName}</span></span>
-        <span>Tables: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>{conn.tableCount || '0'}</span></span>
-        {isReferenced && (
-          <span>Pipelines: <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }} title={conn.referencedPipelines?.join(', ')}>{conn.pipelineCount}</span></span>
-        )}
-      </div>
-
-      {/* Error */}
-      {conn.error && (
-        <div style={{
-          background: COLORS.status.errorLight, borderRadius: BORDER_RADIUS.md,
-          padding: `${SPACING.xs} 10px`, fontSize: FONT.size.xs, color: COLORS.status.errorText,
-          marginBottom: SPACING.sm,
-        }}>
-          {conn.error} Last tested {conn.lastTested ? new Date(conn.lastTested).toLocaleString() : 'never'}.
-        </div>
-      )}
-
-      {/* Test result */}
-      {testResult && (
-        <div style={{
-          background: testResult.success ? COLORS.status.successLight : COLORS.status.errorLight,
-          borderRadius: BORDER_RADIUS.md, padding: `${SPACING.xs} 10px`,
-          fontSize: FONT.size.xs, marginBottom: SPACING.sm,
-          color: testResult.success ? COLORS.status.successText : COLORS.status.errorText,
-        }}>
-          {testResult.success
-            ? `Connected (${testResult.latencyMs}ms) — ${testResult.tableCount} tables found`
-            : `Failed: ${testResult.message}`}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div style={{ ...FRSC, gap: '6px' }}>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleTest}
-          disabled={!canTest || testing}
-          title={!canTest ? 'You do not have permission to test connections' : undefined}
-          style={testing ? { opacity: 0.6 } : {}}
-        >
-          {testing ? 'Testing...' : (conn.status === 'FAILED' ? CONNECTION.retry : CONNECTION.test)}
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => onEdit(conn)}
-          disabled={!canEdit}
-          title={!canEdit ? 'You do not have permission to edit connections' : undefined}
-        >
-          {CONNECTION.edit}
-        </Button>
-        {conn.status === 'CONNECTED' && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onBrowse(conn)}
-            disabled={!canBrowse}
-            title={!canBrowse ? 'You do not have permission to browse schema' : undefined}
-          >
-            {CONNECTION.browseSchema}
-          </Button>
-        )}
-        <Button
-          variant="danger"
-          size="sm"
-          disabled={!canDelete || isReferenced}
-          title={!canDelete
-            ? 'You do not have permission to delete connections'
-            : (isReferenced
-              ? `Cannot delete: referenced by ${conn.referencedPipelines?.length ? conn.referencedPipelines.join(', ') : `${conn.pipelineCount} pipeline(s)`}`
-              : undefined)
-          }
-          onClick={() => setConfirmDelete(true)}
-        >
-          {CONNECTION.delete}
-        </Button>
-      </div>
-
-      {/* Delete confirmation modal */}
-      <ConfirmationModal
-        isOpen={confirmDelete && !isReferenced && canDelete}
-        title="Delete Connection"
-        message={`Are you sure you want to delete connection "${conn.name}" permanently? This cannot be undone.`}
-        color={COLORS.status.error}
-        onClose={() => setConfirmDelete(false)}
-        actions={[
-          { label: 'Cancel', variant: 'secondary', onClick: () => setConfirmDelete(false) },
-          { label: 'Yes, delete', variant: 'danger', onClick: handleDelete },
-        ]}
-      />
-    </div>
-  );
-};
-
-/* ================================================================
-   MAIN PAGE
-   ================================================================ */
-const ConnectionsManager = () => {
+export const ConnectionsManager = () => {
   const { hasPermission } = useAuth();
-  const canView = hasPermission('connection:view');
-  const canCreate = hasPermission('connection:create');
-  const canEdit = hasPermission('connection:edit');
-  const canDelete = hasPermission('connection:delete');
-  const canTest = hasPermission('connection:test');
-  const canBrowse = hasPermission('connection:browse_schema');
-
+  const perms = { view: hasPermission('connection:view'), create: hasPermission('connection:create'), edit: hasPermission('connection:edit'), delete: hasPermission('connection:delete'), test: hasPermission('connection:test'), browse: hasPermission('connection:browse_schema') };
   const [connections, setConnections] = useState([]);
-  const [showForm, setShowForm] = useState(false);     // true = new, connection object = edit
+  const [showForm, setShowForm] = useState(false);
   const [editingConn, setEditingConn] = useState(null);
   const [browsingConn, setBrowsingConn] = useState(null);
-
-  const loadConnections = useCallback(() => {
-    if (!canView) return;
-    connectionApi.getAll().then(res => setConnections(res.data || []));
-  }, [canView]);
-
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!canView) {
-      setLoading(false);
-      return;
-    }
-    const load = async () => {
-      setLoading(true);
-      try {
-        const connectionsRes = await connectionApi.getAll();
-        setConnections(connectionsRes.data || []);
-      } catch (e) {
-        setError(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [canView]);
-
+  const [testingAll, setTestingAll] = useState(false);
+  const [category, setCategory] = useState('ALL'); const [searchQuery, setSearchQuery] = useState('');
   const notification = useNotification();
 
-  const handleCreate = async (formData) => {
-    try {
-      await connectionApi.create(formData);
-      notification.success('Connection created successfully');
-      loadConnections();
-      closeForm();
-    } catch (e) {
-      notification.error(e.message || 'Failed to create connection');
+  const loadConnections = useCallback(async () => {
+    if (!perms.view) return;
+    try { const res = await connectionApi.getAll(); setConnections(res.data || []); }
+    catch (e) { setError(e); } finally { setLoading(false); }
+  }, [perms.view]);
+
+  useEffect(() => { loadConnections(); }, [loadConnections]);
+
+  const handleTestAll = async () => {
+    if (!perms.test || connections.length === 0) return;
+    setTestingAll(true);
+    let ok = 0;
+    for (const c of connections) {
+      try { const r = await connectionApi.test(c.id); if (r.data?.success) ok += 1; } catch (e) { /* ignore */ }
     }
+    setTestingAll(false);
+    if (ok === connections.length) notification.success(`Verified: All ${connections.length} connections healthy`);
+    else notification.error(`Health check failed: ${ok}/${connections.length} connections healthy`);
+    loadConnections();
   };
 
-  const handleUpdate = async (formData) => {
-    try {
-      await connectionApi.update(editingConn.id, formData);
-      notification.success('Connection updated successfully');
-      loadConnections();
-      closeForm();
-    } catch (e) {
-      notification.error(e.message || 'Failed to update connection');
-    }
-  };
+  const categoryCounts = useMemo(() => ({
+    ALL: connections.length,
+    RDBMS: connections.filter((c) => CATS.RDBMS.includes(c.dbType?.toUpperCase())).length,
+    CLOUD_DW: connections.filter((c) => CATS.CLOUD_DW.includes(c.dbType?.toUpperCase())).length,
+    STREAMING: connections.filter((c) => CATS.STREAMING.includes(c.dbType?.toUpperCase())).length,
+    OBJECT_STORE: connections.filter((c) => CATS.OBJECT_STORE.includes(c.dbType?.toUpperCase())).length,
+  }), [connections]);
 
-  const handleUpdateStatus = (connId, updates) => {
-    setConnections(prev => prev.map(c => c.id === connId ? { ...c, ...updates } : c));
-  };
+  const filteredConnections = useMemo(() => connections.filter((c) => {
+    const t = c.dbType?.toUpperCase() || '';
+    const matchCat = category === 'ALL' || (CATS[category] && CATS[category].includes(t));
+    const q = searchQuery.toLowerCase().trim();
+    return matchCat && (!q || c.name?.toLowerCase().includes(q) || c.host?.toLowerCase().includes(q) || t.toLowerCase().includes(q));
+  }), [connections, category, searchQuery]);
 
-  const handleDelete = (connId) => {
-    setConnections(prev => prev.filter(c => c.id !== connId));
-  };
-
-  const openEdit = (conn) => { setEditingConn(conn); setShowForm(true); };
-  const openNew = () => { setEditingConn(null); setShowForm(true); };
-  const closeForm = () => { setShowForm(false); setEditingConn(null); };
-
-  if (!canView) {
-    return (
-      <ForbiddenPage
-        missingPermission="connection:view"
-        message="You don't have permission to view connections."
-      />
-    );
-  }
+  if (!perms.view) return <ForbiddenPage missingPermission="connection:view" message="No permission to view connections." />;
 
   return (
-    <ApiGuard
-      error={error}
-      loading={loading}
-      loadingComponent={
-        <div>
-          <BarLoader />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 1fr)', gap: SPACING.md, marginTop: SPACING.lg }}>
-            <SkeletonLoader variant="card" count={3} />
-          </div>
-        </div>
-      }
-    >
-      <div>
-        <PageHeader
-          title={CONNECTION.title}
-          subtitle={CONNECTION.subtitle}
-          actions={
-            <Button
-              onClick={openNew}
-              disabled={!canCreate}
-              title={!canCreate ? 'You do not have permission to create connections' : undefined}
-            >
-              {CONNECTION.newConnection}
-            </Button>
-          }
-        />
-
-        {connections.length === 0 ? (
-          <div style={{
-            padding: '60px', textAlign: 'center', color: COLORS.text.secondary,
-            border: `1px dashed ${COLORS.border.medium}`, borderRadius: BORDER_RADIUS.lg,
-          }}>
-            <p style={{ fontSize: FONT.size.lg, marginBottom: SPACING.xs }}>No connections yet</p>
-            <p style={{ fontSize: FONT.size.md, marginBottom: SPACING.lg }}>Add your first database connection to get started.</p>
-            <Button
-              onClick={openNew}
-              disabled={!canCreate}
-              title={!canCreate ? 'You do not have permission to create connections' : undefined}
-            >
-              {CONNECTION.newConnection}
-            </Button>
+    <ApiGuard error={error} loading={loading} loadingComponent={<div><BarLoader /><div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"><SkeletonLoader variant="card" count={4} /></div></div>}>
+      <div id="connections-manager-page" className="ds-connections-manager-page w-full max-w-7xl mx-auto pb-12 flex flex-col gap-5">
+        <ConnectionsHeader canCreate={perms.create} onNewConnection={() => { setEditingConn(null); setShowForm(true); }} onTestAll={handleTestAll} testingAll={testingAll} />
+        <ConnectionsKpiGrid connections={connections} />
+        <ConnectionsFilterBar selectedCategory={category} onCategoryChange={setCategory} searchQuery={searchQuery} onSearchChange={setSearchQuery} categoryCounts={categoryCounts} />
+        {filteredConnections.length === 0 ? (
+          <div className="w-full bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center shadow-xs">
+            <i className="fa-solid fa-network-wired text-3xl text-slate-300 mb-3 block" />
+            <p className="text-base font-bold text-slate-800 mb-1">No matching connections</p>
+            <p className="text-xs text-slate-500 mb-4">Try clearing filters or create a new database connection.</p>
+            <Button variant="primary" onClick={() => { setEditingConn(null); setShowForm(true); }} disabled={!perms.create}>Add Connection</Button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sm }}>
-            {connections.map(conn => (
-              <ConnectionCard
-                key={conn.id}
-                conn={conn}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-                onUpdate={handleUpdateStatus}
-                onBrowse={setBrowsingConn}
-                canEdit={canEdit}
-                canDelete={canDelete}
-                canTest={canTest}
-                canBrowse={canBrowse}
-              />
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredConnections.map((conn) => (
+              <ConnectionCard key={conn.id} conn={conn} onEdit={(c) => { setEditingConn(c); setShowForm(true); }} onDelete={(id) => setConnections((p) => p.filter((c) => c.id !== id))} onUpdate={(id, u) => setConnections((p) => p.map((c) => c.id === id ? { ...c, ...u } : c))} onBrowse={setBrowsingConn} canEdit={perms.edit} canDelete={perms.delete} canTest={perms.test} canBrowse={perms.browse} />
             ))}
           </div>
         )}
-
-        {/* New / Edit Modal */}
-        {showForm && (
-          <ConnectionFormModal
-            connection={editingConn}
-            onClose={closeForm}
-            onSave={editingConn ? handleUpdate : handleCreate}
-          />
-        )}
-
-        {/* Schema Drawer */}
+        {showForm && <ConnectionFormModal connection={editingConn} onClose={() => { setShowForm(false); setEditingConn(null); }} onSave={async (d) => { if (editingConn) await connectionApi.update(editingConn.id, d); else await connectionApi.create(d); notification.success(`Connection saved`); loadConnections(); setShowForm(false); setEditingConn(null); }} />}
         {browsingConn && (
-          <>
-            <div style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              background: 'rgba(0,0,0,0.15)', zIndex: 999,
-            }} onClick={() => setBrowsingConn(null)} />
-            <SchemaDrawer
-              connectionId={browsingConn.id}
-              connectionName={browsingConn.name}
-              onClose={() => setBrowsingConn(null)}
-            />
-          </>
+          <div className="fixed inset-0 z-50">
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity" onClick={() => setBrowsingConn(null)} />
+            <SchemaDrawer connectionId={browsingConn.id} connectionName={browsingConn.name} onClose={() => setBrowsingConn(null)} />
+          </div>
         )}
       </div>
     </ApiGuard>

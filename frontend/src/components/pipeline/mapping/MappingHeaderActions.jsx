@@ -16,9 +16,8 @@ export const MappingHeaderActions = ({
   validateDisabled,
   onValidate,
   onAutoMap,
-  onClearAll,
+  onCancel,
   onSave,
-  hasMappings,
 }) => (
   <div id="mapping-header-actions" style={{ ...FRSC, gap: SPACING.sm }}>
     {status === 'VALIDATED' && !hasChanges ? (
@@ -47,18 +46,16 @@ export const MappingHeaderActions = ({
     >
       Auto-map
     </Button>
-    {hasMappings && (
-      <Button
-        id="btn-clear-all"
-        variant="secondary"
-        size="md"
-        onClick={onClearAll}
-        disabled={!canEdit}
-        title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
-      >
-        Clear all
-      </Button>
-    )}
+    <Button
+      id="btn-cancel-mapping"
+      variant="secondary"
+      size="md"
+      onClick={onCancel}
+      disabled={!canEdit || !hasChanges || saving}
+      title={!canEdit ? 'You do not have permission to edit pipelines' : undefined}
+    >
+      Cancel
+    </Button>
     <Button
       id="btn-save-mapping"
       size="md"

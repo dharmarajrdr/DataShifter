@@ -36,6 +36,11 @@ public class OrgController {
         return ApiResponse.success(orgService.getOrg(extractOrgId(request)));
     }
 
+    @GetMapping("/org/quotas")
+    public ApiResponse<OrgQuotasResponse> getOrgQuotas(HttpServletRequest request) {
+        return ApiResponse.success(orgService.getOrgQuotas(extractOrgId(request)));
+    }
+
     @PutMapping("/org")
     @RequiresPermission(anyOf = {Permissions.ORG_MANAGE_ROLES, Permissions.ORG_MANAGE_MEMBERS})
     public ApiResponse<OrgResponse> updateOrg(HttpServletRequest request, @RequestBody UpdateOrgRequest body) {
@@ -73,7 +78,14 @@ public class OrgController {
     }
 
     private String extractOrgId(HttpServletRequest request) {
-        String token = request.getHeader("Authorization").substring(7);
-        return jwtUtil.getOrgId(token);
+        String orgId = com.datashifter.common.security.UserContext.getCurrentOrgId();
+        if (orgId != null && !orgId.isBlank()) return orgId;
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ") && auth.length() > 7) {
+            try {
+                return jwtUtil.getOrgId(auth.substring(7));
+            } catch (Exception ignored) {}
+        }
+        return null;
     }
 }

@@ -11,14 +11,20 @@ export const MonitorInflightPreview = ({
   records = [], isCdc = false, activeTable = '', targetTable = '', previewDisabled = false, status = 'RUNNING',
 }) => {
   const [selectedTable, setSelectedTable] = useState('ALL');
-  const [bufferSize, setBufferSize] = useState(50);
   const [isFrozen, setIsFrozen] = useState(false);
+  const [frozenRecords, setFrozenRecords] = useState(null);
 
-  const tables = useMemo(() => isCdc ? Array.from(new Set(records.map((r) => r.table).filter(Boolean))) : [], [records, isCdc]);
+  const toggleFreeze = () => {
+    if (!isFrozen) { setFrozenRecords(records); setIsFrozen(true); }
+    else { setFrozenRecords(null); setIsFrozen(false); }
+  };
+
+  const activeRecords = isFrozen && frozenRecords !== null ? frozenRecords : records;
+  const tables = useMemo(() => isCdc ? Array.from(new Set(activeRecords.map((r) => r.table).filter(Boolean))) : [], [activeRecords, isCdc]);
   const filteredRecords = useMemo(() => {
-    const list = isCdc && selectedTable !== 'ALL' ? records.filter((r) => r.table === selectedTable) : records;
-    return list.slice(0, bufferSize);
-  }, [records, isCdc, selectedTable, bufferSize]);
+    const list = isCdc && selectedTable !== 'ALL' ? activeRecords.filter((r) => r.table === selectedTable) : activeRecords;
+    return list.slice(0, 25);
+  }, [activeRecords, isCdc, selectedTable]);
   const columns = useMemo(() => filteredRecords.length === 0 ? [] : Object.keys(filteredRecords[0]).filter((k) => k !== 'table' && k !== 'op' && k !== 'id'), [filteredRecords]);
 
   if (previewDisabled) {
@@ -37,25 +43,20 @@ export const MonitorInflightPreview = ({
         <div id="preview-title-box" className="flex items-center gap-2.5">
           <span id="preview-title" className="font-semibold text-content-primary text-sm">Real-Time In-Flight Records Preview</span>
           <span id="preview-badge" className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 tabular-nums">
-            {filteredRecords.length} buffer {isFrozen ? '(Frozen)' : '(Streaming)'}
+            {filteredRecords.length} records {isFrozen ? '(Frozen)' : '(Streaming)'}
           </span>
         </div>
         <div id="preview-controls-group" className="flex items-center gap-2">
-          <label id="preview-buffer-label" className="text-content-secondary text-[11.5px]">Buffer:</label>
-          <select id="preview-buffer-select" value={bufferSize} onChange={(e) => setBufferSize(Number(e.target.value))} className="px-2 py-1 text-xs bg-surface-50 border border-surface-300 rounded-md text-content-primary outline-none">
-            <option value={50}>Latest 50</option>
-            <option value={100}>Latest 100</option>
-          </select>
-          <button id="btn-toggle-freeze" type="button" onClick={() => setIsFrozen(!isFrozen)} className={`px-2.5 py-1 text-xs font-medium rounded-md border flex items-center gap-1 ${isFrozen ? 'bg-amber-50 text-amber-800 border-amber-300 font-semibold' : 'bg-white text-content-secondary hover:text-content-primary border-surface-300'}`}>
+          <button id="btn-toggle-freeze" type="button" onClick={toggleFreeze} className={`px-2.5 py-1 text-xs font-medium rounded-md border flex items-center gap-1 ${isFrozen ? 'bg-amber-50 text-amber-800 border-amber-300 font-semibold' : 'bg-white text-content-secondary hover:text-content-primary border-surface-300'}`}>
             {isFrozen ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}<span>{isFrozen ? 'Stream Frozen' : 'Freeze'}</span>
           </button>
         </div>
       </div>
       {isCdc && tables.length > 0 && (
-        <div id="preview-cdc-tabs" className="px-4 bg-surface-50 border-b border-surface-200 flex items-center gap-1 overflow-x-auto">
-          <button id="tab-table-all" type="button" onClick={() => setSelectedTable('ALL')} className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${selectedTable === 'ALL' ? 'border-brand-600 text-brand-600 font-semibold bg-white' : 'border-transparent text-content-secondary hover:text-content-primary'}`}>All Tables ({records.length})</button>
+        <div id="preview-cdc-tabs" className="px-4 bg-surface-50 border-b border-surface-200 flex items-center gap-1">
+          <button id="tab-table-all" type="button" onClick={() => setSelectedTable('ALL')} className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${selectedTable === 'ALL' ? 'border-brand-600 text-brand-600 font-semibold bg-white' : 'border-transparent text-content-secondary hover:text-content-primary'}`}>All Tables ({activeRecords.length})</button>
           {tables.map((t) => (
-            <button key={t} id={`tab-table-${t}`} type="button" onClick={() => setSelectedTable(t)} className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${selectedTable === t ? 'border-brand-600 text-brand-600 font-semibold bg-white' : 'border-transparent text-content-secondary hover:text-content-primary'}`}>{t} ({records.filter((r) => r.table === t).length})</button>
+            <button key={t} id={`tab-table-${t}`} type="button" onClick={() => setSelectedTable(t)} className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${selectedTable === t ? 'border-brand-600 text-brand-600 font-semibold bg-white' : 'border-transparent text-content-secondary hover:text-content-primary'}`}>{t} ({activeRecords.filter((r) => r.table === t).length})</button>
           ))}
         </div>
       )}

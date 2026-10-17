@@ -93,11 +93,26 @@ public class BeetelAgentService {
 
     @Transactional(readOnly = true)
     public List<ChatParticipantDto> listOrganizationMembers() {
+        return listOrganizationMembers(null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChatParticipantDto> listOrganizationMembers(String search, Integer limit) {
         String orgId = UserContext.getCurrentOrgId();
-        return appUserRepository.findByOrganization_IdAndIsActiveTrueOrderByFullNameAsc(orgId)
-                .stream()
-                .map(u -> toParticipantDto(u, false, null))
-                .toList();
+        var stream = appUserRepository.findByOrganization_IdAndIsActiveTrueOrderByFullNameAsc(orgId)
+                .stream();
+        if (search != null && !search.trim().isEmpty()) {
+            String q = search.trim().toLowerCase();
+            stream = stream.filter(u ->
+                    (u.getFullName() != null && u.getFullName().toLowerCase().contains(q)) ||
+                    (u.getAccount() != null && u.getAccount().getEmail() != null && u.getAccount().getEmail().toLowerCase().contains(q)) ||
+                    (u.getRole() != null && u.getRole().getName() != null && u.getRole().getName().toLowerCase().contains(q))
+            );
+        }
+        if (limit != null && limit > 0) {
+            stream = stream.limit(limit);
+        }
+        return stream.map(u -> toParticipantDto(u, false, null)).toList();
     }
 
     @Transactional(readOnly = true)

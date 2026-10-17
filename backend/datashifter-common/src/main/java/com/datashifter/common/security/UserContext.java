@@ -44,6 +44,10 @@ public class UserContext {
         return ctx != null ? ctx.getOrgId() : null;
     }
 
+    public static String getOrgId() {
+        return getCurrentOrgId();
+    }
+
     public static String getCurrentRole() {
         Context ctx = CONTEXT.get();
         return ctx != null ? ctx.getRole() : null;

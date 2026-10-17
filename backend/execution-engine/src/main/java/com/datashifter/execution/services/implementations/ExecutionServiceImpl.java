@@ -766,7 +766,7 @@ public class ExecutionServiceImpl implements ExecutionService {
                 && ctx.getPipeline().getPreviewInflightRecords();
         List<Map<String, Object>> inflight = List.of();
         if (previewEnabled && targetRecords != null && !targetRecords.isEmpty()) {
-            inflight = targetRecords.subList(Math.max(0, targetRecords.size() - 100), targetRecords.size());
+            inflight = targetRecords.subList(Math.max(0, targetRecords.size() - 25), targetRecords.size());
         }
 
         long rowsProcessed = ctx.getTotalRowsProcessed().get();

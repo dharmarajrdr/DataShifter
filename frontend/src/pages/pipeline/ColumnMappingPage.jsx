@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ApiGuard, BarLoader, ConfirmationModal, Loader, PageHeader } from '../../components/common';
+import { ApiGuard, BarLoader, Loader, PageHeader } from '../../components/common';
 import DragMappingBoard from '../../components/pipeline/DragMappingBoard';
 import {
   FilterPanel, MappingFilterButtons, MappingHeaderActions,
   MappingStatsBar, MappingValidationErrors, TransformPanel,
 } from '../../components/pipeline/mapping';
 import useMappingState from '../../components/pipeline/mapping/useMappingState';
-import { COLORS } from '../../constants/design';
 import { MAPPING as LIT } from '../../constants/literals';
 import { useAuth } from '../../contexts/AuthContext';
 import { ForbiddenPage } from '../ErrorPage';
@@ -24,13 +23,12 @@ export const ColumnMappingPage = () => {
   const navigate = useNavigate();
   const auth = useAuth() || {};
   const canView = auth.canViewPipeline ?? (auth.hasPermission ? auth.hasPermission('pipeline:view') : true);
-  const canEdit = auth.canEditPipeline ?? (auth.hasPermission ? auth.hasPermission('pipeline:edit') : true);
+  const canEdit = auth.canEditPipeline ?? (auth.hasPermission ? (auth.hasPermission('pipeline:column-mapping') || auth.hasPermission('pipeline:edit')) : true);
   const [transformTarget, setTransformTarget] = useState(null);
   const [filterTarget, setFilterTarget] = useState(null);
-  const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   const mState = useMappingState(pipelineId, canView, canEdit);
-  const { data, loading, error, mappings, filters, hasChanges, saving, validating, validateDisabled, valErrors, setValErrors, sourceTables, targetTables, handleChange, handleAutoMap, handleSave, handleValidate } = mState;
+  const { data, loading, error, mappings, filters, hasChanges, saving, validating, validateDisabled, valErrors, setValErrors, sourceTables, targetTables, handleChange, handleAutoMap, handleCancel, handleSave, handleValidate } = mState;
 
   if (!canView) return <ForbiddenPage missingPermission="pipeline:view" message="No permission to view pipelines." />;
 
@@ -46,7 +44,7 @@ export const ColumnMappingPage = () => {
         <div id="column-mapping-page">
           <PageHeader
             breadcrumbs={[{ label: data.pipelineName, onClick: () => navigate('/pipelines') }, { label: LIT.title }]}
-            actions={<MappingHeaderActions status={data.status} hasChanges={hasChanges} canEdit={canEdit} validating={validating} saving={saving} validateDisabled={validateDisabled} onValidate={handleValidate} onAutoMap={handleAutoMap} onClearAll={() => setConfirmClearAll(true)} onSave={handleSave} hasMappings={mappings.length > 0} />}
+            actions={<MappingHeaderActions status={data.status} hasChanges={hasChanges} canEdit={canEdit} validating={validating} saving={saving} validateDisabled={validateDisabled} onValidate={handleValidate} onAutoMap={handleAutoMap} onCancel={handleCancel} onSave={handleSave} />}
           />
           <MappingValidationErrors errors={valErrors} onDismiss={() => setValErrors([])} />
           <MappingStatsBar sourceTablesCount={sourceTables.length} targetTablesCount={targetTables.length} mappingsCount={mappings.length} unmappedReq={unmappedReq} totalFilters={totalFilters} hasChanges={hasChanges} />
@@ -57,10 +55,9 @@ export const ColumnMappingPage = () => {
           )}
           <MappingFilterButtons sourceTables={sourceTables} filters={filters} onOpenFilter={(ft) => setFilterTarget(ft)} />
           {transformTarget && (<><Backdrop onClick={() => setTransformTarget(null)} /><TransformPanel mapping={transformTarget.mapping} mappingIdx={transformTarget.idx} sourceTables={sourceTables} targetTables={targetTables} onApply={(idx, newT) => handleChange(mappings.map((m, i) => i === idx ? { ...m, transforms: newT } : m))} onClose={() => setTransformTarget(null)} /></>)}
-          {filterTarget && (<><Backdrop onClick={() => setFilterTarget(null)} /><FilterPanel sourceTable={filterTarget.tableName} sourceColumns={filterTarget.columns} existingFilters={filters[filterTarget.tableName]} onApply={(t, nf) => mState.setFilters((p) => ({ ...p, [t]: nf }))} onClose={() => setFilterTarget(null)} /></>)}
+          {filterTarget && (<><Backdrop onClick={() => setFilterTarget(null)} /><FilterPanel sourceTable={filterTarget.tableName} sourceColumns={filterTarget.columns} existingFilters={filters[filterTarget.tableName]} onApply={(t, nf) => { mState.setFilters((p) => ({ ...p, [t]: nf })); mState.setHasChanges(true); }} onClose={() => setFilterTarget(null)} /></>)}
         </div>
       )}
-      <ConfirmationModal isOpen={confirmClearAll} title="Clear All Mappings" message="Are you sure you want to clear all column mappings? Any unsaved mappings will be removed." color={COLORS.status.warning} onClose={() => setConfirmClearAll(false)} actions={[{ label: 'Cancel', variant: 'secondary', onClick: () => setConfirmClearAll(false) }, { label: 'Clear all', variant: 'danger', onClick: () => { handleChange([]); setConfirmClearAll(false); } }]} />
     </ApiGuard>
   );
 };

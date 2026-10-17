@@ -44,13 +44,13 @@ export const MarketplacePage = ({ id = 'marketplace-page', className = '' }) => 
   }, [adapters, selectedCategory, searchQuery, roleFilter, sortMode]);
 
   return (
-    <div id={id} className={`p-6 max-w-7xl mx-auto space-y-6 ${className}`}>
+    <div id={id} className={`w-full max-w-7xl mx-auto space-y-6 ${className}`}>
       <MarketplaceHeader
         installedCount={adapters.filter((a) => a.installed).length}
         totalCount={adapters.length}
       />
 
-      <Card id="marketplace-controls-card" variant="elevated" className="p-4 space-y-4">
+      <Card id="marketplace-controls-card" variant="elevated" padding={false} className="p-4 space-y-4">
         <MarketplaceFilters
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}

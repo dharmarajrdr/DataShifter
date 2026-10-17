@@ -303,6 +303,10 @@ export const mappingApi = {
     ? mockResponse(MOCK_MAPPING)
     : apiClient.get(`/pipelines/${id}/mappings`),
 
+  get: (id) => USE_MOCK
+    ? mockResponse(MOCK_MAPPING)
+    : apiClient.get(`/pipelines/${id}/mappings`),
+
   save: (id, payload) => USE_MOCK
     ? mockResponse(payload)
     : apiClient.put(`/pipelines/${id}/mappings`, payload),
@@ -418,6 +422,10 @@ export const workflowApi = {
   clearErrors: (id) => USE_MOCK
     ? mockResponse(null)
     : apiClient.delete(`/workflows/${id}/errors`),
+
+  validatePipelines: (id) => USE_MOCK
+    ? mockResponse({ id, status: 'READY', singleChainReady: true })
+    : apiClient.post(`/workflows/${id}/validate-pipelines`),
 };
 
 /* ================================================================

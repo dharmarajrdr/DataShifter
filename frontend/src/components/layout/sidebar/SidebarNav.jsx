@@ -1,18 +1,16 @@
-import React from 'react';
+import { Library, ShoppingBag } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Library, Activity, Code2 } from 'lucide-react';
-import { PipelineIcon, WorkflowIcon, ConnectionIcon, SettingsIcon, NotifyHubIcon, BeetelIcon } from '../Icons';
+import { BeetelIcon, ConnectionIcon, NotifyHubIcon, PipelineIcon, SettingsIcon, WorkflowIcon } from '../Icons';
 import SidebarNavItem from './SidebarNavItem';
 
 export const NAV_ITEMS = [
   { label: 'Pipelines', path: '/pipelines', icon: PipelineIcon },
-  { label: 'Monitoring', path: '/monitoring', icon: Activity },
-  { label: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
-  { label: 'Library', path: '/udfs', icon: Library },
   { label: 'Workflows', path: '/workflows', icon: WorkflowIcon },
   { label: 'Connections', path: '/connections', icon: ConnectionIcon },
-  { label: 'Agent', path: '/beetel', icon: BeetelIcon },
-  { label: 'NotifyHub', path: '/notifyhub', icon: NotifyHubIcon },
+  { label: 'Library', path: '/library/adapters', icon: Library },
+  { label: 'Alerts', path: '/notifyhub/channels', icon: NotifyHubIcon },
+  { label: 'Beetel AI', path: '/beetel', icon: BeetelIcon },
+  { label: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
   { label: 'Settings', path: '/settings/org', icon: SettingsIcon },
 ];
 
@@ -29,6 +27,8 @@ export const SidebarNav = ({
 
   const isActive = (path) => {
     if (path === '/settings/org') return location.pathname.startsWith('/settings');
+    if (path === '/library/adapters') return location.pathname.startsWith('/library') || location.pathname.startsWith('/udfs');
+    if (path === '/notifyhub/channels') return location.pathname.startsWith('/notifyhub');
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 

@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import AuthLayout from '../components/auth/AuthLayout';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import SubscriptionGuard from '../components/auth/SubscriptionGuard';
+import { useAuth } from '../contexts/AuthContext';
 import AppLayout from '../components/layout/AppLayout';
 import MarketplacePage from '../pages/marketplace/MarketplacePage';
 import {
@@ -13,6 +14,11 @@ import {
   ResetPasswordPage, RolesPage, SignupPage, UdfLibrary, UserProfile,
   WorkflowBuilderPage, WorkflowDashboard, WorkflowMonitor, WorkflowSettings, NotifyHubPage,
 } from '../pages';
+import { PipelineRedirect, WorkflowRedirect } from './RouteRedirects';
+const LibraryRedirect = () => {
+  const { hasPermission } = useAuth();
+  return <Navigate to={!hasPermission('adapter:view') && hasPermission('udf:view') ? '/library/udfs' : '/library/adapters'} replace />;
+};
 
 /**
  * Top-level application routes configuration (<= 100 lines).
@@ -40,16 +46,18 @@ export const AppRoutes = () => (
         <Route path="/pipelines" element={<SubscriptionGuard><ProtectedRoute permission="pipeline:view"><Outlet /></ProtectedRoute></SubscriptionGuard>}>
           <Route index element={<PipelineDashboard />} />
           <Route path="new" element={<ProtectedRoute permission="pipeline:create"><PipelineWizard /></ProtectedRoute>} />
+          <Route path=":pipelineId" element={<PipelineRedirect />} />
           <Route path=":pipelineId/monitor" element={<ProtectedRoute permission="monitor:view"><LiveMonitor /></ProtectedRoute>} />
-          <Route path=":pipelineId/mapping" element={<ColumnMappingBoard />} />
+          <Route path=":pipelineId/mapping" element={<ProtectedRoute anyOf={['pipeline:column-mapping', 'pipeline:edit']}><ColumnMappingBoard /></ProtectedRoute>} />
           <Route path=":pipelineId/errors" element={<ProtectedRoute permission="monitor:view_errors"><ErrorLogViewer /></ProtectedRoute>} />
-          <Route path=":pipelineId/settings" element={<ProtectedRoute permission="settings:edit"><PipelineSettings /></ProtectedRoute>} />
+          <Route path=":pipelineId/settings" element={<ProtectedRoute permission="pipeline:settings"><PipelineSettings /></ProtectedRoute>} />
         </Route>
 
         {/* Workflows module */}
         <Route path="/workflows" element={<SubscriptionGuard><ProtectedRoute permission="workflow:view"><Outlet /></ProtectedRoute></SubscriptionGuard>}>
           <Route index element={<WorkflowDashboard />} />
           <Route path="new" element={<ProtectedRoute permission="workflow:create"><WorkflowBuilderPage /></ProtectedRoute>} />
+          <Route path=":workflowId" element={<WorkflowRedirect />} />
           <Route path=":workflowId/edit" element={<ProtectedRoute permission="workflow:edit"><WorkflowBuilderPage /></ProtectedRoute>} />
           <Route path=":workflowId/monitor" element={<ProtectedRoute permission="workflow:view"><WorkflowMonitor /></ProtectedRoute>} />
           <Route path=":workflowId/errors" element={<ProtectedRoute permission="monitor:view_errors"><WorkflowMonitor /></ProtectedRoute>} />
@@ -58,10 +66,13 @@ export const AppRoutes = () => (
 
         {/* Connectors & tooling */}
         <Route path="/connections" element={<SubscriptionGuard><ProtectedRoute permission="connection:view"><ConnectionsManager /></ProtectedRoute></SubscriptionGuard>} />
-        <Route path="/udfs" element={<SubscriptionGuard><ProtectedRoute permission="udf:view"><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />
+        <Route path="/library" element={<LibraryRedirect />} />
+        <Route path="/library/:tab" element={<SubscriptionGuard><ProtectedRoute anyOf={['adapter:view', 'udf:view']}><UdfLibrary /></ProtectedRoute></SubscriptionGuard>} />
+        <Route path="/udfs" element={<Navigate to="/library/udfs" replace />} />
         <Route path="/beetel" element={<SubscriptionGuard><BeetelAgentPage /></SubscriptionGuard>} />
         <Route path="/beetel/:sessionId" element={<SubscriptionGuard><BeetelAgentPage /></SubscriptionGuard>} />
-        <Route path="/notifyhub" element={<SubscriptionGuard><NotifyHubPage /></SubscriptionGuard>} />
+        <Route path="/notifyhub" element={<Navigate to="/notifyhub/channels" replace />} />
+        <Route path="/notifyhub/:tab" element={<SubscriptionGuard><NotifyHubPage /></SubscriptionGuard>} />
 
         {/* Admin settings */}
         <Route path="/settings/org" element={<SubscriptionGuard><OrgSettingsPage /></SubscriptionGuard>} />

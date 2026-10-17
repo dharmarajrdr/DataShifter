@@ -1,9 +1,10 @@
-import React from 'react';
-import { act } from 'react';
+import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DragBoardToolbar, MappingStatsBar, MappingValidationErrors } from './index';
+import { DragBoardToolbar, MappingHeaderActions, MappingStatsBar, MappingValidationErrors } from './index';
 import { checkTargetCompatibility, normalizeDataType, validateInputForType } from '../../../utils/typeValidation';
 import { simulateOne } from '../../../utils/transformSimulator';
+
+global.IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('Column Mapping Board Components and Utilities', () => {
   let container, root;
@@ -41,6 +42,33 @@ describe('Column Mapping Board Components and Utilities', () => {
     });
     expect(container.textContent).toContain('Validation errors');
     expect(container.textContent).toContain('Column id missing');
+  });
+
+  test('MappingHeaderActions renders Cancel button and handles click', () => {
+    const handleCancel = jest.fn();
+    act(() => {
+      root.render(<MappingHeaderActions status="DRAFT" hasChanges={true} canEdit={true} onCancel={handleCancel} onSave={() => {}} onAutoMap={() => {}} onValidate={() => {}} />);
+    });
+    const cancelBtn = container.querySelector('#btn-cancel-mapping');
+    expect(cancelBtn).not.toBeNull();
+    expect(cancelBtn.disabled).toBe(false);
+    expect(cancelBtn.textContent).toContain('Cancel');
+    act(() => { cancelBtn.click(); });
+    expect(handleCancel).toHaveBeenCalled();
+  });
+
+  test('MappingHeaderActions disables Cancel button when hasChanges is false and handles validation state', () => {
+    act(() => {
+      root.render(<MappingHeaderActions status="NOT_VALIDATED" hasChanges={false} canEdit={true} validateDisabled={false} onCancel={() => {}} onSave={() => {}} onAutoMap={() => {}} onValidate={() => {}} />);
+    });
+    const cancelBtn = container.querySelector('#btn-cancel-mapping');
+    expect(cancelBtn.disabled).toBe(true);
+    expect(container.querySelector('#btn-validate-mapping')).not.toBeNull();
+    act(() => {
+      root.render(<MappingHeaderActions status="VALIDATED" hasChanges={false} canEdit={true} onCancel={() => {}} onSave={() => {}} onAutoMap={() => {}} onValidate={() => {}} />);
+    });
+    expect(container.querySelector('#btn-validate-mapping')).toBeNull();
+    expect(container.textContent).toContain('Validated');
   });
 
   test('normalizeDataType normalizes common SQL types', () => {

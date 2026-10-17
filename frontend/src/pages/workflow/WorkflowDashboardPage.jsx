@@ -29,7 +29,7 @@ export const WorkflowDashboardPage = ({ id = 'workflow-dashboard-page' }) => {
     >
       <div
         id={id}
-        className="ds-workflow-dashboard flex flex-col h-[calc(100vh-4.5rem)] overflow-hidden gap-3.5"
+        className="ds-workflow-dashboard flex flex-col w-full max-w-7xl mx-auto h-[calc(100vh-7rem)] overflow-hidden gap-3.5"
       >
         <WorkflowDashboardHeader
           id={`${id}-header`}

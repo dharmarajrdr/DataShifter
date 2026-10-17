@@ -47,7 +47,7 @@ const WorkflowNodeCard = ({
         <div
           id={`workflow-node-in-port-${node.pipelineId}`}
           title="Drop link here to set as successor"
-          onMouseUp={(e) => { e.stopPropagation(); onCompleteConnect?.(node.pipelineId); }}
+          onMouseUp={() => onCompleteConnect?.(node.pipelineId)}
           className={`absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-indigo-600 z-10 cursor-pointer ${
             isConnecting ? 'bg-indigo-600 ring-2 ring-indigo-300' : 'bg-white'
           }`}

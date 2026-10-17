@@ -17,11 +17,12 @@ export const MarketplaceCard = ({
     <Card
       id={cardId}
       variant="elevated"
-      className={`adapter-card p-5 flex flex-col justify-between cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card
+      padding={false}
+      className={`adapter-card p-3.5 flex flex-col justify-between cursor-pointer transition-all duration-200 ease-in-out hover:border-indigo-400 hover:shadow-md
         ${adapter.installed ? 'ring-1 ring-brand-200 border-brand-100 bg-white' : 'border-surface-200'} ${className}`}
       onClick={() => onInspect(adapter)}
     >
-      <div id={`${cardId}-content`} className="space-y-3">
+      <div id={`${cardId}-content`} className="space-y-2.5">
         <div id={`${cardId}-header`} className="flex items-start justify-between gap-2">
           <div
             id={`${cardId}-avatar`}
@@ -53,7 +54,7 @@ export const MarketplaceCard = ({
 
       <div
         id={`${cardId}-footer`}
-        className="pt-3.5 mt-3.5 border-t border-slate-100 flex items-center justify-between"
+        className="pt-2.5 mt-2.5 border-t border-slate-100 flex items-center justify-between"
       >
         <span
           id={`${cardId}-role`}

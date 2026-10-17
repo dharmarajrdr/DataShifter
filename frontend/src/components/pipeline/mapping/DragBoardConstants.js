@@ -14,6 +14,10 @@ export const TBL_HEADER_H = 32;
 export const TBL_WIDTH = 260;
 export const TBL_PAD = 4;
 export const DOT_R = 5;
+export const MIN_ZOOM = 0.25;
+export const MAX_ZOOM = 2.5;
+export const ZOOM_STEP = 0.15;
+export const WHEEL_ZOOM_FACTOR = 0.01;
 
 export const toKey = (t, c) => `${t}.${c}`;
 export const getLC = (m) => LINE_COLORS.find((c) => c.key === m.color) || LINE_COLORS[0];

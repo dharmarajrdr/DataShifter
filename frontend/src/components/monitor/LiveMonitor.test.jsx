@@ -27,6 +27,7 @@ describe('Live Monitor Modular Components', () => {
     act(() => {
       root.render(<MonitorHeader pipelineName="Orders-CDC-Sync" status="RUNNING" isCdc={true} onNavigate={handleNavigate} errorCount={2} />);
     });
+    expect(container.querySelector('#monitor-breadcrumbs')).toBeNull();
     expect(container.querySelector('#monitor-pipeline-title').textContent).toBe('Orders-CDC-Sync');
     expect(container.querySelector('#monitor-status-text').textContent).toBe('RUNNING');
     expect(container.querySelector('#monitor-cdc-badge').textContent).toContain('CDC Stream Active');
@@ -48,6 +49,10 @@ describe('Live Monitor Modular Components', () => {
     expect(container.querySelector('#telemetry-connected').textContent).toContain('Telemetry Stream: Active');
     expect(container.querySelector('#telemetry-lsn-code').textContent).toBe('0/14B200');
     expect(container.querySelector('#metric-val-rate').textContent).toContain('42,000 evt/s');
+    act(() => { root.render(<MonitorTelemetryBar status="VALIDATED" isRunning={false} />); });
+    expect(container.querySelector('#telemetry-inactive').textContent).toContain('Telemetry Stream: Inactive');
+    expect(container.querySelector('#telemetry-batch-status').textContent).toBe('Standby');
+    expect(container.querySelector('#telemetry-reconnecting')).toBeNull();
   });
 
   test('MonitorCdcOperations renders operation counts', () => {

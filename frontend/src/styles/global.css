@@ -7,6 +7,7 @@
 }
 
 :root {
+  --header-height: 50px;
   --notification-position-top: 20px;
   --notification-position-right: 20px;
   --notification-position-bottom: 20px;
@@ -46,3 +47,50 @@ body {
   background: #CBD5E1;
   border-radius: 9999px;
 }
+
+.ds-metric-card {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+}
+
+button[title="Back to Workflows"],
+button[title="Hide panel"],
+button[title="Close modal"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+button[title="Back to Workflows"]:hover,
+button[title="Hide panel"]:hover,
+button[title="Close modal"]:hover {
+  background-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+select,
+input[type="text"],
+input[type="search"] {
+  background-color: #FFFFFF;
+  color: #0F172A;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+select:focus,
+input[type="text"]:focus,
+input[type="search"]:focus {
+  outline: none;
+  border-color: #4F46E5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+#pipeline-settings-page,
+.pipeline-settings-viewport {
+  height: calc(100vh - 50px);
+  max-height: calc(100vh - 50px);
+}
+

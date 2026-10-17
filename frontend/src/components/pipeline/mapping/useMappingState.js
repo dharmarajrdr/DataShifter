@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { mappingApi, pipelineApi } from '../../../services/api';
 import { COLOR_KEYS } from '../../../constants/transformMeta';
+import { buildSavePayload, extractTablesFromResponse, parseMappingsFromResponse } from './mappingPayloadHelper';
 
 export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
   const [data, setData] = useState(null);
@@ -14,6 +15,7 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
   const [validating, setValidating] = useState(false);
   const [validateDisabled, setValidateDisabled] = useState(true);
   const [valErrors, setValErrors] = useState([]);
+  const savedState = useRef({ mappings: [], filters: {} });
   const notification = useNotification();
 
   useEffect(() => {
@@ -21,43 +23,21 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
     (async () => {
       try {
         setLoading(true);
-        const res = await mappingApi.get(pipelineId);
+        const res = await (mappingApi.getByPipelineId || mappingApi.get)(pipelineId);
         setData(res.data);
-        const ex = [];
-        (res.data?.tablePairs || []).forEach((p) => {
-          (p.columnMappings || []).forEach((m) => {
-            const isTargetOnly = !m.sourceColumn;
-            ex.push({
-              source: isTargetOnly ? null : `${p.sourceTable}.${m.sourceColumn}`,
-              target: `${p.targetTable}.${m.targetColumn}`,
-              color: m.color || COLOR_KEYS[ex.length % COLOR_KEYS.length],
-              transforms: (m.transforms || []).map((t) => ({ fn: t.fn, args: t.args || '' })),
-              defaultValue: m.defaultValue, targetOnly: isTargetOnly,
-            });
-          });
-        });
-        setMappings(ex);
+        const initM = parseMappingsFromResponse(res.data);
+        setMappings(initM);
         const loadedFilters = {};
-        (res.data.tablePairs || []).forEach((p) => {
+        (res.data?.tablePairs || []).forEach((p) => {
           if (p.sourceTable && p.filters?.length) loadedFilters[p.sourceTable] = p.filters;
         });
         setFilters(loadedFilters);
+        savedState.current = { mappings: initM, filters: loadedFilters };
       } catch (err) { setError(err); } finally { setLoading(false); }
     })();
   }, [pipelineId, canViewPipeline]);
 
-  const sourceTables = [], targetTables = [];
-  const srcS = new Set(), tgtS = new Set();
-  (data?.tablePairs || []).forEach((p) => {
-    if (p.sourceTable && !srcS.has(p.sourceTable)) {
-      srcS.add(p.sourceTable);
-      sourceTables.push({ tableName: p.sourceTable, columns: (p.sourceColumns || []).map((c) => ({ name: c.name, type: c.dataType, nullable: c.nullable, primaryKey: c.primaryKey })) });
-    }
-    if (p.targetTable && !tgtS.has(p.targetTable)) {
-      tgtS.add(p.targetTable);
-      targetTables.push({ tableName: p.targetTable, columns: (p.targetColumns || []).map((c) => ({ name: c.name, type: c.dataType, nullable: c.nullable, primaryKey: c.primaryKey })) });
-    }
-  });
+  const { sourceTables, targetTables } = useMemo(() => extractTablesFromResponse(data), [data]);
 
   const handleChange = useCallback((m) => { setMappings(m); setHasChanges(true); setValidateDisabled(true); setValErrors([]); }, []);
   const handleAutoMap = useCallback(() => {
@@ -72,11 +52,25 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
     handleChange(a);
   }, [sourceTables, targetTables, handleChange]);
 
+  const handleCancel = useCallback(() => {
+    setMappings(savedState.current.mappings);
+    setFilters(savedState.current.filters);
+    setHasChanges(false);
+    setValErrors([]);
+    setValidateDisabled(savedState.current.mappings.length === 0);
+    notification.info?.('Unsaved changes discarded');
+  }, [notification]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      await mappingApi.save(pipelineId, mappings);
-      setHasChanges(false); setValidateDisabled(false); notification.success('Mappings saved successfully');
+      const payload = buildSavePayload(mappings, filters, sourceTables);
+      const res = await mappingApi.save(pipelineId, payload);
+      savedState.current = { mappings, filters };
+      setHasChanges(false);
+      setValidateDisabled(false);
+      setData((prev) => ({ ...prev, status: res?.data?.status || 'NOT_VALIDATED', validationErrors: [] }));
+      notification.success('Mappings saved successfully');
     } catch (err) { notification.error(err.message || 'Save failed'); } finally { setSaving(false); }
   };
 
@@ -84,16 +78,20 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
     setValidating(true);
     try {
       const res = await pipelineApi.performAction(pipelineId, 'VALIDATE');
-      setValErrors(res.data?.validationErrors || []); setValidateDisabled(true);
-      if (!res.data?.validationErrors?.length) notification.success('Pipeline mapping validated');
-      else notification.warning(`Validation completed with ${res.data.validationErrors.length} issue(s)`);
+      const newStatus = res?.data?.status || 'VALIDATED';
+      const errors = res?.data?.validationErrors || [];
+      setData((prev) => ({ ...prev, status: newStatus, validationErrors: errors }));
+      setValErrors(errors);
+      setValidateDisabled(true);
+      if (!errors.length) notification.success('Pipeline mapping validated');
+      else notification.warning(`Validation completed with ${errors.length} issue(s)`);
     } catch (err) { notification.error(err.message || 'Validation failed'); } finally { setValidating(false); }
   };
 
   return {
     data, loading, error, mappings, setMappings, filters, setFilters, hasChanges, setHasChanges,
     saving, validating, validateDisabled, valErrors, setValErrors, sourceTables, targetTables,
-    handleChange, handleAutoMap, handleSave, handleValidate,
+    handleChange, handleAutoMap, handleCancel, handleSave, handleValidate,
   };
 };
 

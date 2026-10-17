@@ -9,8 +9,13 @@ export const aiApi = {
   testKey: (id) => apiClient.post(`/ai/keys/${id}/test`, {}, { timeout: 60000 }),
   resetKeyHealth: (id) => apiClient.post(`/ai/keys/${id}/reset`, {}),
 
-  // Chat sessions, same-org sharing & context
-  listOrgMembers: () => apiClient.get('/ai/org-members'),
+  listOrgMembers: (search, limit) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString();
+    return apiClient.get(`/ai/org-members${qs ? `?${qs}` : ''}`);
+  },
   listSessions: (contextType, contextId) => {
     const params = new URLSearchParams();
     if (contextType) params.set('contextType', contextType);

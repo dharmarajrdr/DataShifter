@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -24,6 +25,10 @@ public class OrgService {
     private final RoleRepository roleRepository;
     private final AuthService authService;
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+    private final com.datashifter.common.services.SubscriptionLimitChecker limitChecker;
+    private final com.datashifter.common.repositories.CommonPipelineRepository commonPipelineRepository;
+    private final com.datashifter.common.repositories.CommonConnectionRepository commonConnectionRepository;
+    private final com.datashifter.common.repositories.CommonExecutionLogRepository commonExecutionLogRepository;
 
     /**
      * Create a new org for an existing account (Path 3 onboarding).
@@ -73,6 +78,63 @@ public class OrgService {
                 .id(org.getId()).name(org.getName()).slug(org.getSlug())
                 .logoUrl(org.getLogoUrl()).memberCount((int) memberCount)
                 .createdAt(org.getCreatedAt()).build();
+    }
+
+    @Transactional(readOnly = true)
+    public OrgQuotasResponse getOrgQuotas(String orgId) {
+        var limits = limitChecker != null ? limitChecker.getLimits(orgId) : com.datashifter.common.services.SubscriptionLimitChecker.PlanLimits.FREE_TIER;
+        boolean hasOrg = orgId != null && !orgId.isBlank();
+        long pipelinesCount = (hasOrg && commonPipelineRepository != null) ? commonPipelineRepository.countByOrgId(orgId) : 0L;
+        long connectionsCount = (hasOrg && commonConnectionRepository != null) ? commonConnectionRepository.countByOrgId(orgId) : 0L;
+        Instant startOfMonth = Instant.now().minus(30, java.time.temporal.ChronoUnit.DAYS);
+        long rowsMigrated = (hasOrg && commonExecutionLogRepository != null) ? commonExecutionLogRepository.sumRowsProcessedSince(orgId, startOfMonth) : 0L;
+
+        List<QuotaItem> items = new java.util.ArrayList<>();
+
+        int maxP = limits.getMaxPipelines();
+        int pctP = maxP > 0 ? (int) Math.min(100, (pipelinesCount * 100) / maxP) : (maxP == -1 ? 0 : 100);
+        items.add(QuotaItem.builder()
+                .key("pipelines")
+                .label("Pipelines Used")
+                .current(String.valueOf(pipelinesCount))
+                .max(maxP == -1 ? "Unlimited" : String.valueOf(maxP))
+                .pct(pctP)
+                .color("bg-indigo-600")
+                .build());
+
+        int maxC = limits.getMaxConnections();
+        int pctC = maxC > 0 ? (int) Math.min(100, (connectionsCount * 100) / maxC) : (maxC == -1 ? 0 : 100);
+        items.add(QuotaItem.builder()
+                .key("connections")
+                .label("Active Connections")
+                .current(String.valueOf(connectionsCount))
+                .max(maxC == -1 ? "Unlimited" : String.valueOf(maxC))
+                .pct(pctC)
+                .color("bg-indigo-600")
+                .build());
+
+        long maxR = limits.getMaxRowsPerMonth();
+        int pctR = maxR > 0 ? (int) Math.min(100, (rowsMigrated * 100) / maxR) : (maxR == -1 ? 0 : 100);
+        items.add(QuotaItem.builder()
+                .key("rows")
+                .label("Monthly Rows Migrated")
+                .current(formatRows(rowsMigrated))
+                .max(maxR == -1 ? "Unlimited" : formatRows(maxR))
+                .pct(pctR)
+                .color("bg-emerald-600")
+                .build());
+
+        return OrgQuotasResponse.builder()
+                .planName(limits.getPlanName() != null ? limits.getPlanName() : "Enterprise")
+                .quotas(items)
+                .build();
+    }
+
+    private String formatRows(long rows) {
+        if (rows >= 1_000_000_000) return String.format(java.util.Locale.US, "%.1fB", rows / 1_000_000_000.0).replace(".0B", "B");
+        if (rows >= 1_000_000) return String.format(java.util.Locale.US, "%.1fM", rows / 1_000_000.0).replace(".0M", "M");
+        if (rows >= 1_000) return String.format(java.util.Locale.US, "%.1fK", rows / 1_000.0).replace(".0K", "K");
+        return String.valueOf(rows);
     }
 
     @Transactional

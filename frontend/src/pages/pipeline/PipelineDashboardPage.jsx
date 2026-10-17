@@ -35,7 +35,7 @@ export const PipelineDashboardPage = ({ id = 'pipeline-dashboard-page' }) => {
 
   return (
     <ApiGuard error={d.error} loading={d.loading} loadingComponent={loadingEl}>
-      <div id={id} className="ds-pipeline-dashboard flex flex-col h-[calc(100vh-4.5rem)] overflow-hidden gap-3.5">
+      <div id={id} className="ds-pipeline-dashboard flex flex-col w-full max-w-7xl mx-auto h-[calc(100vh-7rem)] overflow-hidden gap-3.5">
         <PipelineDashboardHeader
           id={`${id}-header`}
           canCreatePipeline={d.canCreatePipeline}

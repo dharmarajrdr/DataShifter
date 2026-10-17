@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
- * Accessible Modal Backdrop handling focus-trap, ESC dismissal, and backdrop click.
+ * Accessible Modal Backdrop handling focus-trap, ESC dismissal, and backdrop click (<= 100 lines).
  */
 export const ModalBackdrop = ({
   id,
@@ -46,12 +47,22 @@ export const ModalBackdrop = ({
 
   if (!isOpen) return null;
 
-  return (
+  const content = (
     <div
       id={id}
       role="dialog"
       aria-modal="true"
-      className={`fixed inset-0 z-[9000] bg-slate-900/50 backdrop-blur-sm flex justify-center p-4 transition-opacity
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 9000,
+      }}
+      className={`bg-slate-900/60 backdrop-blur-xs flex justify-center p-4 transition-opacity
         ${position === 'top' ? 'items-start pt-20' : 'items-center'} ${className}`}
       onClick={(e) => {
         if (e.target === e.currentTarget && closeOnBackdrop && onClose) {
@@ -59,11 +70,13 @@ export const ModalBackdrop = ({
         }
       }}
     >
-      <div ref={modalRef} className="w-full flex justify-center">
+      <div ref={modalRef} className="w-full flex justify-center pointer-events-auto">
         {children}
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 };
 
 export default ModalBackdrop;

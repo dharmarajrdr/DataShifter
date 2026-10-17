@@ -6,35 +6,27 @@ import { useEventSource } from '../../hooks/useEventSource';
 import { monitorApi, pipelineApi, cdcApi } from '../../services/api';
 import { ForbiddenPage } from '../ErrorPage';
 import { ApiGuard, BarLoader } from '../../components/common';
-import {
-  MonitorHeader, MonitorTelemetryBar, MonitorMetricsGrid,
-  MonitorCdcOperations, MonitorSequentialTrack, MonitorInflightPreview,
-} from '../../components/monitor';
+import { MonitorHeader, MonitorTelemetryBar, MonitorMetricsGrid, MonitorCdcOperations, MonitorSequentialTrack, MonitorInflightPreview } from '../../components/monitor';
 
 export const LiveMonitorPage = () => {
   const { pipelineId } = useParams();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const notification = useNotification();
-  const [data, setData] = useState({});
-  const [cdcCheckpoint, setCdcCheckpoint] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(null);
-  const [exportLoading, setExportLoading] = useState(false);
-  const [updateCount, setUpdateCount] = useState(0);
-  const [error, setError] = useState(null);
+  const [data, setData] = useState({}), [cdcCheckpoint, setCdcCheckpoint] = useState(null);
+  const [loading, setLoading] = useState(true), [actionLoading, setActionLoading] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false), [updateCount, setUpdateCount] = useState(0), [error, setError] = useState(null);
 
-  const canViewPipeline = hasPermission('pipeline:view');
-  const canViewMonitor = hasPermission('monitor:view');
-  const canEditSettings = hasPermission('pipeline:update');
-  const canViewErrors = hasPermission('error:view');
+  const canViewPipeline = hasPermission('pipeline:view'), canViewMonitor = hasPermission('monitor:view');
+  const canEditSettings = hasPermission('pipeline:settings'), canViewErrors = hasPermission('monitor:view_errors') || hasPermission('error:view');
+  const canRun = hasPermission('pipeline:run'), canPause = hasPermission('pipeline:pause');
+  const canStop = hasPermission('pipeline:stop'), canEdit = hasPermission('pipeline:edit') || hasPermission('pipeline:column-mapping');
 
   const fetchData = useCallback(async (showLoading = true) => {
     if (!canViewPipeline || !canViewMonitor) return setLoading(false);
     if (showLoading) setLoading(true);
     try {
-      const fetchFn = monitorApi.getByPipelineId || monitorApi.getPipelineMetrics;
-      const res = await fetchFn(pipelineId);
+      const res = await (monitorApi.getByPipelineId || monitorApi.getPipelineMetrics)(pipelineId);
       const metricsData = res?.data || {};
       setData(metricsData);
       if (metricsData.pipelineMode === 'CDC' || metricsData.isCdc || metricsData.currentLsn || metricsData.currentScn) {
@@ -45,24 +37,29 @@ export const LiveMonitorPage = () => {
 
   useEffect(() => { fetchData(true); }, [fetchData]);
 
-  const handleSseMessage = useCallback((eventData) => {
-    try {
-      const parsed = typeof eventData === 'string' ? JSON.parse(eventData) : eventData;
-      setData((prev) => ({ ...prev, ...parsed }));
-      setUpdateCount((c) => c + 1);
-    } catch { /* ignore */ }
-  }, []);
-
-  const { connected, reconnectCount, retry, exhausted } = useEventSource(
-    pipelineId ? `/api/v1/monitor/pipelines/${pipelineId}/stream` : null, handleSseMessage, true
-  );
+  const isRunning = Boolean(data.status && !['COMPLETED', 'ERRORED', 'PAUSED', 'DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(data.status));
+  const { connected, reconnectCount, retry, exhausted } = useEventSource({
+    channels: pipelineId && isRunning ? [`pipeline:${pipelineId}`] : [], enabled: isRunning,
+    onProgress: (ev) => {
+      const d = ev?.payload;
+      if (d) { setData((p) => ({ ...p, ...d, rowsProcessed: d.totalRowsProcessed ?? p.rowsProcessed })); setUpdateCount((c) => c + 1); }
+    },
+    onStatusChange: (ev) => { setData((p) => (p ? { ...p, status: ev.payload?.newStatus ?? p.status } : p)); },
+  });
 
   const handleAction = async (action) => {
     if (action === 'EXPORT') return handleExport();
     setActionLoading(action);
     try {
-      await pipelineApi.performAction(pipelineId, action);
-      notification.success(`Pipeline ${action.toLowerCase()} executed`);
+      const res = await pipelineApi.performAction(pipelineId, action);
+      if (action === 'VALIDATE') {
+        const errs = res?.data?.validationErrors || [];
+        if (res?.data?.status === 'VALIDATED' && errs.length === 0) notification.success('Pipeline validated successfully');
+        else notification.warning(`Pipeline validation failed with ${errs.length} issue(s)`);
+      } else if (action === 'START' || action === 'RESUME') notification.success('Pipeline started successfully');
+      else if (action === 'PAUSE') notification.info('Pipeline paused');
+      else if (action === 'STOP') notification.warning('Pipeline stopped');
+      else notification.success(`Pipeline ${action.toLowerCase()} executed`);
       fetchData(false);
     } catch (err) { notification.error(err.message || 'Action failed'); } finally { setActionLoading(null); }
   };
@@ -85,9 +82,9 @@ export const LiveMonitorPage = () => {
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<div id="monitor-loading-box" className="p-6"><BarLoader /></div>}>
       <div id="live-monitor-page" className="flex flex-col min-h-[calc(100vh-64px)] bg-surface-50 font-sans">
-        <MonitorHeader pipelineName={data.pipelineName} status={data.status} isCdc={isCdc} isLockedToWorkflow={!!data.workflowId} workflowName={data.workflowName} onAction={handleAction} onNavigate={(path) => navigate(path.startsWith('/') ? path : `/pipelines/${pipelineId}/${path}`)} canViewErrors={canViewErrors} canEditSettings={canEditSettings} actionLoading={actionLoading} exportLoading={exportLoading} errorCount={data.errorsSkipped || 0} />
+        <MonitorHeader pipelineName={data.pipelineName} status={data.status} isCdc={isCdc} isLockedToWorkflow={Boolean(data.workflowId)} workflowId={data.workflowId} workflowName={data.workflowName} onAction={handleAction} onNavigate={(path) => navigate(path.startsWith('/') ? path : `/pipelines/${pipelineId}/${path}`)} canViewErrors={canViewErrors} canEditSettings={canEditSettings} canRun={canRun} canPause={canPause} canStop={canStop} canEdit={canEdit} actionLoading={actionLoading} exportLoading={exportLoading} errorCount={data.errorsSkipped || 0} />
         <main id="monitor-main-content" className="flex-1 p-6 max-w-7xl mx-auto w-full flex flex-col gap-5">
-          <MonitorTelemetryBar connected={connected} exhausted={exhausted} reconnectCount={reconnectCount} updateCount={updateCount} lagSeconds={data.lagSeconds} currentLsn={data.currentLsn} onRefresh={() => fetchData(false)} onRetry={retry} isCdc={isCdc} />
+          <MonitorTelemetryBar connected={connected} exhausted={exhausted} reconnectCount={reconnectCount} updateCount={updateCount} lagSeconds={data.lagSeconds} currentLsn={data.currentLsn} onRefresh={() => fetchData(false)} onRetry={retry} isCdc={isCdc} status={data.status} isRunning={isRunning} />
           <MonitorMetricsGrid data={data} cdcCheckpoint={cdcCheckpoint} isCdc={isCdc} />
           {isCdc ? <MonitorCdcOperations insertCount={data.insertCount} updateCount={data.updateCount} deleteCount={data.deleteCount} filteredCount={data.filteredCount} /> : <MonitorSequentialTrack overallProgress={data.overallProgress} tables={data.tables || []} rowsProcessed={data.rowsProcessed || 0} totalRows={data.totalRows || 0} />}
           <MonitorInflightPreview records={data.inflightRecords || []} isCdc={isCdc} activeTable={data.currentTable || (data.tables?.[0]?.name)} targetTable={data.targetTable} previewDisabled={data.previewInflightRecords === false} status={data.status} />

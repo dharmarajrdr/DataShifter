@@ -13,7 +13,7 @@ export const ModalHeader = ({
   return (
     <div
       id={id ? `${id}-header` : undefined}
-      className={`flex items-center justify-between px-6 py-4 border-b border-surface-200 bg-white ${className}`}
+      className={`modal-header ds-modal-header sticky top-0 z-20 flex items-center justify-between px-6 py-4 border-b border-surface-200 bg-white ${className}`}
     >
       <h3
         id="confirmation-modal-title"
