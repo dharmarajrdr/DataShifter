@@ -61,7 +61,7 @@ export const UdfLibraryPage = () => {
 
   return (
     <ApiGuard error={error} loading={loading} loadingComponent={<div id="lib-loading-wrap" className="p-6"><BarLoader /></div>}>
-      <div id="library-page" className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-surface-50 font-sans">
+      <div id="library-page" className="flex flex-col w-full max-w-7xl mx-auto h-[calc(100vh-7rem)] overflow-hidden bg-surface-50 font-sans">
         <LibraryHeader activeTab={mainTab} onTabChange={setMainTab} adapterCount={adapters.length} udfCount={udfs.length} onUploadClick={() => setShowUpload(true)} canUpload={canView} />
         {mainTab === 'adapters' ? (
           <div id="library-adapters-split" className="flex flex-1 overflow-hidden flex-col md:flex-row">
