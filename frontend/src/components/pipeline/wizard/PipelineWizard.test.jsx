@@ -62,11 +62,13 @@ describe('5-Step Pipeline Wizard Components', () => {
   });
 
   test('WizardStepTarget renders credentials fields for S3', () => {
-    const cfg = { targetAdapter: 's3-writer', s3Bucket: 'lake/raw' };
+    const connections = [{ id: 's3-1', name: 'Analytics S3 Lake', dbType: 'S3' }];
+    const cfg = { targetAdapter: 's3-writer', s3Bucket: 'lake/raw', target: 's3-1' };
     act(() => {
-      root.render(<WizardStepTarget id="test-step3-s3" config={cfg} setConfig={() => {}} connections={[]} />);
+      root.render(<WizardStepTarget id="test-step3-s3" config={cfg} setConfig={() => {}} connections={connections} />);
     });
     expect(container.querySelector('#test-step3-s3-fields-s3-bucket').value).toBe('lake/raw');
+    expect(container.querySelector('#test-step3-s3-fields-s3-conn-select').value).toBe('s3-1');
   });
 
   test('WizardStepEntities renders sequential rows', () => {

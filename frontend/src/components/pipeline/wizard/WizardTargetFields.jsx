@@ -16,17 +16,30 @@ export const WizardTargetFields = ({
   }
 
   if (adapter === 's3-writer') {
+    const s3Conns = connections.filter((c) => (c.dbType || '').toUpperCase() === 'S3');
     return (
       <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">AWS Access Key ID</label>
-            <input id={`${id}-s3-key`} type="password" className="w-full max-w-[320px] px-2.5 py-1.5 text-xs font-mono border rounded-lg bg-white" value={config.s3AccessKey || ''} onChange={(e) => setConfig({ ...config, s3AccessKey: e.target.value })} placeholder="AKIAIOSFODNN7EXAMPLE" />
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-semibold text-slate-700">AWS Connection *</label>
+            <span className="text-[11px] text-slate-500 font-medium">
+              {s3Conns.length} connection{s3Conns.length === 1 ? '' : 's'} available
+            </span>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">AWS Secret Access Key</label>
-            <input id={`${id}-s3-secret`} type="password" className="w-full max-w-[320px] px-2.5 py-1.5 text-xs font-mono border rounded-lg bg-white" value={config.s3SecretKey || ''} onChange={(e) => setConfig({ ...config, s3SecretKey: e.target.value })} placeholder="••••••••••••••••••••••••" />
-          </div>
+          <select
+            id={`${id}-s3-conn-select`}
+            className="w-full max-w-[320px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            value={config.target || ''}
+            onChange={(e) => setConfig({ ...config, target: e.target.value })}
+          >
+            <option value="">Select AWS S3 Connection...</option>
+            {s3Conns.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+          </select>
+          {s3Conns.length === 0 && (
+            <p className="text-[11px] text-amber-600 mt-1">
+              No AWS connections configured. Store AWS credentials in Connections.
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
