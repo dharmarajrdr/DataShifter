@@ -9,6 +9,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import { errorApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 import ErrorLogEntry from '../components/monitor/ErrorLogEntry';
+import ErrorDetailDrawer from '../components/monitor/ErrorDetailDrawer';
 import { exportFormats, downloadFile } from '../utils/errorExportUtils';
 
 const ERROR_TYPE_COLORS = {
@@ -102,6 +103,7 @@ const ErrorLogViewer = () => {
   const [filterType, setFilterType] = useState('all');
   const [page, setPage] = useState(0);
   const [pageSize] = useState(20);
+  const [selectedError, setSelectedError] = useState(null);
   const { pipelineId } = useParams();
   const navigate = useNavigate();
 
@@ -292,7 +294,13 @@ const ErrorLogViewer = () => {
                 {totalErrors === 0 ? 'No errors recorded for this pipeline.' : 'No errors match your filters.'}
               </div>
             ) : (
-              filteredErrors.map(error => <ErrorLogEntry key={error.id} error={error} />)
+              filteredErrors.map((error) => (
+                <ErrorLogEntry
+                  key={error.id}
+                  error={error}
+                  onOpenDetails={(err) => setSelectedError(err)}
+                />
+              ))
             )}
           </div>
 
@@ -336,6 +344,12 @@ const ErrorLogViewer = () => {
           { label: 'Cancel', variant: 'secondary', onClick: () => setConfirmClear(false) },
           { label: 'Clear all errors', variant: 'danger', onClick: handleClear },
         ]}
+      />
+
+      {/* Detail Slider Drawer Modal */}
+      <ErrorDetailDrawer
+        error={selectedError}
+        onClose={() => setSelectedError(null)}
       />
     </ApiGuard>
   );

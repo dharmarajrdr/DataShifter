@@ -35,19 +35,20 @@ describe('ErrorLogEntry', () => {
     timestamp: '2026-10-18T00:07:08.000Z',
   };
 
-  test('renders collapsed state by default with Details button', () => {
+  test('renders card with code badge and Details button', () => {
     act(() => {
       root.render(<ErrorLogEntry error={mockError} />);
     });
 
     expect(container.textContent).toContain('ORA-00001');
     expect(container.textContent).toContain('Details');
-    expect(container.textContent).not.toContain('Technical Diagnostic / Stack Trace');
+    expect(container.textContent).toContain('products → PRODUCT_MASTER');
   });
 
-  test('toggles to expanded state on clicking Details button', () => {
+  test('triggers onOpenDetails on clicking Details button or card', () => {
+    const handleOpen = jest.fn();
     act(() => {
-      root.render(<ErrorLogEntry error={mockError} />);
+      root.render(<ErrorLogEntry error={mockError} onOpenDetails={handleOpen} />);
     });
 
     const buttons = container.querySelectorAll('button');
@@ -58,9 +59,6 @@ describe('ErrorLogEntry', () => {
       detailsBtn.click();
     });
 
-    expect(container.textContent).toContain('Collapse');
-    expect(container.textContent).toContain('Technical Diagnostic / Stack Trace');
-    expect(container.textContent).toContain('Source Row Data (Payload)');
-    expect(container.textContent).toContain('Use UPSERT write mode');
+    expect(handleOpen).toHaveBeenCalledWith(mockError);
   });
 });
