@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Button } from '../common';
 import { CloseIcon } from '../layout/Icons';
+import { useNotification } from '../../contexts/NotificationContext';
 import { DB_TYPES, getFieldConfig, INITIAL_FORM } from './connectionFormConstants';
 import ConnectionFormFields from './ConnectionFormFields';
 
 export const ConnectionFormModal = ({ connection, onClose, onSave }) => {
+  const notification = useNotification();
   const isEdit = !!connection;
   const [form, setForm] = useState(isEdit ? {
     name: connection.name || '', dbType: connection.dbType || 'ORACLE',
@@ -14,7 +16,6 @@ export const ConnectionFormModal = ({ connection, onClose, onSave }) => {
     username: '', password: '',
   } : { ...INITIAL_FORM });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
 
   const set = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -29,19 +30,18 @@ export const ConnectionFormModal = ({ connection, onClose, onSave }) => {
   };
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) return setError('Connection name is required');
-    if (!form.host.trim()) return setError('Host is required');
-    if (form.dbType !== 'SPANNER' && !form.databaseName.trim()) return setError('Database name is required');
-    if (form.dbType !== 'SPANNER' && !form.username.trim() && !isEdit) return setError('Username is required');
-    if (form.dbType !== 'SPANNER' && !form.password.trim() && !isEdit) return setError('Password is required');
+    if (!form.name.trim()) return notification.error('Connection name is required');
+    if (!form.host.trim()) return notification.error('Host is required');
+    if (form.dbType !== 'SPANNER' && !form.databaseName.trim()) return notification.error('Database name is required');
+    if (form.dbType !== 'SPANNER' && !form.username.trim() && !isEdit) return notification.error('Username is required');
+    if (form.dbType !== 'SPANNER' && !form.password.trim() && !isEdit) return notification.error('Password is required');
 
     setSaving(true);
-    setError(null);
     try {
       await onSave(form);
       onClose();
     } catch (e) {
-      setError(e.message || 'Failed to save');
+      notification.error(e.message || 'Failed to save');
     } finally {
       setSaving(false);
     }
@@ -60,7 +60,6 @@ export const ConnectionFormModal = ({ connection, onClose, onSave }) => {
         </div>
 
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
-          {error && <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-lg text-xs font-medium">{error}</div>}
           <ConnectionFormFields form={form} set={set} onDbTypeChange={handleDbTypeChange} fieldConfig={fieldConfig} isEdit={isEdit} />
         </div>
 

@@ -20,12 +20,14 @@ export const ConnectionCard = ({
     try {
       const res = await connectionApi.test(conn.id);
       const ok = res.data?.success;
-      notification[ok ? 'success' : 'error'](
-        ok ? `Verified: Connected successfully (${res.data?.latencyMs || 0}ms)` : (res.data?.message || 'Connection test failed')
-      );
+      if (ok) {
+        notification.success(`Verified: Connected successfully (${res.data?.latencyMs || 0}ms)`);
+      } else {
+        notification.error(res.data?.message ? `Test Failed: ${res.data.message}` : 'Connection test failed');
+      }
       onUpdate?.(conn.id, { status: ok ? 'CONNECTED' : 'FAILED', error: ok ? null : res.data?.message });
     } catch (e) {
-      notification.error(e.message || 'Connection test failed');
+      notification.error(e.message ? `Test Failed: ${e.message}` : 'Connection test failed');
       onUpdate?.(conn.id, { status: 'FAILED', error: e.message });
     } finally { setTesting(false); }
   };
@@ -67,8 +69,6 @@ export const ConnectionCard = ({
           <div className="flex justify-between items-center"><span className="text-slate-500">Database:</span><span className="font-semibold text-slate-800 truncate max-w-[200px]">{conn.databaseName || conn.schemaName || 'default'}</span></div>
           <div className="flex justify-between items-center"><span className="text-slate-500">Active Pipelines:</span><span className="font-bold text-indigo-600">{conn.pipelineCount ? `${conn.pipelineCount} Pipelines` : 'None'}</span></div>
         </div>
-
-        {conn.error && <div className="mt-2.5 p-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-medium truncate">{conn.error}</div>}
       </div>
 
       <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">

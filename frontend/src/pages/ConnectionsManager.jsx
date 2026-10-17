@@ -23,8 +23,7 @@ export const ConnectionsManager = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [testingAll, setTestingAll] = useState(false);
-  const [category, setCategory] = useState('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [category, setCategory] = useState('ALL'); const [searchQuery, setSearchQuery] = useState('');
   const notification = useNotification();
 
   const loadConnections = useCallback(async () => {
@@ -43,7 +42,8 @@ export const ConnectionsManager = () => {
       try { const r = await connectionApi.test(c.id); if (r.data?.success) ok += 1; } catch (e) { /* ignore */ }
     }
     setTestingAll(false);
-    notification.info(`Health check: ${ok}/${connections.length} healthy.`);
+    if (ok === connections.length) notification.success(`Verified: All ${connections.length} connections healthy`);
+    else notification.error(`Health check failed: ${ok}/${connections.length} connections healthy`);
     loadConnections();
   };
 
