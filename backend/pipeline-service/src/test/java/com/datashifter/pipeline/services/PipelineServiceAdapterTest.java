@@ -55,6 +55,8 @@ class PipelineServiceAdapterTest {
     private CommonWorkflowNodeRepository workflowNodeRepository;
     @Mock
     private com.datashifter.pipeline.services.interfaces.WorkflowService workflowService;
+    @Mock
+    private com.datashifter.pipeline.services.implementations.EngineLivenessService engineLivenessService;
 
     @InjectMocks
     private PipelineServiceImpl pipelineService;

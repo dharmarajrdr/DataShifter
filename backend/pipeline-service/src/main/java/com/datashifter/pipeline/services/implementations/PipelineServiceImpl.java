@@ -52,6 +52,7 @@ public class PipelineServiceImpl implements PipelineService {
     private final com.datashifter.connector.repositories.ConnectionRepository connectionRepository;
     private final CommonWorkflowNodeRepository workflowNodeRepository;
     private final WorkflowService workflowService;
+    private final EngineLivenessService engineLivenessService;
 
     // =========================================================================
     // CREATE — builds PipelineTable + TargetTableMapping entries
@@ -379,6 +380,12 @@ public class PipelineServiceImpl implements PipelineService {
                 long runningCount = repository.findByOrgId(orgId2).stream()
                         .filter(p -> p.getStatus() == PipelineStatus.RUNNING).count();
                 limitChecker.assertCanRunParallel(orgId2, runningCount);
+
+                // Verify execution engine is running before starting or clearing state
+                if (!engineLivenessService.isEngineAlive()) {
+                    engineLivenessService.handleEngineOffline(id, true);
+                    throw new DatashifterException(EngineLivenessService.OFFLINE_MSG);
+                }
 
                 // When starting or re-running from scratch (START), remove existing chunk_cursors, error_logs, and checkpoints
                 if (action.getAction() == PipelineAction.START) {
