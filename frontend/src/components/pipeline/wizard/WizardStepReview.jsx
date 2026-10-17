@@ -9,10 +9,7 @@ export const WizardStepReview = ({
   namespaces = [],
 }) => {
   const ns = namespaces.find((n) => n.id === config.namespaceId)?.name || 'Default';
-  const pairs = config.entityPairs || [
-    { sourceEntity: 'HR.CUSTOMERS', targetEntity: 'customers_parquet/' },
-    { sourceEntity: 'SALES.ORDERS', targetEntity: 'orders_parquet/' },
-  ];
+  const pairs = config.entityPairs?.length ? config.entityPairs : [];
 
   return (
     <div id={id} className="wizard-step-review-panel w-full py-2">
@@ -61,12 +58,16 @@ export const WizardStepReview = ({
           <div className="font-semibold text-slate-800 flex items-center gap-1.5 text-[11px] uppercase tracking-wider mb-2">
             <i className="fa-solid fa-list-ol text-emerald-600" /> Execution Plan
           </div>
-          {pairs.map((p, i) => (
-            <div key={i} className="flex justify-between font-mono text-[11px]">
-              <span className="text-slate-500">#{i + 1} {p.sourceEntity}</span>
-              <span className="text-indigo-600">&rarr; {p.targetEntity}</span>
-            </div>
-          ))}
+          {pairs.length === 0 ? (
+            <div className="text-slate-400 italic text-[11px]">No entity pairs configured</div>
+          ) : (
+            pairs.map((p, i) => (
+              <div key={i} className="flex justify-between font-mono text-[11px]">
+                <span className="text-slate-500">#{i + 1} {p.sourceEntity || '(Pending)'}</span>
+                <span className="text-indigo-600">&rarr; {p.targetEntity || '(Pending)'}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

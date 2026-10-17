@@ -79,6 +79,13 @@ describe('5-Step Pipeline Wizard Components', () => {
     expect(container.querySelector('#test-step4-row-0')).not.toBeNull();
   });
 
+  test('WizardStepEntities defaults to single pair when empty', () => {
+    act(() => {
+      root.render(<WizardStepEntities id="test-step4" config={{}} setConfig={() => {}} />);
+    });
+    expect(container.querySelectorAll('[id^="test-step4-row-"]').length).toBe(1);
+  });
+
   test('WizardStepReview renders architectural overview', () => {
     const cfg = { name: 'Replication Stream', sourceAdapter: 'oracle-trail', targetAdapter: 's3-writer' };
     act(() => { root.render(<WizardStepReview id="test-step5" config={cfg} namespaces={[]} />); });

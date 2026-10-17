@@ -21,10 +21,7 @@ export const usePipelineWizard = () => {
     targetAdapter: 's3-writer', source: '', target: '', s3Bucket: 'datashifter-analytics-lake/raw',
     s3Region: 'us-east-1', s3AccessKey: '', s3SecretKey: '', cdcDirectoryPath: '/u01/app/oracle/dirdat',
     cdcFilePattern: 'aa.*', cdcStartingScn: '', cdcFlushIntervalMs: 200, cdcBatchSize: 500,
-    entityPairs: [
-      { sourceEntity: 'HR.CUSTOMERS', targetEntity: 'customers_parquet/' },
-      { sourceEntity: 'SALES.ORDERS', targetEntity: 'orders_parquet/' },
-    ],
+    entityPairs: [{ sourceEntity: '', targetEntity: '' }],
   });
 
   const navigate = useNavigate();

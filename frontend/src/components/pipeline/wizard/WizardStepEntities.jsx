@@ -17,8 +17,9 @@ export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setCon
     if (config.target) connectionApi.listTables(config.target).then((r) => setTargetTables(r.data || [])).catch(() => { });
   }, [config.source, config.target]);
 
-  const pairs = config.entityPairs || [
-  ];
+  const pairs = config.entityPairs?.length
+    ? config.entityPairs
+    : [{ sourceEntity: '', targetEntity: '' }];
 
   const updatePair = (index, field, value) => {
     const next = [...pairs];
