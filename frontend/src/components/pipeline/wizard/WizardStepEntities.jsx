@@ -1,73 +1,85 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { connectionApi } from '../../../services/api';
+import DdlSliderDrawer from './DdlSliderDrawer';
+import WizardStepEntitiesRow from './WizardStepEntitiesRow';
 
-/**
- * Step 4: Adaptive Datasets & Entities Mapping with sequential order (<= 100 lines).
- */
 export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setConfig }) => {
-  const isStreamOrLake = ['s3-writer', 'kafka-writer', 'filesystem'].includes(config.targetAdapter || '');
+  const isSourceDb = ['oracle-jdbc', 'postgres-jdbc'].includes(config.sourceAdapter || '');
+  const isSourceCdc = ['oracle-trail', 'postgres-wal'].includes(config.sourceAdapter || '') || !config.sourceAdapter;
+  const isTargetDb = ['postgres-writer', 'oracle-writer'].includes(config.targetAdapter || '');
+
+  const [sourceTables, setSourceTables] = useState([]);
+  const [targetTables, setTargetTables] = useState([]);
+  const [activeDdlIdx, setActiveDdlIdx] = useState(null);
+
+  useEffect(() => {
+    if (config.source) connectionApi.listTables(config.source).then((r) => setSourceTables(r.data || [])).catch(() => {});
+    if (config.target) connectionApi.listTables(config.target).then((r) => setTargetTables(r.data || [])).catch(() => {});
+  }, [config.source, config.target]);
+
   const pairs = config.entityPairs || [
-    { sourceEntity: 'HR.CUSTOMERS', targetEntity: isStreamOrLake ? 'customers_parquet/' : 'customers' },
-    { sourceEntity: 'SALES.ORDERS', targetEntity: isStreamOrLake ? 'orders_parquet/' : 'orders' },
+    { sourceEntity: 'HR.CUSTOMERS', targetEntity: isTargetDb ? 'customers' : 'customers_parquet/' },
+    { sourceEntity: 'SALES.ORDERS', targetEntity: isTargetDb ? 'orders' : 'orders_parquet/' },
   ];
 
   const updatePair = (index, field, value) => {
     const next = [...pairs];
     next[index] = { ...next[index], [field]: value };
-    setConfig({
-      ...config,
-      entityPairs: next,
-      selectedSourceTables: next.map((p) => p.sourceEntity),
-      selectedTargetTables: next.map((p) => p.targetEntity),
-    });
-  };
-
-  const addPair = () => {
-    const next = [...pairs, { sourceEntity: '', targetEntity: '' }];
     setConfig({ ...config, entityPairs: next });
   };
 
-  const removePair = (index) => {
-    const next = pairs.filter((_, i) => i !== index);
-    setConfig({
-      ...config,
-      entityPairs: next,
-      selectedSourceTables: next.map((p) => p.sourceEntity),
-      selectedTargetTables: next.map((p) => p.targetEntity),
-    });
-  };
+  const addPair = () => setConfig({ ...config, entityPairs: [...pairs, { sourceEntity: '', targetEntity: '', sourceSchemaSql: '' }] });
+  const removePair = (index) => setConfig({ ...config, entityPairs: pairs.filter((_, i) => i !== index) });
+
+  const hasDuplicate = useMemo(() => {
+    const seen = new Set();
+    for (const p of pairs) {
+      if (!p.sourceEntity?.trim() || !p.targetEntity?.trim()) continue;
+      const k = `${p.sourceEntity.trim().toUpperCase()}:::${p.targetEntity.trim().toUpperCase()}`;
+      if (seen.has(k)) return true;
+      seen.add(k);
+    }
+    return false;
+  }, [pairs]);
 
   return (
     <div id={id} className="wizard-step-entities-panel w-full py-2">
       <div id={`${id}-header`} className="mb-4 flex items-center justify-between">
         <div>
           <h3 id={`${id}-title`} className="text-base font-semibold text-slate-900">Configure Datasets &amp; Entity Pairing</h3>
-          <p id={`${id}-subtitle`} className="text-xs text-slate-500 mt-0.5">Map capture tables to destination topics, folders, or tables with execution order.</p>
+          <p id={`${id}-subtitle`} className="text-xs text-slate-500 mt-0.5">Map source tables to destination tables. Supports 1:N, N:1, and N:N unique pair relationships.</p>
         </div>
         <button type="button" id={`${id}-add-btn`} onClick={addPair} className="px-2.5 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all">
           <i className="fa-solid fa-plus text-xs" /><span>Add Entity</span>
         </button>
       </div>
+
+      {hasDuplicate && (
+        <div id={`${id}-duplicate-warn`} className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+          <i className="fa-solid fa-triangle-exclamation text-amber-600" />
+          <span>Duplicate mapping detected. Each source and target pair must be unique.</span>
+        </div>
+      )}
+
       <div id={`${id}-list`} className="space-y-2.5">
         {pairs.map((pair, idx) => (
-          <div key={idx} id={`${id}-row-${idx}`} className="p-3 bg-white border border-slate-200 rounded-xl flex items-center gap-3 shadow-xs">
-            <span className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center justify-center shrink-0">#{idx + 1}</span>
-            <div className="flex-1">
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Source Entity / Capture Filter</label>
-              <input id={`${id}-source-${idx}`} className="w-full max-w-[320px] px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" value={pair.sourceEntity} onChange={(e) => updatePair(idx, 'sourceEntity', e.target.value)} placeholder="e.g., SCHEMA.TABLE or regex" />
-            </div>
-            <i className="fa-solid fa-arrow-right text-slate-400 text-xs mt-4" />
-            <div className="flex-1">
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">{isStreamOrLake ? 'Target Prefix / Topic' : 'Destination Table'}</label>
-              <input id={`${id}-target-${idx}`} className="w-full max-w-[320px] px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" value={pair.targetEntity} onChange={(e) => updatePair(idx, 'targetEntity', e.target.value)} placeholder={isStreamOrLake ? 'e.g., entity_parquet/ or topic' : 'e.g., destination_table'} />
-            </div>
-            {pairs.length > 1 && (
-              <button type="button" id={`${id}-delete-${idx}`} onClick={() => removePair(idx)} className="mt-4 p-1.5 text-slate-400 hover:text-rose-600 rounded-md transition-all" title="Remove entity">
-                <i className="fa-regular fa-trash-can text-xs" />
-              </button>
-            )}
-          </div>
+          <WizardStepEntitiesRow
+            key={idx} id={id} idx={idx} pair={pair}
+            onUpdate={updatePair} onRemove={removePair} canRemove={pairs.length > 1}
+            isSourceDb={isSourceDb} isSourceCdc={isSourceCdc} isTargetDb={isTargetDb}
+            sourceTables={sourceTables} targetTables={targetTables}
+            onOpenDdl={(i) => setActiveDdlIdx(i)}
+          />
         ))}
       </div>
+
+      <DdlSliderDrawer
+        isOpen={activeDdlIdx !== null}
+        onClose={() => setActiveDdlIdx(null)}
+        entityName={activeDdlIdx !== null ? pairs[activeDdlIdx]?.sourceEntity : ''}
+        ddlSql={activeDdlIdx !== null ? pairs[activeDdlIdx]?.sourceSchemaSql : ''}
+        onSave={(sql) => { if (activeDdlIdx !== null) updatePair(activeDdlIdx, 'sourceSchemaSql', sql); }}
+      />
     </div>
   );
 };
