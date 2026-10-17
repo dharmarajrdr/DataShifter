@@ -13,7 +13,7 @@ export { default as OnboardPage } from './OnboardPage';
 export { default as OrgApiKeysPage } from './OrgApiKeysPage';
 export { default as OrgSettingsPage } from './OrgSettingsPage';
 export { default as PipelineDashboard } from './PipelineDashboard';
-export { default as PipelineSettings } from './PipelineSettings';
+export { default as PipelineSettings, PipelineSettingsPage } from './pipeline/PipelineSettingsPage';
 export { default as PipelineWizard } from './PipelineWizard';
 export { default as ResetPasswordPage } from './ResetPasswordPage';
 export { default as RolesPage } from './RolesPage';

@@ -28,7 +28,14 @@ export const AppLayout = ({ id = 'app-root-layout', className = '' }) => {
           isSidebarCollapsed={isCollapsed}
           onToggleSidebar={() => setIsCollapsed(!isCollapsed)}
         />
-        <main id="main-content-viewport" className="flex-1 p-6 overflow-y-auto">
+        <main
+          id="main-content-viewport"
+          className="flex-1 p-6 overflow-y-auto h-[calc(100vh-50px)] max-h-[calc(100vh-50px)]"
+          style={{
+            height: 'calc(100vh - 50px)',
+            maxHeight: 'calc(100vh - 50px)',
+          }}
+        >
           <div className="w-full max-w-7xl mx-auto">
             <Outlet />
           </div>

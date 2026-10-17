@@ -7,6 +7,7 @@
 }
 
 :root {
+  --header-height: 50px;
   --notification-position-top: 20px;
   --notification-position-right: 20px;
   --notification-position-bottom: 20px;
@@ -85,5 +86,11 @@ input[type="search"]:focus {
   outline: none;
   border-color: #4F46E5 !important;
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+#pipeline-settings-page,
+.pipeline-settings-viewport {
+  height: calc(100vh - 50px);
+  max-height: calc(100vh - 50px);
 }
 
