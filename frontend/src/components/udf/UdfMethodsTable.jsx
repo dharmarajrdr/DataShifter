@@ -1,4 +1,6 @@
+import React from 'react';
 import { Code2 } from 'lucide-react';
+import UdfMethodRow from './UdfMethodRow';
 
 export const UdfMethodsTable = ({ functions = [] }) => {
   if (!functions || functions.length === 0) {
@@ -22,30 +24,9 @@ export const UdfMethodsTable = ({ functions = [] }) => {
             </tr>
           </thead>
           <tbody id="udf-methods-tbody" className="divide-y divide-surface-100">
-            {functions.map((fn, idx) => {
-              const fnName = fn.functionName || fn.methodName || 'unknownMethod';
-              const retType = fn.returnType || 'void';
-
-              return (
-                <tr key={fn.id || `${fn.className || ''}.${fnName}-${idx}`} id={`udf-method-row-${idx}`} className="hover:bg-surface-50 transition-colors">
-                  <td id={`udf-method-name-cell-${idx}`} className="py-3 px-4 whitespace-nowrap">
-                    <div id={`udf-method-name-wrap-${idx}`} className="flex items-center gap-2 whitespace-nowrap">
-                      <span id={`udf-method-tag-${idx}`} className="font-mono text-[10px] font-medium bg-brand-50 text-brand-600 px-1.5 py-0.5 rounded border border-brand-100 whitespace-nowrap">
-                        @UDF
-                      </span>
-                      <span id={`udf-method-name-${idx}`} className="font-mono font-semibold text-content-primary whitespace-nowrap">
-                        {fnName}()
-                      </span>
-                    </div>
-                  </td>
-                  <td id={`udf-method-ret-cell-${idx}`} className="py-3 px-4 whitespace-nowrap">
-                    <span id={`udf-method-ret-badge-${idx}`} className="font-mono text-[11px] font-medium bg-cyan-50 text-cyan-700 border border-cyan-200 px-2 py-0.5 rounded inline-block whitespace-nowrap">
-                      {retType}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+            {functions.map((fn, idx) => (
+              <UdfMethodRow key={fn.id || `${fn.className || ''}.${fn.functionName || fn.methodName}-${idx}`} fn={fn} index={idx} />
+            ))}
           </tbody>
         </table>
       </div>
