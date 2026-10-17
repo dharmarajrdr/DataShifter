@@ -57,13 +57,18 @@ describe('Column Mapping Board Components and Utilities', () => {
     expect(handleCancel).toHaveBeenCalled();
   });
 
-  test('MappingHeaderActions disables Cancel button when hasChanges is false', () => {
+  test('MappingHeaderActions disables Cancel button when hasChanges is false and handles validation state', () => {
     act(() => {
-      root.render(<MappingHeaderActions status="DRAFT" hasChanges={false} canEdit={true} onCancel={() => {}} onSave={() => {}} onAutoMap={() => {}} onValidate={() => {}} />);
+      root.render(<MappingHeaderActions status="NOT_VALIDATED" hasChanges={false} canEdit={true} validateDisabled={false} onCancel={() => {}} onSave={() => {}} onAutoMap={() => {}} onValidate={() => {}} />);
     });
     const cancelBtn = container.querySelector('#btn-cancel-mapping');
     expect(cancelBtn.disabled).toBe(true);
-    expect(container.querySelector('#btn-clear-all')).toBeNull();
+    expect(container.querySelector('#btn-validate-mapping')).not.toBeNull();
+    act(() => {
+      root.render(<MappingHeaderActions status="VALIDATED" hasChanges={false} canEdit={true} onCancel={() => {}} onSave={() => {}} onAutoMap={() => {}} onValidate={() => {}} />);
+    });
+    expect(container.querySelector('#btn-validate-mapping')).toBeNull();
+    expect(container.textContent).toContain('Validated');
   });
 
   test('normalizeDataType normalizes common SQL types', () => {

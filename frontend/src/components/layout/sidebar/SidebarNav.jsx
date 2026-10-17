@@ -5,12 +5,12 @@ import SidebarNavItem from './SidebarNavItem';
 
 export const NAV_ITEMS = [
   { label: 'Pipelines', path: '/pipelines', icon: PipelineIcon },
-  { label: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
-  { label: 'Library', path: '/library/adapters', icon: Library },
   { label: 'Workflows', path: '/workflows', icon: WorkflowIcon },
   { label: 'Connections', path: '/connections', icon: ConnectionIcon },
-  { label: 'Beetel AI', path: '/beetel', icon: BeetelIcon },
+  { label: 'Library', path: '/library/adapters', icon: Library },
   { label: 'Alerts', path: '/notifyhub/channels', icon: NotifyHubIcon },
+  { label: 'Beetel AI', path: '/beetel', icon: BeetelIcon },
+  { label: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
   { label: 'Settings', path: '/settings/org', icon: SettingsIcon },
 ];
 

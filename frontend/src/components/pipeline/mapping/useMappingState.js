@@ -65,9 +65,12 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
     setSaving(true);
     try {
       const payload = buildSavePayload(mappings, filters, sourceTables);
-      await mappingApi.save(pipelineId, payload);
+      const res = await mappingApi.save(pipelineId, payload);
       savedState.current = { mappings, filters };
-      setHasChanges(false); setValidateDisabled(false); notification.success('Mappings saved successfully');
+      setHasChanges(false);
+      setValidateDisabled(false);
+      setData((prev) => ({ ...prev, status: res?.data?.status || 'NOT_VALIDATED', validationErrors: [] }));
+      notification.success('Mappings saved successfully');
     } catch (err) { notification.error(err.message || 'Save failed'); } finally { setSaving(false); }
   };
 
@@ -75,9 +78,13 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
     setValidating(true);
     try {
       const res = await pipelineApi.performAction(pipelineId, 'VALIDATE');
-      setValErrors(res.data?.validationErrors || []); setValidateDisabled(true);
-      if (!res.data?.validationErrors?.length) notification.success('Pipeline mapping validated');
-      else notification.warning(`Validation completed with ${res.data.validationErrors.length} issue(s)`);
+      const newStatus = res?.data?.status || 'VALIDATED';
+      const errors = res?.data?.validationErrors || [];
+      setData((prev) => ({ ...prev, status: newStatus, validationErrors: errors }));
+      setValErrors(errors);
+      setValidateDisabled(true);
+      if (!errors.length) notification.success('Pipeline mapping validated');
+      else notification.warning(`Validation completed with ${errors.length} issue(s)`);
     } catch (err) { notification.error(err.message || 'Validation failed'); } finally { setValidating(false); }
   };
 
