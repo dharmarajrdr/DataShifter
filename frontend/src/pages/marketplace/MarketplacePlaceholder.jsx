@@ -11,7 +11,7 @@ export const MarketplacePlaceholder = ({
   return (
     <div
       id={id}
-      className={`p-6 max-w-5xl mx-auto space-y-6 ${className}`}
+      className={`max-w-7xl mx-auto space-y-6 ${className}`}
     >
       <div id="marketplace-header" className="flex items-center justify-between">
         <div id="marketplace-title-group" className="space-y-1">
@@ -20,7 +20,7 @@ export const MarketplacePlaceholder = ({
               Adapter Marketplace
             </h1>
             <Badge id="marketplace-phase-badge" variant="primary" size="sm">
-              Phase 4 Ready
+              Certified
             </Badge>
           </div>
           <p id="marketplace-desc" className="text-sm text-slate-500">

@@ -4,13 +4,12 @@ import { LogoIcon } from '../Icons';
 import { APP } from '../../../constants/literals';
 
 /**
- * Sidebar header with brand logo, title, and collapse toggle button.
+ * Sidebar header with brand logo and title.
  */
 export const SidebarHeader = ({
   id = 'sidebar-header',
   className = '',
   isCollapsed = false,
-  onToggleCollapse,
 }) => {
   const navigate = useNavigate();
 
@@ -18,12 +17,12 @@ export const SidebarHeader = ({
     <div
       id={id}
       className={`h-14 flex items-center border-b border-surface-200 bg-white ${
-        isCollapsed ? 'justify-center px-0' : 'justify-between px-3.5'
+        isCollapsed ? 'justify-center px-0' : 'px-4'
       } ${className}`}
     >
       <div
         id="sidebar-brand-btn"
-        className={`flex items-center gap-2 cursor-pointer select-none overflow-hidden ${
+        className={`flex items-center gap-2.5 cursor-pointer select-none overflow-hidden ${
           isCollapsed ? 'justify-center' : ''
         }`}
         onClick={() => navigate('/pipelines')}
@@ -36,23 +35,6 @@ export const SidebarHeader = ({
           </span>
         )}
       </div>
-
-      {!isCollapsed && onToggleCollapse && (
-        <button
-          id="sidebar-header-toggle"
-          type="button"
-          onClick={onToggleCollapse}
-          aria-label="Collapse sidebar"
-          aria-expanded="true"
-          className="p-1.5 rounded-md text-content-secondary hover:text-content-primary hover:bg-surface-100 transition-colors
-            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand cursor-pointer"
-          title="Collapse sidebar"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-      )}
     </div>
   );
 };
