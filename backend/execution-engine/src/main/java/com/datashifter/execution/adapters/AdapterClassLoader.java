@@ -11,7 +11,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,7 +23,6 @@ public class AdapterClassLoader {
     private final Path storageRoot;
     private final AdapterDefinitionRepository definitionRepo;
     private final Map<String, LoadedAdapterClass> classCache = new ConcurrentHashMap<>();
-
     public AdapterClassLoader(
             @Value("${datashifter.adapters.storage.root:${datashifter.udf.storage.root:/var/lib/datashifter/udfs}/adapters}") String storageRootPath,
             AdapterDefinitionRepository definitionRepo) {
@@ -37,14 +35,23 @@ public class AdapterClassLoader {
         if (key == null || key.isBlank()) return false;
         AdapterDefinition def = definitionRepo.findByAdapterKey(key).or(() -> definitionRepo.findById(key)).orElse(null);
         if (def != null && def.getStorageKey() != null && resolveJarPath(def.getStorageKey()).toFile().exists()) return true;
-        for (AdapterDefinition d : definitionRepo.findAllByAdapterKey(key)) {
-            if (d.getStorageKey() != null && resolveJarPath(d.getStorageKey()).toFile().exists()) return true;
-        }
-        return false;
+        return definitionRepo.findAllByAdapterKey(key).stream().anyMatch(d -> d.getStorageKey() != null && resolveJarPath(d.getStorageKey()).toFile().exists());
     }
 
     public LoadedAdapterClass loadAdapterClass(String key) {
+        LoadedAdapterClass cached = classCache.get(key);
+        if (cached != null) {
+            if (isAdapterInstalled(key)) return cached;
+            unload(key);
+        }
         return classCache.computeIfAbsent(key, this::loadFromStorageOrRepo);
+    }
+
+    public void unload(String key) {
+        LoadedAdapterClass removed = classCache.remove(key);
+        if (removed != null && removed.getClassLoader() instanceof URLClassLoader ucl) {
+            try { ucl.close(); } catch (Exception ignored) {}
+        }
     }
 
     private LoadedAdapterClass loadFromStorageOrRepo(String key) {
@@ -60,18 +67,12 @@ public class AdapterClassLoader {
             }
         }
         if (def != null && def.getClassName() != null) {
-            try {
-                Class<?> c = Class.forName(def.getClassName(), true, getClass().getClassLoader());
-                return new LoadedAdapterClass(getClass().getClassLoader(), c);
-            } catch (ClassNotFoundException e) {
-                throw new DatashifterException("Adapter class not found: " + def.getClassName(), e);
-            }
+            try { return new LoadedAdapterClass(getClass().getClassLoader(), Class.forName(def.getClassName(), true, getClass().getClassLoader())); }
+            catch (ClassNotFoundException e) { throw new DatashifterException("Adapter class not found: " + def.getClassName(), e); }
         }
         if (key.contains(".")) {
-            try {
-                Class<?> c = Class.forName(key, true, getClass().getClassLoader());
-                return new LoadedAdapterClass(getClass().getClassLoader(), c);
-            } catch (ClassNotFoundException ignored) {}
+            try { return new LoadedAdapterClass(getClass().getClassLoader(), Class.forName(key, true, getClass().getClassLoader())); }
+            catch (ClassNotFoundException ignored) {}
         }
         throw new DatashifterException("Adapter '" + key + "' could not be loaded. Please install from Marketplace.");
     }
@@ -96,4 +97,3 @@ public class AdapterClassLoader {
         return tmp.toFile().exists() ? tmp : r;
     }
 }
-

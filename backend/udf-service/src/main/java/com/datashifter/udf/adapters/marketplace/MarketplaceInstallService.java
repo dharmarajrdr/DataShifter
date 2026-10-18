@@ -77,10 +77,10 @@ public class MarketplaceInstallService {
         OrgPurchasedAdapter p = purchasedRepo.findByOrganizationIdAndMarketplaceItemId(orgId, marketplaceItemId)
                 .orElseThrow(() -> new DatashifterException("Adapter '" + item.getName() + "' is not installed"));
 
-        String sql = "SELECT COUNT(*) FROM pipelines WHERE source_adapter_id = ? OR target_adapter_id = ? OR source_adapter_id = ? OR target_adapter_id = ?";
+        String sql = "SELECT COUNT(*) FROM pipelines WHERE (source_adapter_id = ? OR target_adapter_id = ? OR source_adapter_id = ? OR target_adapter_id = ?) AND status IN ('RUNNING', 'STARTING', 'RESUMING')";
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class, item.getAdapterKey(), item.getAdapterKey(), item.getId(), item.getId());
         if (count != null && count > 0) {
-            throw new DatashifterException("Cannot uninstall adapter '" + item.getName() + "': referenced by " + count + " pipeline(s)");
+            throw new DatashifterException("Cannot uninstall adapter '" + item.getName() + "': actively running in " + count + " pipeline(s)");
         }
         purchasedRepo.delete(p);
         definitionRepo.findByOrganizationIdAndAdapterKey(orgId, item.getAdapterKey()).ifPresent(d -> {
