@@ -21,6 +21,8 @@ public interface AdapterDefinitionRepository extends JpaRepository<AdapterDefini
         return findFirstByAdapterKey(adapterKey);
     }
 
+    List<AdapterDefinition> findAllByAdapterKey(String adapterKey);
+
     Optional<AdapterDefinition> findByOrganizationIdAndAdapterKey(String organizationId, String adapterKey);
 
     boolean existsByOrganizationIdAndName(String organizationId, String name);

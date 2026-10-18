@@ -46,16 +46,7 @@ public class AdapterEnforcementService {
     }
 
     public String resolve(String customId, DatabaseType dbType, PipelineMode mode, boolean isSource) {
-        if (customId != null && !customId.isBlank()) return customId.trim();
-        if (dbType == null) throw new DatashifterException((isSource ? "Source" : "Target") + " adapter or database connection must be specified.");
-        if (dbType == DatabaseType.POSTGRESQL) {
-            return (mode == PipelineMode.CDC && isSource) ? "postgres-wal-reader" : (isSource ? "postgres-reader" : "postgres-writer");
-        } else if (dbType == DatabaseType.ORACLE) {
-            return (mode == PipelineMode.CDC && isSource) ? "oracle-gg-reader" : (isSource ? "oracle-reader" : "oracle-writer");
-        } else if (dbType == DatabaseType.S3) {
-            return isSource ? "filesystem-reader" : "filesystem-writer";
-        }
-        throw new DatashifterException("No adapter available for database type: " + dbType);
+        return com.datashifter.common.utils.AdapterResolutionUtil.resolve(customId, dbType, mode, isSource);
     }
 
     public String buildConfigJson(Connection conn, ConnectionConfig cfg) {

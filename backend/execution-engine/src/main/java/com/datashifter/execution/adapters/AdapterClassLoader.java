@@ -11,6 +11,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -34,12 +35,12 @@ public class AdapterClassLoader {
 
     public boolean isAdapterInstalled(String key) {
         if (key == null || key.isBlank()) return false;
-        AdapterDefinition def = definitionRepo.findByAdapterKey(key)
-                .or(() -> definitionRepo.findById(key)).orElse(null);
-        if (def == null || def.getStorageKey() == null || def.getStorageKey().isBlank()) {
-            return false;
+        AdapterDefinition def = definitionRepo.findByAdapterKey(key).or(() -> definitionRepo.findById(key)).orElse(null);
+        if (def != null && def.getStorageKey() != null && resolveJarPath(def.getStorageKey()).toFile().exists()) return true;
+        for (AdapterDefinition d : definitionRepo.findAllByAdapterKey(key)) {
+            if (d.getStorageKey() != null && resolveJarPath(d.getStorageKey()).toFile().exists()) return true;
         }
-        return resolveJarPath(def.getStorageKey()).toFile().exists();
+        return false;
     }
 
     public LoadedAdapterClass loadAdapterClass(String key) {
@@ -47,18 +48,15 @@ public class AdapterClassLoader {
     }
 
     private LoadedAdapterClass loadFromStorageOrRepo(String key) {
-        AdapterDefinition def = definitionRepo.findByAdapterKey(key)
-                .or(() -> definitionRepo.findById(key)).orElse(null);
+        AdapterDefinition def = definitionRepo.findByAdapterKey(key).or(() -> definitionRepo.findById(key)).orElse(null);
         if (def != null && def.getStorageKey() != null && !def.getStorageKey().isBlank()) {
             Path jar = resolveJarPath(def.getStorageKey());
-            if (!jar.toFile().exists()) {
-                throw new DatashifterException("Adapter '" + key + "' JAR not found at " + jar + ". Please install from Marketplace.");
-            }
-            try {
-                URLClassLoader cl = new URLClassLoader(new URL[]{jar.toUri().toURL()}, getClass().getClassLoader());
-                return new LoadedAdapterClass(cl, cl.loadClass(def.getClassName()));
-            } catch (Exception e) {
-                throw new DatashifterException("Failed to load adapter class '" + def.getClassName() + "' from " + jar, e);
+            if (jar.toFile().exists()) return loadJar(def, jar);
+        }
+        for (AdapterDefinition d : definitionRepo.findAllByAdapterKey(key)) {
+            if (d.getStorageKey() != null && !d.getStorageKey().isBlank()) {
+                Path jar = resolveJarPath(d.getStorageKey());
+                if (jar.toFile().exists()) return loadJar(d, jar);
             }
         }
         if (def != null && def.getClassName() != null) {
@@ -76,6 +74,15 @@ public class AdapterClassLoader {
             } catch (ClassNotFoundException ignored) {}
         }
         throw new DatashifterException("Adapter '" + key + "' could not be loaded. Please install from Marketplace.");
+    }
+
+    private LoadedAdapterClass loadJar(AdapterDefinition def, Path jar) {
+        try {
+            URLClassLoader cl = new URLClassLoader(new URL[]{jar.toUri().toURL()}, getClass().getClassLoader());
+            return new LoadedAdapterClass(cl, cl.loadClass(def.getClassName()));
+        } catch (Exception e) {
+            throw new DatashifterException("Failed to load adapter class '" + def.getClassName() + "' from " + jar, e);
+        }
     }
 
     public void clearCache() { classCache.clear(); }
