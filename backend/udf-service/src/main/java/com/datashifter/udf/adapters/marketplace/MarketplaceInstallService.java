@@ -48,7 +48,6 @@ public class MarketplaceInstallService {
         var disc = discovery.discover(stored.localPath().toFile());
         var p = disc.isEmpty() ? null : disc.get(0);
         String cls = p != null ? p.getClassName() : "com.datashifter.adapter." + item.getAdapterKey();
-
         AdapterDefinition def = definitionRepo.findByOrganizationIdAndAdapterKey(orgId, item.getAdapterKey())
                 .orElse(AdapterDefinition.builder().organizationId(orgId).adapterKey(item.getAdapterKey()).build());
         def.setName(item.getName()); def.setDescription(item.getDescription());
@@ -64,9 +63,9 @@ public class MarketplaceInstallService {
                 .status("ACTIVE").amountPaidPaise(0L).currency(item.getCurrency()).purchasedAt(Instant.now()).build();
         OrgPurchasedAdapter saved = purchasedRepo.save(pa);
         log.info("Installed adapter '{}' ({}) for org {}", item.getName(), item.getAdapterKey(), orgId);
-        return PurchaseAdapterResponse.builder().id(saved.getId()).organizationId(orgId)
-                .marketplaceItemId(item.getId()).adapterKey(item.getAdapterKey()).adapterName(item.getName())
-                .status("ACTIVE").amountPaidPaise(0L).currency(item.getCurrency()).purchasedAt(saved.getPurchasedAt()).build();
+        return PurchaseAdapterResponse.builder().id(saved.getId()).organizationId(orgId).marketplaceItemId(item.getId())
+                .adapterKey(item.getAdapterKey()).adapterName(item.getName()).status("ACTIVE").amountPaidPaise(0L)
+                .currency(item.getCurrency()).purchasedAt(saved.getPurchasedAt()).build();
     }
 
     @Transactional
@@ -76,14 +75,15 @@ public class MarketplaceInstallService {
                 .orElseThrow(() -> new DatashifterException("Marketplace catalog item not found: " + marketplaceItemId));
         OrgPurchasedAdapter p = purchasedRepo.findByOrganizationIdAndMarketplaceItemId(orgId, marketplaceItemId)
                 .orElseThrow(() -> new DatashifterException("Adapter '" + item.getName() + "' is not installed"));
-
-        String sql = "SELECT COUNT(*) FROM pipelines WHERE (source_adapter_id = ? OR target_adapter_id = ? OR source_adapter_id = ? OR target_adapter_id = ?) AND status IN ('RUNNING', 'STARTING', 'RESUMING')";
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, item.getAdapterKey(), item.getAdapterKey(), item.getId(), item.getId());
+        var defOpt = definitionRepo.findByOrganizationIdAndAdapterKey(orgId, item.getAdapterKey());
+        String defId = defOpt.map(AdapterDefinition::getId).orElse(item.getId());
+        String sql = "SELECT COUNT(*) FROM pipelines WHERE source_adapter_id IN (?, ?, ?) OR target_adapter_id IN (?, ?, ?)";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, item.getAdapterKey(), item.getId(), defId, item.getAdapterKey(), item.getId(), defId);
         if (count != null && count > 0) {
-            throw new DatashifterException("Cannot uninstall adapter '" + item.getName() + "': actively running in " + count + " pipeline(s)");
+            throw new DatashifterException("Cannot uninstall adapter '" + item.getName() + "': referenced in " + count + " pipeline(s)");
         }
         purchasedRepo.delete(p);
-        definitionRepo.findByOrganizationIdAndAdapterKey(orgId, item.getAdapterKey()).ifPresent(d -> {
+        defOpt.ifPresent(d -> {
             if (d.getStorageKey() != null) {
                 try { storage.delete(d.getStorageKey()); } catch (IOException ignored) {}
             }

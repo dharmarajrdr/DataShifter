@@ -12,6 +12,7 @@ export const MarketplaceCard = ({
   onInspect,
 }) => {
   const cardId = id || `adapter-card-${adapter.id}`;
+  const isBlocked = Boolean(adapter.installed && (adapter.refCount || 0) > 0);
 
   return (
     <Card
@@ -67,12 +68,19 @@ export const MarketplaceCard = ({
           id={`${cardId}-action-btn`}
           variant={adapter.installed ? 'ghost' : 'primary'}
           size="sm"
-          className={adapter.installed ? 'text-slate-600 hover:text-rose-600 hover:bg-rose-50' : ''}
+          disabled={isBlocked}
+          title={isBlocked ? `Cannot uninstall: Referenced by ${adapter.refCount} pipeline(s)` : undefined}
+          className={adapter.installed ? (isBlocked ? 'text-slate-400 cursor-not-allowed opacity-60' : 'text-slate-600 hover:text-rose-600 hover:bg-rose-50') : ''}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleInstall(adapter.id);
+            if (!isBlocked) onToggleInstall(adapter.id);
           }}
         >
+          {isBlocked && (
+            <svg id={`${cardId}-lock-icon`} className="w-3 h-3 mr-1 inline-block text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" strokeWidth="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" strokeWidth="2" />
+            </svg>
+          )}
           {adapter.installed ? 'Uninstall' : 'Install'}
         </Button>
       </div>
