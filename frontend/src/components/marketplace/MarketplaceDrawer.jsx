@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react';
 import { Button, Badge } from '../common';
+import { DrawerReferencedPipelines } from './DrawerReferencedPipelines';
 
-/**
- * Slide-over drawer displaying connector details, specifications, and actions (<= 100 lines).
- */
+/** Slide-over drawer displaying connector details, specifications, and actions (<= 100 lines). */
 export const MarketplaceDrawer = ({
   id = 'marketplace-drawer', className = '', adapter, isOpen = false, onClose, onToggleInstall,
 }) => {
@@ -58,6 +57,8 @@ export const MarketplaceDrawer = ({
             <h3 className="font-bold text-slate-900 text-sm">Overview</h3>
             <p className="leading-relaxed text-slate-600">{adapter.desc}</p>
           </div>
+
+          <DrawerReferencedPipelines adapter={adapter} />
 
           <div id="drawer-features-section" className="space-y-2">
             <h3 className="font-bold text-slate-900 text-sm">Key Capabilities</h3>
