@@ -5,17 +5,10 @@ import { Button, Badge } from '../common';
  * Slide-over drawer displaying connector details, specifications, and actions (<= 100 lines).
  */
 export const MarketplaceDrawer = ({
-  id = 'marketplace-drawer',
-  className = '',
-  adapter,
-  isOpen = false,
-  onClose,
-  onToggleInstall,
+  id = 'marketplace-drawer', className = '', adapter, isOpen = false, onClose, onToggleInstall,
 }) => {
   useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape' && isOpen) onClose();
-    };
+    const handleKey = (e) => { if (e.key === 'Escape' && isOpen) onClose(); };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [isOpen, onClose]);
@@ -74,6 +67,16 @@ export const MarketplaceDrawer = ({
               ))}
             </div>
           </div>
+
+          {adapter.permissions && (
+            <details id="drawer-permissions-section" className="group rounded-lg border border-slate-200 bg-slate-50 p-3 transition-colors open:bg-white open:border-slate-300">
+              <summary className="flex cursor-pointer items-center justify-between text-xs font-semibold text-slate-900 select-none list-none [&::-webkit-details-marker]:hidden">
+                <span>Required Database Privileges</span>
+                <span className="text-slate-400 text-[10px] group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <pre className="mt-2 p-2 bg-slate-900 text-slate-200 rounded font-mono text-[10px] overflow-x-auto whitespace-pre-wrap">{adapter.permissions}</pre>
+            </details>
+          )}
         </div>
 
         <div id="drawer-footer" className="p-4 px-6 border-t border-surface-200 bg-slate-50 flex items-center justify-between gap-3">

@@ -33,6 +33,7 @@ export function mapCatalogItem(item) {
     bg: isPg ? 'bg-emerald-50 text-emerald-700' : isOra ? 'bg-rose-50 text-rose-700' : isKf ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700',
     protocols: ['JDBC', 'Direct Stream'],
     features: ['Pluggable JAR', 'Schema Discovery', 'Zero Downtime'],
+    permissions: item.permissions || (isPg ? 'ALTER USER datashifter WITH REPLICATION;\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO datashifter;' : isOra ? 'GRANT LOGMINING TO c##datashifter;\nGRANT SELECT ON V_$LOGMNR_CONTENTS TO c##datashifter;' : 'GRANT USAGE ON SCHEMA public TO datashifter;'),
   };
 }
 
