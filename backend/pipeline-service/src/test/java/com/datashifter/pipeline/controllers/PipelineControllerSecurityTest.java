@@ -154,6 +154,22 @@ class PipelineControllerSecurityTest {
     }
 
     @Test
+    @DisplayName("User with PIPELINE_COLUMN_MAPPING can validate pipeline")
+    void userWithColumnMappingCanValidate() throws Exception {
+        PipelineActionRequest req = new PipelineActionRequest();
+        req.setAction(PipelineAction.VALIDATE);
+
+        when(pipelineService.performAction(eq(pipelineId), any(PipelineActionRequest.class)))
+                .thenReturn(PipelineResponse.builder().id(pipelineId).build());
+
+        mockMvc.perform(post("/api/v1/pipelines/{id}/actions", pipelineId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req))
+                        .requestAttr("permissions", Set.of(Permissions.PIPELINE_COLUMN_MAPPING)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("User without PIPELINE_VIEW CANNOT list pipelines (HTTP 403)")
     void userWithoutViewCannotListPipelines() throws Exception {
         mockMvc.perform(get("/api/v1/pipelines")

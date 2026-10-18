@@ -54,13 +54,15 @@ export const usePipelineSettings = () => {
         defaultWriteMode: settings.defaultWriteMode || 'UPSERT', ignoreExceptions: settings.ignoreExceptions,
         maxErrorThreshold: settings.maxErrorThreshold, logSourceRow: settings.logSourceRow,
         sourcePoolSize: settings.sourcePoolSize, targetPoolSize: settings.targetPoolSize,
-        previewInflightRecords: settings.previewInflightRecords, pipelineMode: settings.pipelineMode || 'BATCH',
+        previewInflightRecords: settings.previewInflightRecords, clearLogsOnStart: settings.clearLogsOnStart !== false,
+        pipelineMode: settings.pipelineMode || 'BATCH',
         cdcLogType: settings.cdcLogType || 'ORACLE_TRAIL', cdcDirectoryPath: settings.cdcDirectoryPath,
         cdcFilePattern: settings.cdcFilePattern, cdcStartingScn: settings.cdcStartingScn,
         cdcFlushIntervalMs: settings.cdcFlushIntervalMs, cdcBatchSize: settings.cdcBatchSize,
         tableWriteModeOverrides: Object.entries(tableOverrides).map(([ttmId, mode]) => ({ targetTableMappingId: ttmId, writeMode: mode })),
       };
-      await settingsApi.save(pipelineId, payload);
+      const res = await settingsApi.save(pipelineId, payload);
+      if (res?.data) setSettings(res.data);
       setHasChanges(false);
       notification.success('Settings saved successfully');
     } catch (e) {

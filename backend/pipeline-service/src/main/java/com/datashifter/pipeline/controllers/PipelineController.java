@@ -27,7 +27,7 @@ public class PipelineController {
     }
 
     @PutMapping("/{id}")
-    @RequiresPermission(Permissions.PIPELINE_EDIT)
+    @RequiresPermission(anyOf = {Permissions.PIPELINE_EDIT, Permissions.PIPELINE_COLUMN_MAPPING})
     public ApiResponse<PipelineResponse> update(@PathVariable String id, @RequestBody UpdatePipelineRequest request) {
         return ApiResponse.success(pipelineService.update(id, request), "Pipeline updated");
     }
@@ -56,7 +56,8 @@ public class PipelineController {
         Permissions.PIPELINE_RUN,
         Permissions.PIPELINE_PAUSE,
         Permissions.PIPELINE_STOP,
-        Permissions.PIPELINE_EDIT
+        Permissions.PIPELINE_EDIT,
+        Permissions.PIPELINE_COLUMN_MAPPING
     })
     public ApiResponse<PipelineResponse> performAction(@PathVariable String id,
                                                         @Valid @RequestBody PipelineActionRequest action) {

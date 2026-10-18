@@ -22,6 +22,9 @@ export const PipelineSettingsErrorCard = ({ settings, update }) => (
       <SettingRow label={SETTINGS.errorHandling.logSourceRow} description={SETTINGS.errorHandling.logSourceRowDesc}>
         <Toggle checked={Boolean(settings.logSourceRow)} onChange={(v) => update('logSourceRow', v)} />
       </SettingRow>
+      <SettingRow label="Clear logs before starting apps" description="When enabled (default), existing error logs will be purged before each run. If disabled, logs persist across runs until manually cleared.">
+        <Toggle checked={settings.clearLogsOnStart !== false} onChange={(v) => update('clearLogsOnStart', v)} />
+      </SettingRow>
     </div>
 
     <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs mb-6">

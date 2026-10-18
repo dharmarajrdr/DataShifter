@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { connectionApi, namespaceApi, pipelineApi } from '../../../services/api';
 
+import { validateWizardStep } from './wizardValidation';
+
 /**
  * Custom hook managing 5-Step Pipeline Wizard state & actions (<= 100 lines).
  */
@@ -15,16 +17,11 @@ export const usePipelineWizard = () => {
   const [showCreateNs, setShowCreateNs] = useState(false);
 
   const [config, setConfig] = useState({
-    name: '', description: '', namespaceId: '',
-    sourceAdapter: 'oracle-trail', targetAdapter: 's3-writer',
-    source: '', target: '', s3Bucket: 'datashifter-analytics-lake/raw',
-    s3Region: 'us-east-1', s3AccessKey: '', s3SecretKey: '',
-    cdcDirectoryPath: '/u01/app/oracle/dirdat', cdcFilePattern: 'aa.*',
-    cdcStartingScn: '', cdcFlushIntervalMs: 200, cdcBatchSize: 500,
-    entityPairs: [
-      { sourceEntity: 'HR.CUSTOMERS', targetEntity: 'customers_parquet/' },
-      { sourceEntity: 'SALES.ORDERS', targetEntity: 'orders_parquet/' },
-    ],
+    name: '', description: '', namespaceId: '', sourceAdapter: 'oracle-trail',
+    targetAdapter: 's3-writer', source: '', target: '', s3Bucket: 'datashifter-analytics-lake/raw',
+    s3Region: 'us-east-1', s3AccessKey: '', s3SecretKey: '', cdcDirectoryPath: '/u01/app/oracle/dirdat',
+    cdcFilePattern: 'aa.*', cdcStartingScn: '', cdcFlushIntervalMs: 200, cdcBatchSize: 500,
+    entityPairs: [{ sourceEntity: '', targetEntity: '' }],
   });
 
   const navigate = useNavigate();
@@ -41,11 +38,15 @@ export const usePipelineWizard = () => {
   }, []);
 
   const validateCurrentStep = useCallback(() => {
-    const errs = {};
-    if (step === 0 && !config.name?.trim()) errs.name = 'Pipeline name is required';
+    const errs = validateWizardStep(step, config);
     setErrors(errs);
-    return Object.keys(errs).length === 0;
-  }, [step, config.name]);
+    if (Object.keys(errs).length > 0) {
+      const msg = Object.values(errs)[0];
+      if (msg && notification?.error) notification.error(msg);
+      return false;
+    }
+    return true;
+  }, [step, config, notification]);
 
   const handleNext = () => {
     if (!validateCurrentStep()) return;

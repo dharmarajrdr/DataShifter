@@ -52,6 +52,7 @@ public class PipelineServiceImpl implements PipelineService {
     private final com.datashifter.connector.repositories.ConnectionRepository connectionRepository;
     private final CommonWorkflowNodeRepository workflowNodeRepository;
     private final WorkflowService workflowService;
+    private final EngineLivenessService engineLivenessService;
 
     // =========================================================================
     // CREATE — builds PipelineTable + TargetTableMapping entries
@@ -92,6 +93,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .ignoreExceptions(req.getIgnoreExceptions() != null ? req.getIgnoreExceptions() : false)
                 .maxErrorThreshold(req.getMaxErrorThreshold() != null ? req.getMaxErrorThreshold() : 1000)
                 .logSourceRow(req.getLogSourceRow() != null ? req.getLogSourceRow() : true)
+                .clearLogsOnStart(req.getClearLogsOnStart() != null ? req.getClearLogsOnStart() : true)
                 .pipelineMode(req.getPipelineMode() != null ? req.getPipelineMode() : PipelineMode.BATCH)
                 .cdcDirectoryPath(req.getCdcDirectoryPath())
                 .cdcFilePattern(req.getCdcFilePattern())
@@ -179,6 +181,7 @@ public class PipelineServiceImpl implements PipelineService {
         if (req.getSourcePoolSize() != null) entity.setSourcePoolSize(req.getSourcePoolSize());
         if (req.getTargetPoolSize() != null) entity.setTargetPoolSize(req.getTargetPoolSize());
         if (req.getPreviewInflightRecords() != null) entity.setPreviewInflightRecords(req.getPreviewInflightRecords());
+        if (req.getClearLogsOnStart() != null) entity.setClearLogsOnStart(req.getClearLogsOnStart());
         if (req.getPipelineMode() != null) entity.setPipelineMode(req.getPipelineMode());
         if (req.getCdcDirectoryPath() != null) entity.setCdcDirectoryPath(req.getCdcDirectoryPath());
         if (req.getCdcFilePattern() != null) entity.setCdcFilePattern(req.getCdcFilePattern());
@@ -380,26 +383,41 @@ public class PipelineServiceImpl implements PipelineService {
                         .filter(p -> p.getStatus() == PipelineStatus.RUNNING).count();
                 limitChecker.assertCanRunParallel(orgId2, runningCount);
 
+                // Verify execution engine is running before starting or clearing state
+                if (!engineLivenessService.isEngineAlive()) {
+                    engineLivenessService.handleEngineOffline(id, true);
+                    throw new DatashifterException(EngineLivenessService.OFFLINE_MSG);
+                }
+
                 // When starting or re-running from scratch (START), remove existing chunk_cursors, error_logs, and checkpoints
+                boolean shouldClearLogs = entity.getClearLogsOnStart() == null || entity.getClearLogsOnStart();
+
                 if (action.getAction() == PipelineAction.START) {
                     int deletedCursors = entityManager.createQuery("DELETE FROM ChunkCursor c WHERE c.pipelineId = :pipelineId")
                             .setParameter("pipelineId", id)
                             .executeUpdate();
-                    entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
-                            .setParameter("pipelineId", id)
-                            .executeUpdate();
+                    if (shouldClearLogs) {
+                        entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
+                                .setParameter("pipelineId", id)
+                                .executeUpdate();
+                    }
                     var checkpointKeys = redisTemplate.keys("pipeline:" + id + ":table:*:checkpoint");
                     if (checkpointKeys != null && !checkpointKeys.isEmpty()) {
                         redisTemplate.delete(checkpointKeys);
                     }
-                    redisTemplate.delete("pipeline:" + id + ":stats");
-                    log.info("Cleared {} chunk_cursors, error_logs, and Redis checkpoints for pipeline {} on START", deletedCursors, id);
+                    if (shouldClearLogs) {
+                        redisTemplate.delete("pipeline:" + id + ":stats");
+                    }
+                    log.info("Cleared {} chunk_cursors, error_logs (cleared={}), and Redis checkpoints for pipeline {} on START",
+                            deletedCursors, shouldClearLogs, id);
                 } else {
-                    entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
-                            .setParameter("pipelineId", id)
-                            .executeUpdate();
-                    if (redisTemplate.opsForHash() != null) {
-                        redisTemplate.opsForHash().put("pipeline:" + id + ":stats", "errorsSkipped", "0");
+                    if (shouldClearLogs) {
+                        entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
+                                .setParameter("pipelineId", id)
+                                .executeUpdate();
+                        if (redisTemplate.opsForHash() != null) {
+                            redisTemplate.opsForHash().put("pipeline:" + id + ":stats", "errorsSkipped", "0");
+                        }
                     }
                 }
 
@@ -620,6 +638,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .logSourceRow(e.getLogSourceRow())
                 .sourcePoolSize(e.getSourcePoolSize()).targetPoolSize(e.getTargetPoolSize())
                 .previewInflightRecords(e.getPreviewInflightRecords())
+                .clearLogsOnStart(e.getClearLogsOnStart() != null ? e.getClearLogsOnStart() : true)
                 .pipelineMode(e.getPipelineMode())
                 .cdcDirectoryPath(e.getCdcDirectoryPath())
                 .cdcFilePattern(e.getCdcFilePattern())

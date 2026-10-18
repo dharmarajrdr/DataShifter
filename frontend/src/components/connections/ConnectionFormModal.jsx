@@ -31,10 +31,15 @@ export const ConnectionFormModal = ({ connection, onClose, onSave }) => {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) return notification.error('Connection name is required');
-    if (!form.host.trim()) return notification.error('Host is required');
-    if (form.dbType !== 'SPANNER' && !form.databaseName.trim()) return notification.error('Database name is required');
-    if (form.dbType !== 'SPANNER' && !form.username.trim() && !isEdit) return notification.error('Username is required');
-    if (form.dbType !== 'SPANNER' && !form.password.trim() && !isEdit) return notification.error('Password is required');
+    if (!form.host.trim()) return notification.error(form.dbType === 'S3' ? 'AWS Region is required' : 'Host is required');
+    if (form.dbType !== 'SPANNER' && form.dbType !== 'S3' && !form.databaseName.trim()) return notification.error('Database name is required');
+    const isAws = form.dbType === 'S3';
+    if (form.dbType !== 'SPANNER' && !form.username.trim() && !isEdit) {
+      return notification.error(isAws ? 'AWS Access Key ID is required' : 'Username is required');
+    }
+    if (form.dbType !== 'SPANNER' && !form.password.trim() && !isEdit) {
+      return notification.error(isAws ? 'AWS Secret Access Key is required' : 'Password is required');
+    }
 
     setSaving(true);
     try {

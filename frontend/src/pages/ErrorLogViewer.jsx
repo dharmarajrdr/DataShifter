@@ -8,147 +8,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { errorApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
+import ErrorLogEntry from '../components/monitor/ErrorLogEntry';
+import ErrorDetailDrawer from '../components/monitor/ErrorDetailDrawer';
+import { exportFormats, downloadFile } from '../utils/errorExportUtils';
 
 const ERROR_TYPE_COLORS = {
   TYPE_CAST_FAILED: 'error',
   NULL_CONSTRAINT: 'warning',
   PK_DUPLICATE: 'purple',
   WRITE_TIMEOUT: 'default',
-};
-
-/* ================================================================
-   ERROR ENTRY ROW
-   ================================================================ */
-const ErrorEntry = ({ error }) => (
-  <div style={{ padding: `${SPACING.sm} ${SPACING.md}`, borderBottom: `1px solid ${COLORS.border.light}` }}>
-    <div style={{ ...FRBC, marginBottom: '6px' }}>
-      <div style={{ ...FRSC, gap: SPACING.xs }}>
-        <Chip label={error.type} colorScheme={ERROR_TYPE_COLORS[error.type] || 'default'} />
-        <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.medium }}>
-          {error.sourceTable} → {error.targetTable}
-        </span>
-      </div>
-      <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-        Chunk #{error.chunk} · Row #{error.row}
-      </span>
-    </div>
-    <p style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, fontFamily: 'monospace', marginBottom: SPACING.xs }}>
-      {error.message}
-    </p>
-    {error.sourceData && (
-      <div style={{ background: COLORS.background.secondary, borderRadius: BORDER_RADIUS.md, padding: `${SPACING.xs} 10px` }}>
-        <p style={{ fontSize: '10px', fontWeight: FONT.weight.medium, color: COLORS.text.secondary, marginBottom: SPACING.xxs }}>
-          {ERRORS.sourceRowData}
-        </p>
-        <p style={{ fontSize: FONT.size.xs, fontFamily: 'monospace', wordBreak: 'break-all' }}>
-          {error.sourceData}
-        </p>
-      </div>
-    )}
-  </div>
-);
-
-/* ================================================================
-   EXPORT UTILITIES
-   
-   Designed for extensibility:
-   - Each format has a serialize() function
-   - Adding a new export target (e.g., Datadog) = add a new entry
-     with a publish() function instead of download()
-   ================================================================ */
-const exportFormats = {
-  csv: {
-    label: 'CSV',
-    icon: 'fa-solid fa-file-csv',
-    mime: 'text/csv',
-    ext: 'csv',
-    serialize: (errors, pipelineName) => {
-      const headers = ['id', 'type', 'sourceTable', 'targetTable', 'chunk', 'row', 'message', 'sourceData', 'timestamp'];
-      const escape = (v) => `"${String(v || '').replace(/"/g, '""')}"`;
-      const rows = errors.map(e => headers.map(h => escape(e[h])).join(','));
-      return [headers.join(','), ...rows].join('\n');
-    },
-  },
-  json: {
-    label: 'JSON',
-    icon: 'fa-solid fa-file-code',
-    mime: 'application/json',
-    ext: 'json',
-    serialize: (errors, pipelineName) => JSON.stringify({
-      pipeline: pipelineName,
-      exportedAt: new Date().toISOString(),
-      totalErrors: errors.length,
-      errors: errors.map(e => ({
-        id: e.id,
-        type: e.type,
-        sourceTable: e.sourceTable,
-        targetTable: e.targetTable,
-        chunk: e.chunk,
-        row: e.row,
-        message: e.message,
-        sourceData: e.sourceData,
-        timestamp: e.timestamp,
-      })),
-    }, null, 2),
-  },
-  txt: {
-    label: 'Plain Text',
-    icon: 'fa-solid fa-file-lines',
-    mime: 'text/plain',
-    ext: 'txt',
-    serialize: (errors, pipelineName) => {
-      const divider = '─'.repeat(60);
-      const lines = [
-        `Error Log Export — ${pipelineName}`,
-        `Exported: ${new Date().toISOString()}`,
-        `Total errors: ${errors.length}`,
-        divider,
-        '',
-      ];
-      errors.forEach((e, i) => {
-        lines.push(`[${i + 1}] ${e.type} — ${e.sourceTable} → ${e.targetTable}`);
-        lines.push(`    Chunk #${e.chunk}, Row #${e.row}`);
-        lines.push(`    ${e.message}`);
-        if (e.sourceData) lines.push(`    Data: ${e.sourceData}`);
-        lines.push('');
-      });
-      return lines.join('\n');
-    },
-  },
-};
-
-// Future: external service publishers
-// const externalTargets = {
-//   datadog: {
-//     label: 'Send to Datadog',
-//     icon: 'fa-solid fa-server',
-//     publish: async (errors, config) => {
-//       // POST to Datadog Logs API
-//       // https://docs.datadoghq.com/api/latest/logs/
-//       await fetch('https://http-intake.logs.datadoghq.com/v1/input', {
-//         method: 'POST',
-//         headers: { 'Content-Type': 'application/json', 'DD-API-KEY': config.apiKey },
-//         body: JSON.stringify(errors.map(e => ({
-//           ddsource: 'datashifter', ddtags: `pipeline:${config.pipelineId}`,
-//           hostname: 'datashifter', service: 'migration-engine',
-//           message: e.message, status: 'error',
-//           error: { kind: e.type, stack: e.sourceData },
-//         }))),
-//       });
-//     },
-//   },
-// };
-
-const downloadFile = (content, filename, mime) => {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 };
 
 /* ================================================================
@@ -235,6 +103,7 @@ const ErrorLogViewer = () => {
   const [filterType, setFilterType] = useState('all');
   const [page, setPage] = useState(0);
   const [pageSize] = useState(20);
+  const [selectedError, setSelectedError] = useState(null);
   const { pipelineId } = useParams();
   const navigate = useNavigate();
 
@@ -418,14 +287,20 @@ const ErrorLogViewer = () => {
           {/* Scrollable error list — fills remaining space */}
           <div style={{
             flex: 1, minHeight: 0, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md,
-            overflow: 'auto', background: '#fff',
+            overflow: 'auto', background: '#f8fafc', padding: SPACING.md,
           }}>
             {filteredErrors.length === 0 ? (
               <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.text.secondary, fontSize: FONT.size.md }}>
                 {totalErrors === 0 ? 'No errors recorded for this pipeline.' : 'No errors match your filters.'}
               </div>
             ) : (
-              filteredErrors.map(error => <ErrorEntry key={error.id} error={error} />)
+              filteredErrors.map((error) => (
+                <ErrorLogEntry
+                  key={error.id}
+                  error={error}
+                  onOpenDetails={(err) => setSelectedError(err)}
+                />
+              ))
             )}
           </div>
 
@@ -469,6 +344,12 @@ const ErrorLogViewer = () => {
           { label: 'Cancel', variant: 'secondary', onClick: () => setConfirmClear(false) },
           { label: 'Clear all errors', variant: 'danger', onClick: handleClear },
         ]}
+      />
+
+      {/* Detail Slider Drawer Modal */}
+      <ErrorDetailDrawer
+        error={selectedError}
+        onClose={() => setSelectedError(null)}
       />
     </ApiGuard>
   );

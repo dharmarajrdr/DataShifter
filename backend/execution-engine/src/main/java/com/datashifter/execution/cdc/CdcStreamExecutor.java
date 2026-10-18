@@ -33,13 +33,15 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
 /**
  * Executes continuous, real-time Change Data Capture (CDC) replication.
  * Manages the endless streaming lifecycle, event polling, segregation filtering,
  * micro-batch target replay, dual-tier checkpointing, and PAUSE/RESUME/STOP commands.
  */
 @Component
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Slf4j
 public class CdcStreamExecutor {
 

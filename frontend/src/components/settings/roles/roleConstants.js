@@ -3,6 +3,7 @@ export const PERMISSION_GROUPS = [
     label: 'Pipelines', permissions: [
       { key: 'pipeline:create', label: 'Create pipelines' },
       { key: 'pipeline:view', label: 'View pipelines' },
+      { key: 'pipeline:edit', label: 'Edit pipelines' },
       { key: 'pipeline:column-mapping', label: 'Column mapping' },
       { key: 'pipeline:delete', label: 'Delete pipelines' },
       { key: 'pipeline:run', label: 'Run pipelines' },

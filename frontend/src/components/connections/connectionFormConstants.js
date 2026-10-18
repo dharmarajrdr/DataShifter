@@ -1,11 +1,27 @@
 export const DB_TYPES = [
   { value: 'ORACLE', label: 'Oracle', defaultPort: 1521 },
   { value: 'POSTGRESQL', label: 'PostgreSQL', defaultPort: 5432 },
+  { value: 'S3', label: 'AWS S3', defaultPort: null },
   { value: 'SPANNER', label: 'Google Cloud Spanner', defaultPort: null },
 ];
 
 export const getFieldConfig = (dbType) => {
   switch (dbType) {
+    case 'S3':
+      return {
+        hostLabel: 'AWS Region',
+        hostPlaceholder: 'us-east-1',
+        showPort: false,
+        databaseLabel: 'Default S3 Bucket (Optional)',
+        databasePlaceholder: 'my-lake-bucket',
+        showSchema: false,
+        showCredentials: true,
+        usernameLabel: 'AWS Access Key ID',
+        usernamePlaceholder: 'AKIAIOSFODNN7EXAMPLE',
+        passwordLabel: 'AWS Secret Access Key',
+        passwordPlaceholder: 'Enter AWS Secret Access Key',
+        showServiceAccountKey: false,
+      };
     case 'ORACLE':
       return {
         hostLabel: 'Host',
