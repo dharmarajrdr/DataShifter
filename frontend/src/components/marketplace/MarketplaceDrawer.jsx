@@ -74,11 +74,6 @@ export const MarketplaceDrawer = ({
               ))}
             </div>
           </div>
-
-          <div id="drawer-permissions-section" className="space-y-1.5">
-            <h3 className="font-bold text-slate-900 text-sm">Required Database Privileges</h3>
-            <pre className="p-3 bg-slate-900 text-slate-200 rounded-lg font-mono text-[11px] overflow-x-auto">{adapter.permissions}</pre>
-          </div>
         </div>
 
         <div id="drawer-footer" className="p-4 px-6 border-t border-surface-200 bg-slate-50 flex items-center justify-between gap-3">
