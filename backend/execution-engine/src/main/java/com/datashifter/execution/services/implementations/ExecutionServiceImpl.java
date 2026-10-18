@@ -66,6 +66,7 @@ public class ExecutionServiceImpl implements ExecutionService {
     private final com.datashifter.execution.adapters.AdapterExecutionManager adapterExecutionManager;
     private final com.datashifter.execution.adapters.AdapterExecutionBridge adapterExecutionBridge;
     private final com.datashifter.execution.adapters.AdapterEnforcementService adapterEnforcementService;
+    private final ExecutionFailurePublisher executionFailurePublisher;
 
     @Override
     @Transactional
@@ -172,24 +173,7 @@ public class ExecutionServiceImpl implements ExecutionService {
             if (ctx != null) publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, "Stopped by user");
 
         } catch (Exception e) {
-            log.error("Pipeline failed: {} — {}", pipelineId, e.getMessage(), e);
-            if (pipeline != null) { pipeline.setStatus(PipelineStatus.ERRORED); pipelineRepo.saveAndFlush(pipeline); }
-            if (ctx != null) {
-                publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, e.getMessage());
-            } else {
-                // Context build failed — update status directly via DB and emit status event
-                pipelineRepo.findById(pipelineId).ifPresent(p -> {
-                    p.setStatus(PipelineStatus.ERRORED);
-                    pipelineRepo.saveAndFlush(p);
-                });
-                kafkaTemplate.send(KafkaTopics.PIPELINE_STATUS, StatusChangeEvent.builder()
-                        .pipelineId(pipelineId)
-                        .previousStatus(PipelineStatus.RUNNING)
-                        .newStatus(PipelineStatus.ERRORED)
-                        .reason(e.getMessage())
-                        .timestamp(Instant.now())
-                        .build());
-            }
+            executionFailurePublisher.handleExecutionFailure(pipelineId, executionLogId, pipeline, ctx, e);
         }
     }
 

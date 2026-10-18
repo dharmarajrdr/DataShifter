@@ -61,6 +61,7 @@ class ExecutionPipelineEnforcementTest {
     @Mock private AdapterExecutionManager adapterExecutionManager;
     @Mock private AdapterExecutionBridge adapterExecutionBridge;
     @Mock private AdapterEnforcementService adapterEnforcementService;
+    @Mock private com.datashifter.execution.services.implementations.ExecutionFailurePublisher executionFailurePublisher;
 
     @InjectMocks
     private ExecutionServiceImpl executionService;
@@ -85,13 +86,8 @@ class ExecutionPipelineEnforcementTest {
 
         executionService.execute("p-1", "log-1");
 
-        assertThat(pipeline.getStatus()).isEqualTo(PipelineStatus.ERRORED);
-        verify(pipelineRepo, atLeastOnce()).saveAndFlush(pipeline);
-
-        ArgumentCaptor<StatusChangeEvent> eventCaptor = ArgumentCaptor.forClass(StatusChangeEvent.class);
-        verify(kafkaTemplate).send(eq(KafkaTopics.PIPELINE_STATUS), eventCaptor.capture());
-        StatusChangeEvent event = eventCaptor.getValue();
-        assertThat(event.getNewStatus()).isEqualTo(PipelineStatus.ERRORED);
-        assertThat(event.getReason()).contains("Adapter \"postgres-reader\" and \"oracle-writer\" is missing. Please install from Marketplace.");
+        verify(executionFailurePublisher).handleExecutionFailure(
+                eq("p-1"), eq("log-1"), eq(pipeline), isNull(), any(DatashifterException.class));
     }
 }
+
