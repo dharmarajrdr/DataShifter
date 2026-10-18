@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -62,9 +63,8 @@ public class AdapterRegistryService {
         String adapterKey = primary.getAdapterKey();
         String displayName = (name != null && !name.isBlank()) ? name.trim() : primary.getName();
 
-        if (repository.existsByOrganizationIdAndAdapterKey(organizationId, adapterKey)) {
-            throw new DatashifterException("An adapter with key '" + adapterKey + "' already exists in your organization");
-        }
+        Optional<AdapterDefinition> existing = repository.findByOrganizationIdAndAdapterKey(organizationId, adapterKey);
+        String oldStorageKey = existing.map(AdapterDefinition::getStorageKey).orElse(null);
 
         String storageKey = organizationId + "/adapters/" + UUID.randomUUID() + "-" + file.getOriginalFilename();
         AdapterArtifactStorage.StoredArtifact stored;
@@ -75,28 +75,32 @@ public class AdapterRegistryService {
             throw new DatashifterException("Failed to store adapter artifact: " + e.getMessage(), e);
         }
 
-        AdapterDefinition entity = AdapterDefinition.builder()
+        AdapterDefinition entity = existing.orElseGet(() -> AdapterDefinition.builder()
                 .organizationId(organizationId)
                 .createdByUserId(userId)
-                .name(displayName)
                 .adapterKey(adapterKey)
-                .description((description != null && !description.isBlank()) ? description.trim() : primary.getDescription())
-                .adapterType(primary.getAdapterType())
-                .supportedMode(primary.getSupportedMode())
-                .category(primary.getCategory())
-                .version(primary.getVersion())
-                .status("READY")
-                .className(primary.getClassName())
-                .storageKey(storageKey)
-                .artifactName(file.getOriginalFilename())
-                .artifactSha256(stored.sha256())
-                .sizeBytes(stored.sizeBytes())
-                .configSchema(primary.getConfigSchema())
-                .isOfficial(false)
-                .build();
+                .build());
+
+        entity.setName(displayName);
+        entity.setDescription((description != null && !description.isBlank()) ? description.trim() : primary.getDescription());
+        entity.setAdapterType(primary.getAdapterType());
+        entity.setSupportedMode(primary.getSupportedMode());
+        entity.setCategory(primary.getCategory());
+        entity.setVersion(primary.getVersion());
+        entity.setStatus("READY");
+        entity.setClassName(primary.getClassName());
+        entity.setStorageKey(storageKey);
+        entity.setArtifactName(file.getOriginalFilename());
+        entity.setArtifactSha256(stored.sha256());
+        entity.setSizeBytes(stored.sizeBytes());
+        entity.setConfigSchema(primary.getConfigSchema());
+        entity.setIsOfficial(false);
 
         try {
             AdapterDefinition saved = repository.save(entity);
+            if (oldStorageKey != null && !oldStorageKey.equals(storageKey)) {
+                try { storage.delete(oldStorageKey); } catch (IOException ignored) {}
+            }
             log.info("Registered private custom adapter '{}' ({}) for org {}", displayName, adapterKey, organizationId);
             return toResponse(saved, true);
         } catch (RuntimeException e) {

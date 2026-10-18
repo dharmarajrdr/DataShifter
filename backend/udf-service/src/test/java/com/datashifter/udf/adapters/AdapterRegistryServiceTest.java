@@ -196,7 +196,7 @@ class AdapterRegistryServiceTest {
                 .configSchema("{\"properties\":[]}")
                 .build();
 
-        when(repository.existsByOrganizationIdAndAdapterKey("org-123", "discovered-writer")).thenReturn(false);
+        when(repository.findByOrganizationIdAndAdapterKey("org-123", "discovered-writer")).thenReturn(Optional.empty());
         when(discovery.discover(file)).thenReturn(List.of(discovered));
         when(storage.store(eq(file), anyString()))
                 .thenReturn(new AdapterArtifactStorage.StoredArtifact("sha256hash", 1024L, null));
