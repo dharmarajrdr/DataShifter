@@ -23,8 +23,16 @@ export const UdfLibraryPage = () => {
   const [error, setError] = useState(null); const [showUpload, setShowUpload] = useState(false);
 
   const canViewAdapters = hasPermission('adapter:view'); const canViewUdfs = hasPermission('udf:view');
-  const canCreateAdapters = hasPermission('adapter:create'); const canCreateUdfs = hasPermission('udf:create');
-  const canDeleteUdfs = hasPermission('udf:delete');
+  const canCreateAdapters = hasPermission('adapter:create'); const canCreateUdfs = hasPermission('udf:create'); const canDeleteUdfs = hasPermission('udf:delete');
+
+  const handleDownload = async (j) => {
+    if (!j) return;
+    try {
+      notification.info(`Downloading binary for ${j.name}...`);
+      await udfApi.download(j.id, j.artifactName || `${j.name}.jar`);
+      notification.success(`Downloaded ${j.artifactName || j.name}`);
+    } catch (e) { notification.error(e.message || 'Failed to download UDF JAR'); }
+  };
 
   useEffect(() => {
     if (!canViewAdapters && !canViewUdfs) return setLoading(false);
@@ -57,9 +65,7 @@ export const UdfLibraryPage = () => {
               <AdapterDetailPane adapter={selectedAdapter} onCreatePipeline={(a) => notification.info(`Starting pipeline with ${a.name}...`)} />
             </div>
           ) : (
-            <div id="section-forbidden-adapters" className="flex-1 flex items-center justify-center p-6 bg-surface-50">
-              <ForbiddenPage compact missingPermission="adapter:view" title="Access Restricted" message="You don't have permission to view Connector Adapters." showHome={false} showBack={false} />
-            </div>
+            <div id="section-forbidden-adapters" className="flex-1 flex items-center justify-center p-6 bg-surface-50"><ForbiddenPage compact missingPermission="adapter:view" title="Access Restricted" message="You don't have permission to view Connector Adapters." showHome={false} showBack={false} /></div>
           )
         ) : (
           canViewUdfs ? (
@@ -68,7 +74,7 @@ export const UdfLibraryPage = () => {
               <main id="udf-detail-pane" className="flex-1 overflow-y-auto p-4 lg:p-6 flex flex-col gap-4 bg-surface-50">
                 {selectedJar ? (
                   <>
-                    <UdfDetailHeader jar={selectedJar} canDelete={canDeleteUdfs} isDeleting={false} onDelete={() => {}} onDownload={() => notification.info(`Downloading binary for ${selectedJar.name}...`)} />
+                    <UdfDetailHeader jar={selectedJar} canDelete={canDeleteUdfs} isDeleting={false} onDelete={() => {}} onDownload={() => handleDownload(selectedJar)} />
                     <div id="udf-detail-tabs-bar" className="flex items-center gap-6 border-b border-surface-200">
                       <button id="udf-tab-methods" type="button" onClick={() => setUdfTab('methods')} className={`pb-2.5 text-xs font-medium border-b-2 transition-colors ${udfTab === 'methods' ? 'border-brand-600 text-brand-600 font-semibold' : 'border-transparent text-content-secondary hover:text-content-primary'}`}>Discovered Java Functions ({(selectedJar.functions || []).length})</button>
                       <button id="udf-tab-deps" type="button" onClick={() => setUdfTab('deps')} className={`pb-2.5 text-xs font-medium border-b-2 transition-colors ${udfTab === 'deps' ? 'border-brand-600 text-brand-600 font-semibold' : 'border-transparent text-content-secondary hover:text-content-primary'}`}>Pipeline Dependencies ({selectedJar.pipelineCount ?? 0})</button>
@@ -79,9 +85,7 @@ export const UdfLibraryPage = () => {
               </main>
             </div>
           ) : (
-            <div id="section-forbidden-udfs" className="flex-1 flex items-center justify-center p-6 bg-surface-50">
-              <ForbiddenPage compact missingPermission="udf:view" title="Access Restricted" message="You don't have permission to view User Defined Functions." showHome={false} showBack={false} />
-            </div>
+            <div id="section-forbidden-udfs" className="flex-1 flex items-center justify-center p-6 bg-surface-50"><ForbiddenPage compact missingPermission="udf:view" title="Access Restricted" message="You don't have permission to view User Defined Functions." showHome={false} showBack={false} /></div>
           )
         )}
         {showUpload && mainTab === 'adapters' && canCreateAdapters && <AdapterUploadModal onClose={() => setShowUpload(false)} onUploaded={(newAdp) => { setAdapters((p) => [newAdp, ...p]); setSelectedAdapterId(newAdp.id); notification.success(`Adapter "${newAdp.name}" installed successfully`); }} />}

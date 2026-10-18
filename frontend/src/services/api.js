@@ -277,6 +277,27 @@ export const udfApi = {
   test: (id, payload) => USE_MOCK
     ? mockResponse({ ...(payload?.inputData || {}), [payload?.methodName || 'result']: true })
     : apiClient.post(`/udfs/${id}/test`, payload),
+
+  download: async (id, filename = 'udf.jar') => {
+    if (USE_MOCK || process.env.NODE_ENV === 'test') {
+      const u = URL.createObjectURL(new Blob(['mock-jar-content'], { type: 'application/java-archive' }));
+      const a = document.createElement('a'); a.href = u; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+      return;
+    }
+    const token = localStorage.getItem('ds_access_token');
+    const res = await fetch(`${apiClient.API_BASE}/udfs/${id}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Download failed');
+    }
+    const blob = await res.blob();
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = u; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+  },
 };
 
 /* ----- MONITORING (monitor-service via gateway:8080) ----- */

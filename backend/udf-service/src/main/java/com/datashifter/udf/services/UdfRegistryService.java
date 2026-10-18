@@ -125,13 +125,29 @@ public class UdfRegistryService {
                 .stream().map(entity -> toResponse(entity, refCounts.get(entity.getName()))).toList();
     }
 
+    @Transactional(readOnly = true)
+    public UdfResponse getById(String id) {
+        UdfDefinition entity = findEntity(id);
+        return toResponse(entity, fetchReferenceCounts().get(entity.getName()));
+    }
+
+    public org.springframework.core.io.Resource loadArtifact(String id) {
+        UdfDefinition entity = findEntity(id);
+        if (entity.getStorageKey() == null || entity.getStorageKey().isBlank()) {
+            throw new DatashifterException("UDF artifact path not configured");
+        }
+        java.nio.file.Path path = storage.getFilePath(entity.getStorageKey());
+        if (!java.nio.file.Files.exists(path)) {
+            throw new DatashifterException("UDF artifact file not found on disk");
+        }
+        return new org.springframework.core.io.FileSystemResource(path);
+    }
+
     @Transactional
     @Tool(description = "Delete a registered User-Defined Function (UDF) by ID if it is not referenced in any pipeline column mapping.")
     public void delete(
             @ToolParam(description = "The unique ID of the UDF to delete") String id) {
-        String organizationId = requireContext(UserContext.getCurrentOrgId(), "organization");
-        UdfDefinition entity = repository.findById(id).orElseThrow(() -> new DatashifterException("UDF not found"));
-        if (!organizationId.equals(entity.getOrganizationId())) throw new DatashifterException("UDF not found or access denied");
+        UdfDefinition entity = findEntity(id);
 
         UdfReferenceCounts refCounts = fetchReferenceCounts().get(entity.getName());
         if (refCounts != null && (refCounts.pipelineCount() > 0 || refCounts.columnCount() > 0)) {
@@ -147,9 +163,7 @@ public class UdfRegistryService {
 
     @Transactional(readOnly = true)
     public java.util.Map<String, Object> testFunction(String id, String className, String methodName, java.util.Map<String, Object> inputData, UdfExecutionService executionService) {
-        String organizationId = requireContext(UserContext.getCurrentOrgId(), "organization");
-        UdfDefinition entity = repository.findById(id).orElseThrow(() -> new DatashifterException("UDF not found"));
-        if (!organizationId.equals(entity.getOrganizationId())) throw new DatashifterException("UDF not found or access denied");
+        UdfDefinition entity = findEntity(id);
 
         boolean functionExists = entity.getFunctions().stream()
                 .anyMatch(f -> f.getClassName().equals(className) && f.getMethodName().equals(methodName));
@@ -158,6 +172,13 @@ public class UdfRegistryService {
         }
 
         return executionService.testFunction(entity.getStorageKey(), className, methodName, inputData);
+    }
+
+    private UdfDefinition findEntity(String id) {
+        String organizationId = requireContext(UserContext.getCurrentOrgId(), "organization");
+        UdfDefinition entity = repository.findById(id).orElseThrow(() -> new DatashifterException("UDF not found"));
+        if (!organizationId.equals(entity.getOrganizationId())) throw new DatashifterException("UDF not found or access denied");
+        return entity;
     }
 
     private UdfResponse toResponse(UdfDefinition entity) {

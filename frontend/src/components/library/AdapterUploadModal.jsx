@@ -1,33 +1,28 @@
 import React, { useState } from 'react';
 import { UploadCloud, X } from 'lucide-react';
+import { adapterApi } from '../../services/adapterApi';
 
 export const AdapterUploadModal = ({ onClose, onUploaded }) => {
   const [file, setFile] = useState(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return;
     setUploading(true);
-    setTimeout(() => {
-      onUploaded({
-        id: `adp-custom-${Date.now()}`,
-        name: name || file.name.replace('.jar', ''),
-        adapterKey: (name || file.name.replace('.jar', '')).toLowerCase().replace(/\s+/g, '-'),
-        description,
-        adapterType: 'WRITER',
-        supportedMode: 'BATCH',
-        version: '1.0.0',
-        isOfficial: false,
-        sizeBytes: file.size,
-        configSchema: [],
-        pipelineCount: 0,
-      });
-      setUploading(false);
+    setError(null);
+    try {
+      const res = await adapterApi.upload(file, { name, description });
+      onUploaded(res.data);
       onClose();
-    }, 400);
+    } catch (err) {
+      setError(err.message || 'Failed to upload adapter');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -39,6 +34,8 @@ export const AdapterUploadModal = ({ onClose, onUploaded }) => {
             <X id="adapter-upload-close-icon" className="w-4 h-4" />
           </button>
         </div>
+
+        {error && <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">{error}</div>}
 
         <form id="adapter-upload-form" onSubmit={handleSubmit} className="space-y-4">
           <label id="adapter-dropzone-label" className="border-2 border-dashed border-surface-300 rounded-xl p-6 text-center bg-surface-50 hover:bg-surface-100/50 transition-colors cursor-pointer block">
@@ -54,7 +51,7 @@ export const AdapterUploadModal = ({ onClose, onUploaded }) => {
 
           <div id="adapter-upload-field-name">
             <label id="adapter-label-name" className="block text-[11px] font-semibold text-content-secondary uppercase mb-1">Adapter Name</label>
-            <input id="adapter-input-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Snowflake Custom Writer" className="w-full px-3 py-1.5 text-xs border border-surface-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none" />
+            <input id="adapter-input-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. PostgreSQL Database Reader" className="w-full px-3 py-1.5 text-xs border border-surface-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none" />
           </div>
 
           <div id="adapter-upload-field-desc">

@@ -25,7 +25,7 @@ export const UdfUploadModal = ({ onClose, onUploaded }) => {
     }
     setError(null);
     setFile(next);
-    if (!name) setName(next.name.replace(/\.jar$/i, ''));
+    setName(next.name.replace(/\.jar$/i, ''));
   };
 
   const handleSubmit = async () => {
@@ -72,7 +72,7 @@ export const UdfUploadModal = ({ onClose, onUploaded }) => {
             <label id="udf-upload-label-desc" className="block text-xs font-medium text-content-secondary mb-1">Description</label>
             <textarea id="udf-upload-input-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="What business logic does this JAR implement?" className="w-full px-3 py-2 text-xs bg-surface-50 border border-surface-300 rounded-lg text-content-primary focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none resize-none" />
           </div>
-          <input ref={inputRef} id="udf-upload-file-hidden" type="file" accept=".jar,application/java-archive" onChange={(e) => chooseFile(e.target.files)} className="hidden" />
+          <input ref={inputRef} id="udf-upload-file-hidden" type="file" accept=".jar,application/java-archive" onClick={(e) => { e.target.value = null; }} onChange={(e) => chooseFile(e.target.files)} className="hidden" />
           <div id="udf-upload-dropzone" onClick={() => inputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFile(e.dataTransfer.files); }} className={`p-6 border-2 border-dashed rounded-xl text-center cursor-pointer transition-colors ${file ? 'border-status-success bg-emerald-50/50' : 'border-surface-300 hover:border-brand-400 bg-surface-50 hover:bg-brand-50/30'}`}>
             <FileCode2 id="udf-upload-drop-icon" className={`w-8 h-8 mx-auto mb-2 ${file ? 'text-status-success' : 'text-content-tertiary'}`} />
             <p id="udf-upload-drop-text" className="text-xs font-semibold text-content-primary">{file ? file.name : 'Choose or drop a Java .jar binary'}</p>

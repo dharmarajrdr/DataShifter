@@ -7,7 +7,7 @@ export const MarketplaceDrawer = ({
   id = 'marketplace-drawer', className = '', adapter, isOpen = false, onClose, onToggleInstall,
 }) => {
   const [refCount, setRefCount] = useState(0);
-  useEffect(() => { setRefCount(adapter?.referencedPipelines?.length || 0); }, [adapter]);
+  useEffect(() => { setRefCount(adapter?.referencedPipelines?.length || adapter?.refCount || 0); }, [adapter]);
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape' && isOpen) onClose(); };
     window.addEventListener('keydown', h);
@@ -15,7 +15,7 @@ export const MarketplaceDrawer = ({
   }, [isOpen, onClose]);
 
   if (!isOpen || !adapter) return null;
-  const isBlocked = Boolean(adapter.installed && refCount > 0);
+  const isBlocked = Boolean(adapter.installed && (refCount > 0 || (adapter.refCount || 0) > 0));
 
   return (
     <div
