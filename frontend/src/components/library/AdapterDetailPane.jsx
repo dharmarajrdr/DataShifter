@@ -2,6 +2,7 @@ import React from 'react';
 import { Download, Play } from 'lucide-react';
 import AdapterConfigTable from './AdapterConfigTable';
 import AdapterPayloadPreview from './AdapterPayloadPreview';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const formatBytes = (bytes) => {
   if (!bytes) return '—';
@@ -10,6 +11,7 @@ const formatBytes = (bytes) => {
 };
 
 export const AdapterDetailPane = ({ adapter, onCreatePipeline }) => {
+  const notification = useNotification();
   if (!adapter) {
     return (
       <main id="adapter-detail-empty" className="flex-1 p-8 text-center text-xs text-content-tertiary font-sans">
@@ -46,7 +48,7 @@ export const AdapterDetailPane = ({ adapter, onCreatePipeline }) => {
             <button
               id="adapter-download-btn"
               type="button"
-              onClick={() => alert(`Downloading ${adapter.artifactName || adapter.adapterKey + '.jar'}...`)}
+              onClick={() => notification.info(`Downloading ${adapter.artifactName || adapter.adapterKey + '.jar'}...`)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-content-primary bg-white hover:bg-surface-50 border border-surface-300 rounded-lg shadow-subtle transition-colors"
             >
               <Download id="adapter-download-icon" className="w-3.5 h-3.5 text-content-secondary" />

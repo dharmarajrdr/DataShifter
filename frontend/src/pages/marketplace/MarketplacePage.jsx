@@ -5,9 +5,11 @@ import {
   MarketplaceCard, MarketplaceDrawer, ADAPTER_REGISTRY,
 } from '../../components/marketplace';
 import { marketplaceApi, mapCatalogItem } from '../../services/marketplaceApi';
+import { useNotification } from '../../contexts/NotificationContext';
 
 /** Adapter Marketplace Catalog Page (<= 100 lines). */
 export const MarketplacePage = ({ id = 'marketplace-page', className = '' }) => {
+  const notification = useNotification();
   const [adapters, setAdapters] = useState(ADAPTER_REGISTRY);
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,9 +38,10 @@ export const MarketplacePage = ({ id = 'marketplace-page', className = '' }) => 
       try {
         if (next) await marketplaceApi.install(target.id);
         else await marketplaceApi.uninstall(target.id);
+        notification.success(`Adapter '${target.name}' ${next ? 'installed' : 'uninstalled'} successfully`);
       } catch (err) {
         setAdapters((prev) => prev.map((a) => ((a.id === target.id || a.adapterKey === target.adapterKey) ? { ...a, installed: !next } : a)));
-        alert(err.message || 'Operation failed');
+        notification.error(err.message || 'Operation failed');
       }
     }
   };
