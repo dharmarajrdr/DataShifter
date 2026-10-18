@@ -33,10 +33,11 @@ public class AdapterArtifactResolver {
             if (Files.exists(p)) return openPath(p, adapterKey + ".jar");
         }
 
+        String home = System.getProperty("user.home", "");
         String[] searchPaths = new String[]{
-                "backend/adapters/" + adapterKey + "/target/" + adapterKey + "-0.1.0-SNAPSHOT.jar",
-                "backend/adapters/" + adapterKey + "/target/" + adapterKey + ".jar",
-                "adapters/" + adapterKey + "/target/" + adapterKey + "-0.1.0-SNAPSHOT.jar",
+                home + "/Documents/.datashifter/adapters/" + adapterKey + ".jar",
+                home + "/Documents/.datashifter/adapters/" + adapterKey + "-0.1.0-SNAPSHOT.jar",
+                "/var/lib/datashifter/adapters/" + adapterKey + ".jar",
                 "data/staged-adapters/" + adapterKey + ".jar",
                 "data/adapters/" + adapterKey + ".jar"
         };
