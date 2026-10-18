@@ -1,4 +1,3 @@
-import React from 'react';
 import { StatusBadge } from '../../common';
 import PipelineConnectorBadge from './PipelineConnectorBadge';
 
@@ -47,7 +46,7 @@ export const PipelineTableRow = ({
         </div>
       </td>
 
-      <td id={`${rowId}-cell-status`} className="px-4 py-3 text-left whitespace-nowrap">
+      <td id={`${rowId}-cell-status`} className="py-3 text-left whitespace-nowrap">
         <StatusBadge id={`${rowId}-status`} status={pipeline.status} />
       </td>
 
@@ -56,7 +55,7 @@ export const PipelineTableRow = ({
           {Math.round(progressVal)}%
         </div>
         <div id={`${rowId}-prog-status`} className="text-[11px] text-slate-400">
-          {pipeline.status === 'RUNNING' ? 'Streaming live' : 'Replication complete'}
+          {pipeline.status === 'RUNNING' ? 'Streaming live' : 'Processed'}
         </div>
       </td>
 
