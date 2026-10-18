@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { ApiGuard, BarLoader, Loader, PageHeader } from '../../components/common';
 import DragMappingBoard from '../../components/pipeline/DragMappingBoard';
 import {
@@ -7,7 +7,6 @@ import {
   MappingStatsBar, MappingValidationErrors, TransformPanel,
 } from '../../components/pipeline/mapping';
 import useMappingState from '../../components/pipeline/mapping/useMappingState';
-import { MAPPING as LIT } from '../../constants/literals';
 import { useAuth } from '../../contexts/AuthContext';
 import { ForbiddenPage } from '../ErrorPage';
 
@@ -20,7 +19,6 @@ const Backdrop = ({ onClick }) => (
  */
 export const ColumnMappingPage = () => {
   const { pipelineId } = useParams();
-  const navigate = useNavigate();
   const auth = useAuth() || {};
   const canView = auth.canViewPipeline ?? (auth.hasPermission ? auth.hasPermission('pipeline:view') : true);
   const canEdit = auth.canEditPipeline ?? (auth.hasPermission ? (auth.hasPermission('pipeline:column-mapping') || auth.hasPermission('pipeline:edit')) : true);
@@ -43,7 +41,6 @@ export const ColumnMappingPage = () => {
       {data && (
         <div id="column-mapping-page">
           <PageHeader
-            breadcrumbs={[{ label: data.pipelineName, onClick: () => navigate('/pipelines') }, { label: LIT.title }]}
             actions={<MappingHeaderActions status={data.status} hasChanges={hasChanges} canEdit={canEdit} validating={validating} saving={saving} validateDisabled={validateDisabled} onValidate={handleValidate} onAutoMap={handleAutoMap} onCancel={handleCancel} onSave={handleSave} />}
           />
           <MappingValidationErrors errors={valErrors} onDismiss={() => setValErrors([])} />
