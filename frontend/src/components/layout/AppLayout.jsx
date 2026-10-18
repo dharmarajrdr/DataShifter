@@ -1,24 +1,69 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import Sidebar from './Sidebar';
 import BeetelSplitPanel from '../ai/BeetelSplitPanel';
-import { SIDEBAR_WIDTH, SPACING } from '../../constants/design';
+import { Header } from './header';
+import { Sidebar } from './sidebar';
 
-const AppLayout = () => (
-  <div style={{ display: 'flex', minHeight: '100vh' }}>
-    <Sidebar />
-    <div style={{
-      marginLeft: SIDEBAR_WIDTH,
-      flex: 1,
-      padding: SPACING.xl,
-      minWidth: 0,
-      backgroundColor: '#fff'
-    }}>
-      <Outlet />
+const STORAGE_KEY = 'is_collapse';
+
+const getInitialCollapsed = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('is_collapsed');
+    return saved !== null ? JSON.parse(saved) : false;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * App layout shell with responsive collapsible sidebar and minimal header bar.
+ */
+export const AppLayout = ({ id = 'app-root-layout', className = '' }) => {
+  const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsed);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(isCollapsed));
+    } catch {}
+  }, [isCollapsed]);
+
+  const handleToggle = () => setIsCollapsed((prev) => !prev);
+
+  return (
+    <div id={id} className={`flex min-h-screen bg-surface-50 ${className}`}>
+      <Sidebar
+        id="main-sidebar"
+        isCollapsed={isCollapsed}
+        onToggleCollapse={handleToggle}
+      />
+
+      <div
+        id="app-main-container"
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ease-in-out
+          ${isCollapsed ? 'ml-16' : 'ml-60'}`}
+      >
+        <Header
+          id="main-top-header"
+          isSidebarCollapsed={isCollapsed}
+          onToggleSidebar={handleToggle}
+        />
+        <main
+          id="main-content-viewport"
+          className="flex-1 p-6 overflow-y-auto h-[calc(100vh-50px)] max-h-[calc(100vh-50px)]"
+          style={{
+            height: 'calc(100vh - 50px)',
+            maxHeight: 'calc(100vh - 50px)',
+          }}
+        >
+          <div className="w-full max-w-7xl mx-auto">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+
+      <BeetelSplitPanel />
     </div>
-    <BeetelSplitPanel />
-  </div>
-);
+  );
+};
 
 export default AppLayout;
-

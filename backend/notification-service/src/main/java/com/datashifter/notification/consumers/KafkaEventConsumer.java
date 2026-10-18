@@ -59,8 +59,11 @@ public class KafkaEventConsumer {
         payload.put("totalRowsProcessed", event.getTotalRowsProcessed());
         payload.put("overallProgress", event.getOverallProgress());
         payload.put("rowsPerSec", event.getRowsPerSec());
-        payload.put("avgRowsPerSec", event.getAvgRowsPerSec());
-        payload.put("inflightRecords", event.getInflightRecords());
+        java.util.List<?> inflight = event.getInflightRecords();
+        if (inflight != null && inflight.size() > 25) {
+            inflight = inflight.subList(Math.max(0, inflight.size() - 25), inflight.size());
+        }
+        payload.put("inflightRecords", inflight);
         payload.put("eta", event.getEta() != null ? event.getEta() : "—");
 
         dispatcher.dispatch(SseEvent.builder()

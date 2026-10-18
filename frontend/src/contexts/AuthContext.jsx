@@ -1,155 +1,77 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { authApi } from '../services/api';
+import {
+  clearAuthStorage, getStoredToken, getStoredUser,
+  REFRESH_KEY, saveAuthStorage, TOKEN_KEY, updateStoredUser, USER_KEY,
+} from './authStorage';
 
 const AuthContext = createContext(null);
 
-const TOKEN_KEY = 'ds_access_token';
-const REFRESH_KEY = 'ds_refresh_token';
-const USER_KEY = 'ds_user';
-
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; }
-  });
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
+  const [user, setUser] = useState(getStoredUser);
+  const [token, setToken] = useState(getStoredToken);
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const saveAuth = useCallback((tokenResponse) => {
-    localStorage.setItem(TOKEN_KEY, tokenResponse.accessToken);
-    localStorage.setItem(REFRESH_KEY, tokenResponse.refreshToken);
-    localStorage.setItem(USER_KEY, JSON.stringify(tokenResponse.user));
-    setToken(tokenResponse.accessToken);
-    setUser(tokenResponse.user);
-  }, []);
-
-  const clearAuth = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-    localStorage.removeItem(USER_KEY);
-    setToken(null);
-    setUser(null);
-    setOrganizations([]);
-  }, []);
-
-  /** Fetch org list from API — always fresh */
-  const refreshOrganizations = useCallback(() => {
-    authApi.myOrganizations()
-      .then(res => setOrganizations(res.data || []))
-      .catch(() => setOrganizations([]));
-  }, []);
+  const saveAuth = useCallback((res) => { saveAuthStorage(res); setToken(res.accessToken); setUser(res.user); }, []);
+  const clearAuth = useCallback(() => { clearAuthStorage(); setToken(null); setUser(null); setOrganizations([]); }, []);
+  const refreshOrganizations = useCallback(() => { authApi.myOrganizations().then((r) => setOrganizations(r.data || [])).catch(() => setOrganizations([])); }, []);
 
   const login = useCallback(async (email, password) => {
     setLoading(true);
-    try {
-      const res = await authApi.login({ email, password });
-      saveAuth(res.data);
-      return res.data;
-    } finally {
-      setLoading(false);
-    }
+    try { const res = await authApi.login({ email, password }); saveAuth(res.data); return res.data; } finally { setLoading(false); }
   }, [saveAuth]);
 
   const signup = useCallback(async (payload) => {
     setLoading(true);
-    try {
-      const res = await authApi.signup(payload);
-      saveAuth(res.data);
-      return res.data;
-    } finally {
-      setLoading(false);
-    }
+    try { const res = await authApi.signup(payload); saveAuth(res.data); return res.data; } finally { setLoading(false); }
   }, [saveAuth]);
 
-  const logout = useCallback(() => {
-    clearAuth();
-  }, [clearAuth]);
+  const logout = useCallback(() => clearAuth(), [clearAuth]);
 
   const refreshToken = useCallback(async () => {
     const refresh = localStorage.getItem(REFRESH_KEY);
-    if (!refresh) { clearAuth(); return; }
-    try {
-      const res = await authApi.refresh({ refreshToken: refresh });
-      saveAuth(res.data);
-    } catch {
-      clearAuth();
-    }
+    if (!refresh) return clearAuth();
+    try { const res = await authApi.refresh({ refreshToken: refresh }); saveAuth(res.data); } catch { clearAuth(); }
   }, [saveAuth, clearAuth]);
 
   const hasPermission = useCallback((permission) => {
-    if (!user || !user.effectivePermissions) return false;
-    return user.effectivePermissions.includes(permission);
+    if (!user?.effectivePermissions) return false;
+    const p = user.effectivePermissions;
+    if (permission === 'settings:edit' || permission === 'pipeline:settings') return p.includes('pipeline:settings') || p.includes('settings:edit');
+    if (permission === 'pipeline:edit' || permission === 'pipeline:column-mapping') return p.includes('pipeline:column-mapping') || p.includes('pipeline:edit');
+    return p.includes(permission);
   }, [user]);
 
-  const hasAnyPermission = useCallback((...perms) => {
-    return perms.some(p => hasPermission(p));
-  }, [hasPermission]);
+  const hasAnyPermission = useCallback((...perms) => perms.some((p) => hasPermission(p)), [hasPermission]);
 
-  /** Switch to a different org — gets new tokens scoped to that org */
   const switchOrg = useCallback(async (orgId) => {
     setLoading(true);
-    try {
-      const res = await authApi.switchOrg(orgId);
-      saveAuth(res.data);
-      return res.data;
-    } finally {
-      setLoading(false);
-    }
+    try { const res = await authApi.switchOrg(orgId); saveAuth(res.data); return res.data; } finally { setLoading(false); }
   }, [saveAuth]);
 
-  /** Update the cached user after profile edit — syncs state + localStorage */
-  const updateUser = useCallback((updatedUser) => {
-    const merged = { ...user, ...updatedUser };
-    localStorage.setItem(USER_KEY, JSON.stringify(merged));
-    setUser(merged);
-  }, [user]);
+  const updateUser = useCallback((u) => setUser(updateStoredUser(u, user)), [user]);
 
-  // Refresh the cached user on startup so role permission changes are reflected.
   useEffect(() => {
     if (token) {
-      // Account-only tokens have no AppUser id until an invite is accepted or an org is created.
-      if (!user?.id) {
-        refreshOrganizations();
-        return;
-      }
-      authApi.me().then(res => {
-        localStorage.setItem(USER_KEY, JSON.stringify(res.data));
-        setUser(res.data);
-      }).catch(() => clearAuth());
+      if (!user?.id) return refreshOrganizations();
+      authApi.me().then((r) => { localStorage.setItem(USER_KEY, JSON.stringify(r.data)); setUser(r.data); }).catch(() => clearAuth());
       refreshOrganizations();
     }
   }, [token, user?.id, clearAuth, refreshOrganizations]);
 
   useEffect(() => {
-    const handleAuthUpdated = () => {
-      try {
-        const storedUser = JSON.parse(localStorage.getItem(USER_KEY));
-        setToken(localStorage.getItem(TOKEN_KEY));
-        setUser(storedUser);
-      } catch {
-        clearAuth();
-      }
+    const onAuth = () => {
+      try { setToken(localStorage.getItem(TOKEN_KEY)); setUser(JSON.parse(localStorage.getItem(USER_KEY))); } catch { clearAuth(); }
     };
-    window.addEventListener('ds-auth-updated', handleAuthUpdated);
-    return () => window.removeEventListener('ds-auth-updated', handleAuthUpdated);
+    window.addEventListener('ds-auth-updated', onAuth);
+    return () => window.removeEventListener('ds-auth-updated', onAuth);
   }, [clearAuth]);
 
   const value = {
-    user,
-    token,
-    loading,
-    organizations,
-    isAuthenticated: !!token && !!user,
-    hasOrg: !!user?.orgId,
-    login,
-    signup,
-    logout,
-    refreshToken,
-    switchOrg,
-    updateUser,
-    refreshOrganizations,
-    hasPermission,
-    hasAnyPermission,
+    user, token, loading, organizations, isAuthenticated: !!token && !!user,
+    hasOrg: !!user?.orgId, login, signup, logout, refreshToken, switchOrg,
+    updateUser, refreshOrganizations, hasPermission, hasAnyPermission,
     permissions: user?.effectivePermissions || [],
   };
 

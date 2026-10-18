@@ -16,19 +16,22 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/v1/pipelines/{pipelineId}/settings")
-@RequiredArgsConstructor
 public class SettingsController {
 
     private final PipelineService pipelineService;
 
+    public SettingsController(PipelineService pipelineService) {
+        this.pipelineService = pipelineService;
+    }
+
     @GetMapping
-    @RequiresPermission(Permissions.SETTINGS_EDIT)
+    @RequiresPermission(Permissions.PIPELINE_SETTINGS)
     public ApiResponse<PipelineResponse> getSettings(@PathVariable String pipelineId) {
         return ApiResponse.success(pipelineService.getById(pipelineId));
     }
 
     @PutMapping
-    @RequiresPermission(Permissions.SETTINGS_EDIT)
+    @RequiresPermission(Permissions.PIPELINE_SETTINGS)
     public ApiResponse<PipelineResponse> updateSettings(
             @PathVariable String pipelineId,
             @RequestBody UpdatePipelineRequest request) {
@@ -36,7 +39,7 @@ public class SettingsController {
     }
 
     @PostMapping("/tables")
-    @RequiresPermission(Permissions.SETTINGS_EDIT)
+    @RequiresPermission(Permissions.PIPELINE_SETTINGS)
     public ApiResponse<PipelineResponse> addTablePair(
             @PathVariable String pipelineId,
             @RequestBody AddTablePairRequest request) {
@@ -44,7 +47,7 @@ public class SettingsController {
     }
 
     @DeleteMapping("/tables/{pipelineTableId}")
-    @RequiresPermission(Permissions.SETTINGS_EDIT)
+    @RequiresPermission(Permissions.PIPELINE_SETTINGS)
     public ApiResponse<PipelineResponse> removeTablePair(
             @PathVariable String pipelineId,
             @PathVariable String pipelineTableId) {

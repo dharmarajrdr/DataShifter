@@ -52,6 +52,8 @@ public class PipelineServiceImpl implements PipelineService {
     private final com.datashifter.connector.repositories.ConnectionRepository connectionRepository;
     private final CommonWorkflowNodeRepository workflowNodeRepository;
     private final WorkflowService workflowService;
+    private final EngineLivenessService engineLivenessService;
+    private final PipelineAdapterValidator pipelineAdapterValidator;
 
     // =========================================================================
     // CREATE — builds PipelineTable + TargetTableMapping entries
@@ -83,11 +85,16 @@ public class PipelineServiceImpl implements PipelineService {
                 .createdBy(createdBy)
                 .sourceConnectionId(req.getSourceConnectionId())
                 .targetConnectionId(req.getTargetConnectionId())
+                .sourceAdapterId(req.getSourceAdapterId())
+                .targetAdapterId(req.getTargetAdapterId())
+                .sourceConfig(req.getSourceConfig())
+                .targetConfig(req.getTargetConfig())
                 .chunkSize(req.getChunkSize() != null ? req.getChunkSize() : 10000)
                 .defaultWriteMode(req.getDefaultWriteMode() != null ? req.getDefaultWriteMode() : WriteMode.UPSERT)
                 .ignoreExceptions(req.getIgnoreExceptions() != null ? req.getIgnoreExceptions() : false)
                 .maxErrorThreshold(req.getMaxErrorThreshold() != null ? req.getMaxErrorThreshold() : 1000)
                 .logSourceRow(req.getLogSourceRow() != null ? req.getLogSourceRow() : true)
+                .clearLogsOnStart(req.getClearLogsOnStart() != null ? req.getClearLogsOnStart() : true)
                 .pipelineMode(req.getPipelineMode() != null ? req.getPipelineMode() : PipelineMode.BATCH)
                 .cdcDirectoryPath(req.getCdcDirectoryPath())
                 .cdcFilePattern(req.getCdcFilePattern())
@@ -163,6 +170,10 @@ public class PipelineServiceImpl implements PipelineService {
 
         if (req.getName() != null) entity.setName(req.getName());
         if (req.getDescription() != null) entity.setDescription(req.getDescription());
+        if (req.getSourceAdapterId() != null) entity.setSourceAdapterId(req.getSourceAdapterId());
+        if (req.getTargetAdapterId() != null) entity.setTargetAdapterId(req.getTargetAdapterId());
+        if (req.getSourceConfig() != null) entity.setSourceConfig(req.getSourceConfig());
+        if (req.getTargetConfig() != null) entity.setTargetConfig(req.getTargetConfig());
         if (req.getChunkSize() != null) entity.setChunkSize(req.getChunkSize());
         if (req.getDefaultWriteMode() != null) entity.setDefaultWriteMode(req.getDefaultWriteMode());
         if (req.getIgnoreExceptions() != null) entity.setIgnoreExceptions(req.getIgnoreExceptions());
@@ -171,6 +182,7 @@ public class PipelineServiceImpl implements PipelineService {
         if (req.getSourcePoolSize() != null) entity.setSourcePoolSize(req.getSourcePoolSize());
         if (req.getTargetPoolSize() != null) entity.setTargetPoolSize(req.getTargetPoolSize());
         if (req.getPreviewInflightRecords() != null) entity.setPreviewInflightRecords(req.getPreviewInflightRecords());
+        if (req.getClearLogsOnStart() != null) entity.setClearLogsOnStart(req.getClearLogsOnStart());
         if (req.getPipelineMode() != null) entity.setPipelineMode(req.getPipelineMode());
         if (req.getCdcDirectoryPath() != null) entity.setCdcDirectoryPath(req.getCdcDirectoryPath());
         if (req.getCdcFilePattern() != null) entity.setCdcFilePattern(req.getCdcFilePattern());
@@ -372,26 +384,44 @@ public class PipelineServiceImpl implements PipelineService {
                         .filter(p -> p.getStatus() == PipelineStatus.RUNNING).count();
                 limitChecker.assertCanRunParallel(orgId2, runningCount);
 
+                // Verify execution engine is running before starting or clearing state
+                if (!engineLivenessService.isEngineAlive()) {
+                    engineLivenessService.handleEngineOffline(id, true);
+                    throw new DatashifterException(EngineLivenessService.OFFLINE_MSG);
+                }
+
+                // Verify required adapters are installed before starting
+                pipelineAdapterValidator.validateAdapters(entity);
+
                 // When starting or re-running from scratch (START), remove existing chunk_cursors, error_logs, and checkpoints
+                boolean shouldClearLogs = entity.getClearLogsOnStart() == null || entity.getClearLogsOnStart();
+
                 if (action.getAction() == PipelineAction.START) {
                     int deletedCursors = entityManager.createQuery("DELETE FROM ChunkCursor c WHERE c.pipelineId = :pipelineId")
                             .setParameter("pipelineId", id)
                             .executeUpdate();
-                    entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
-                            .setParameter("pipelineId", id)
-                            .executeUpdate();
+                    if (shouldClearLogs) {
+                        entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
+                                .setParameter("pipelineId", id)
+                                .executeUpdate();
+                    }
                     var checkpointKeys = redisTemplate.keys("pipeline:" + id + ":table:*:checkpoint");
                     if (checkpointKeys != null && !checkpointKeys.isEmpty()) {
                         redisTemplate.delete(checkpointKeys);
                     }
-                    redisTemplate.delete("pipeline:" + id + ":stats");
-                    log.info("Cleared {} chunk_cursors, error_logs, and Redis checkpoints for pipeline {} on START", deletedCursors, id);
+                    if (shouldClearLogs) {
+                        redisTemplate.delete("pipeline:" + id + ":stats");
+                    }
+                    log.info("Cleared {} chunk_cursors, error_logs (cleared={}), and Redis checkpoints for pipeline {} on START",
+                            deletedCursors, shouldClearLogs, id);
                 } else {
-                    entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
-                            .setParameter("pipelineId", id)
-                            .executeUpdate();
-                    if (redisTemplate.opsForHash() != null) {
-                        redisTemplate.opsForHash().put("pipeline:" + id + ":stats", "errorsSkipped", "0");
+                    if (shouldClearLogs) {
+                        entityManager.createQuery("DELETE FROM ErrorLog e WHERE e.pipelineId = :pipelineId")
+                                .setParameter("pipelineId", id)
+                                .executeUpdate();
+                        if (redisTemplate.opsForHash() != null) {
+                            redisTemplate.opsForHash().put("pipeline:" + id + ":stats", "errorsSkipped", "0");
+                        }
                     }
                 }
 
@@ -605,11 +635,14 @@ public class PipelineServiceImpl implements PipelineService {
         return PipelineResponse.builder()
                 .id(e.getId()).name(e.getName()).description(e.getDescription())
                 .sourceConnectionId(e.getSourceConnectionId()).targetConnectionId(e.getTargetConnectionId())
+                .sourceAdapterId(e.getSourceAdapterId()).targetAdapterId(e.getTargetAdapterId())
+                .sourceConfig(e.getSourceConfig()).targetConfig(e.getTargetConfig())
                 .status(e.getStatus()).chunkSize(e.getChunkSize()).defaultWriteMode(e.getDefaultWriteMode())
                 .ignoreExceptions(e.getIgnoreExceptions()).maxErrorThreshold(e.getMaxErrorThreshold())
                 .logSourceRow(e.getLogSourceRow())
                 .sourcePoolSize(e.getSourcePoolSize()).targetPoolSize(e.getTargetPoolSize())
                 .previewInflightRecords(e.getPreviewInflightRecords())
+                .clearLogsOnStart(e.getClearLogsOnStart() != null ? e.getClearLogsOnStart() : true)
                 .pipelineMode(e.getPipelineMode())
                 .cdcDirectoryPath(e.getCdcDirectoryPath())
                 .cdcFilePattern(e.getCdcFilePattern())
@@ -648,6 +681,8 @@ public class PipelineServiceImpl implements PipelineService {
                 .id(e.getId()).name(e.getName()).status(e.getStatus())
                 .sourceConnectionId(e.getSourceConnectionId())
                 .targetConnectionId(e.getTargetConnectionId())
+                .sourceAdapterId(e.getSourceAdapterId())
+                .targetAdapterId(e.getTargetAdapterId())
                 .pipelineMode(e.getPipelineMode())
                 .progress(progress)
                 .validationErrors(mappingService.parseValidationErrors(e.getValidationErrors()))
@@ -761,6 +796,10 @@ public class PipelineServiceImpl implements PipelineService {
                 .description(pipeline.getDescription())
                 .sourceConnectionName(sourceConnName)
                 .targetConnectionName(targetConnName)
+                .sourceAdapterId(pipeline.getSourceAdapterId())
+                .targetAdapterId(pipeline.getTargetAdapterId())
+                .sourceConfig(pipeline.getSourceConfig())
+                .targetConfig(pipeline.getTargetConfig())
                 .chunkSize(pipeline.getChunkSize())
                 .defaultWriteMode(pipeline.getDefaultWriteMode())
                 .ignoreExceptions(pipeline.getIgnoreExceptions())
@@ -881,31 +920,40 @@ public class PipelineServiceImpl implements PipelineService {
         }
 
         // Verify source and target connections are resolved
-        String srcName = pipeConfig.getSourceConnectionName().trim();
-        String tgtName = pipeConfig.getTargetConnectionName().trim();
-
-        Connection srcConn = connectionMap.get(srcName);
-        if (srcConn == null) {
-            var existing = connectionRepository.findByNameAndOrgId(srcName, orgId);
-            if (existing.isPresent()) {
-                srcConn = existing.get();
-                connectionMap.put(srcName, srcConn);
-                existingConnectionNames.add(srcName);
-            } else {
-                errors.add("Source connection '" + srcName + "' not found and not provided in connections list.");
+        Connection srcConn = null;
+        if (pipeConfig.getSourceConnectionName() != null && !pipeConfig.getSourceConnectionName().isBlank()) {
+            String srcName = pipeConfig.getSourceConnectionName().trim();
+            srcConn = connectionMap.get(srcName);
+            if (srcConn == null) {
+                var existing = connectionRepository.findByNameAndOrgId(srcName, orgId);
+                if (existing.isPresent()) {
+                    srcConn = existing.get();
+                    connectionMap.put(srcName, srcConn);
+                    existingConnectionNames.add(srcName);
+                } else if (pipeConfig.getSourceAdapterId() == null || pipeConfig.getSourceAdapterId().isBlank()) {
+                    errors.add("Source connection '" + srcName + "' not found and not provided in connections list.");
+                }
             }
+        } else if (pipeConfig.getSourceAdapterId() == null || pipeConfig.getSourceAdapterId().isBlank()) {
+            errors.add("Either sourceConnectionName or sourceAdapterId must be provided.");
         }
 
-        Connection tgtConn = connectionMap.get(tgtName);
-        if (tgtConn == null) {
-            var existing = connectionRepository.findByNameAndOrgId(tgtName, orgId);
-            if (existing.isPresent()) {
-                tgtConn = existing.get();
-                connectionMap.put(tgtName, tgtConn);
-                existingConnectionNames.add(tgtName);
-            } else {
-                errors.add("Target connection '" + tgtName + "' not found and not provided in connections list.");
+        Connection tgtConn = null;
+        if (pipeConfig.getTargetConnectionName() != null && !pipeConfig.getTargetConnectionName().isBlank()) {
+            String tgtName = pipeConfig.getTargetConnectionName().trim();
+            tgtConn = connectionMap.get(tgtName);
+            if (tgtConn == null) {
+                var existing = connectionRepository.findByNameAndOrgId(tgtName, orgId);
+                if (existing.isPresent()) {
+                    tgtConn = existing.get();
+                    connectionMap.put(tgtName, tgtConn);
+                    existingConnectionNames.add(tgtName);
+                } else if (pipeConfig.getTargetAdapterId() == null || pipeConfig.getTargetAdapterId().isBlank()) {
+                    errors.add("Target connection '" + tgtName + "' not found and not provided in connections list.");
+                }
             }
+        } else if (pipeConfig.getTargetAdapterId() == null || pipeConfig.getTargetAdapterId().isBlank()) {
+            errors.add("Either targetConnectionName or targetAdapterId must be provided.");
         }
 
         if (!errors.isEmpty()) {
@@ -924,8 +972,12 @@ public class PipelineServiceImpl implements PipelineService {
                 .name(pipeConfig.getName().trim())
                 .description(pipeConfig.getDescription())
                 .createdBy(currentUser)
-                .sourceConnectionId(srcConn.getId())
-                .targetConnectionId(tgtConn.getId())
+                .sourceConnectionId(srcConn != null ? srcConn.getId() : null)
+                .targetConnectionId(tgtConn != null ? tgtConn.getId() : null)
+                .sourceAdapterId(pipeConfig.getSourceAdapterId())
+                .targetAdapterId(pipeConfig.getTargetAdapterId())
+                .sourceConfig(pipeConfig.getSourceConfig())
+                .targetConfig(pipeConfig.getTargetConfig())
                 .chunkSize(pipeConfig.getChunkSize() != null ? pipeConfig.getChunkSize() : 10000)
                 .defaultWriteMode(pipeConfig.getDefaultWriteMode() != null ? pipeConfig.getDefaultWriteMode() : WriteMode.UPSERT)
                 .ignoreExceptions(pipeConfig.getIgnoreExceptions() != null ? pipeConfig.getIgnoreExceptions() : false)

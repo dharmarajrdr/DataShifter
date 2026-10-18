@@ -22,21 +22,10 @@ export const NotificationProvider = ({ children }) => {
     []
   );
 
-  const success = useCallback((message, title, options = {}) => {
-    return notify({ type: 'success', message, title, ...options });
-  }, [notify]);
-
-  const error = useCallback((message, title, options = {}) => {
-    return notify({ type: 'error', message, title, ...options });
-  }, [notify]);
-
-  const info = useCallback((message, title, options = {}) => {
-    return notify({ type: 'info', message, title, ...options });
-  }, [notify]);
-
-  const warning = useCallback((message, title, options = {}) => {
-    return notify({ type: 'warning', message, title, ...options });
-  }, [notify]);
+  const success = useCallback((message, title, options = {}) => notify({ type: 'success', message, title, ...options }), [notify]);
+  const error = useCallback((message, title, options = {}) => notify({ type: 'error', message, title, ...options }), [notify]);
+  const info = useCallback((message, title, options = {}) => notify({ type: 'info', message, title, ...options }), [notify]);
+  const warning = useCallback((message, title, options = {}) => notify({ type: 'warning', message, title, ...options }), [notify]);
 
   const contextValue = useMemo(
     () => ({ notify, success, error, info, warning, dismiss }),
@@ -46,13 +35,13 @@ export const NotificationProvider = ({ children }) => {
   return (
     <NotificationContext.Provider value={contextValue}>
       {children}
-      {/* Render active notifications */}
       {notifications.map((n, index) => {
-        // Offset multiple stacked notifications
         const offset = index * 64;
         return (
           <div
             key={n.id}
+            id={`notification-item-${n.id}`}
+            className="ds-notification-item"
             style={{
               position: 'fixed',
               bottom: `calc(var(--notification-position-bottom, 20px) + ${offset}px)`,
@@ -68,6 +57,7 @@ export const NotificationProvider = ({ children }) => {
               message={n.message}
               duration={n.duration}
               position={n.position}
+              isFixed={false}
               onDismiss={() => dismiss(n.id)}
             />
           </div>
@@ -78,20 +68,12 @@ export const NotificationProvider = ({ children }) => {
 };
 
 const fallbackNotification = {
-  notify: () => '',
-  success: () => '',
-  error: () => '',
-  info: () => '',
-  warning: () => '',
-  dismiss: () => { },
+  notify: () => '', success: () => '', error: () => '', info: () => '', warning: () => '', dismiss: () => {},
 };
 
 export const useNotification = () => {
   const context = useContext(NotificationContext);
-  if (!context) {
-    return fallbackNotification;
-  }
-  return context;
+  return context || fallbackNotification;
 };
 
 export const useNotify = useNotification;

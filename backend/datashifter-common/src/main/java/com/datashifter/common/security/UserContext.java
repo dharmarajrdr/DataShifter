@@ -44,6 +44,10 @@ public class UserContext {
         return ctx != null ? ctx.getOrgId() : null;
     }
 
+    public static String getOrgId() {
+        return getCurrentOrgId();
+    }
+
     public static String getCurrentRole() {
         Context ctx = CONTEXT.get();
         return ctx != null ? ctx.getRole() : null;
@@ -51,7 +55,17 @@ public class UserContext {
 
     public static boolean hasPermission(String permission) {
         Context ctx = CONTEXT.get();
-        return ctx != null && ctx.getPermissions() != null && ctx.getPermissions().contains(permission);
+        if (ctx == null || ctx.getPermissions() == null) return false;
+        if (ctx.getPermissions().contains(permission)) return true;
+        if (com.datashifter.common.enums.Permissions.PIPELINE_EDIT.equals(permission)
+                && ctx.getPermissions().contains(com.datashifter.common.enums.Permissions.PIPELINE_COLUMN_MAPPING)) {
+            return true;
+        }
+        if (com.datashifter.common.enums.Permissions.PIPELINE_COLUMN_MAPPING.equals(permission)
+                && ctx.getPermissions().contains(com.datashifter.common.enums.Permissions.PIPELINE_EDIT)) {
+            return true;
+        }
+        return false;
     }
 
     public static void assertPermission(String permission) {

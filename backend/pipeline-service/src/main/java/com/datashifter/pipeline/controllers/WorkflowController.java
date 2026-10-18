@@ -29,36 +29,31 @@ public class WorkflowController {
 
     @PutMapping("/{id}")
     @RequiresPermission(Permissions.WORKFLOW_EDIT)
-    public ApiResponse<WorkflowResponse> update(@PathVariable String id,
-                                                @RequestBody UpdateWorkflowRequest request) {
+    public ApiResponse<WorkflowResponse> update(@PathVariable String id, @RequestBody UpdateWorkflowRequest request) {
         return ApiResponse.success(workflowService.update(id, request), "Workflow updated");
     }
 
     @PutMapping("/{id}/canvas")
     @RequiresPermission(Permissions.WORKFLOW_EDIT)
-    public ApiResponse<WorkflowResponse> saveCanvas(@PathVariable String id,
-                                                    @RequestBody SaveWorkflowCanvasRequest request) {
+    public ApiResponse<WorkflowResponse> saveCanvas(@PathVariable String id, @RequestBody SaveWorkflowCanvasRequest request) {
         return ApiResponse.success(workflowService.saveCanvas(id, request), "Workflow steps saved");
     }
 
     @PostMapping("/{id}/pipelines")
     @RequiresPermission(Permissions.WORKFLOW_EDIT)
-    public ApiResponse<WorkflowResponse> addPipelines(@PathVariable String id,
-                                                      @RequestBody AddWorkflowPipelinesRequest request) {
+    public ApiResponse<WorkflowResponse> addPipelines(@PathVariable String id, @RequestBody AddWorkflowPipelinesRequest request) {
         return ApiResponse.success(workflowService.addPipelines(id, request), "Pipelines added to workflow");
     }
 
     @DeleteMapping("/{id}/pipelines/{pipelineId}")
     @RequiresPermission(Permissions.WORKFLOW_EDIT)
-    public ApiResponse<WorkflowResponse> removePipeline(@PathVariable String id,
-                                                        @PathVariable String pipelineId) {
+    public ApiResponse<WorkflowResponse> removePipeline(@PathVariable String id, @PathVariable String pipelineId) {
         return ApiResponse.success(workflowService.removePipeline(id, pipelineId), "Pipeline removed from workflow");
     }
 
     @GetMapping("/eligible-pipelines")
     @RequiresPermission(Permissions.WORKFLOW_VIEW)
-    public ApiResponse<List<PipelineSummaryResponse>> getEligiblePipelines(
-            @RequestParam(required = false) String workflowId) {
+    public ApiResponse<List<PipelineSummaryResponse>> getEligiblePipelines(@RequestParam(required = false) String workflowId) {
         return ApiResponse.success(workflowService.getEligiblePipelines(workflowId));
     }
 
@@ -81,15 +76,20 @@ public class WorkflowController {
         workflowService.delete(id);
     }
 
+    @PostMapping("/{id}/validate-pipelines")
+    @RequiresPermission(anyOf = {Permissions.WORKFLOW_EDIT, Permissions.PIPELINE_EDIT})
+    public ApiResponse<WorkflowResponse> validatePipelines(@PathVariable String id) {
+        WorkflowResponse resp = workflowService.validatePipelines(id);
+        long bad = resp.getNodes() == null ? 0 : resp.getNodes().stream()
+                .filter(n -> n.getPipelineStatus() != com.datashifter.common.enums.PipelineStatus.VALIDATED).count();
+        return ApiResponse.success(resp, bad == 0 ? "Pipelines validated" : bad + " pipeline(s) failed validation");
+    }
+
     @PostMapping("/{id}/actions")
     @RequiresPermission(anyOf = {
-            Permissions.WORKFLOW_RUN,
-            Permissions.WORKFLOW_PAUSE,
-            Permissions.WORKFLOW_STOP
+            Permissions.WORKFLOW_RUN, Permissions.WORKFLOW_PAUSE, Permissions.WORKFLOW_STOP, Permissions.WORKFLOW_EDIT
     })
-    public ApiResponse<WorkflowResponse> performAction(@PathVariable String id,
-                                                       @RequestBody WorkflowActionRequest action) {
+    public ApiResponse<WorkflowResponse> performAction(@PathVariable String id, @RequestBody WorkflowActionRequest action) {
         return ApiResponse.success(workflowService.performAction(id, action));
     }
 }
-

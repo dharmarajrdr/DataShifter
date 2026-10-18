@@ -1,4 +1,17 @@
 export { default as AddWorkflowStepPill } from './AddWorkflowStepPill';
+export { default as WorkflowAddStepInspector } from './WorkflowAddStepInspector';
+export { default as WorkflowBuilderHeader } from './WorkflowBuilderHeader';
 export { default as WorkflowCanvas } from './WorkflowCanvas';
-export { default as WorkflowInspectorPanel } from './WorkflowInspectorPanel';
+export { default as WorkflowCanvasToolbar } from './WorkflowCanvasToolbar';
+export { default as WorkflowCanvasWires } from './WorkflowCanvasWires';
+export { default as WorkflowEdgeBadges } from './WorkflowEdgeBadges';
+export { default as WorkflowEdgeInspector } from './WorkflowEdgeInspector';
+export { default as WorkflowInspectorHeader } from './WorkflowInspectorHeader';
+export { default as WorkflowInspectorPanel, FAILURE_ACTION_OPTIONS } from './WorkflowInspectorPanel';
+export { default as WorkflowMetaInspector } from './WorkflowMetaInspector';
 export { default as WorkflowNodeCard } from './WorkflowNodeCard';
+export { default as WorkflowNodeInspector } from './WorkflowNodeInspector';
+export { default as WorkflowTriggerCard } from './WorkflowTriggerCard';
+export { useWorkflowGraph } from './useWorkflowGraph';
+export { CARD_HEIGHT, CARD_WIDTH, TRIGGER_X, TRIGGER_Y, createsCycle, layoutDagNodes } from './workflowLayout';
+export { computeClientTopology } from './workflowTopology';

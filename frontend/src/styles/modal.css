@@ -1,0 +1,59 @@
+/* ============================================================
+   FIXED MODAL HEADERS AND FOOTERS
+   Pins modal headers to top and action footers (Cancel/Submit)
+   to bottom while modal body contents scroll smoothly.
+   ============================================================ */
+
+div[style*="1000"] > div,
+.ds-modal-card {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 88vh !important;
+  overflow: hidden !important;
+}
+
+div[style*="1000"] > div > div:first-child,
+.ds-modal-header,
+.modal-header {
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  top: 0 !important;
+  background-color: #FFFFFF !important;
+  z-index: 30 !important;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+
+div[style*="1000"] > div > form,
+.ds-modal-card > form {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  scroll-behavior: smooth;
+}
+
+div[style*="1000"] > div form > div:last-child,
+.ds-modal-footer,
+.modal-footer {
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  background-color: #FFFFFF !important;
+  z-index: 30 !important;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+  border-top: 1px solid #E2E8F0 !important;
+}
+
+/* Explicit notification protection */
+.ds-notification-item,
+.ds-notification-popup,
+.ds-notification-toast,
+[id*="notification"],
+[id*="notification"] * {
+  background-color: inherit;
+  padding-bottom: 0;
+}

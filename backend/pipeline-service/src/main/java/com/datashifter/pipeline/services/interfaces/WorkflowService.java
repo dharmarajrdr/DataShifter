@@ -27,6 +27,8 @@ public interface WorkflowService {
 
     WorkflowResponse performAction(String id, WorkflowActionRequest action);
 
+    WorkflowResponse validatePipelines(String id);
+
     void syncWorkflowStatusForPipeline(String pipelineId);
 }
 

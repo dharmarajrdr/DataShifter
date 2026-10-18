@@ -1,263 +1,96 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
-import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
-import { FRSC, FRBC } from '../constants/layouts';
-import { AGENT } from '../constants/literals';
-import { PageHeader, Button, BarLoader, SkeletonLoader } from '../components/common';
-import { BeetelIcon } from '../components/layout/Icons';
-import BeetelChatWorkspace from '../components/ai/BeetelChatWorkspace';
-import { ErrorPage } from './ErrorPage';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { BeetelAgentHeader, BeetelChatCanvas, BeetelSessionSidebar, BeetelShareModal } from '../components/ai';
+import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { aiApi } from '../services/aiApi';
 
-const POOL_LABELS = {
-  USER: { label: 'Using Personal API Keys', bg: '#E1F5EE', text: '#0F6E56' },
-  ORG: { label: 'Using Organization API Keys', bg: '#E6F1FB', text: '#185FA5' },
-  SYSTEM: { label: 'Using System Groq Pool', bg: COLORS.accent.purpleLight, text: COLORS.accent.purpleText },
-  OLLAMA_FALLBACK: { label: 'Using Local Ollama Fallback', bg: '#FAEEDA', text: '#854F0B' },
-};
-
 const BeetelAgentPage = () => {
-  const [searchParams] = useSearchParams();
-  const { sessionId: routeSessionId } = useParams();
-  const navigate = useNavigate();
-  const hasAutoSelectedRef = useRef(false);
+  const { sessionId } = useParams(), navigate = useNavigate(), notification = useNotification();
+  const { user: currentUser } = useAuth();
+  const [sessions, setSessions] = useState([]), [activeSession, setActiveSession] = useState(null);
+  const [messages, setMessages] = useState([]), [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false), [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false), [showShareModal, setShowShareModal] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState('Anthropic Claude 3.5 Sonnet');
 
-  const initialContextType = searchParams.get('contextType') || 'NONE';
-  const initialContextEntityId = searchParams.get('entityId') || '';
-  const initialContextEntityName = searchParams.get('entityName') || '';
-
-  const [sessions, setSessions] = useState([]);
-  const [selectedSessionId, setSelectedSessionId] = useState(routeSessionId || null);
-  const [accessDenied, setAccessDenied] = useState(false);
-  const [keyStatus, setKeyStatus] = useState(null);
-  const [loadingSessions, setLoadingSessions] = useState(true);
-
-  useEffect(() => {
-    setSelectedSessionId(routeSessionId || null);
-    setAccessDenied(false);
-  }, [routeSessionId]);
-
-  const fetchOverview = useCallback(async () => {
-    setLoadingSessions(true);
+  const loadSessions = useCallback(async () => {
     try {
-      const [sessRes, keyRes] = await Promise.all([
-        aiApi.listSessions(),
-        aiApi.getKeyPoolStatus(),
-      ]);
-      const list = sessRes.data || [];
+      const res = await aiApi.listSessions();
+      const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
       setSessions(list);
-      setKeyStatus(keyRes.data || null);
-      if (
-        list.length > 0 &&
-        !routeSessionId &&
-        !hasAutoSelectedRef.current &&
-        initialContextType === 'NONE'
-      ) {
-        hasAutoSelectedRef.current = true;
-        setSelectedSessionId(list[0].id);
-        navigate(`/beetel/${list[0].id}`, { replace: true });
-      }
-    } catch {
-      // ignore initial load error
-    } finally {
-      setLoadingSessions(false);
-    }
-  }, [routeSessionId, initialContextType, navigate]);
+      if (list.length > 0 && !sessionId) navigate(`/beetel/${list[0].id}`, { replace: true });
+    } catch (e) { notification.error(e?.message || 'Failed to load AI sessions'); }
+  }, [sessionId, navigate, notification]);
+  useEffect(() => { loadSessions(); }, [loadSessions]);
 
   useEffect(() => {
-    fetchOverview();
-  }, [fetchOverview]);
-
-  const handleNewChat = () => {
-    hasAutoSelectedRef.current = true;
-    setAccessDenied(false);
-    setSelectedSessionId(null);
-    navigate('/beetel');
-  };
-
-  const handleSessionCreated = (newSession) => {
-    if (!newSession) return;
-    hasAutoSelectedRef.current = true;
-    setAccessDenied(false);
-    setSelectedSessionId(newSession.id);
-    if (routeSessionId !== newSession.id) {
-      navigate(`/beetel/${newSession.id}`, { replace: true });
+    if (!sessionId) {
+      if (sessions.length > 0) navigate(`/beetel/${sessions[0].id}`, { replace: true });
+      else { setActiveSession(null); setMessages([]); }
+      return;
     }
-    setSessions(prev => {
-      const exists = prev.some(s => s.id === newSession.id);
-      if (exists) {
-        return prev.map(s => (s.id === newSession.id ? newSession : s));
-      }
-      return [newSession, ...prev];
-    });
+    setLoading(true);
+    aiApi.getSession(sessionId).then((res) => {
+      const s = res?.data || res;
+      setActiveSession(s); setMessages(s?.messages || []);
+      setHasMore(Boolean(s?.hasMoreMessages ?? (s?.messages?.length >= 15)));
+    }).catch((e) => notification.error(e?.message || 'Failed to load conversation')).finally(() => setLoading(false));
+  }, [sessionId]);
+
+  const handleLoadOlder = useCallback(async () => {
+    const oldest = messages.find(m => m.id && !String(m.id).startsWith('u-'));
+    if (!sessionId || !oldest || !hasMore || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const d = (await aiApi.getSessionMessages(sessionId, { beforeMessageId: oldest.id, limit: 15 }))?.data || {};
+      setHasMore(Boolean(d?.hasMoreMessages));
+      const b = Array.isArray(d?.messages) ? d.messages : (Array.isArray(d) ? d : []);
+      if (b.length) setMessages(p => [...b.filter(m => !p.some(x => x.id === m.id)), ...p]);
+    } catch {} finally { setLoadingOlder(false); }
+  }, [sessionId, messages, hasMore, loadingOlder]);
+
+  const handleNewSession = async () => {
+    try {
+      const s = (await aiApi.createSession({ title: 'New Conversation' }))?.data || {};
+      setSessions(p => [s, ...p]); navigate(`/beetel/${s.id}`); notification.info('New Beetel session started');
+    } catch (e) { notification.error(e?.message || 'Failed to create session'); }
   };
 
-  const poolBadge = POOL_LABELS[keyStatus?.activePool] || POOL_LABELS.SYSTEM;
+  const handleSendMessage = async (msg) => {
+    let sid = sessionId;
+    if (!sid) {
+      try {
+        const s = (await aiApi.createSession({ title: msg.slice(0, 32) }))?.data || {};
+        sid = s.id; setSessions(p => [s, ...p]); navigate(`/beetel/${sid}`);
+      } catch { notification.error('Could not initiate session'); return; }
+    }
+    setMessages(p => [...p, { id: 'u-' + Date.now(), role: 'USER', content: msg }]);
+    setSending(true);
+    try {
+      const ast = (await aiApi.sendMessage({ sessionId: sid, message: msg }))?.data;
+      if (ast) setMessages(p => [...p, ast]);
+      setSessions(p => p.map(s => s.id === sid ? { ...s, preview: msg } : s));
+    } catch (e) { notification.error(e?.message || 'AI synthesis failed'); }
+    finally { setSending(false); }
+  };
 
-  if (accessDenied) {
-    return <ErrorPage status={403} />;
-  }
+  const handlePlanDecision = async (planId, approve) => {
+    try {
+      const upd = (approve ? await aiApi.confirmPlan(planId) : await aiApi.rejectPlan(planId))?.data;
+      setMessages(p => p.map(m => m.plan?.id === planId ? { ...m, plan: upd?.plan || { ...m.plan, status: approve ? 'COMPLETED' : 'REJECTED' } } : m));
+      notification.success(approve ? 'Plan approved & executed' : 'Plan rejected');
+    } catch (e) { notification.error(e?.message || 'Plan decision failed'); }
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
-      <PageHeader
-        title={AGENT.title}
-        subtitle={AGENT.subtitle}
-        actions={
-          <div style={{ ...FRSC, gap: SPACING.sm }}>
-            <div
-              onClick={() => navigate('/profile')}
-              title="Click to configure your personal LLM API keys"
-              style={{
-                ...FRSC,
-                gap: '6px',
-                padding: '5px 10px',
-                borderRadius: BORDER_RADIUS.full,
-                background: poolBadge.bg,
-                color: poolBadge.text,
-                fontSize: FONT.size.xs,
-                fontWeight: FONT.weight.medium,
-                cursor: 'pointer',
-              }}
-            >
-              <BeetelIcon color={poolBadge.text} size={13} />
-              <span>{poolBadge.label}</span>
-            </div>
-            <Button onClick={handleNewChat}>
-              {AGENT.newChat}
-            </Button>
-          </div>
-        }
-      />
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '268px 1fr',
-        gap: SPACING.md,
-        flex: 1,
-        minHeight: 0,
-      }}>
-        {/* Left Sidebar: Session History */}
-        <div style={{
-          border: '1px solid #DFDDF7',
-          borderRadius: BORDER_RADIUS.lg,
-          background: COLORS.background.primary,
-          boxShadow: '0 4px 16px rgba(83, 74, 183, 0.06)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}>
-          <div style={{
-            ...FRBC,
-            padding: '11px 14px',
-            background: COLORS.brand.primary,
-            borderBottom: `1px solid ${COLORS.brand.primaryDark}`,
-            color: '#FFFFFF',
-          }}>
-            <div style={{ ...FRSC, gap: '8px' }}>
-              <span style={{
-                width: 22,
-                height: 22,
-                borderRadius: '6px',
-                background: 'rgba(255, 255, 255, 0.16)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <i className="fa-solid fa-comments" style={{ fontSize: '11px', color: '#FFFFFF' }} />
-              </span>
-              <span style={{
-                fontSize: FONT.size.xs,
-                fontWeight: FONT.weight.semibold,
-                color: '#FFFFFF',
-                textTransform: 'uppercase',
-                letterSpacing: '0.6px',
-              }}>
-                Conversations
-              </span>
-            </div>
-            <span style={{
-              fontSize: '11px',
-              fontWeight: FONT.weight.semibold,
-              padding: '2px 8px',
-              borderRadius: BORDER_RADIUS.pill,
-              background: 'rgba(255, 255, 255, 0.18)',
-              color: '#FFFFFF',
-              border: '1px solid rgba(255, 255, 255, 0.24)',
-            }}>
-              {sessions.length}
-            </span>
-          </div>
-          {loadingSessions && <BarLoader />}
-
-          <div style={{ flex: 1, overflowY: 'auto', padding: SPACING.xs }}>
-            {loadingSessions ? (
-              <div style={{ padding: '4px 2px' }}>
-                <SkeletonLoader
-                  variant="table-row"
-                  count={5}
-                  height="40px"
-                  style={{ borderRadius: BORDER_RADIUS.md }}
-                />
-              </div>
-            ) : sessions.length === 0 ? (
-              <p style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, padding: SPACING.sm, textAlign: 'center' }}>
-                No conversations yet. Start chatting or upload a <code>.md</code> spec!
-              </p>
-            ) : (
-              sessions.map(sess => {
-                const active = sess.id === selectedSessionId;
-                const isShared = Boolean(sess.isShared || sess.shared || (sess.sharedMembers && sess.sharedMembers.length > 0));
-                const memberCount = 1 + (sess.sharedMembers?.length || 0);
-                return (
-                  <div
-                    key={sess.id}
-                    onClick={() => {
-                      hasAutoSelectedRef.current = true;
-                      setSelectedSessionId(sess.id);
-                      navigate(`/beetel/${sess.id}`);
-                    }}
-                    style={{
-                      ...FRBC,
-                      gap: SPACING.xs,
-                      padding: '9px 11px',
-                      borderRadius: BORDER_RADIUS.md,
-                      marginBottom: '4px',
-                      cursor: 'pointer',
-                      background: active ? COLORS.accent.purpleLight : 'transparent',
-                      border: active ? '1px solid #C8C4F5' : '1px solid transparent',
-                      color: active ? COLORS.accent.purpleText : COLORS.text.primary,
-                    }}
-                  >
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{
-                        fontSize: FONT.size.xs,
-                        fontWeight: active ? FONT.weight.semibold : FONT.weight.medium,
-                        margin: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}>
-                        {sess.title || 'New Conversation'}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Main Chat Workspace */}
-        <BeetelChatWorkspace
-          sessionId={selectedSessionId}
-          onSessionCreated={handleSessionCreated}
-          onAccessDenied={() => setAccessDenied(true)}
-          initialContextType={initialContextType}
-          initialContextEntityId={initialContextEntityId}
-          initialContextEntityName={initialContextEntityName}
-        />
+    <div id="beetel-agent-page" className="ds-beetel-agent-page w-full max-w-7xl mx-auto h-[calc(100vh-7rem)] min-h-[550px] flex flex-col gap-4">
+      <BeetelAgentHeader className="shrink-0" engineLabel={selectedProvider.replace('Anthropic ', '').replace('OpenAI ', '').replace('Google ', '')} onNewSession={handleNewSession} onConfigureKeys={() => navigate('/settings/api-keys')} />
+      <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
+        <BeetelSessionSidebar sessions={sessions} selectedSessionId={sessionId} selectedProvider={selectedProvider} onProviderChange={setSelectedProvider} onSelectSession={(id) => navigate(`/beetel/${id}`)} />
+        <BeetelChatCanvas session={activeSession} messages={messages} loading={loading} sending={sending} hasMore={hasMore} loadingOlder={loadingOlder} onLoadOlder={handleLoadOlder} onShareClick={() => setShowShareModal(true)} onConfirmPlan={(id) => handlePlanDecision(id, true)} onRejectPlan={(id) => handlePlanDecision(id, false)} onSendMessage={handleSendMessage} />
       </div>
+      <BeetelShareModal isOpen={showShareModal} session={activeSession} currentUser={currentUser} onClose={() => setShowShareModal(false)} onSessionUpdated={(upd) => { setActiveSession(upd); setSessions(p => p.map(s => s.id === upd.id ? upd : s)); }} />
     </div>
   );
 };

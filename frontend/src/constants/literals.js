@@ -81,7 +81,7 @@ export const MONITOR = {
   eta: 'ETA',
   overallProgress: 'Overall progress',
   tableProgress: 'Table progress',
-  inflightRecords: 'In-flight records (latest 100)',
+  inflightRecords: 'In-flight records (latest 25)',
   refresh: 'Refresh',
   pause: 'Pause',
   resume: 'Resume',
@@ -89,7 +89,7 @@ export const MONITOR = {
 };
 
 export const WIZARD = {
-  steps: ['Basics', 'Connections', 'Tables', 'Review'],
+  steps: ['Basics', 'Source', 'Target', 'Entities', 'Review'],
   back: 'Back',
   next: 'Next',
   create: 'Create pipeline',

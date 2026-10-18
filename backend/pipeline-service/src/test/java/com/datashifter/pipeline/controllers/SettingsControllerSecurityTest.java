@@ -55,9 +55,9 @@ class SettingsControllerSecurityTest {
     }
 
     @Nested
-    @DisplayName("User with settings:edit permission")
+    @DisplayName("User with pipeline:settings permission")
     class AuthorizedUserTests {
-        private final Set<String> perms = Set.of(Permissions.SETTINGS_EDIT);
+        private final Set<String> perms = Set.of(Permissions.PIPELINE_SETTINGS);
 
         @Test
         @DisplayName("Can get pipeline settings")
@@ -112,19 +112,18 @@ class SettingsControllerSecurityTest {
     }
 
     @Nested
-    @DisplayName("User without settings:edit permission (unselected Edit pipeline settings)")
+    @DisplayName("User without pipeline:settings permission")
     class UnauthorizedUserTests {
-        // User has generic pipeline edit and view permissions, but specifically lacks settings:edit
-        private final Set<String> permsWithoutSettingsEdit = Set.of(Permissions.PIPELINE_VIEW, Permissions.PIPELINE_EDIT);
+        private final Set<String> permsWithoutSettings = Set.of(Permissions.PIPELINE_VIEW, Permissions.PIPELINE_EDIT);
 
         @Test
         @DisplayName("Cannot get pipeline settings (HTTP 403)")
         void cannotGetSettings() throws Exception {
             mockMvc.perform(get("/api/v1/pipelines/{pipelineId}/settings", pipelineId)
-                            .requestAttr("permissions", permsWithoutSettingsEdit))
+                            .requestAttr("permissions", permsWithoutSettings))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.status").value(403))
-                    .andExpect(jsonPath("$.info.missingPermission").value(Permissions.SETTINGS_EDIT));
+                    .andExpect(jsonPath("$.info.missingPermission").value(Permissions.PIPELINE_SETTINGS));
         }
 
         @Test
@@ -136,10 +135,10 @@ class SettingsControllerSecurityTest {
             mockMvc.perform(put("/api/v1/pipelines/{pipelineId}/settings", pipelineId)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(req))
-                            .requestAttr("permissions", permsWithoutSettingsEdit))
+                            .requestAttr("permissions", permsWithoutSettings))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.status").value(403))
-                    .andExpect(jsonPath("$.info.missingPermission").value(Permissions.SETTINGS_EDIT));
+                    .andExpect(jsonPath("$.info.missingPermission").value(Permissions.PIPELINE_SETTINGS));
         }
 
         @Test
@@ -152,20 +151,20 @@ class SettingsControllerSecurityTest {
             mockMvc.perform(post("/api/v1/pipelines/{pipelineId}/settings/tables", pipelineId)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(req))
-                            .requestAttr("permissions", permsWithoutSettingsEdit))
+                            .requestAttr("permissions", permsWithoutSettings))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.status").value(403))
-                    .andExpect(jsonPath("$.info.missingPermission").value(Permissions.SETTINGS_EDIT));
+                    .andExpect(jsonPath("$.info.missingPermission").value(Permissions.PIPELINE_SETTINGS));
         }
 
         @Test
         @DisplayName("Cannot remove table pair (HTTP 403)")
         void cannotRemoveTablePair() throws Exception {
             mockMvc.perform(delete("/api/v1/pipelines/{pipelineId}/settings/tables/{pipelineTableId}", pipelineId, tableMappingId)
-                            .requestAttr("permissions", permsWithoutSettingsEdit))
+                            .requestAttr("permissions", permsWithoutSettings))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.status").value(403))
-                    .andExpect(jsonPath("$.info.missingPermission").value(Permissions.SETTINGS_EDIT));
+                    .andExpect(jsonPath("$.info.missingPermission").value(Permissions.PIPELINE_SETTINGS));
         }
     }
 }

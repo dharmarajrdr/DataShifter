@@ -84,8 +84,10 @@ public class AiController {
     // =========================================================================
 
     @GetMapping("/org-members")
-    public ApiResponse<List<ChatParticipantDto>> listOrganizationMembers() {
-        return ApiResponse.success(beetelAgentService.listOrganizationMembers());
+    public ApiResponse<List<ChatParticipantDto>> listOrganizationMembers(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer limit) {
+        return ApiResponse.success(beetelAgentService.listOrganizationMembers(search, limit));
     }
 
     @GetMapping("/sessions")

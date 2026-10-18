@@ -93,11 +93,26 @@ public class BeetelAgentService {
 
     @Transactional(readOnly = true)
     public List<ChatParticipantDto> listOrganizationMembers() {
+        return listOrganizationMembers(null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChatParticipantDto> listOrganizationMembers(String search, Integer limit) {
         String orgId = UserContext.getCurrentOrgId();
-        return appUserRepository.findByOrganization_IdAndIsActiveTrueOrderByFullNameAsc(orgId)
-                .stream()
-                .map(u -> toParticipantDto(u, false, null))
-                .toList();
+        var stream = appUserRepository.findByOrganization_IdAndIsActiveTrueOrderByFullNameAsc(orgId)
+                .stream();
+        if (search != null && !search.trim().isEmpty()) {
+            String q = search.trim().toLowerCase();
+            stream = stream.filter(u ->
+                    (u.getFullName() != null && u.getFullName().toLowerCase().contains(q)) ||
+                    (u.getAccount() != null && u.getAccount().getEmail() != null && u.getAccount().getEmail().toLowerCase().contains(q)) ||
+                    (u.getRole() != null && u.getRole().getName() != null && u.getRole().getName().toLowerCase().contains(q))
+            );
+        }
+        if (limit != null && limit > 0) {
+            stream = stream.limit(limit);
+        }
+        return stream.map(u -> toParticipantDto(u, false, null)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -961,7 +976,7 @@ public class BeetelAgentService {
         sb.append("""
                 ### Core Operating Rules
                 1. **Use Pre-Loaded Live Workspace Inventory First**:
-                   - The current Connections, Pipelines, Workflows (with full DAG nodes & edges), and UDFs are already listed below under **Live Workspace Inventory**. Do NOT call `listConnections`, `listPipelines`, `listWorkflows`, or `listUdfs` unless the inventory is missing.
+                   - The current Connections, Pipelines, Workflows (with full DAG nodes & edges), UDFs, and Installed Adapters are already listed below under **Live Workspace Inventory** and **Installed Adapters & Connectors**. Do NOT call list tools unless the inventory is missing.
                    - Only call `listDatabaseTables` or `getTableSchema` when you need table/column schemas for a specific `connectionId`, or `getPipelineErrorLogs` / `getPipelineDetails` when debugging a specific pipeline.
                 2. **Never Guess Missing Details (Ask First!)**:
                    - When generating a pipeline or workflow (from chat or a `.md` specification), verify that the source connection, target connection, and table names exist.

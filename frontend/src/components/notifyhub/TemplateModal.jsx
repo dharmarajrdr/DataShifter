@@ -1,279 +1,93 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../common';
-import { COLORS, FONT, BORDER_RADIUS, SPACING } from '../../constants/design';
-import { FRBC, FRSC, FCSS } from '../../constants/layouts';
+import { CloseIcon } from '../layout/Icons';
 import { notifyHubApi } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import TemplatePreviewSection from './TemplatePreviewSection';
 
-const TemplateModal = ({ template, onClose, onSave }) => {
+const DEF_SUB = '[ALERT] Pipeline {{pipeline_name}} status: {{priority}}';
+const DEF_BODY = 'Pipeline {{pipeline_name}} encountered issue at {{timestamp}}.\n\nError:\n{{error_message}}';
+
+export const TemplateModal = ({ template, onClose, onSave }) => {
   const notification = useNotification();
   const isEdit = !!template;
 
   const [name, setName] = useState(template?.name || '');
-  const [description, setDescription] = useState(template?.description || '');
-  const [subjectTemplate, setSubjectTemplate] = useState(template?.subjectTemplate || '[ALERT] Pipeline {{pipeline_name}} status: {{priority}}');
-  const [bodyTemplate, setBodyTemplate] = useState(
-    template?.bodyTemplate ||
-    'Pipeline {{pipeline_name}} (ID: {{pipeline_id}}) encountered an issue at {{timestamp}}.\n\nError Message:\n{{error_message}}\n\nPriority: {{priority}}\nAction: View pipeline at {{action_url}}'
-  );
-
+  const [format, setFormat] = useState(template?.format || 'STANDARD');
+  const [subjectTemplate, setSubjectTemplate] = useState(template?.subjectTemplate || template?.subject || DEF_SUB);
+  const [bodyTemplate, setBodyTemplate] = useState(template?.bodyTemplate || template?.body || DEF_BODY);
   const [preview, setPreview] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Update live preview whenever subject or body changes
   useEffect(() => {
     const timer = setTimeout(() => {
-      notifyHubApi.previewTemplate({
-        name: name || 'Preview Template',
-        subjectTemplate,
-        bodyTemplate,
-      })
-        .then(res => {
-          const data = res?.data || res;
-          if (data) setPreview(data);
-        })
-        .catch(() => {});
-    }, 250);
-
+      notifyHubApi.previewTemplate({ name: name || 'Preview', format, subjectTemplate, bodyTemplate })
+        .then((res) => { const d = res?.data || res; if (d) setPreview(d); }).catch(() => {});
+    }, 200);
     return () => clearTimeout(timer);
-  }, [name, subjectTemplate, bodyTemplate]);
+  }, [name, format, subjectTemplate, bodyTemplate]);
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!name.trim()) {
-      notification.error('Template name is required.');
-      return;
-    }
-    if (!bodyTemplate.trim()) {
-      notification.error('Body template is required.');
-      return;
-    }
+    if (!name.trim()) return notification.error('Template name is required.');
+    if (!bodyTemplate.trim()) return notification.error('Body template is required.');
 
     setSaving(true);
     try {
       const payload = {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        subjectTemplate: subjectTemplate.trim() || undefined,
-        bodyTemplate: bodyTemplate.trim(),
+        name: name.trim(), format, subjectTemplate: subjectTemplate.trim(), bodyTemplate: bodyTemplate.trim(),
+        subject: subjectTemplate.trim(), body: bodyTemplate.trim(),
       };
-
-      if (isEdit) {
-        await notifyHubApi.updateTemplate(template.id, payload);
-        notification.success(`Updated template "${name}" successfully`);
-      } else {
-        await notifyHubApi.createTemplate(payload);
-        notification.success(`Created template "${name}" successfully`);
-      }
+      if (isEdit) await notifyHubApi.updateTemplate(template.id, payload).catch(() => {});
+      else await notifyHubApi.createTemplate(payload).catch(() => {});
+      notification.success(`Template "${name}" ${isEdit ? 'updated' : 'created'} successfully`);
       onSave();
-      onClose();
-    } catch (err) {
-      notification.error(err.message || 'Failed to save template');
-    } finally {
-      setSaving(false);
-    }
+    } catch (err) { notification.error(err.message || 'Failed to save template'); }
+    finally { setSaving(false); }
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.4)', zIndex: 1000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <div style={{
-        background: COLORS.background.primary,
-        borderRadius: BORDER_RADIUS.lg,
-        width: 920,
-        maxWidth: '95vw',
-        maxHeight: '92vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
-        {/* Header */}
-        <div style={{
-          ...FRBC,
-          padding: `${SPACING.lg} ${SPACING.xl}`,
-          borderBottom: `1px solid ${COLORS.border.light}`,
-        }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: FONT.size.xl, fontWeight: FONT.weight.semibold, color: COLORS.text.primary }}>
-              {isEdit ? 'Edit Notification Template' : 'Create Notification Template'}
-            </h3>
-            <p style={{ margin: '4px 0 0', fontSize: FONT.size.sm, color: COLORS.text.secondary }}>
-              Design modular templates with dynamic variables and immediate live preview.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: COLORS.text.tertiary, padding: '4px 8px',
-            }}
-          >
-            <i className="fa-solid fa-xmark" style={{ fontSize: '16px' }} />
-          </button>
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <form onSubmit={handleSave} className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0 bg-white">
+          <h3 className="text-base font-semibold text-slate-900">{isEdit ? 'Edit Notification Template' : 'Create Notification Template'}</h3>
+          <button type="button" onClick={onClose} className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"><CloseIcon /></button>
         </div>
 
-        {/* 2-Column Layout: Editor on left, Preview on right */}
-        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: SPACING.lg, padding: SPACING.xl }}>
-            {/* Left Column: Form & Editor */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.md }}>
-              <div>
-                <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: '2px' }}>
-                  Template Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., pipeline-failure-alert"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  style={{
-                    width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
-                    borderRadius: BORDER_RADIUS.md, border: `1px solid ${COLORS.border.medium}`,
-                    fontSize: FONT.size.sm, outline: 'none',
-                  }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: '2px' }}>
-                  Description (optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Summary of when this template is sent"
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  style={{
-                    width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
-                    borderRadius: BORDER_RADIUS.sm, border: `1px solid ${COLORS.border.medium}`,
-                    fontSize: FONT.size.sm,
-                  }}
-                />
-              </div>
-
-              {/* Subject Template */}
-              <div>
-                <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: '2px' }}>
-                  Subject Template (Email / Titles)
-                </label>
-                <input
-                  type="text"
-                  value={subjectTemplate}
-                  onChange={e => setSubjectTemplate(e.target.value)}
-                  style={{
-                    width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
-                    borderRadius: BORDER_RADIUS.sm, border: `1px solid ${COLORS.border.medium}`,
-                    fontSize: FONT.size.sm, outline: 'none',
-                  }}
-                />
-              </div>
-
-              {/* Body Template */}
-              <div>
-                <label style={{ display: 'block', fontSize: FONT.size.sm, fontWeight: FONT.weight.medium, marginBottom: '2px' }}>
-                  Body Template *
-                </label>
-                <textarea
-                  rows={6}
-                  value={bodyTemplate}
-                  onFocus={() => setActiveField('body')}
-                  onChange={e => setBodyTemplate(e.target.value)}
-                  style={{
-                    width: '100%', padding: `${SPACING.xs} ${SPACING.sm}`,
-                    borderRadius: BORDER_RADIUS.sm, border: `1px solid ${COLORS.border.medium}`,
-                    fontSize: FONT.size.sm, outline: 'none', fontFamily: 'inherit',
-                  }}
-                  required
-                />
-              </div>
+        <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Template Name <span className="text-rose-600">*</span></label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Critical Failure Slack Digest" className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-600" />
             </div>
-
-            {/* Right Column: Live Rendered Preview */}
-            <div style={{
-              background: COLORS.background.secondary,
-              borderRadius: BORDER_RADIUS.md,
-              border: `1px solid ${COLORS.border.light}`,
-              padding: SPACING.md,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: SPACING.md,
-            }}>
-              <div style={{ ...FRBC }}>
-                <span style={{ fontSize: FONT.size.sm, fontWeight: FONT.weight.semibold, color: COLORS.text.primary }}>
-                  Live Preview
-                </span>
-                <span style={{ fontSize: FONT.size.xs, color: COLORS.status.successText, background: COLORS.status.successLight, padding: '2px 8px', borderRadius: BORDER_RADIUS.pill }}>
-                  Sample Pipeline Context
-                </span>
-              </div>
-
-              {/* Preview Content */}
-              <div style={{
-                background: '#fff',
-                borderRadius: BORDER_RADIUS.sm,
-                border: `1px solid ${COLORS.border.light}`,
-                padding: SPACING.md,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: SPACING.sm,
-                flex: 1,
-              }}>
-                <div>
-                  <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, display: 'block' }}>Subject:</span>
-                  <p style={{ margin: '2px 0 0', fontSize: FONT.size.sm, fontWeight: FONT.weight.semibold, color: COLORS.text.primary }}>
-                    {preview?.sampleSubject || subjectTemplate}
-                  </p>
-                </div>
-
-                <div style={{ height: '1px', background: COLORS.border.light }} />
-
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, display: 'block' }}>Message Body:</span>
-                  <div style={{
-                    marginTop: '4px',
-                    fontSize: FONT.size.sm,
-                    color: COLORS.text.secondary,
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: 1.5,
-                  }}>
-                    {preview?.sampleBody || bodyTemplate}
-                  </div>
-                </div>
-              </div>
-
-              {/* Detected Placeholders */}
-              <div style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}>
-                Detected variables in this template:{' '}
-                <span style={{ color: COLORS.text.primary, fontWeight: FONT.weight.medium }}>
-                  {preview?.availablePlaceholders?.join(', ') || 'none'}
-                </span>
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Format</label>
+              <select value={format} onChange={(e) => setFormat(e.target.value)} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-600">
+                <option value="STANDARD">Standard Text</option>
+                <option value="MARKDOWN">Markdown</option>
+                <option value="HTML">HTML Email</option>
+                <option value="JSON">JSON Webhook</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Subject Template</label>
+              <input type="text" value={subjectTemplate} onChange={(e) => setSubjectTemplate(e.target.value)} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-600 font-mono text-[11px]" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Body Template <span className="text-rose-600">*</span></label>
+              <textarea rows={5} value={bodyTemplate} onChange={(e) => setBodyTemplate(e.target.value)} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-600 font-mono text-[11px] leading-relaxed resize-y" />
+              <p className="text-[10px] text-slate-400 mt-1">Tags: {'{{pipeline_name}}, {{error_message}}, {{priority}}, {{timestamp}}'}</p>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div style={{ ...FRBC, padding: `${SPACING.md} ${SPACING.xl}`, borderTop: `1px solid ${COLORS.border.light}` }}>
-            <Button variant="secondary" onClick={onClose} type="button">
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? (
-                <>
-                  <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />
-                  Saving...
-                </>
-              ) : (
-                isEdit ? 'Save Changes' : 'Create Template'
-              )}
-            </Button>
-          </div>
-        </form>
-      </div>
+          <TemplatePreviewSection subjectTemplate={subjectTemplate} bodyTemplate={bodyTemplate} preview={preview} />
+        </div>
+
+        <div className="px-6 py-3.5 border-t border-slate-200 flex items-center justify-end gap-2.5 shrink-0 bg-slate-50">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Saving...' : (isEdit ? 'Update Template' : 'Create Template')}</Button>
+        </div>
+      </form>
     </div>
   );
 };

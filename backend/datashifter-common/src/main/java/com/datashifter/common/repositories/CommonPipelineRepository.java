@@ -21,4 +21,7 @@ public interface CommonPipelineRepository extends JpaRepository<Pipeline, String
 
     @Query("SELECT p.sourceConnectionId, p.targetConnectionId, p.name FROM Pipeline p")
     List<Object[]> findAllPipelineConnectionUsage();
+
+    @Query("SELECT COUNT(p) FROM Pipeline p WHERE p.createdBy.organization.id = :orgId")
+    long countByOrgId(@Param("orgId") String orgId);
 }

@@ -74,6 +74,7 @@ public class WorkflowDtos {
         private long errorsSkipped;
         private String eta;
         private PipelineMode pipelineMode;
+        private List<String> validationErrors;
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -85,7 +86,7 @@ public class WorkflowDtos {
     }
 
     public enum WorkflowAction {
-        START, PAUSE, RESUME, STOP, RERUN_FAILED_STAGE, RERUN_FROM_CHECKPOINT
+        START, PAUSE, RESUME, STOP, RERUN_FAILED_STAGE, RERUN_FROM_CHECKPOINT, VALIDATE_PIPELINES
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

@@ -65,6 +65,12 @@ class WorkflowServiceTest {
     private HashOperations<String, Object, Object> hashOperations;
     @Mock
     private SubscriptionLimitChecker limitChecker;
+    @Mock
+    private com.datashifter.pipeline.services.implementations.MappingService mappingService;
+    @Mock
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    @Mock
+    private com.datashifter.pipeline.services.implementations.PipelineAdapterValidator pipelineAdapterValidator;
 
     @InjectMocks
     private WorkflowServiceImpl workflowService;
@@ -717,6 +723,59 @@ class WorkflowServiceTest {
         PipelineJobEvent latestJob = jobCaptor.getAllValues().get(jobCaptor.getAllValues().size() - 1);
         assertEquals("p-2", latestJob.getPipelineId());
         assertEquals("START", latestJob.getAction());
+    }
+
+    @Test
+    @DisplayName("Bulk validates unvalidated pipelines in a workflow")
+    void testValidatePipelines() {
+        Workflow workflow = buildWorkflow("wf-1", "ETL Workflow", WorkflowStatus.DRAFT);
+        when(workflowRepository.findByIdAndOrgId("wf-1", orgId)).thenReturn(Optional.of(workflow));
+
+        Pipeline p1 = buildPipeline("p-1", "Pipe 1", PipelineStatus.NOT_VALIDATED);
+        Pipeline p2 = buildPipeline("p-2", "Pipe 2", PipelineStatus.VALIDATED);
+
+        WorkflowNode n1 = WorkflowNode.builder().workflow(workflow).pipelineId("p-1").positionX(0.0).positionY(0.0).build();
+        n1.setId("n-1");
+        WorkflowNode n2 = WorkflowNode.builder().workflow(workflow).pipelineId("p-2").positionX(100.0).positionY(0.0).build();
+        n2.setId("n-2");
+
+        when(nodeRepository.findByWorkflow_Id("wf-1")).thenReturn(List.of(n1, n2));
+        when(pipelineRepository.findAllById(List.of("p-1", "p-2"))).thenReturn(List.of(p1, p2));
+        when(mappingService.validatePipeline(p1)).thenReturn(Collections.emptyList());
+        when(workflowRepository.save(any(Workflow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        WorkflowResponse res = workflowService.validatePipelines("wf-1");
+
+        assertNotNull(res);
+        assertEquals(PipelineStatus.VALIDATED, p1.getStatus());
+        verify(pipelineRepository).save(p1);
+    }
+
+    @Test
+    @DisplayName("Bulk validate sets status to INVALID and preserves error detail when validation fails")
+    void testValidatePipelinesWithFailure() throws Exception {
+        Workflow workflow = buildWorkflow("wf-2", "Failing ETL Workflow", WorkflowStatus.DRAFT);
+        when(workflowRepository.findByIdAndOrgId("wf-2", orgId)).thenReturn(Optional.of(workflow));
+
+        Pipeline p1 = buildPipeline("p-1", "Pipe 1", PipelineStatus.NOT_VALIDATED);
+        WorkflowNode n1 = WorkflowNode.builder().workflow(workflow).pipelineId("p-1").positionX(0.0).positionY(0.0).build();
+        n1.setId("n-1");
+
+        when(nodeRepository.findByWorkflow_Id("wf-2")).thenReturn(List.of(n1));
+        when(pipelineRepository.findAllById(List.of("p-1"))).thenReturn(List.of(p1));
+        when(mappingService.validatePipeline(p1)).thenReturn(List.of("Missing NOT NULL mapping"));
+        when(objectMapper.writeValueAsString(any())).thenReturn("[\"Missing NOT NULL mapping\"]");
+        when(objectMapper.readValue(eq("[\"Missing NOT NULL mapping\"]"), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenReturn(List.of("Missing NOT NULL mapping"));
+        when(workflowRepository.save(any(Workflow.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        WorkflowResponse res = workflowService.validatePipelines("wf-2");
+
+        assertNotNull(res);
+        assertEquals(PipelineStatus.INVALID, p1.getStatus());
+        assertEquals(PipelineStatus.INVALID, res.getNodes().get(0).getPipelineStatus());
+        assertNotNull(res.getNodes().get(0).getValidationErrors());
+        assertTrue(res.getNodes().get(0).getValidationErrors().contains("Missing NOT NULL mapping"));
     }
 }
 

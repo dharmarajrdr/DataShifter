@@ -41,7 +41,7 @@ public class MappingController {
      * Save column mappings for all tables.
      */
     @PutMapping
-    @RequiresPermission(Permissions.PIPELINE_EDIT)
+    @RequiresPermission(anyOf = {Permissions.PIPELINE_EDIT, Permissions.PIPELINE_COLUMN_MAPPING})
     public ApiResponse<PipelineResponse> saveMappings(
             @PathVariable String pipelineId,
             @Valid @RequestBody List<PipelineTableRequest> tables) {

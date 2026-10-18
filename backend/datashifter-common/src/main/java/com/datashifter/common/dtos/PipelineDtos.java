@@ -18,13 +18,18 @@ public class PipelineDtos {
         @NotBlank private String name;
         private String description;
         private String namespaceId;
-        @NotBlank private String sourceConnectionId;
-        @NotBlank private String targetConnectionId;
+        private String sourceConnectionId;
+        private String targetConnectionId;
+        private String sourceAdapterId;
+        private String targetAdapterId;
+        private String sourceConfig;
+        private String targetConfig;
         private Integer chunkSize;
         private WriteMode defaultWriteMode;
         private Boolean ignoreExceptions;
         private Integer maxErrorThreshold;
         private Boolean logSourceRow;
+        private Boolean clearLogsOnStart;
         private PipelineMode pipelineMode;
         private String cdcDirectoryPath;
         private String cdcFilePattern;
@@ -44,6 +49,10 @@ public class PipelineDtos {
     public static class UpdatePipelineRequest {
         private String name;
         private String description;
+        private String sourceAdapterId;
+        private String targetAdapterId;
+        private String sourceConfig;
+        private String targetConfig;
         private Integer chunkSize;
         private WriteMode defaultWriteMode;
         private Boolean ignoreExceptions;
@@ -52,6 +61,7 @@ public class PipelineDtos {
         private Integer sourcePoolSize;
         private Integer targetPoolSize;
         private Boolean previewInflightRecords;
+        private Boolean clearLogsOnStart;
         private PipelineMode pipelineMode;
         private String cdcDirectoryPath;
         private String cdcFilePattern;
@@ -82,6 +92,10 @@ public class PipelineDtos {
         private String description;
         private String sourceConnectionId;
         private String targetConnectionId;
+        private String sourceAdapterId;
+        private String targetAdapterId;
+        private String sourceConfig;
+        private String targetConfig;
         private PipelineStatus status;
         private Integer chunkSize;
         private WriteMode defaultWriteMode;
@@ -91,6 +105,7 @@ public class PipelineDtos {
         private Integer sourcePoolSize;
         private Integer targetPoolSize;
         private Boolean previewInflightRecords;
+        private Boolean clearLogsOnStart;
         private PipelineMode pipelineMode;
         private String cdcDirectoryPath;
         private String cdcFilePattern;
@@ -114,6 +129,8 @@ public class PipelineDtos {
         private String namespaceName;
         private String sourceConnectionId;
         private String targetConnectionId;
+        private String sourceAdapterId;
+        private String targetAdapterId;
         private String sourceName;
         private String targetName;
         private PipelineStatus status;
@@ -274,6 +291,10 @@ public class PipelineDtos {
         private String description;
         private String sourceConnectionName;
         private String targetConnectionName;
+        private String sourceAdapterId;
+        private String targetAdapterId;
+        private String sourceConfig;
+        private String targetConfig;
         private Integer chunkSize;
         private WriteMode defaultWriteMode;
         private Boolean ignoreExceptions;

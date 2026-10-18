@@ -33,13 +33,15 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
 /**
  * Executes continuous, real-time Change Data Capture (CDC) replication.
  * Manages the endless streaming lifecycle, event polling, segregation filtering,
  * micro-batch target replay, dual-tier checkpointing, and PAUSE/RESUME/STOP commands.
  */
 @Component
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Slf4j
 public class CdcStreamExecutor {
 
@@ -50,6 +52,18 @@ public class CdcStreamExecutor {
     private final CdcReplayCoordinator replayCoordinator;
     private final CommandRegistry commandRegistry;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final com.datashifter.execution.adapters.AdapterExecutionManager adapterExecutionManager;
+    private final com.datashifter.execution.adapters.AdapterExecutionBridge adapterExecutionBridge;
+
+    public CdcStreamExecutor(ExecutionPipelineRepository pipelineRepo,
+                             ExecutionConnectionRepository connectionRepo,
+                             CdcSourceReaderFactory readerFactory,
+                             CdcCheckpointManager checkpointManager,
+                             CdcReplayCoordinator replayCoordinator,
+                             CommandRegistry commandRegistry,
+                             KafkaTemplate<String, Object> kafkaTemplate) {
+        this(pipelineRepo, connectionRepo, readerFactory, checkpointManager, replayCoordinator, commandRegistry, kafkaTemplate, null, new com.datashifter.execution.adapters.AdapterExecutionBridge());
+    }
 
     public void executeCdcStream(Pipeline pipeline, String executionLogId) {
         String pipelineId = pipeline.getId();
@@ -61,12 +75,33 @@ public class CdcStreamExecutor {
         publishStatus(pipelineId, executionLogId, PipelineStatus.VALIDATED, PipelineStatus.RUNNING, "CDC stream started");
 
         // 2. Resolve connections and build target connection config
-        Connection sourceConn = connectionRepo.findById(pipeline.getSourceConnectionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Source connection", pipeline.getSourceConnectionId()));
-        Connection targetConn = connectionRepo.findById(pipeline.getTargetConnectionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Target connection", pipeline.getTargetConnectionId()));
+        Connection sourceConn = pipeline.getSourceConnectionId() != null
+                ? connectionRepo.findById(pipeline.getSourceConnectionId()).orElse(null)
+                : null;
+        Connection targetConn = pipeline.getTargetConnectionId() != null
+                ? connectionRepo.findById(pipeline.getTargetConnectionId()).orElse(null)
+                : null;
 
-        ConnectionConfig targetConfig = toConnectionConfig(targetConn, pipeline.getTargetPoolSize(), pipeline);
+        ConnectionConfig targetConfig = targetConn != null
+                ? toConnectionConfig(targetConn, pipeline.getTargetPoolSize(), pipeline)
+                : ConnectionConfig.builder().build();
+
+        // Check if dynamic target/source adapters are configured
+        com.datashifter.adapter.sdk.DataWriter targetAdapterWriter = null;
+        com.datashifter.adapter.sdk.AdapterConfig targetAdapterConfig = null;
+        if (pipeline.getTargetAdapterId() != null && !pipeline.getTargetAdapterId().isBlank()) {
+            targetAdapterConfig = adapterExecutionManager.parseConfig(pipeline.getTargetConfig());
+            targetAdapterWriter = adapterExecutionManager.getWriter(pipeline.getTargetAdapterId(), targetAdapterConfig);
+            log.info("Initialized CDC target adapter: {}", pipeline.getTargetAdapterId());
+        }
+
+        com.datashifter.adapter.sdk.DataReader sourceAdapterReader = null;
+        com.datashifter.adapter.sdk.AdapterConfig sourceAdapterConfig = null;
+        if (pipeline.getSourceAdapterId() != null && !pipeline.getSourceAdapterId().isBlank()) {
+            sourceAdapterConfig = adapterExecutionManager.parseConfig(pipeline.getSourceConfig());
+            sourceAdapterReader = adapterExecutionManager.getReader(pipeline.getSourceAdapterId(), sourceAdapterConfig);
+            log.info("Initialized CDC source adapter: {}", pipeline.getSourceAdapterId());
+        }
 
         // 3. Resolve starting position (Resume from Checkpoint if exists, else snapshot SCN)
         CdcPosition startPosition = resolveStartingPosition(pipeline);
@@ -99,16 +134,17 @@ public class CdcStreamExecutor {
                 .targetTableNames(selectedTables)
                 .build();
 
-
-
-        DatabaseType readerDbType = sourceConn.getDbType();
-        if ("POSTGRES_WAL".equalsIgnoreCase(pipeline.getCdcLogType())) {
-            readerDbType = DatabaseType.POSTGRESQL;
-        } else if ("ORACLE_TRAIL".equalsIgnoreCase(pipeline.getCdcLogType())) {
-            readerDbType = DatabaseType.ORACLE;
+        CdcSourceReader reader = null;
+        if (sourceAdapterReader == null && sourceConn != null) {
+            DatabaseType readerDbType = sourceConn.getDbType();
+            if ("POSTGRES_WAL".equalsIgnoreCase(pipeline.getCdcLogType())) {
+                readerDbType = DatabaseType.POSTGRESQL;
+            } else if ("ORACLE_TRAIL".equalsIgnoreCase(pipeline.getCdcLogType())) {
+                readerDbType = DatabaseType.ORACLE;
+            }
+            reader = readerFactory.getReader(readerDbType);
         }
 
-        CdcSourceReader reader = readerFactory.getReader(readerDbType);
         CdcMicroBatchAggregator aggregator = new CdcMicroBatchAggregator(batchSize, flushIntervalMs);
 
         Instant streamStartedAt = Instant.now();
@@ -116,15 +152,18 @@ public class CdcStreamExecutor {
         long lastProgressPublishMs = System.currentTimeMillis();
 
         try {
-            reader.open(readerConfig);
-            log.info("CDC source reader opened for pipeline {} at position {}", pipelineId, startPosition);
+            if (reader != null) {
+                reader.open(readerConfig);
+                log.info("CDC source reader opened for pipeline {} at position {}", pipelineId, startPosition);
+            }
 
             while (!Thread.currentThread().isInterrupted()) {
                 // Check command registry for PAUSE command
                 if (commandRegistry.isPauseRequested(pipelineId)) {
                     log.info("CDC pipeline {} received PAUSE request. Committing state...", pipelineId);
-                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed);
-                    checkpointDurable(pipelineId, reader.getCurrentPosition(), totalEventsProcessed.get());
+                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, targetAdapterWriter, targetAdapterConfig);
+                    CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
+                    checkpointDurable(pipelineId, pos, totalEventsProcessed.get());
                     commandRegistry.clearCommand(pipelineId);
 
                     pipeline.setStatus(PipelineStatus.PAUSED);
@@ -136,8 +175,9 @@ public class CdcStreamExecutor {
                 // Check command registry for STOP command
                 if (commandRegistry.isStopRequested(pipelineId)) {
                     log.info("CDC pipeline {} received STOP request. Committing state...", pipelineId);
-                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed);
-                    checkpointDurable(pipelineId, reader.getCurrentPosition(), totalEventsProcessed.get());
+                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, targetAdapterWriter, targetAdapterConfig);
+                    CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
+                    checkpointDurable(pipelineId, pos, totalEventsProcessed.get());
                     commandRegistry.clearCommand(pipelineId);
 
                     pipeline.setStatus(PipelineStatus.ERRORED);
@@ -146,8 +186,25 @@ public class CdcStreamExecutor {
                     return;
                 }
 
-                // Poll raw events from source reader
-                List<CdcEvent> rawEvents = reader.poll(batchSize, Duration.ofMillis(100));
+                // Poll raw events from source adapter or reader
+                List<CdcEvent> rawEvents;
+                if (sourceAdapterReader != null) {
+                    List<com.datashifter.adapter.sdk.DataRecord> records = sourceAdapterReader.poll(batchSize, Duration.ofMillis(100));
+                    rawEvents = new ArrayList<>();
+                    if (records != null) {
+                        for (com.datashifter.adapter.sdk.DataRecord r : records) {
+                            CdcEvent evt = adapterExecutionBridge.dataRecordToCdcEvent(r);
+                            if (evt != null) {
+                                if (evt.getPipelineId() == null) evt.setPipelineId(pipelineId);
+                                rawEvents.add(evt);
+                            }
+                        }
+                    }
+                } else if (reader != null) {
+                    rawEvents = reader.poll(batchSize, Duration.ofMillis(100));
+                } else {
+                    rawEvents = Collections.emptyList();
+                }
 
                 if (rawEvents != null && !rawEvents.isEmpty()) {
                     for (CdcEvent raw : rawEvents) {
@@ -158,7 +215,7 @@ public class CdcStreamExecutor {
 
                 // Check micro-batch flush criteria
                 if (aggregator.shouldFlush()) {
-                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed);
+                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, targetAdapterWriter, targetAdapterConfig);
                 } else if (rawEvents == null || rawEvents.isEmpty()) {
                     // Back off slightly on empty stream to prevent tight loop CPU spinning
                     try {
@@ -172,7 +229,8 @@ public class CdcStreamExecutor {
                 // Publish progress every 1 second
                 long now = System.currentTimeMillis();
                 if (now - lastProgressPublishMs >= 1000) {
-                    publishProgress(pipelineId, executionLogId, totalEventsProcessed.get(), streamStartedAt, reader.getCurrentPosition());
+                    CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
+                    publishProgress(pipelineId, executionLogId, totalEventsProcessed.get(), streamStartedAt, pos);
                     lastProgressPublishMs = now;
                 }
             }
@@ -180,8 +238,9 @@ public class CdcStreamExecutor {
         } catch (Exception e) {
             log.error("Fatal exception in CDC stream execution for pipeline {}: {}", pipelineId, e.getMessage(), e);
             try {
-                flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed);
-                checkpointDurable(pipelineId, reader.getCurrentPosition(), totalEventsProcessed.get());
+                flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, targetAdapterWriter, targetAdapterConfig);
+                CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
+                checkpointDurable(pipelineId, pos, totalEventsProcessed.get());
             } catch (Exception flushErr) {
                 log.warn("Failed to flush during error shutdown: {}", flushErr.getMessage());
             }
@@ -189,10 +248,18 @@ public class CdcStreamExecutor {
             pipelineRepo.saveAndFlush(pipeline);
             publishStatus(pipelineId, executionLogId, PipelineStatus.RUNNING, PipelineStatus.ERRORED, e.getMessage());
         } finally {
-            try {
-                reader.close();
-            } catch (Exception closeErr) {
-                log.warn("Error closing CDC reader for pipeline {}: {}", pipelineId, closeErr.getMessage());
+            if (sourceAdapterReader != null) {
+                adapterExecutionManager.close(sourceAdapterReader);
+            }
+            if (targetAdapterWriter != null) {
+                adapterExecutionManager.close(targetAdapterWriter);
+            }
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (Exception closeErr) {
+                    log.warn("Error closing CDC reader for pipeline {}: {}", pipelineId, closeErr.getMessage());
+                }
             }
         }
     }
@@ -200,10 +267,21 @@ public class CdcStreamExecutor {
     private void flushAggregator(CdcMicroBatchAggregator aggregator,
                                  ConnectionConfig targetConfig,
                                  String pipelineId,
-                                 AtomicLong totalEventsProcessed) {
+                                 AtomicLong totalEventsProcessed,
+                                 com.datashifter.adapter.sdk.DataWriter targetAdapterWriter,
+                                 com.datashifter.adapter.sdk.AdapterConfig targetAdapterConfig) {
         List<CdcEvent> batch = aggregator.drain();
         if (!batch.isEmpty()) {
-            CdcWriteResult result = replayCoordinator.replayBatch(targetConfig, batch, pipelineId);
+            if (targetAdapterWriter != null) {
+                try {
+                    adapterExecutionBridge.applyCdcEvents(targetAdapterWriter, targetAdapterConfig, null, batch, null);
+                } catch (Exception e) {
+                    log.error("CDC target adapter replay failed: {}", e.getMessage(), e);
+                    throw new RuntimeException("CDC adapter replay failed: " + e.getMessage(), e);
+                }
+            } else if (replayCoordinator != null && targetConfig != null) {
+                CdcWriteResult result = replayCoordinator.replayBatch(targetConfig, batch, pipelineId);
+            }
             long total = totalEventsProcessed.addAndGet(batch.size());
             log.debug("CDC replayed batch of {} events for pipeline {}. Total processed: {}",
                     batch.size(), pipelineId, total);

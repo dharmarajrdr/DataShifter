@@ -26,6 +26,9 @@ class PermissionInterceptorTest {
         @RequiresPermission(anyOf = {"connection:create", "pipeline:create"})
         public void anyOfEndpoint() {}
 
+        @RequiresPermission("pipeline:edit")
+        public void editEndpoint() {}
+
         public void publicEndpoint() {}
     }
 
@@ -61,6 +64,19 @@ class PermissionInterceptorTest {
         HandlerMethod handlerMethod = new HandlerMethod(controller, method);
 
         request.setAttribute("permissions", Set.of("connection:test", "connection:browse_schema"));
+
+        boolean result = interceptor.preHandle(request, response, handlerMethod);
+
+        assertThat(result).isTrue();
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void testAllowedWhenColumnMappingMatchesEdit() throws Exception {
+        Method method = TestController.class.getMethod("editEndpoint");
+        HandlerMethod handlerMethod = new HandlerMethod(controller, method);
+
+        request.setAttribute("permissions", Set.of("pipeline:column-mapping"));
 
         boolean result = interceptor.preHandle(request, response, handlerMethod);
 
