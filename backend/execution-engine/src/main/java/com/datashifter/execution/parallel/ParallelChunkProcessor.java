@@ -1,6 +1,7 @@
 package com.datashifter.execution.parallel;
 
 import com.datashifter.common.enums.ErrorType;
+import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.events.KafkaTopics;
 import com.datashifter.common.events.PipelineEvents.*;
 import com.datashifter.common.models.PipelineTable;
@@ -61,6 +62,8 @@ public class ParallelChunkProcessor {
     private final CommandRegistry commandRegistry;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final com.datashifter.execution.adapters.AdapterExecutionManager adapterExecutionManager;
+    private final com.datashifter.execution.adapters.AdapterExecutionBridge adapterExecutionBridge;
 
     /**
      * Process a single table's data using parallel workers.
@@ -110,8 +113,15 @@ public class ParallelChunkProcessor {
                         break;
                     }
 
-                    List<Map<String, Object>> records = sourceConnector.readChunk(
-                            ctx.getSourceConfig(), tableName, pkColumn, cursorPk, chunkSize);
+                    List<Map<String, Object>> records;
+                    try {
+                        com.datashifter.adapter.sdk.AdapterConfig srcConfig = adapterExecutionManager.parseConfig(ctx.getPipeline().getSourceConfig());
+                        com.datashifter.adapter.sdk.DataReader srcReader = adapterExecutionManager.getReader(ctx.getPipeline().getSourceAdapterId(), srcConfig);
+                        List<com.datashifter.adapter.sdk.DataRecord> recs = srcReader.readChunk(srcConfig, tableName, pkColumn, cursorPk, chunkSize);
+                        records = adapterExecutionBridge.fromDataRecords(recs);
+                    } catch (Exception ex) {
+                        throw new DatashifterException("Source adapter read failed in parallel worker on " + tableName + ": " + ex.getMessage(), ex);
+                    }
 
                     if (records.isEmpty()) {
                         log.info("Reader: table {} — no more records at chunk {}", tableName, chunkNumber);
@@ -267,9 +277,28 @@ public class ParallelChunkProcessor {
             // STEP 5: BUFFER (thread-safe — Redis operations are atomic)
 
             // STEP 6: WRITE
-            WriteResult result = targetConnector.writeBatch(
-                    ctx.getTargetConfig(), ttc.getTargetTable(),
-                    targetRecords, ttc.getWriteMode(), ttc.getPrimaryKeyColumn());
+            WriteResult result;
+            try {
+                com.datashifter.adapter.sdk.AdapterConfig adapterConfig = adapterExecutionManager.parseConfig(ctx.getPipeline().getTargetConfig());
+                com.datashifter.adapter.sdk.DataWriter writer = adapterExecutionManager.getWriter(ctx.getPipeline().getTargetAdapterId(), adapterConfig);
+                String modeStr = ttc.getWriteMode() != null ? ttc.getWriteMode().toUpperCase() : "INSERT_ONLY";
+                com.datashifter.adapter.sdk.WriteMode sdkWriteMode;
+                switch (modeStr) {
+                    case "UPSERT": sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.UPSERT; break;
+                    case "UPDATE_ONLY": sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.UPDATE_ONLY; break;
+                    case "REPLACE": case "OVERWRITE": case "TRUNCATE_INSERT":
+                        sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.REPLACE; break;
+                    case "INSERT_IGNORE": sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.INSERT_IGNORE; break;
+                    default: sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.INSERT_ONLY; break;
+                }
+                com.datashifter.adapter.sdk.WriteResult sdkResult = adapterExecutionBridge.writeBatch(
+                        writer, adapterConfig, ttc.getTargetTable(), targetRecords, sdkWriteMode, ttc.getPrimaryKeyColumn()
+                );
+                result = adapterExecutionBridge.toConnectorWriteResult(sdkResult);
+            } catch (Exception ex) {
+                log.error("Parallel target adapter write error on {}: {}", ttc.getTargetTable(), ex.getMessage(), ex);
+                throw new DatashifterException("Target adapter write failed on " + ttc.getTargetTable() + ": " + ex.getMessage(), ex);
+            }
 
             // Handle failures
             if (result.getFailureCount() > 0) {
