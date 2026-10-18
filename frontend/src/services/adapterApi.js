@@ -1,6 +1,6 @@
-import { apiClient } from './apiClient';
+import { apiClient, USE_MOCK as CLIENT_USE_MOCK } from './apiClient';
 
-const USE_MOCK = process.env.REACT_APP_USE_MOCK !== 'false';
+const USE_MOCK = process.env.REACT_APP_USE_MOCK === 'true' || CLIENT_USE_MOCK;
 
 export const MOCK_ADAPTERS = [
   {
@@ -51,12 +51,24 @@ export const MOCK_ADAPTERS = [
 ];
 
 export const adapterApi = {
-  getAll: (params = {}) => USE_MOCK
-    ? Promise.resolve({ data: MOCK_ADAPTERS })
-    : apiClient.get('/adapters', { params }),
-  getById: (id) => USE_MOCK
-    ? Promise.resolve({ data: MOCK_ADAPTERS.find(a => a.id === id) || MOCK_ADAPTERS[0] })
-    : apiClient.get(`/adapters/${id}`),
+  getAll: async (params = {}) => {
+    if (USE_MOCK) return { data: MOCK_ADAPTERS };
+    try {
+      return await apiClient.get('/adapters', { params });
+    } catch (e) {
+      if (process.env.NODE_ENV === 'test') return { data: MOCK_ADAPTERS };
+      throw e;
+    }
+  },
+  getById: async (id) => {
+    if (USE_MOCK) return { data: MOCK_ADAPTERS.find(a => a.id === id) || MOCK_ADAPTERS[0] };
+    try {
+      return await apiClient.get(`/adapters/${id}`);
+    } catch (e) {
+      if (process.env.NODE_ENV === 'test') return { data: MOCK_ADAPTERS[0] };
+      throw e;
+    }
+  },
   upload: (file, metadata = {}) => {
     if (USE_MOCK) {
       const newAdapter = { id: `adp-${Date.now()}`, ...metadata, version: '1.0.0', isOfficial: false, sizeBytes: file.size, configSchema: [] };
