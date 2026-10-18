@@ -44,6 +44,18 @@ public class UdfController {
         service.delete(id);
     }
 
+    @GetMapping("/{id}/download")
+    @RequiresPermission(Permissions.UDF_VIEW)
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> download(@PathVariable String id) {
+        UdfResponse udf = service.getById(id);
+        org.springframework.core.io.Resource resource = service.loadArtifact(id);
+        String filename = udf.getArtifactName() != null ? udf.getArtifactName() : udf.getName() + ".jar";
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(resource);
+    }
+
     @PostMapping("/{id}/test")
     @RequiresPermission(Permissions.UDF_VIEW)
     public ApiResponse<java.util.Map<String, Object>> test(
