@@ -78,4 +78,14 @@ describe('Beetel Agent UI Components', () => {
     });
     expect(handleLoadOlder).toHaveBeenCalled();
   });
+
+  test('renders access granted notice as a centered WhatsApp-style label', () => {
+    const auditMessages = [{ id: 'aud-1', role: 'AUDIT', content: '**Dharma** granted access to Dharmaraj R' }];
+    act(() => { root.render(<BeetelChatCanvas session={{ id: 's-1' }} messages={auditMessages} />); });
+    const label = container.querySelector('.beetel-audit-message');
+    expect(label).not.toBeNull();
+    expect(label.className).toContain('justify-center');
+    expect(label.textContent).toContain('Dharma granted access to Dharmaraj R');
+    expect(container.querySelector('.fa-robot')).toBeNull();
+  });
 });
