@@ -74,6 +74,7 @@ public class WorkflowDtos {
         private long errorsSkipped;
         private String eta;
         private PipelineMode pipelineMode;
+        private List<String> validationErrors;
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

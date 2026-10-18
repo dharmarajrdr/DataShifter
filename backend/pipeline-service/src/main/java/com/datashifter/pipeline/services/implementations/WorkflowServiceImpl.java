@@ -1374,9 +1374,18 @@ public class WorkflowServiceImpl implements WorkflowService {
             if (p.getStatus() == PipelineStatus.DRAFT
                     || p.getStatus() == PipelineStatus.NOT_VALIDATED
                     || p.getStatus() == PipelineStatus.INVALID) {
+                String detail = "";
+                if (p.getValidationErrors() != null && !p.getValidationErrors().isBlank()) {
+                    try {
+                        List<String> pErrors = objectMapper.readValue(p.getValidationErrors(), new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+                        detail = " (" + String.join(", ", pErrors) + ")";
+                    } catch (Exception ex) {
+                        detail = " (" + p.getValidationErrors() + ")";
+                    }
+                }
                 res.validationErrors.add(String.format(
-                        "Pipeline '%s' is in %s status and must be VALIDATED before starting the workflow.",
-                        p.getName(), p.getStatus()));
+                        "Pipeline '%s' is in %s status and must be VALIDATED before starting the workflow.%s",
+                        p.getName(), p.getStatus(), detail));
             }
         }
 
@@ -1445,6 +1454,15 @@ public class WorkflowServiceImpl implements WorkflowService {
             totalRowsProcessed += rowsProcessed;
             totalErrorsSkipped += errorsSkipped;
 
+            List<String> nodeValErrors = null;
+            if (p.getValidationErrors() != null && !p.getValidationErrors().isBlank()) {
+                try {
+                    nodeValErrors = objectMapper.readValue(p.getValidationErrors(), new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+                } catch (Exception ex) {
+                    nodeValErrors = List.of(p.getValidationErrors());
+                }
+            }
+
             nodeResponses.add(WorkflowNodeResponse.builder()
                     .id(n.getId())
                     .pipelineId(p.getId())
@@ -1461,6 +1479,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                     .errorsSkipped(errorsSkipped)
                     .eta(eta)
                     .pipelineMode(p.getPipelineMode())
+                    .validationErrors(nodeValErrors)
                     .build());
         }
 

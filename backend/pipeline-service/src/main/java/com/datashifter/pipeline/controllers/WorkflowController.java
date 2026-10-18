@@ -79,7 +79,10 @@ public class WorkflowController {
     @PostMapping("/{id}/validate-pipelines")
     @RequiresPermission(anyOf = {Permissions.WORKFLOW_EDIT, Permissions.PIPELINE_EDIT})
     public ApiResponse<WorkflowResponse> validatePipelines(@PathVariable String id) {
-        return ApiResponse.success(workflowService.validatePipelines(id), "Pipelines validated");
+        WorkflowResponse resp = workflowService.validatePipelines(id);
+        long bad = resp.getNodes() == null ? 0 : resp.getNodes().stream()
+                .filter(n -> n.getPipelineStatus() != com.datashifter.common.enums.PipelineStatus.VALIDATED).count();
+        return ApiResponse.success(resp, bad == 0 ? "Pipelines validated" : bad + " pipeline(s) failed validation");
     }
 
     @PostMapping("/{id}/actions")
