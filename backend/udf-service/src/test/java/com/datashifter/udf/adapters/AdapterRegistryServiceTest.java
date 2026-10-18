@@ -5,6 +5,8 @@ import com.datashifter.adapter.sdk.annotations.AdapterType;
 import com.datashifter.common.dtos.AdapterDtos.AdapterResponse;
 import com.datashifter.common.exceptions.DatashifterException;
 import com.datashifter.common.models.AdapterDefinition;
+import com.datashifter.common.models.MarketplaceCatalogItem;
+import com.datashifter.common.models.OrgPurchasedAdapter;
 import com.datashifter.common.repositories.AdapterDefinitionRepository;
 import com.datashifter.common.repositories.OrgPurchasedAdapterRepository;
 import com.datashifter.common.security.UserContext;
@@ -97,8 +99,11 @@ class AdapterRegistryServiceTest {
                 .isOfficial(false)
                 .build();
 
+        MarketplaceCatalogItem mktItem = MarketplaceCatalogItem.builder().adapterKey("oracle-reader").build();
+        OrgPurchasedAdapter purchase = OrgPurchasedAdapter.builder().marketplaceItem(mktItem).status("ACTIVE").build();
+
         when(repository.findAllAvailableForOrg("org-123")).thenReturn(List.of(officialReader, customWriter));
-        when(purchasedRepo.findByOrganizationIdAndStatus("org-123", "ACTIVE")).thenReturn(List.of());
+        when(purchasedRepo.findByOrganizationIdAndStatus("org-123", "ACTIVE")).thenReturn(List.of(purchase));
 
         List<AdapterResponse> all = service.getAllAvailable(null, null, null);
         assertEquals(2, all.size());
