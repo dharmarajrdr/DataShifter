@@ -28,7 +28,8 @@ export const MarketplaceDrawer = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="drawer-adapter-name"
-      className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex justify-end transition-opacity"
+      className="fixed inset-0 !mt-0 m-0 bg-slate-900/40 backdrop-blur-xs z-50 flex justify-end transition-opacity"
+      style={{ marginTop: 0 }}
       onClick={onClose}
     >
       <div
