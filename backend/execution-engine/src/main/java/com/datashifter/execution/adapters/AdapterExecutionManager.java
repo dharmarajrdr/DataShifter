@@ -30,38 +30,37 @@ public class AdapterExecutionManager {
         this(new AdapterClassLoader(storageRootPath, definitionRepo), objectMapper);
     }
 
+    private final Map<String, DataWriter> writerCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, DataReader> readerCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     public DataReader getReader(String adapterKeyOrId, AdapterConfig config) {
-        LoadedAdapterClass loaded = classLoader.loadAdapterClass(adapterKeyOrId);
-        try {
-            Object instance = loaded.getClazz().getDeclaredConstructor().newInstance();
-            if (!(instance instanceof DataReader reader)) {
-                throw new DatashifterException("Class " + loaded.getClazz().getName() + " does not implement DataReader");
-            }
-            reader.init(config != null ? config : new AdapterConfig());
-            log.info("Initialized DataReader for adapter '{}' ({})", adapterKeyOrId, loaded.getClazz().getName());
-            return reader;
-        } catch (DatashifterException de) {
-            throw de;
-        } catch (Exception e) {
-            throw new DatashifterException("Failed to instantiate DataReader for '" + adapterKeyOrId + "': " + e.getMessage(), e);
-        }
+        String k = adapterKeyOrId + ":" + (config != null ? config.getProperties().hashCode() : 0);
+        return readerCache.computeIfAbsent(k, key -> {
+            LoadedAdapterClass loaded = classLoader.loadAdapterClass(adapterKeyOrId);
+            try {
+                Object inst = loaded.getClazz().getDeclaredConstructor().newInstance();
+                if (!(inst instanceof DataReader reader)) throw new DatashifterException("Class does not implement DataReader");
+                reader.init(config != null ? config : new AdapterConfig());
+                log.info("Initialized DataReader for adapter '{}'", adapterKeyOrId);
+                return reader;
+            } catch (DatashifterException de) { throw de; }
+            catch (Exception e) { throw new DatashifterException("Failed to instantiate DataReader for '" + adapterKeyOrId + "': " + e.getMessage(), e); }
+        });
     }
 
     public DataWriter getWriter(String adapterKeyOrId, AdapterConfig config) {
-        LoadedAdapterClass loaded = classLoader.loadAdapterClass(adapterKeyOrId);
-        try {
-            Object instance = loaded.getClazz().getDeclaredConstructor().newInstance();
-            if (!(instance instanceof DataWriter writer)) {
-                throw new DatashifterException("Class " + loaded.getClazz().getName() + " does not implement DataWriter");
-            }
-            writer.init(config != null ? config : new AdapterConfig());
-            log.info("Initialized DataWriter for adapter '{}' ({})", adapterKeyOrId, loaded.getClazz().getName());
-            return writer;
-        } catch (DatashifterException de) {
-            throw de;
-        } catch (Exception e) {
-            throw new DatashifterException("Failed to instantiate DataWriter for '" + adapterKeyOrId + "': " + e.getMessage(), e);
-        }
+        String k = adapterKeyOrId + ":" + (config != null ? config.getProperties().hashCode() : 0);
+        return writerCache.computeIfAbsent(k, key -> {
+            LoadedAdapterClass loaded = classLoader.loadAdapterClass(adapterKeyOrId);
+            try {
+                Object inst = loaded.getClazz().getDeclaredConstructor().newInstance();
+                if (!(inst instanceof DataWriter writer)) throw new DatashifterException("Class does not implement DataWriter");
+                writer.init(config != null ? config : new AdapterConfig());
+                log.info("Initialized DataWriter for adapter '{}'", adapterKeyOrId);
+                return writer;
+            } catch (DatashifterException de) { throw de; }
+            catch (Exception e) { throw new DatashifterException("Failed to instantiate DataWriter for '" + adapterKeyOrId + "': " + e.getMessage(), e); }
+        });
     }
 
     public boolean isAdapterInstalled(String adapterKeyOrId) {
@@ -87,5 +86,11 @@ public class AdapterExecutionManager {
         }
     }
 
-    public void clearCache() { classLoader.clearCache(); }
+    public void clearCache() {
+        classLoader.clearCache();
+        writerCache.values().forEach(this::close);
+        writerCache.clear();
+        readerCache.values().forEach(this::close);
+        readerCache.clear();
+    }
 }
