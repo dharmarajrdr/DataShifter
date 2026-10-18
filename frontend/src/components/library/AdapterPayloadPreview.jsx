@@ -1,15 +1,24 @@
 import React from 'react';
 
+/** Example JSON configuration preview for selected adapter (<= 100 lines). */
 export const AdapterPayloadPreview = ({ adapter }) => {
   if (!adapter) return null;
   const isReader = adapter.adapterType === 'READER';
   const idField = isReader ? 'sourceAdapterId' : 'targetAdapterId';
   const cfgField = isReader ? 'sourceConfig' : 'targetConfig';
 
+  let schema = adapter.configSchema;
+  if (typeof schema === 'string') {
+    try { schema = JSON.parse(schema); } catch { schema = []; }
+  }
+  const items = Array.isArray(schema) ? schema : (schema?.properties || []);
+
   const sampleObj = {
     [idField]: adapter.id,
-    [cfgField]: (adapter.configSchema || []).reduce((acc, c) => {
-      acc[c.key] = c.default || (c.type === 'Boolean' ? true : c.type === 'Integer' ? 100 : 'sample');
+    [cfgField]: items.reduce((acc, c) => {
+      const k = c.key || c.name;
+      if (!k) return acc;
+      acc[k] = c.default ?? c.defaultValue ?? (c.type === 'Boolean' ? true : c.type === 'Integer' ? 100 : 'sample');
       return acc;
     }, {})
   };
