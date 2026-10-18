@@ -14,7 +14,8 @@ export const BeetelChatCanvas = ({
 
   useEffect(() => {
     if (isPrependRef.current) { isPrependRef.current = false; return; }
-    endRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+    const scroll = () => { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; };
+    scroll(); const t = setTimeout(scroll, 50); return () => clearTimeout(t);
   }, [messages, sending]);
 
   useLayoutEffect(() => {
@@ -82,7 +83,7 @@ export const BeetelChatCanvas = ({
         <div ref={endRef} />
       </div>
       <form onSubmit={handleSubmit} className="p-3.5 border-t border-slate-200 bg-white flex gap-2.5">
-        <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Ask Beetel Agent to synthesize, debug, or validate pipelines..." className="flex-1 text-xs px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-600" disabled={sending} />
+        <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Ask Beetel Agent to synthesize, debug, or validate pipelines..." className="flex-1 text-xs px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-600" readOnly={sending} />
         <button type="submit" disabled={sending || !inputText.trim()} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shrink-0 transition-colors shadow-xs">
           <span>Send</span><i className="fa-solid fa-paper-plane text-[10px]" />
         </button>
