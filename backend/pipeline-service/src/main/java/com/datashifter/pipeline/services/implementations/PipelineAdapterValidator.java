@@ -17,10 +17,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.*;
+import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
 
@@ -35,16 +35,15 @@ public class PipelineAdapterValidator {
     private final KafkaTemplate<String, Object> kafka;
     private final WorkflowService workflowService;
     private final Path storageRoot;
+    @Autowired(required = false) private PlatformTransactionManager txManager;
 
     @Autowired
-    public PipelineAdapterValidator(
-            ConnectionRepository connRepo, PipelineRepository pipeRepo, CommonErrorLogRepository errRepo,
-            AdapterDefinitionRepository defRepo, OrgPurchasedAdapterRepository purchasedRepo,
-            StringRedisTemplate redis, KafkaTemplate<String, Object> kafka, WorkflowService workflowService,
+    public PipelineAdapterValidator(ConnectionRepository connRepo, PipelineRepository pipeRepo, CommonErrorLogRepository errRepo,
+            AdapterDefinitionRepository defRepo, OrgPurchasedAdapterRepository purchasedRepo, StringRedisTemplate redis,
+            KafkaTemplate<String, Object> kafka, WorkflowService workflowService,
             @Value("${datashifter.adapters.storage.root:${datashifter.udf.storage.root:/var/lib/datashifter/udfs}/adapters}") String root) {
-        this.connRepo = connRepo; this.pipeRepo = pipeRepo; this.errRepo = errRepo;
-        this.defRepo = defRepo; this.purchasedRepo = purchasedRepo; this.redis = redis;
-        this.kafka = kafka; this.workflowService = workflowService;
+        this.connRepo = connRepo; this.pipeRepo = pipeRepo; this.errRepo = errRepo; this.defRepo = defRepo;
+        this.purchasedRepo = purchasedRepo; this.redis = redis; this.kafka = kafka; this.workflowService = workflowService;
         this.storageRoot = Paths.get(root).toAbsolutePath().normalize();
     }
 
@@ -69,8 +68,7 @@ public class PipelineAdapterValidator {
     public boolean isInstalled(String key, String orgId) {
         if (key == null || key.isBlank()) return false;
         if (orgId != null && !orgId.isBlank()) {
-            boolean p = purchasedRepo.isAdapterPurchasedByOrg(orgId, key);
-            boolean c = defRepo.findByOrganizationIdAndAdapterKey(orgId, key).isPresent();
+            boolean p = purchasedRepo.isAdapterPurchasedByOrg(orgId, key), c = defRepo.findByOrganizationIdAndAdapterKey(orgId, key).isPresent();
             return (p || c) && checkJar(key, orgId);
         }
         return !defRepo.findAllByAdapterKey(key).isEmpty() && checkJar(key, null);
@@ -82,9 +80,8 @@ public class PipelineAdapterValidator {
         return defRepo.findAllByAdapterKey(key).stream().anyMatch(d -> d.getStorageKey() != null && storageRoot.resolve(d.getStorageKey()).toFile().exists());
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleMissing(String pipelineId, String errorMsg) {
-        pipeRepo.findById(pipelineId).ifPresent(p -> {
+        Runnable r = () -> pipeRepo.findById(pipelineId).ifPresent(p -> {
             PipelineStatus prev = p.getStatus(); p.setStatus(PipelineStatus.ERRORED); pipeRepo.save(p);
             if (p.getClearLogsOnStart() == null || p.getClearLogsOnStart()) errRepo.deleteByPipelineId(p.getId());
             errRepo.save(ErrorLog.builder().pipelineId(p.getId()).errorType(ErrorType.ADAPTER_ERROR)
@@ -95,5 +92,8 @@ public class PipelineAdapterValidator {
             workflowService.syncWorkflowStatusForPipeline(p.getId());
             log.warn("Marked pipeline {} as ERRORED due to missing adapters: {}", p.getId(), errorMsg);
         });
+        if (txManager != null) {
+            new TransactionTemplate(txManager, new DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_REQUIRES_NEW)).executeWithoutResult(st -> r.run());
+        } else r.run();
     }
 }
