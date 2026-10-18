@@ -7,6 +7,7 @@ import {
   WorkflowFilterToolbar,
   WorkflowGridBody,
   WorkflowKpiGrid,
+  WorkflowTableView,
 } from '../../components/workflow/dashboard';
 
 export const WorkflowDashboardPage = ({ id = 'workflow-dashboard-page' }) => {
@@ -44,17 +45,25 @@ export const WorkflowDashboardPage = ({ id = 'workflow-dashboard-page' }) => {
           onSelectNamespace={d.setSelectedNamespace}
           searchQuery={d.searchQuery}
           onSearchChange={d.setSearchQuery}
+          viewMode={d.viewMode}
+          onViewModeChange={d.setViewMode}
         />
 
-        <div id={`${id}-scroll-wrap`} className="flex-1 min-h-0 overflow-y-auto pr-1">
-          <WorkflowGridBody
-            id={`${id}-grid-body`}
-            workflows={d.filteredWorkflows}
-            searchQuery={d.searchQuery}
-            selectedNamespace={d.selectedNamespace}
-            canCreateWorkflow={d.canCreateWorkflow}
-            navigate={navigate}
-          />
+        <div id={`${id}-content-area`} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {d.viewMode === 'grid' ? (
+            <div id={`${id}-grid-scroll-wrap`} className="flex-1 min-h-0 overflow-y-auto pr-1">
+              <WorkflowGridBody
+                id={`${id}-grid-body`}
+                workflows={d.filteredWorkflows}
+                searchQuery={d.searchQuery}
+                selectedNamespace={d.selectedNamespace}
+                canCreateWorkflow={d.canCreateWorkflow}
+                navigate={navigate}
+              />
+            </div>
+          ) : (
+            <WorkflowTableView id={`${id}-table-view`} workflows={d.filteredWorkflows} navigate={navigate} />
+          )}
         </div>
       </div>
     </ApiGuard>

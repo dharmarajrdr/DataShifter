@@ -8,6 +8,8 @@ export const WorkflowFilterToolbar = ({
   onSelectNamespace,
   searchQuery = '',
   onSearchChange,
+  viewMode = 'grid',
+  onViewModeChange,
 }) => {
   const nsOptions = [
     { id: 'ALL', name: 'All Namespaces' },
@@ -64,6 +66,17 @@ export const WorkflowFilterToolbar = ({
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
+
+        {onViewModeChange && (
+          <div id={`${id}-view-toggle`} className="inline-flex bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+            <button id={`${id}-grid-view-btn`} type="button" onClick={() => onViewModeChange('grid')} className={`text-xs px-2.5 py-1 rounded-md font-semibold inline-flex items-center gap-1.5 cursor-pointer ${viewMode === 'grid' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-500 hover:text-slate-700'}`}>
+              <i className="fa-solid fa-grip" /><span>Grid</span>
+            </button>
+            <button id={`${id}-table-view-btn`} type="button" onClick={() => onViewModeChange('table')} className={`text-xs px-2.5 py-1 rounded-md font-semibold inline-flex items-center gap-1.5 cursor-pointer ${viewMode === 'table' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-500 hover:text-slate-700'}`}>
+              <i className="fa-solid fa-list" /><span>Table</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
