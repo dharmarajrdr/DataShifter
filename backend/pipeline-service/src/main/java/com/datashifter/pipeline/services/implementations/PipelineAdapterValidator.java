@@ -86,7 +86,7 @@ public class PipelineAdapterValidator {
             if (p.getClearLogsOnStart() == null || p.getClearLogsOnStart()) errRepo.deleteByPipelineId(p.getId());
             errRepo.save(ErrorLog.builder().pipelineId(p.getId()).errorType(ErrorType.ADAPTER_ERROR)
                     .sourceTable("SYSTEM").targetTable("ADAPTER").errorMessage(errorMsg).chunkNumber(0L).rowNumber(0L).build());
-            try { redis.opsForHash().put("pipeline:" + p.getId() + ":stats", "errorsSkipped", "1"); } catch (Exception ignored) {}
+            try { redis.opsForHash().put("pipeline:" + p.getId() + ":stats", "errorsSkipped", String.valueOf(errRepo.countByPipelineId(p.getId()))); } catch (Exception ignored) {}
             kafka.send(KafkaTopics.PIPELINE_STATUS, StatusChangeEvent.builder().pipelineId(p.getId())
                     .previousStatus(prev).newStatus(PipelineStatus.ERRORED).reason(errorMsg).timestamp(Instant.now()).build());
             workflowService.syncWorkflowStatusForPipeline(p.getId());

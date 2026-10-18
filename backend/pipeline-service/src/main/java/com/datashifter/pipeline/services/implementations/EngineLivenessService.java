@@ -64,7 +64,8 @@ public class EngineLivenessService {
         errorLogRepository.save(errorLog);
 
         try {
-            redisTemplate.opsForHash().put("pipeline:" + pipeline.getId() + ":stats", "errorsSkipped", "1");
+            long cnt = errorLogRepository.countByPipelineId(pipeline.getId());
+            redisTemplate.opsForHash().put("pipeline:" + pipeline.getId() + ":stats", "errorsSkipped", String.valueOf(cnt));
         } catch (Exception ex) {
             log.warn("Failed to set errorsSkipped in Redis: {}", ex.getMessage());
         }

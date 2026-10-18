@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface CommonErrorLogRepository extends JpaRepository<ErrorLog, String> {
     List<ErrorLog> findByPipelineId(String pipelineId);
+    long countByPipelineId(String pipelineId);
     void deleteByPipelineId(String pipelineId);
 }
