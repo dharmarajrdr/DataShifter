@@ -1,21 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import BeetelSplitPanel from '../ai/BeetelSplitPanel';
 import { Header } from './header';
 import { Sidebar } from './sidebar';
 
+const STORAGE_KEY = 'is_collapse';
+
+const getInitialCollapsed = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('is_collapsed');
+    return saved !== null ? JSON.parse(saved) : false;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * App layout shell with responsive collapsible sidebar and minimal header bar.
  */
 export const AppLayout = ({ id = 'app-root-layout', className = '' }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsed);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(isCollapsed));
+    } catch {}
+  }, [isCollapsed]);
+
+  const handleToggle = () => setIsCollapsed((prev) => !prev);
 
   return (
     <div id={id} className={`flex min-h-screen bg-surface-50 ${className}`}>
       <Sidebar
         id="main-sidebar"
         isCollapsed={isCollapsed}
-        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+        onToggleCollapse={handleToggle}
       />
 
       <div
@@ -26,7 +45,7 @@ export const AppLayout = ({ id = 'app-root-layout', className = '' }) => {
         <Header
           id="main-top-header"
           isSidebarCollapsed={isCollapsed}
-          onToggleSidebar={() => setIsCollapsed(!isCollapsed)}
+          onToggleSidebar={handleToggle}
         />
         <main
           id="main-content-viewport"
