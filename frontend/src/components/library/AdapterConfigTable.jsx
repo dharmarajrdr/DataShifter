@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 
 /** Schema property table with collapsible view (<= 100 lines). */
 export const AdapterConfigTable = ({ configSchema = [] }) => {
@@ -12,7 +12,7 @@ export const AdapterConfigTable = ({ configSchema = [] }) => {
 
   return (
     <div id="adapter-config-table-card" className="bg-white border border-surface-200 rounded-xl overflow-hidden shadow-subtle flex flex-col font-sans flex-shrink-0">
-      <div id="adapter-config-table-header" className="px-4 py-2.5 border-b border-surface-200 bg-surface-50 flex items-center justify-between flex-shrink-0">
+      <div id="adapter-config-table-header" className="px-6 py-4 border-b border-surface-200 bg-white flex items-center justify-between flex-shrink-0">
         <div>
           <h3 id="adapter-config-table-title" className="font-semibold text-xs text-content-primary uppercase tracking-wider">Required Pipeline Config Properties</h3>
           <p id="adapter-config-table-sub" className="text-[11px] text-content-secondary mt-0.5">Parameters validated dynamically when configuring this adapter in Pipeline Wizard</p>

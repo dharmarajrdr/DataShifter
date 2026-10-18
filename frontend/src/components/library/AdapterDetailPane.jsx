@@ -1,24 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Download, Play } from 'lucide-react';
 import AdapterConfigTable from './AdapterConfigTable';
 import AdapterPayloadPreview from './AdapterPayloadPreview';
 import { useNotification } from '../../contexts/NotificationContext';
+import { adapterApi } from '../../services/adapterApi';
 
-const formatBytes = (bytes) => {
-  if (!bytes) return '—';
-  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
+const formatBytes = (b) => (!b ? '—' : b < 1048576 ? `${Math.ceil(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`);
 
 export const AdapterDetailPane = ({ adapter, onCreatePipeline }) => {
   const notification = useNotification();
+  const [downloading, setDownloading] = useState(false);
+
   if (!adapter) {
-    return (
-      <main id="adapter-detail-empty" className="flex-1 p-8 text-center text-xs text-content-tertiary font-sans">
-        Select a connector adapter from the list to inspect configuration schema.
-      </main>
-    );
+    return <main id="adapter-detail-empty" className="flex-1 p-8 text-center text-xs text-content-tertiary font-sans">Select a connector adapter from the list to inspect configuration schema.</main>;
   }
+
+  const handleDownload = async () => {
+    const fn = adapter.artifactName || `${adapter.adapterKey || 'adapter'}.jar`;
+    setDownloading(true);
+    notification.info(`Downloading ${fn}...`);
+    try {
+      await adapterApi.download(adapter.id, fn);
+      notification.success(`${fn} downloaded successfully`);
+    } catch (err) {
+      notification.error(err.message || `Failed to download ${fn}`);
+    } finally { setDownloading(false); }
+  };
 
   const isReader = adapter.adapterType === 'READER';
 
@@ -33,10 +40,7 @@ export const AdapterDetailPane = ({ adapter, onCreatePipeline }) => {
             <div id="adapter-detail-titles">
               <div id="adapter-detail-title-row" className="flex items-center gap-2.5">
                 <h2 id="adapter-detail-name" className="text-base font-semibold text-content-primary">{adapter.name}</h2>
-                {adapter.isOfficial ?
-                  <i id="adapter-official-icon" className='fa fa-check-circle text-blue-700' title='Official Adapter' /> :
-                  <i id="adapter-custom-icon" className='fa fa-certificate text-orange-400' title='Custom Adapter' />
-                }
+                {adapter.isOfficial ? <i id="adapter-official-icon" className="fa fa-check-circle text-blue-700" title="Official Adapter" /> : <i id="adapter-custom-icon" className="fa fa-certificate text-orange-400" title="Custom Adapter" />}
               </div>
               <p id="adapter-detail-meta" className="text-xs text-content-secondary mt-0.5 tabular-nums">
                 key: <strong id="adapter-key-strong" className="font-mono text-content-primary">{adapter.adapterKey}</strong> • Version {adapter.version || '1.0.0'} • {formatBytes(adapter.sizeBytes)} • Active in {adapter.pipelineCount ?? 0} pipeline(s)
@@ -46,18 +50,14 @@ export const AdapterDetailPane = ({ adapter, onCreatePipeline }) => {
 
           <div id="adapter-detail-actions" className="flex items-center gap-2">
             <button
-              id="adapter-download-btn"
-              type="button"
-              onClick={() => notification.info(`Downloading ${adapter.artifactName || adapter.adapterKey + '.jar'}...`)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-content-primary bg-white hover:bg-surface-50 border border-surface-300 rounded-lg shadow-subtle transition-colors"
+              id="adapter-download-btn" type="button" disabled={downloading} onClick={handleDownload}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-content-primary bg-white hover:bg-surface-50 border border-surface-300 rounded-lg shadow-subtle transition-colors disabled:opacity-50"
             >
-              <Download id="adapter-download-icon" className="w-3.5 h-3.5 text-content-secondary" />
-              <span>Download JAR</span>
+              <Download id="adapter-download-icon" className={`w-3.5 h-3.5 text-content-secondary ${downloading ? 'animate-pulse' : ''}`} />
+              <span>{downloading ? 'Downloading...' : 'Download JAR'}</span>
             </button>
             <button
-              id="adapter-create-pipe-btn"
-              type="button"
-              onClick={() => onCreatePipeline && onCreatePipeline(adapter)}
+              id="adapter-create-pipe-btn" type="button" onClick={() => onCreatePipeline && onCreatePipeline(adapter)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-hover rounded-lg shadow-subtle transition-colors"
             >
               <Play id="adapter-play-icon" className="w-3 h-3 fill-current" />
@@ -76,13 +76,9 @@ export const AdapterDetailPane = ({ adapter, onCreatePipeline }) => {
             <code id="adapter-spi-class-code" className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-brand-700">{adapter.className}</code>
           </span>
           <span className="text-surface-300">•</span>
-          <span id="adapter-mode-span" className="text-content-secondary">
-            <strong>Mode:</strong> <span className="font-medium text-content-primary ml-1">{adapter.supportedMode}</span>
-          </span>
+          <span id="adapter-mode-span" className="text-content-secondary"><strong>Mode:</strong> <span className="font-medium text-content-primary ml-1">{adapter.supportedMode}</span></span>
           <span className="text-surface-300">•</span>
-          <span id="adapter-category-span" className="text-content-secondary">
-            <strong>Category:</strong> <span className="font-medium text-content-primary ml-1">{adapter.category}</span>
-          </span>
+          <span id="adapter-category-span" className="text-content-secondary"><strong>Category:</strong> <span className="font-medium text-content-primary ml-1">{adapter.category}</span></span>
         </div>
       </div>
 
