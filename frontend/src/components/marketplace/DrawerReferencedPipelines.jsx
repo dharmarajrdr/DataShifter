@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { pipelineApi } from '../../services/api';
 
 const STATUS_DOTS = { ERRORED: 'bg-rose-500', RUNNING: 'bg-emerald-500 animate-pulse' };
 
 /** Single-row referenced pipelines collapsible drawer section (<= 100 lines) */
-export const DrawerReferencedPipelines = ({ id = 'drawer-referenced-pipelines', adapter, pipelines: propPipelines }) => {
+export const DrawerReferencedPipelines = ({ id = 'drawer-referenced-pipelines', adapter, pipelines: propPipelines, onCountChange }) => {
   const [fetched, setFetched] = useState([]);
   useEffect(() => {
     if (propPipelines || !adapter) return;
@@ -15,10 +15,14 @@ export const DrawerReferencedPipelines = ({ id = 'drawer-referenced-pipelines', 
         const matched = list.filter((p) => [p.sourceAdapterId, p.targetAdapterId].includes(key) || [p.sourceAdapterId, p.targetAdapterId].includes(adapter.id));
         setFetched(matched.map((p) => ({ ...p, slot: (p.sourceAdapterId === key || p.sourceAdapterId === adapter.id) ? 'Source' : 'Target' })));
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, [adapter, propPipelines]);
 
   const list = propPipelines || fetched;
+  useEffect(() => {
+    onCountChange?.(list?.length || 0);
+  }, [list, onCountChange]);
+
   if (!list || list.length === 0) return null;
   const visible = list.slice(0, 5);
   const remaining = list.length - visible.length;
@@ -35,10 +39,6 @@ export const DrawerReferencedPipelines = ({ id = 'drawer-referenced-pipelines', 
       </summary>
 
       <div className="mt-3 space-y-2.5">
-        <div className="p-2.5 bg-amber-50/70 border border-amber-200/80 rounded-lg flex items-center gap-2 text-[11px] text-amber-900">
-          <svg className="w-4 h-4 text-amber-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-          <span>Cannot uninstall: Active in <strong className="font-semibold">{list.length} pipeline(s)</strong>.</span>
-        </div>
 
         <div className="space-y-1.5">
           {visible.map((p) => (
@@ -73,3 +73,4 @@ export const DrawerReferencedPipelines = ({ id = 'drawer-referenced-pipelines', 
 };
 
 export default DrawerReferencedPipelines;
+
