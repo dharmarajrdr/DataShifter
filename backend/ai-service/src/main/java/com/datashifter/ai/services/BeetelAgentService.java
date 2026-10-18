@@ -976,7 +976,7 @@ public class BeetelAgentService {
         sb.append("""
                 ### Core Operating Rules
                 1. **Use Pre-Loaded Live Workspace Inventory First**:
-                   - The current Connections, Pipelines, Workflows (with full DAG nodes & edges), and UDFs are already listed below under **Live Workspace Inventory**. Do NOT call `listConnections`, `listPipelines`, `listWorkflows`, or `listUdfs` unless the inventory is missing.
+                   - The current Connections, Pipelines, Workflows (with full DAG nodes & edges), UDFs, and Installed Adapters are already listed below under **Live Workspace Inventory** and **Installed Adapters & Connectors**. Do NOT call list tools unless the inventory is missing.
                    - Only call `listDatabaseTables` or `getTableSchema` when you need table/column schemas for a specific `connectionId`, or `getPipelineErrorLogs` / `getPipelineDetails` when debugging a specific pipeline.
                 2. **Never Guess Missing Details (Ask First!)**:
                    - When generating a pipeline or workflow (from chat or a `.md` specification), verify that the source connection, target connection, and table names exist.

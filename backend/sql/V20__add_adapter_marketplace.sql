@@ -77,15 +77,15 @@ ALTER TABLE pipelines ADD COLUMN IF NOT EXISTS target_config TEXT;
 
 -- 5. Seed RBAC Permissions for Roles
 INSERT INTO role_permissions (id, role_id, permission, created_at, updated_at)
-SELECT gen_random_uuid()::text, id, 'adapter:view', NOW(), NOW() FROM roles WHERE name IN ('Admin', 'Editor', 'Viewer')
+SELECT gen_random_uuid()::text, id, 'adapter:view', NOW(), NOW() FROM roles WHERE name IN ('Admin', 'Editor', 'Viewer', 'Agent')
 ON CONFLICT (role_id, permission) DO NOTHING;
 
 INSERT INTO role_permissions (id, role_id, permission, created_at, updated_at)
-SELECT gen_random_uuid()::text, id, 'adapter:create', NOW(), NOW() FROM roles WHERE name IN ('Admin', 'Editor')
+SELECT gen_random_uuid()::text, id, 'adapter:create', NOW(), NOW() FROM roles WHERE name IN ('Admin', 'Editor', 'Agent')
 ON CONFLICT (role_id, permission) DO NOTHING;
 
 INSERT INTO role_permissions (id, role_id, permission, created_at, updated_at)
-SELECT gen_random_uuid()::text, id, 'adapter:delete', NOW(), NOW() FROM roles WHERE name IN ('Admin', 'Editor')
+SELECT gen_random_uuid()::text, id, 'adapter:delete', NOW(), NOW() FROM roles WHERE name IN ('Admin', 'Editor', 'Agent')
 ON CONFLICT (role_id, permission) DO NOTHING;
 
 INSERT INTO role_permissions (id, role_id, permission, created_at, updated_at)
