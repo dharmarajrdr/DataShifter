@@ -20,7 +20,6 @@
 
     <modules>
         <module>adapter-sdk</module>
-        <module>adapters</module>
         <module>udf-sdk</module>
         <module>datashifter-common</module>
         <module>connector-service</module>
