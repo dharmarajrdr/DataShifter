@@ -13,7 +13,13 @@ import java.util.Optional;
 @Repository
 public interface AdapterDefinitionRepository extends JpaRepository<AdapterDefinition, String> {
 
-    Optional<AdapterDefinition> findByAdapterKey(String adapterKey);
+    Optional<AdapterDefinition> findFirstByAdapterKey(String adapterKey);
+
+    Optional<AdapterDefinition> findFirstByOrganizationIdIsNullAndAdapterKey(String adapterKey);
+
+    default Optional<AdapterDefinition> findByAdapterKey(String adapterKey) {
+        return findFirstByAdapterKey(adapterKey);
+    }
 
     Optional<AdapterDefinition> findByOrganizationIdAndAdapterKey(String organizationId, String adapterKey);
 

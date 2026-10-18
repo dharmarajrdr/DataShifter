@@ -38,7 +38,7 @@ public class BuiltInAdapterSeeder implements CommandLineRunner {
         List<AdapterDefinition> builtIns = getBuiltInDefinitions();
 
         for (AdapterDefinition def : builtIns) {
-            repository.findByAdapterKey(def.getAdapterKey()).ifPresentOrElse(existing -> {
+            repository.findFirstByOrganizationIdIsNullAndAdapterKey(def.getAdapterKey()).ifPresentOrElse(existing -> {
                 if (Boolean.TRUE.equals(existing.getIsOfficial())) {
                     existing.setName(def.getName());
                     existing.setDescription(def.getDescription());

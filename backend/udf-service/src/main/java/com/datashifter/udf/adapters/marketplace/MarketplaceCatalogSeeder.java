@@ -40,7 +40,7 @@ public class MarketplaceCatalogSeeder implements CommandLineRunner {
         List<MarketplaceCatalogItem> items = getOfficialCatalogItems();
 
         for (MarketplaceCatalogItem item : items) {
-            Optional<AdapterDefinition> defOpt = adapterRepo.findByAdapterKey(item.getAdapterKey());
+            Optional<AdapterDefinition> defOpt = adapterRepo.findFirstByOrganizationIdIsNullAndAdapterKey(item.getAdapterKey());
             defOpt.ifPresent(item::setAdapterDefinition);
 
             catalogRepo.findByAdapterKey(item.getAdapterKey()).ifPresentOrElse(existing -> {
@@ -154,7 +154,7 @@ public class MarketplaceCatalogSeeder implements CommandLineRunner {
                 .isActive(true)
                 .build());
 
-        // 6. Apache Kafka Writer (₹1,999)
+        // 6. Apache Kafka Writer (Free)
         items.add(MarketplaceCatalogItem.builder()
                 .adapterKey("kafka-writer")
                 .name("Apache Kafka Writer")
@@ -162,16 +162,16 @@ public class MarketplaceCatalogSeeder implements CommandLineRunner {
                 .category("messaging")
                 .adapterType(AdapterType.WRITER)
                 .supportedMode(AdapterMode.BOTH)
-                .pricePaise(199900L)
+                .pricePaise(0L)
                 .currency("INR")
-                .isFree(false)
+                .isFree(true)
                 .iconUrl("/icons/kafka.svg")
                 .documentationUrl("https://docs.datashifter.io/adapters/kafka-writer")
                 .displayOrder(6)
                 .isActive(true)
                 .build());
 
-        // 7. Oracle GoldenGate CDC Reader (₹4,999)
+        // 7. Oracle GoldenGate CDC Reader (Free)
         items.add(MarketplaceCatalogItem.builder()
                 .adapterKey("oracle-gg-reader")
                 .name("Oracle GoldenGate CDC Reader")
@@ -179,16 +179,16 @@ public class MarketplaceCatalogSeeder implements CommandLineRunner {
                 .category("streaming")
                 .adapterType(AdapterType.READER)
                 .supportedMode(AdapterMode.CDC)
-                .pricePaise(499900L)
+                .pricePaise(0L)
                 .currency("INR")
-                .isFree(false)
+                .isFree(true)
                 .iconUrl("/icons/oracle-gg.svg")
                 .documentationUrl("https://docs.datashifter.io/adapters/oracle-gg-reader")
                 .displayOrder(7)
                 .isActive(true)
                 .build());
 
-        // 8. PostgreSQL WAL CDC Reader (₹2,999)
+        // 8. PostgreSQL WAL CDC Reader (Free)
         items.add(MarketplaceCatalogItem.builder()
                 .adapterKey("postgres-wal-reader")
                 .name("PostgreSQL WAL CDC Reader")
@@ -196,9 +196,9 @@ public class MarketplaceCatalogSeeder implements CommandLineRunner {
                 .category("streaming")
                 .adapterType(AdapterType.READER)
                 .supportedMode(AdapterMode.CDC)
-                .pricePaise(299900L)
+                .pricePaise(0L)
                 .currency("INR")
-                .isFree(false)
+                .isFree(true)
                 .iconUrl("/icons/postgresql.svg")
                 .documentationUrl("https://docs.datashifter.io/adapters/postgres-wal-reader")
                 .displayOrder(8)

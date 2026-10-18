@@ -24,7 +24,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -108,27 +110,35 @@ public class AdapterRegistryService {
     @Transactional(readOnly = true)
     public List<AdapterResponse> getAllAvailable(AdapterType type, AdapterMode mode, String category) {
         String orgId = UserContext.getCurrentOrgId();
-        List<AdapterDefinition> all = (orgId != null && !orgId.isBlank())
-                ? repository.findAllAvailableForOrg(orgId)
-                : repository.findByIsOfficialTrue();
-
-        Set<String> purchasedKeys = new HashSet<>();
-        if (orgId != null && !orgId.isBlank()) {
-            List<OrgPurchasedAdapter> purchases = purchasedRepo.findByOrganizationIdAndStatus(orgId, "ACTIVE");
-            purchasedKeys.addAll(purchases.stream()
-                    .filter(p -> p.getMarketplaceItem() != null)
-                    .map(p -> p.getMarketplaceItem().getAdapterKey())
-                    .collect(Collectors.toSet()));
+        if (orgId == null || orgId.isBlank()) {
+            return List.of();
         }
 
-        return all.stream()
+        List<AdapterDefinition> all = repository.findAllAvailableForOrg(orgId);
+        Set<String> purchasedKeys = new HashSet<>();
+        List<OrgPurchasedAdapter> purchases = purchasedRepo.findByOrganizationIdAndStatus(orgId, "ACTIVE");
+        purchasedKeys.addAll(purchases.stream()
+                .filter(p -> p.getMarketplaceItem() != null)
+                .map(p -> p.getMarketplaceItem().getAdapterKey())
+                .collect(Collectors.toSet()));
+
+        Map<String, AdapterDefinition> byKey = new LinkedHashMap<>();
+        for (AdapterDefinition def : all) {
+            boolean isOrgOwned = orgId.equals(def.getOrganizationId());
+            boolean isPurchased = isOrgOwned || purchasedKeys.contains(def.getAdapterKey());
+            if (!isPurchased) {
+                continue;
+            }
+            if (!byKey.containsKey(def.getAdapterKey()) || isOrgOwned) {
+                byKey.put(def.getAdapterKey(), def);
+            }
+        }
+
+        return byKey.values().stream()
                 .filter(a -> type == null || a.getAdapterType() == type)
                 .filter(a -> mode == null || a.getSupportedMode() == mode || a.getSupportedMode() == AdapterMode.BOTH)
                 .filter(a -> category == null || category.isBlank() || category.equalsIgnoreCase(a.getCategory()))
-                .map(a -> {
-                    boolean isPurchased = Boolean.TRUE.equals(a.getIsOfficial()) || purchasedKeys.contains(a.getAdapterKey());
-                    return toResponse(a, isPurchased);
-                })
+                .map(a -> toResponse(a, true))
                 .toList();
     }
 
