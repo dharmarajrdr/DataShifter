@@ -21,6 +21,8 @@ public final class AdapterResolutionUtil {
             return (mode == PipelineMode.CDC && isSource) ? "oracle-gg-reader" : (isSource ? "oracle-reader" : "oracle-writer");
         } else if (dbType == DatabaseType.S3) {
             return isSource ? "filesystem-reader" : "filesystem-writer";
+        } else if (dbType == DatabaseType.SPANNER) {
+            return isSource ? "spanner-reader" : "spanner-writer";
         }
         throw new DatashifterException("No adapter available for database type: " + dbType);
     }
