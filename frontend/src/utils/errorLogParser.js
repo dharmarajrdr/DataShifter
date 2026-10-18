@@ -26,6 +26,8 @@ export const parseErrorDetails = (rawMessage, errorType) => {
     remediation = 'Switch write mode to UPSERT or truncate the target table before re-running.';
   } else if (errorType === 'NULL_CONSTRAINT') {
     remediation = 'Provide a default value or map a non-null source column in column mapping.';
+  } else if (errorType === 'ADAPTER_ERROR' || msg.toLowerCase().includes('adapter')) {
+    remediation = 'Install the required adapter from Marketplace or upload it in Library > Adapters.';
   }
 
   return {
