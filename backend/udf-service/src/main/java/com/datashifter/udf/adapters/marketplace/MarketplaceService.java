@@ -34,6 +34,7 @@ public class MarketplaceService {
     private final MarketplaceCatalogRepository catalogRepo;
     private final OrgPurchasedAdapterRepository purchasedRepo;
     private final MarketplaceCatalogSeeder seeder;
+    private final MarketplaceInstallService installService;
 
     @Transactional(readOnly = true)
     public List<MarketplaceItemResponse> getCatalog(
@@ -116,6 +117,14 @@ public class MarketplaceService {
         log.info("Organization {} purchased adapter '{}' ({}) - free={}", orgId, item.getName(), item.getAdapterKey(), isFree);
 
         return toPurchaseResponse(saved, item);
+    }
+
+    public PurchaseAdapterResponse installAdapter(String marketplaceItemId) {
+        return installService.installAdapter(marketplaceItemId);
+    }
+
+    public void uninstallAdapter(String marketplaceItemId) {
+        installService.uninstallAdapter(marketplaceItemId);
     }
 
     @Transactional(readOnly = true)
@@ -201,7 +210,7 @@ public class MarketplaceService {
                 .pricePaise(item.getPricePaise())
                 .currency(item.getCurrency())
                 .isFree(Boolean.TRUE.equals(item.getIsFree()))
-                .isPurchased(Boolean.TRUE.equals(item.getIsFree()) || isPurchased)
+                .isPurchased(isPurchased)
                 .iconUrl(item.getIconUrl())
                 .documentationUrl(item.getDocumentationUrl())
                 .displayOrder(item.getDisplayOrder())
