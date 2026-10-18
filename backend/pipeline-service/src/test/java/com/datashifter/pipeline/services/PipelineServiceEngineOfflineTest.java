@@ -9,6 +9,7 @@ import com.datashifter.common.security.UserContext;
 import com.datashifter.common.services.SubscriptionLimitChecker;
 import com.datashifter.pipeline.repositories.PipelineRepository;
 import com.datashifter.pipeline.services.implementations.EngineLivenessService;
+import com.datashifter.pipeline.services.implementations.PipelineAdapterValidator;
 import com.datashifter.pipeline.services.implementations.PipelineServiceImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,7 @@ class PipelineServiceEngineOfflineTest {
     @Mock private CommonWorkflowNodeRepository workflowNodeRepository;
     @Mock private SubscriptionLimitChecker limitChecker;
     @Mock private EngineLivenessService engineLivenessService;
+    @Mock private PipelineAdapterValidator pipelineAdapterValidator;
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private KafkaTemplate<String, Object> kafkaTemplate;
     @InjectMocks private PipelineServiceImpl pipelineService;

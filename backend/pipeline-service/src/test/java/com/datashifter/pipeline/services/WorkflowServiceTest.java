@@ -69,6 +69,8 @@ class WorkflowServiceTest {
     private com.datashifter.pipeline.services.implementations.MappingService mappingService;
     @Mock
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    @Mock
+    private com.datashifter.pipeline.services.implementations.PipelineAdapterValidator pipelineAdapterValidator;
 
     @InjectMocks
     private WorkflowServiceImpl workflowService;
