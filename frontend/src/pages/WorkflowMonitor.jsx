@@ -471,6 +471,18 @@ const WorkflowMonitor = () => {
                 </Button>
               )}
             </>
+          ) : notValidatedCount > 0 ? (
+            hasPermission('workflow:edit') && (
+              <Button
+                id="btn-validate-all-pipelines"
+                variant="primary"
+                disabled={actionBusy}
+                onClick={handleValidateAllPipelines}
+              >
+                <i className="fa-solid fa-check-double" style={{ marginRight: 6 }} />
+                Validate All ({notValidatedCount})
+              </Button>
+            )
           ) : (
             hasPermission('workflow:run') && (() => {
               const isReRun =
@@ -504,18 +516,6 @@ const WorkflowMonitor = () => {
                 </Button>
               );
             })()
-          )}
-
-          {hasPermission('workflow:edit') && notValidatedCount > 0 && effectiveStatus !== 'RUNNING' && effectiveStatus !== 'PAUSED' && (
-            <Button
-              id="btn-validate-all-pipelines"
-              variant="secondary"
-              disabled={actionBusy}
-              onClick={handleValidateAllPipelines}
-            >
-              <i className="fa-solid fa-check-double" style={{ marginRight: 6 }} />
-              Validate All ({notValidatedCount})
-            </Button>
           )}
 
           {hasPermission('workflow:edit') && (
@@ -887,31 +887,6 @@ const WorkflowMonitor = () => {
                         />
                         <span>All member pipelines in Validated status</span>
                       </div>
-                      {notValidatedCount > 0 && hasPermission('workflow:edit') && (
-                        <button
-                          id="btn-checklist-validate-all"
-                          type="button"
-                          disabled={actionBusy}
-                          onClick={handleValidateAllPipelines}
-                          style={{
-                            marginTop: 8,
-                            padding: '6px 12px',
-                            borderRadius: BORDER_RADIUS.md,
-                            backgroundColor: COLORS.brand.primary,
-                            color: '#fff',
-                            border: 'none',
-                            fontSize: FONT.size.xs,
-                            fontWeight: FONT.weight.semibold,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                          }}
-                        >
-                          <i className="fa-solid fa-check-double" />
-                          Validate {notValidatedCount} {notValidatedCount === 1 ? 'Pipeline' : 'Pipelines'}
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>

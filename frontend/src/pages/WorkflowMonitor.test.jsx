@@ -28,7 +28,7 @@ describe('Workflow Bulk Validation of Not Validated Pipelines', () => {
     jest.restoreAllMocks();
   });
 
-  test('renders Validate All button and triggers validation for unvalidated pipelines', async () => {
+  test('renders Validate All button and hides Start Workflow until all pipelines are validated', async () => {
     const mockWorkflow = {
       id: 'wf-1', name: 'ETL Pipeline Chain', status: 'DRAFT', chainCount: 1, singleChainReady: false,
       nodes: [
@@ -63,10 +63,10 @@ describe('Workflow Bulk Validation of Not Validated Pipelines', () => {
     const headerValBtn = container.querySelector('#btn-validate-all-pipelines');
     expect(headerValBtn).not.toBeNull();
     expect(headerValBtn.textContent).toContain('Validate All (2)');
+    expect(container.textContent).not.toContain('Start Workflow');
 
-    const checklistValBtn = container.querySelector('#btn-checklist-validate-all');
-    expect(checklistValBtn).not.toBeNull();
-    expect(checklistValBtn.textContent).toContain('Validate 2 Pipelines');
+    // No validate button under checklist
+    expect(container.querySelector('#btn-checklist-validate-all')).toBeNull();
 
     await act(async () => {
       headerValBtn.click();

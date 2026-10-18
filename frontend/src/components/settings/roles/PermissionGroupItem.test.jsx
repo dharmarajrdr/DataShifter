@@ -82,3 +82,4 @@ describe('PermissionGroupItem', () => {
     expect(container.textContent).not.toContain('Create pipelines');
   });
 });
+
