@@ -1,43 +1,34 @@
-import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 
+/** Schema property table with collapsible view (<= 100 lines). */
 export const AdapterConfigTable = ({ configSchema = [] }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  let parsed = configSchema;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { parsed = []; }
+  }
+  const items = Array.isArray(parsed) ? parsed : (parsed?.properties || []);
 
   return (
     <div id="adapter-config-table-card" className="bg-white border border-surface-200 rounded-xl overflow-hidden shadow-subtle flex flex-col font-sans flex-shrink-0">
-      <div id="adapter-config-table-header" className="px-4 py-2.5 border-b border-surface-200 bg-surface-50 flex items-center justify-between flex-shrink-0">
+      <div id="adapter-config-table-header" className="px-6 py-4 border-b border-surface-200 bg-white flex items-center justify-between flex-shrink-0">
         <div>
-          <h3 id="adapter-config-table-title" className="font-semibold text-xs text-content-primary uppercase tracking-wider">
-            Required Pipeline Config Properties
-          </h3>
-          <p id="adapter-config-table-sub" className="text-[11px] text-content-secondary mt-0.5">
-            Parameters validated dynamically when configuring this adapter in Pipeline Wizard
-          </p>
+          <h3 id="adapter-config-table-title" className="font-semibold text-xs text-content-primary uppercase tracking-wider">Required Pipeline Config Properties</h3>
+          <p id="adapter-config-table-sub" className="text-[11px] text-content-secondary mt-0.5">Parameters validated dynamically when configuring this adapter in Pipeline Wizard</p>
         </div>
         <div className="flex items-center gap-3">
-          <span id="adapter-config-count-badge" className="text-[11px] text-content-secondary font-medium tabular-nums">
-            {configSchema.length} Config Keys
-          </span>
-          <button
-            id="adapter-config-toggle-btn"
-            type="button"
-            onClick={() => setIsExpanded(prev => !prev)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors border border-brand-200"
-            aria-expanded={isExpanded}
-          >
+          <span id="adapter-config-count-badge" className="text-[11px] text-content-secondary font-medium tabular-nums">{items.length} Config Keys</span>
+          <button id="adapter-config-toggle-btn" type="button" onClick={() => setIsExpanded(prev => !prev)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors border border-brand-200" aria-expanded={isExpanded}>
             <span>{isExpanded ? 'Collapse' : 'Expand'}</span>
             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </div>
-
       {isExpanded && (
         <div id="adapter-config-scroll" className="overflow-x-auto">
-          {(!configSchema || configSchema.length === 0) ? (
-            <div id="adapter-config-empty" className="p-6 text-center text-xs text-content-tertiary">
-              No configuration parameters required for this adapter.
-            </div>
+          {items.length === 0 ? (
+            <div id="adapter-config-empty" className="p-6 text-center text-xs text-content-tertiary">No configuration parameters required for this adapter.</div>
           ) : (
             <table id="adapter-config-table" className="w-full text-left text-xs border-collapse">
               <thead id="adapter-config-thead" className="bg-surface-50 border-b border-surface-200 text-content-secondary uppercase text-[10.5px] font-semibold tracking-wider">
@@ -50,31 +41,19 @@ export const AdapterConfigTable = ({ configSchema = [] }) => {
                 </tr>
               </thead>
               <tbody id="adapter-config-tbody" className="divide-y divide-surface-100">
-                {configSchema.map((cfg, idx) => (
-                  <tr key={cfg.key || idx} id={`adapter-config-row-${idx}`} className="hover:bg-surface-50 transition-colors">
-                    <td id={`adapter-cfg-key-${idx}`} className="py-2 px-4 font-mono font-semibold text-brand-700 whitespace-nowrap">
-                      {cfg.key}
-                    </td>
-                    <td id={`adapter-cfg-type-${idx}`} className="py-2 px-4 font-mono text-cyan-700 whitespace-nowrap">
-                      {cfg.type}
-                    </td>
-                    <td id={`adapter-cfg-def-${idx}`} className="py-2 px-4 font-mono text-content-secondary whitespace-nowrap">
-                      {cfg.default || '—'}
-                    </td>
+                {items.map((cfg, idx) => (
+                  <tr key={cfg.key || cfg.name || idx} id={`adapter-config-row-${idx}`} className="hover:bg-surface-50 transition-colors">
+                    <td id={`adapter-cfg-key-${idx}`} className="py-2 px-4 font-mono font-semibold text-brand-700 whitespace-nowrap">{cfg.key || cfg.name}</td>
+                    <td id={`adapter-cfg-type-${idx}`} className="py-2 px-4 font-mono text-cyan-700 whitespace-nowrap">{cfg.type}</td>
+                    <td id={`adapter-cfg-def-${idx}`} className="py-2 px-4 font-mono text-content-secondary whitespace-nowrap">{cfg.default ?? cfg.defaultValue ?? '—'}</td>
                     <td id={`adapter-cfg-req-${idx}`} className="py-2 px-4 whitespace-nowrap">
                       {cfg.required ? (
-                        <span id={`adapter-cfg-req-badge-${idx}`} className="px-2 py-0.5 text-[10px] font-semibold rounded bg-red-50 text-red-600 border border-red-200">
-                          Required
-                        </span>
+                        <span id={`adapter-cfg-req-badge-${idx}`} className="px-2 py-0.5 text-[10px] font-semibold rounded bg-red-50 text-red-600 border border-red-200">Required</span>
                       ) : (
-                        <span id={`adapter-cfg-opt-badge-${idx}`} className="px-2 py-0.5 text-[10px] font-medium rounded bg-surface-100 text-content-secondary">
-                          Optional
-                        </span>
+                        <span id={`adapter-cfg-opt-badge-${idx}`} className="px-2 py-0.5 text-[10px] font-medium rounded bg-surface-100 text-content-secondary">Optional</span>
                       )}
                     </td>
-                    <td id={`adapter-cfg-desc-${idx}`} className="py-2 px-4 text-content-secondary text-xs">
-                      {cfg.desc}
-                    </td>
+                    <td id={`adapter-cfg-desc-${idx}`} className="py-2 px-4 text-content-secondary text-xs">{cfg.desc || cfg.description}</td>
                   </tr>
                 ))}
               </tbody>

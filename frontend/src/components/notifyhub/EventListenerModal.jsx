@@ -3,6 +3,7 @@ import { Button, Toggle } from '../common';
 import { CloseIcon } from '../layout/Icons';
 import { notifyHubApi } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import { EVENT_CATALOG } from './eventCatalogConstants';
 import EventListenerFormFields from './EventListenerFormFields';
 
 export const EventListenerModal = ({ listener, channels = [], templates = [], onClose, onSave }) => {
@@ -25,8 +26,12 @@ export const EventListenerModal = ({ listener, channels = [], templates = [], on
 
     setSaving(true);
     try {
+      const cat = EVENT_CATALOG.find((c) => c.resourceType === resourceType);
+      const ev = cat?.events?.find((e) => e.key === eventKey);
+      const eventAction = ev?.action || (eventKey.includes('.') ? eventKey.split('.')[1].toUpperCase() : 'TRIGGERED');
+
       const payload = {
-        name: name.trim(), resourceType, eventKey, channelId,
+        name: name.trim(), resourceType, eventAction, eventKey, channelId,
         templateId: templateId || undefined, priority, enabled,
       };
       if (isEdit) await notifyHubApi.updateListener(listener.id, payload);

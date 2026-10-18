@@ -60,6 +60,12 @@ public class MonitorServiceImpl implements MonitorService {
         // On initial page load (before SSE connects), we return an empty list.
         // The frontend populates inflight records from the first SSE progress event.
 
+        long errorLogsCount = errorLogRepo.countByPipelineId(pipelineId);
+        long errorsSkipped = Math.max(getLongFromMap(stats, "errorsSkipped"), errorLogsCount);
+        if (errorsSkipped > getLongFromMap(stats, "errorsSkipped")) {
+            try { redisTemplate.opsForHash().put(statsKey, "errorsSkipped", String.valueOf(errorsSkipped)); } catch (Exception ignored) {}
+        }
+
         return LiveMonitorResponse.builder()
                 .pipelineId(pipelineId)
                 .pipelineName(pipeline.getName())
@@ -67,7 +73,7 @@ public class MonitorServiceImpl implements MonitorService {
                 .rowsProcessed(getLongFromMap(stats, "rowsProcessed"))
                 .rowsPerSec(getLongFromMap(stats, "rowsPerSec"))
                 .avgRowsPerSec(getLongFromMap(stats, "avgRowsPerSec"))
-                .errorsSkipped(getLongFromMap(stats, "errorsSkipped"))
+                .errorsSkipped(errorsSkipped)
                 .eta(getStringFromMap(stats, "eta"))
                 .overallProgress(getDoubleFromMap(stats, "overallProgress"))
                 .previewInflightRecords(pipeline.getPreviewInflightRecords() != null ? pipeline.getPreviewInflightRecords() : true)

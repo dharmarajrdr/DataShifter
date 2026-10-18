@@ -65,6 +65,8 @@ public class ExecutionServiceImpl implements ExecutionService {
     private final com.datashifter.execution.cdc.CdcStreamExecutor cdcStreamExecutor;
     private final com.datashifter.execution.adapters.AdapterExecutionManager adapterExecutionManager;
     private final com.datashifter.execution.adapters.AdapterExecutionBridge adapterExecutionBridge;
+    private final com.datashifter.execution.adapters.AdapterEnforcementService adapterEnforcementService;
+    private final ExecutionFailurePublisher executionFailurePublisher;
 
     @Override
     @Transactional
@@ -79,6 +81,18 @@ public class ExecutionServiceImpl implements ExecutionService {
             // 1. Load full pipeline graph
             pipeline = pipelineRepo.findByIdWithFullGraph(pipelineId)
                     .orElseThrow(() -> new ResourceNotFoundException("Pipeline", pipelineId));
+
+            // Enforce adapter installation & resolution
+            Connection sourceConn = pipeline.getSourceConnectionId() != null
+                    ? connectionRepo.findById(pipeline.getSourceConnectionId()).orElse(null) : null;
+            Connection targetConn = pipeline.getTargetConnectionId() != null
+                    ? connectionRepo.findById(pipeline.getTargetConnectionId()).orElse(null) : null;
+            ConnectionConfig srcConfig = sourceConn != null
+                    ? toConnectionConfig(sourceConn, pipeline.getSourcePoolSize(), pipeline) : ConnectionConfig.builder().build();
+            ConnectionConfig tgtConfig = targetConn != null
+                    ? toConnectionConfig(targetConn, pipeline.getTargetPoolSize(), pipeline) : ConnectionConfig.builder().build();
+            adapterEnforcementService.enforceAdapters(pipeline, sourceConn, targetConn, srcConfig, tgtConfig);
+            pipelineRepo.saveAndFlush(pipeline);
 
             // Check if CDC continuous streaming mode
             if (pipeline.getPipelineMode() == PipelineMode.CDC) {
@@ -159,24 +173,7 @@ public class ExecutionServiceImpl implements ExecutionService {
             if (ctx != null) publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, "Stopped by user");
 
         } catch (Exception e) {
-            log.error("Pipeline failed: {} — {}", pipelineId, e.getMessage(), e);
-            if (pipeline != null) { pipeline.setStatus(PipelineStatus.ERRORED); pipelineRepo.saveAndFlush(pipeline); }
-            if (ctx != null) {
-                publishStatus(ctx, PipelineStatus.RUNNING, PipelineStatus.ERRORED, e.getMessage());
-            } else {
-                // Context build failed — update status directly via DB and emit status event
-                pipelineRepo.findById(pipelineId).ifPresent(p -> {
-                    p.setStatus(PipelineStatus.ERRORED);
-                    pipelineRepo.saveAndFlush(p);
-                });
-                kafkaTemplate.send(KafkaTopics.PIPELINE_STATUS, StatusChangeEvent.builder()
-                        .pipelineId(pipelineId)
-                        .previousStatus(PipelineStatus.RUNNING)
-                        .newStatus(PipelineStatus.ERRORED)
-                        .reason(e.getMessage())
-                        .timestamp(Instant.now())
-                        .build());
-            }
+            executionFailurePublisher.handleExecutionFailure(pipelineId, executionLogId, pipeline, ctx, e);
         }
     }
 
@@ -302,20 +299,13 @@ public class ExecutionServiceImpl implements ExecutionService {
                 }
                 readAheadFuture = null;
             } else {
-                if (ctx.getPipeline().getSourceAdapterId() != null && !ctx.getPipeline().getSourceAdapterId().isBlank()) {
-                    try {
-                        com.datashifter.adapter.sdk.AdapterConfig srcConfig = adapterExecutionManager.parseConfig(ctx.getPipeline().getSourceConfig());
-                        com.datashifter.adapter.sdk.DataReader srcReader = adapterExecutionManager.getReader(ctx.getPipeline().getSourceAdapterId(), srcConfig);
-                        List<com.datashifter.adapter.sdk.DataRecord> records = srcReader.readChunk(srcConfig, pt.getSourceTable(), pkColumn, lastPkValue, chunkSize);
-                        sourceRecords = adapterExecutionBridge.fromDataRecords(records);
-                    } catch (Exception ex) {
-                        throw new DatashifterException("Source adapter read failed on " + pt.getSourceTable() + ": " + ex.getMessage(), ex);
-                    }
-                } else if (sourceConnector != null) {
-                    sourceRecords = sourceConnector.readChunk(
-                            ctx.getSourceConfig(), pt.getSourceTable(), pkColumn, lastPkValue, chunkSize);
-                } else {
-                    sourceRecords = Collections.emptyList();
+                try {
+                    com.datashifter.adapter.sdk.AdapterConfig srcConfig = adapterExecutionManager.parseConfig(ctx.getPipeline().getSourceConfig());
+                    com.datashifter.adapter.sdk.DataReader srcReader = adapterExecutionManager.getReader(ctx.getPipeline().getSourceAdapterId(), srcConfig);
+                    List<com.datashifter.adapter.sdk.DataRecord> records = srcReader.readChunk(srcConfig, pt.getSourceTable(), pkColumn, lastPkValue, chunkSize);
+                    sourceRecords = adapterExecutionBridge.fromDataRecords(records);
+                } catch (Exception ex) {
+                    throw new DatashifterException("Source adapter read failed on " + pt.getSourceTable() + ": " + ex.getMessage(), ex);
                 }
             }
 
@@ -329,24 +319,18 @@ public class ExecutionServiceImpl implements ExecutionService {
             // While we transform + write this chunk, the next read happens in parallel
             String currentLastPk = extractLastPk(sourceRecords, pkColumn);
             final String readAheadPk = currentLastPk;
-            final DatabaseConnector srcConn = sourceConnector;
             final String srcAdapterId = ctx.getPipeline().getSourceAdapterId();
             final String srcAdapterCfg = ctx.getPipeline().getSourceConfig();
             final int nextChunkSize = chunkSize;
             readAheadFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-                if (srcAdapterId != null && !srcAdapterId.isBlank()) {
-                    try {
-                        com.datashifter.adapter.sdk.AdapterConfig cfg = adapterExecutionManager.parseConfig(srcAdapterCfg);
-                        com.datashifter.adapter.sdk.DataReader r = adapterExecutionManager.getReader(srcAdapterId, cfg);
-                        List<com.datashifter.adapter.sdk.DataRecord> recs = r.readChunk(cfg, pt.getSourceTable(), pkColumn, readAheadPk, nextChunkSize);
-                        return adapterExecutionBridge.fromDataRecords(recs);
-                    } catch (Exception e) {
-                        throw new RuntimeException("Adapter read-ahead failed on " + pt.getSourceTable() + ": " + e.getMessage(), e);
-                    }
-                } else if (srcConn != null) {
-                    return srcConn.readChunk(ctx.getSourceConfig(), pt.getSourceTable(), pkColumn, readAheadPk, nextChunkSize);
+                try {
+                    com.datashifter.adapter.sdk.AdapterConfig cfg = adapterExecutionManager.parseConfig(srcAdapterCfg);
+                    com.datashifter.adapter.sdk.DataReader r = adapterExecutionManager.getReader(srcAdapterId, cfg);
+                    List<com.datashifter.adapter.sdk.DataRecord> recs = r.readChunk(cfg, pt.getSourceTable(), pkColumn, readAheadPk, nextChunkSize);
+                    return adapterExecutionBridge.fromDataRecords(recs);
+                } catch (Exception e) {
+                    throw new RuntimeException("Adapter read-ahead failed on " + pt.getSourceTable() + ": " + e.getMessage(), e);
                 }
-                return Collections.emptyList();
             });
 
             // --- STEP 2: FILTER rows ---
@@ -393,43 +377,37 @@ public class ExecutionServiceImpl implements ExecutionService {
 
                 // WRITE to target
                 WriteResult result;
-                if (ctx.getPipeline().getTargetAdapterId() != null && !ctx.getPipeline().getTargetAdapterId().isBlank()) {
-                    try {
-                        com.datashifter.adapter.sdk.AdapterConfig adapterConfig = adapterExecutionManager.parseConfig(ctx.getPipeline().getTargetConfig());
-                        com.datashifter.adapter.sdk.DataWriter writer = adapterExecutionManager.getWriter(ctx.getPipeline().getTargetAdapterId(), adapterConfig);
-                        String modeStr = ttc.getWriteMode() != null ? ttc.getWriteMode().toUpperCase() : "INSERT_ONLY";
-                        com.datashifter.adapter.sdk.WriteMode sdkWriteMode;
-                        switch (modeStr) {
-                            case "UPSERT":
-                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.UPSERT;
-                                break;
-                            case "UPDATE_ONLY":
-                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.UPDATE_ONLY;
-                                break;
-                            case "REPLACE":
-                            case "OVERWRITE":
-                            case "TRUNCATE_INSERT":
-                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.REPLACE;
-                                break;
-                            case "INSERT_IGNORE":
-                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.INSERT_IGNORE;
-                                break;
-                            default:
-                                sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.INSERT_ONLY;
-                                break;
-                        }
-                        com.datashifter.adapter.sdk.WriteResult sdkResult = adapterExecutionBridge.writeBatch(
-                                writer, adapterConfig, ttc.getTargetTable(), targetRecords, sdkWriteMode, ttc.getPrimaryKeyColumn()
-                        );
-                        result = adapterExecutionBridge.toConnectorWriteResult(sdkResult);
-                    } catch (Exception ex) {
-                        log.error("Target adapter write error on {}: {}", ttc.getTargetTable(), ex.getMessage(), ex);
-                        throw new DatashifterException("Target adapter write failed on " + ttc.getTargetTable() + ": " + ex.getMessage(), ex);
+                try {
+                    com.datashifter.adapter.sdk.AdapterConfig adapterConfig = adapterExecutionManager.parseConfig(ctx.getPipeline().getTargetConfig());
+                    com.datashifter.adapter.sdk.DataWriter writer = adapterExecutionManager.getWriter(ctx.getPipeline().getTargetAdapterId(), adapterConfig);
+                    String modeStr = ttc.getWriteMode() != null ? ttc.getWriteMode().toUpperCase() : "INSERT_ONLY";
+                    com.datashifter.adapter.sdk.WriteMode sdkWriteMode;
+                    switch (modeStr) {
+                        case "UPSERT":
+                            sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.UPSERT;
+                            break;
+                        case "UPDATE_ONLY":
+                            sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.UPDATE_ONLY;
+                            break;
+                        case "REPLACE":
+                        case "OVERWRITE":
+                        case "TRUNCATE_INSERT":
+                            sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.REPLACE;
+                            break;
+                        case "INSERT_IGNORE":
+                            sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.INSERT_IGNORE;
+                            break;
+                        default:
+                            sdkWriteMode = com.datashifter.adapter.sdk.WriteMode.INSERT_ONLY;
+                            break;
                     }
-                } else if (targetConnector != null) {
-                    result = writeStrategyExecutor.write(targetConnector, ctx.getTargetConfig(), ttc, targetRecords);
-                } else {
-                    result = WriteResult.builder().totalRecords(targetRecords.size()).successCount(targetRecords.size()).build();
+                    com.datashifter.adapter.sdk.WriteResult sdkResult = adapterExecutionBridge.writeBatch(
+                            writer, adapterConfig, ttc.getTargetTable(), targetRecords, sdkWriteMode, ttc.getPrimaryKeyColumn()
+                    );
+                    result = adapterExecutionBridge.toConnectorWriteResult(sdkResult);
+                } catch (Exception ex) {
+                    log.error("Target adapter write error on {}: {}", ttc.getTargetTable(), ex.getMessage(), ex);
+                    throw new DatashifterException("Target adapter write failed on " + ttc.getTargetTable() + ": " + ex.getMessage(), ex);
                 }
                 long tw2 = System.currentTimeMillis();
 
@@ -792,6 +770,14 @@ public class ExecutionServiceImpl implements ExecutionService {
     }
 
     private ConnectionConfig toConnectionConfig(Connection conn, Integer poolSize, Pipeline pipeline) {
+        String pwd = null;
+        if (conn.getEncryptedPassword() != null && !conn.getEncryptedPassword().isBlank()) {
+            try {
+                pwd = EncryptionUtil.decrypt(conn.getEncryptedPassword());
+            } catch (Exception ignored) {
+                pwd = conn.getEncryptedPassword();
+            }
+        }
         return ConnectionConfig.builder()
                 .connectionId(conn.getId())
                 .dbType(conn.getDbType())
@@ -800,7 +786,7 @@ public class ExecutionServiceImpl implements ExecutionService {
                 .databaseName(conn.getDatabaseName())
                 .schemaName(conn.getSchemaName())
                 .username(conn.getUsername())
-                .password(EncryptionUtil.decrypt(conn.getEncryptedPassword()))
+                .password(pwd)
                 .maxPoolSize(poolSize != null ? poolSize : 10)
                 .ignoreExceptions(pipeline != null && Boolean.TRUE.equals(pipeline.getIgnoreExceptions()))
                 .maxErrorThreshold(pipeline != null && pipeline.getMaxErrorThreshold() != null ? pipeline.getMaxErrorThreshold() : 1000)

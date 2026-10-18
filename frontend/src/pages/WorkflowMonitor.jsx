@@ -251,10 +251,31 @@ const WorkflowMonitor = () => {
     setActionBusy(true);
     try {
       const res = await workflowApi.validatePipelines(workflowId);
-      if (res?.data) {
-        setWorkflow(res.data);
+      const updatedWf = res?.data;
+      if (updatedWf) {
+        setWorkflow(updatedWf);
       }
-      notify.success('All unvalidated pipelines checked and validated');
+      const rawList = updatedWf?.nodes || [];
+      const invalidPipelines = rawList.filter((n) =>
+        ['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)
+      );
+
+      if (invalidPipelines.length === 0) {
+        notify.success('All unvalidated pipelines checked and validated');
+      } else {
+        const firstErr = invalidPipelines[0];
+        const errorDetail =
+          firstErr.validationErrors && firstErr.validationErrors.length > 0
+            ? `: ${firstErr.validationErrors[0]}`
+            : '';
+        notify.error(
+          `Validation failed for ${
+            invalidPipelines.length === 1
+              ? `"${firstErr.pipelineName}"`
+              : `${invalidPipelines.length} pipeline(s)`
+          }${errorDetail}`
+        );
+      }
       fetchWorkflow();
     } catch (err) {
       notify.error(err.message || 'Failed to validate pipelines');
@@ -471,6 +492,18 @@ const WorkflowMonitor = () => {
                 </Button>
               )}
             </>
+          ) : notValidatedCount > 0 ? (
+            hasPermission('workflow:edit') && (
+              <Button
+                id="btn-validate-all-pipelines"
+                variant="primary"
+                disabled={actionBusy}
+                onClick={handleValidateAllPipelines}
+              >
+                <i className="fa-solid fa-check-double" style={{ marginRight: 6 }} />
+                Validate All ({notValidatedCount})
+              </Button>
+            )
           ) : (
             hasPermission('workflow:run') && (() => {
               const isReRun =
@@ -504,18 +537,6 @@ const WorkflowMonitor = () => {
                 </Button>
               );
             })()
-          )}
-
-          {hasPermission('workflow:edit') && notValidatedCount > 0 && effectiveStatus !== 'RUNNING' && effectiveStatus !== 'PAUSED' && (
-            <Button
-              id="btn-validate-all-pipelines"
-              variant="secondary"
-              disabled={actionBusy}
-              onClick={handleValidateAllPipelines}
-            >
-              <i className="fa-solid fa-check-double" style={{ marginRight: 6 }} />
-              Validate All ({notValidatedCount})
-            </Button>
           )}
 
           {hasPermission('workflow:edit') && (
@@ -887,30 +908,31 @@ const WorkflowMonitor = () => {
                         />
                         <span>All member pipelines in Validated status</span>
                       </div>
-                      {notValidatedCount > 0 && hasPermission('workflow:edit') && (
-                        <button
-                          id="btn-checklist-validate-all"
-                          type="button"
-                          disabled={actionBusy}
-                          onClick={handleValidateAllPipelines}
+                      {notValidatedCount > 0 && (
+                        <div
+                          id="checklist-unvalidated-issues"
                           style={{
                             marginTop: 8,
-                            padding: '6px 12px',
-                            borderRadius: BORDER_RADIUS.md,
-                            backgroundColor: COLORS.brand.primary,
-                            color: '#fff',
-                            border: 'none',
+                            padding: '8px 10px',
+                            borderRadius: BORDER_RADIUS.sm,
+                            backgroundColor: '#FEF2F2',
+                            border: '1px solid #FECACA',
                             fontSize: FONT.size.xs,
-                            fontWeight: FONT.weight.semibold,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
+                            color: '#991B1B',
                           }}
                         >
-                          <i className="fa-solid fa-check-double" />
-                          Validate {notValidatedCount} {notValidatedCount === 1 ? 'Pipeline' : 'Pipelines'}
-                        </button>
+                          <div style={{ fontWeight: FONT.weight.semibold, marginBottom: 4 }}>
+                            {notValidatedCount} {notValidatedCount === 1 ? 'pipeline requires' : 'pipelines require'} validation:
+                          </div>
+                          {nodes
+                            .filter((n) => ['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus))
+                            .map((n) => (
+                              <div key={n.pipelineId} style={{ marginTop: 2 }}>
+                                • <strong>{n.pipelineName}</strong> ({n.pipelineStatus})
+                                {n.validationErrors?.length > 0 ? `: ${n.validationErrors[0]}` : ''}
+                              </div>
+                            ))}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -962,6 +984,39 @@ const WorkflowMonitor = () => {
                     status={selectedNode.pipelineStatus}
                   />
 
+                  {selectedNode.pipelineStatus === 'INVALID' && (
+                    <div
+                      id="selected-node-validation-errors"
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: BORDER_RADIUS.md,
+                        background: '#FEF2F2',
+                        border: '1px solid #FECACA',
+                        marginTop: 12,
+                        fontSize: FONT.size.xs,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontWeight: FONT.weight.semibold,
+                          color: '#B91C1C',
+                          marginBottom: 4,
+                        }}
+                      >
+                        <i className="fa-solid fa-triangle-exclamation" />
+                        <span>Validation Issues</span>
+                      </div>
+                      <div style={{ color: '#991B1B', lineHeight: 1.4 }}>
+                        {selectedNode.validationErrors && selectedNode.validationErrors.length > 0
+                          ? selectedNode.validationErrors.join(', ')
+                          : 'Pipeline has schema or mapping errors and must be resolved before execution.'}
+                      </div>
+                    </div>
+                  )}
+
                   <div
                     style={{
                       display: 'grid',
@@ -1011,7 +1066,17 @@ const WorkflowMonitor = () => {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    {selectedNode.pipelineStatus === 'INVALID' && hasPermission('pipeline:edit') && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => navigate(`/pipelines/${selectedNode.pipelineId}/mapping`)}
+                      >
+                        <i className="fa-solid fa-wrench" style={{ marginRight: 5 }} />
+                        Fix Mapping
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="secondary"

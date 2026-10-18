@@ -1,8 +1,8 @@
-import { COLORS, FONT, BORDER_RADIUS } from '../../constants/design';
+import { BORDER_RADIUS, COLORS, FONT } from '../../constants/design';
 
 const STATUS_MAP = {
   RUNNING: { bg: COLORS.status.successLight, color: COLORS.status.successText },
-  COMPLETED: { bg: COLORS.accent.purpleLight, color: COLORS.accent.purpleText },
+  COMPLETED: { bg: COLORS.accent.teal, color: COLORS.accent.indigoLight },
   ERRORED: { bg: COLORS.status.errorLight, color: COLORS.status.errorText },
   PAUSED: { bg: COLORS.status.warningLight, color: COLORS.status.warningText },
   DRAFT: { bg: COLORS.background.tertiary, color: COLORS.text.secondary, label: 'Draft' },
@@ -22,7 +22,7 @@ const STATUS_MAP = {
 };
 
 const StatusBadge = ({ id, className = '', style = {}, status, label }) => {
-  const scheme = STATUS_MAP[status] || STATUS_MAP.DRAFT;
+  const scheme = STATUS_MAP[status?.toUpperCase()] || STATUS_MAP.DRAFT;
   return (
     <span
       id={id}

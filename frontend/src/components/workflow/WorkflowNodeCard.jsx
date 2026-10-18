@@ -6,15 +6,15 @@ const STATUS_ICONS = {
   COMPLETED: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: 'fa-circle-check' },
   ERRORED: { bg: 'bg-rose-50', text: 'text-rose-700', icon: 'fa-triangle-exclamation' },
   FAILED: { bg: 'bg-rose-50', text: 'text-rose-700', icon: 'fa-triangle-exclamation' },
-  PAUSED: { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'fa-ban' },
-  STOPPED: { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'fa-ban' },
-  DRAFT: { bg: 'bg-slate-100', text: 'text-slate-600', icon: 'fa-circle-dot' },
-  VALIDATED: { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'fa-diagram-project' },
+  INVALID: { bg: 'bg-rose-50', text: 'text-rose-700', icon: 'fa-triangle-exclamation' },
+  NOT_VALIDATED: { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'fa-circle-exclamation' },
+  PAUSED: { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'fa-ban' }, STOPPED: { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'fa-ban' },
+  DRAFT: { bg: 'bg-slate-100', text: 'text-slate-600', icon: 'fa-circle-dot' }, VALIDATED: { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'fa-diagram-project' },
 };
 
 const WorkflowNodeCard = ({
-  node, stepNumber, isTrigger = false, selected = false, isRunningNode = false,
-  mode = 'builder', onClick, onMouseDown, onStartConnect, onCompleteConnect, onRemove, isConnecting = false,
+  node, stepNumber, isTrigger = false, selected = false, isRunningNode = false, mode = 'builder',
+  onClick, onMouseDown, onStartConnect, onCompleteConnect, onRemove, isConnecting = false,
 }) => {
   if (isTrigger) return <WorkflowTriggerCard selected={selected} onClick={onClick} />;
 

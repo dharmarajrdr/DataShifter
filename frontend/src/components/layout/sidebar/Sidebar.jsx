@@ -4,6 +4,17 @@ import SidebarNav from './SidebarNav';
 import SidebarNotifications from './SidebarNotifications';
 import SidebarFooter from './SidebarFooter';
 
+const STORAGE_KEY = 'is_collapse';
+
+const getInitialCollapsed = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('is_collapsed');
+    return saved !== null ? JSON.parse(saved) : false;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Collapsible responsive Sidebar navigation component (<= 100 lines).
  */
@@ -13,10 +24,18 @@ export const Sidebar = ({
   isCollapsed: controlledCollapsed,
   onToggleCollapse: controlledToggle,
 }) => {
-  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(getInitialCollapsed);
 
   const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
-  const toggleCollapse = controlledToggle || (() => setInternalCollapsed(!internalCollapsed));
+  const toggleCollapse = controlledToggle || (() => {
+    setInternalCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  });
 
   return (
     <aside

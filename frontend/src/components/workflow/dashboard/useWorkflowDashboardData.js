@@ -13,6 +13,7 @@ export const useWorkflowDashboardData = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNamespace, setSelectedNamespace] = useState('ALL');
+  const [viewMode, setViewMode] = useState('grid');
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -76,7 +77,7 @@ export const useWorkflowDashboardData = () => {
     failed: workflows.filter((w) => w.status === 'FAILED' || w.status === 'ERRORED').length,
   };
 
-  return { workflows, namespaces, loading, error, searchQuery, setSearchQuery, selectedNamespace, setSelectedNamespace, filteredWorkflows, counts, canCreateWorkflow, loadDashboard };
+  return { workflows, namespaces, loading, error, searchQuery, setSearchQuery, selectedNamespace, setSelectedNamespace, viewMode, setViewMode, filteredWorkflows, counts, canCreateWorkflow, loadDashboard };
 };
 
 export default useWorkflowDashboardData;

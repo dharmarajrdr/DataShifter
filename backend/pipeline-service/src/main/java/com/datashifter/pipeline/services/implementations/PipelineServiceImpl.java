@@ -53,6 +53,7 @@ public class PipelineServiceImpl implements PipelineService {
     private final CommonWorkflowNodeRepository workflowNodeRepository;
     private final WorkflowService workflowService;
     private final EngineLivenessService engineLivenessService;
+    private final PipelineAdapterValidator pipelineAdapterValidator;
 
     // =========================================================================
     // CREATE — builds PipelineTable + TargetTableMapping entries
@@ -388,6 +389,9 @@ public class PipelineServiceImpl implements PipelineService {
                     engineLivenessService.handleEngineOffline(id, true);
                     throw new DatashifterException(EngineLivenessService.OFFLINE_MSG);
                 }
+
+                // Verify required adapters are installed before starting
+                pipelineAdapterValidator.validateAdapters(entity);
 
                 // When starting or re-running from scratch (START), remove existing chunk_cursors, error_logs, and checkpoints
                 boolean shouldClearLogs = entity.getClearLogsOnStart() == null || entity.getClearLogsOnStart();

@@ -57,6 +57,20 @@ public class MarketplaceController {
         return ApiResponse.success(marketplaceService.purchaseAdapter(id, request), "Adapter purchased and activated successfully");
     }
 
+    @PostMapping("/items/{id}/install")
+    @RequiresPermission(Permissions.ADAPTER_CREATE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<PurchaseAdapterResponse> installAdapter(@PathVariable String id) {
+        return ApiResponse.success(marketplaceService.installAdapter(id), "Adapter installed successfully");
+    }
+
+    @PostMapping("/items/{id}/uninstall")
+    @RequiresPermission(Permissions.ADAPTER_DELETE)
+    public ApiResponse<Void> uninstallAdapter(@PathVariable String id) {
+        marketplaceService.uninstallAdapter(id);
+        return ApiResponse.success(null, "Adapter uninstalled successfully");
+    }
+
     @PostMapping("/items/{id}/checkout")
     @RequiresPermission(Permissions.ADAPTER_PURCHASE)
     public ApiResponse<MarketplaceCheckoutDto.OrderResponse> createCheckoutOrder(

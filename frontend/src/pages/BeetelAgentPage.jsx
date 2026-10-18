@@ -31,12 +31,12 @@ const BeetelAgentPage = () => {
       return;
     }
     setLoading(true);
-    aiApi.getSession(sessionId).then(res => {
+    aiApi.getSession(sessionId).then((res) => {
       const s = res?.data || res;
       setActiveSession(s); setMessages(s?.messages || []);
       setHasMore(Boolean(s?.hasMoreMessages ?? (s?.messages?.length >= 15)));
-    }).catch(e => notification.error(e?.message || 'Failed to load conversation')).finally(() => setLoading(false));
-  }, [sessionId, sessions, navigate, notification]);
+    }).catch((e) => notification.error(e?.message || 'Failed to load conversation')).finally(() => setLoading(false));
+  }, [sessionId]);
 
   const handleLoadOlder = useCallback(async () => {
     const oldest = messages.find(m => m.id && !String(m.id).startsWith('u-'));

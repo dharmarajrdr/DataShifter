@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, ConfirmationModal } from '../../common';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../../../constants/design';
 import { FRBC } from '../../../constants/layouts';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { pipelineApi } from '../../../services/api';
+import { Button, ConfirmationModal } from '../../common';
 import { SectionTitle } from './PipelineSettingsCommon';
 
 export const PipelineSettingsDangerCard = ({ pipelineId, settings }) => {
@@ -50,7 +50,7 @@ export const PipelineSettingsDangerCard = ({ pipelineId, settings }) => {
             ) : isRunning ? (
               'Pause or stop the pipeline before deleting it.'
             ) : (
-              'Permanently delete this pipeline, its table mappings, transformations, and execution history. This cannot be undone.'
+              'Permanently delete this pipeline, its table mappings, transformations, and execution history.'
             )}
           </p>
         </div>

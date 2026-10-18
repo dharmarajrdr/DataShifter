@@ -1755,8 +1755,7 @@ const BeetelChatWorkspace = ({
             {messages.map((msg, msgIdx) => {
             const isUser = msg.role === 'USER';
             const isSystem = msg.role === 'SYSTEM';
-            const isError = msg.role === 'ERROR';
-            const isAudit = msg.role === 'AUDIT';
+            const isAudit = msg.role === 'AUDIT' || msg.role === 'SYSTEM' || /granted access to/i.test(msg.content || '');
 
             if (isAudit) {
               return (

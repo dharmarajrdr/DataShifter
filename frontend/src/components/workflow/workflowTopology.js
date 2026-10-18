@@ -91,7 +91,7 @@ export function computeClientTopology(nodes = [], edges = []) {
   if (chainCount > 1) validationErrors.push(`Workflow has ${chainCount} disconnected chains.`);
   orderedNodes.forEach((n) => {
     if (['DRAFT', 'NOT_VALIDATED', 'INVALID'].includes(n.pipelineStatus)) {
-      validationErrors.push(`Pipeline '${n.pipelineName}' must be VALIDATED.`);
+      validationErrors.push(`Pipeline '${n.pipelineName}' must be VALIDATED${n.validationErrors?.[0] ? `: ${n.validationErrors[0]}` : '.'}`);
     }
   });
   const singleChainReady = nodes.length >= 1 && chainCount === 1 && validationErrors.length === 0;

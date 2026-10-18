@@ -14,6 +14,7 @@ import java.sql.SQLException;
 @Slf4j
 public class OracleWriterConnectionHelper implements AutoCloseable {
 
+    private static final java.util.concurrent.ConcurrentHashMap<String, HikariDataSource> POOLS = new java.util.concurrent.ConcurrentHashMap<>();
     private HikariDataSource dataSource;
 
     public void init(AdapterConfig config) {
@@ -25,19 +26,23 @@ public class OracleWriterConnectionHelper implements AutoCloseable {
         int maxPoolSize = config.getInteger("maxPoolSize", 10);
 
         String jdbcUrl = String.format("jdbc:oracle:thin:@//%s:%d/%s", host, port, dbName);
+        String poolKey = String.format("%s:%d/%s:%s", host, port, dbName, user);
 
-        HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl(jdbcUrl);
-        hikariConfig.setUsername(user);
-        hikariConfig.setPassword(pass);
-        hikariConfig.setDriverClassName("oracle.jdbc.OracleDriver");
-        hikariConfig.setMaximumPoolSize(maxPoolSize);
-        hikariConfig.setMinimumIdle(2);
-        hikariConfig.setIdleTimeout(300000);
-        hikariConfig.setConnectionTimeout(30000);
-        hikariConfig.setPoolName("OracleWriterPool-" + dbName);
-
-        this.dataSource = new HikariDataSource(hikariConfig);
+        this.dataSource = POOLS.computeIfAbsent(poolKey, k -> {
+            HikariConfig hikariConfig = new HikariConfig();
+            hikariConfig.setJdbcUrl(jdbcUrl);
+            hikariConfig.setUsername(user);
+            hikariConfig.setPassword(pass);
+            hikariConfig.setDriverClassName("oracle.jdbc.OracleDriver");
+            hikariConfig.setMaximumPoolSize(maxPoolSize);
+            hikariConfig.setMinimumIdle(1);
+            hikariConfig.setIdleTimeout(60000);
+            hikariConfig.setConnectionTimeout(30000);
+            hikariConfig.setMaxLifetime(600000);
+            hikariConfig.setPoolName("OracleWriterPool-" + dbName);
+            log.info("Initialized shared OracleWriter connection pool for {}", poolKey);
+            return new HikariDataSource(hikariConfig);
+        });
     }
 
     public Connection getConnection() throws SQLException {
@@ -49,9 +54,6 @@ public class OracleWriterConnectionHelper implements AutoCloseable {
 
     @Override
     public void close() {
-        if (dataSource != null && !dataSource.isClosed()) {
-            dataSource.close();
-            log.info("Closed Oracle Writer connection pool");
-        }
+        // Individual pooled connections are closed via try-with-resources; shared pool remains active.
     }
 }

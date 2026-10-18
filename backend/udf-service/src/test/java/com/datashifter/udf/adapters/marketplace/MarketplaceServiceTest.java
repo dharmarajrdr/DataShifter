@@ -40,11 +40,14 @@ class MarketplaceServiceTest {
     @Mock
     private MarketplaceCatalogSeeder seeder;
 
+    @Mock
+    private MarketplaceInstallService installService;
+
     private MarketplaceService service;
 
     @BeforeEach
     void setUp() {
-        service = new MarketplaceService(catalogRepo, purchasedRepo, seeder);
+        service = new MarketplaceService(catalogRepo, purchasedRepo, seeder, installService);
 
         UserContext.set(UserContext.Context.builder()
                 .orgId("org-123")
@@ -93,7 +96,7 @@ class MarketplaceServiceTest {
         List<MarketplaceItemResponse> all = service.getCatalog(null, null, null, null, null);
         assertEquals(2, all.size());
         assertTrue(all.get(0).isFree());
-        assertTrue(all.get(0).isPurchased());
+        assertFalse(all.get(0).isPurchased());
         assertFalse(all.get(1).isFree());
         assertFalse(all.get(1).isPurchased());
 
