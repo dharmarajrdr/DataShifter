@@ -39,6 +39,7 @@ public class PostgresWalFileReader implements CdcSourceReader {
     private long currentLsn;
     private String currentLsnFormatted;
     private String currentFileName;
+    private final Queue<CdcEvent> pendingEvents = new ArrayDeque<>();
     private final AtomicBoolean isOpen = new AtomicBoolean(false);
 
     public PostgresWalFileReader() {
@@ -88,6 +89,10 @@ public class PostgresWalFileReader implements CdcSourceReader {
         List<CdcEvent> results = new ArrayList<>();
         long deadline = System.currentTimeMillis() + timeout.toMillis();
 
+        while (!pendingEvents.isEmpty() && results.size() < maxEvents) {
+            results.add(pendingEvents.poll());
+        }
+
         while (results.size() < maxEvents && System.currentTimeMillis() <= deadline) {
             if (currentChannel == null || currentRaf == null) {
                 File nextFile = sequenceTracker.advanceToNextFile();
@@ -135,9 +140,10 @@ public class PostgresWalFileReader implements CdcSourceReader {
                     }
                     CdcEvent event = convertToCdcEvent(r);
                     if (event != null) {
-                        results.add(event);
-                        if (results.size() >= maxEvents) {
-                            break;
+                        if (results.size() < maxEvents) {
+                            results.add(event);
+                        } else {
+                            pendingEvents.add(event);
                         }
                     }
                 }
@@ -145,10 +151,36 @@ public class PostgresWalFileReader implements CdcSourceReader {
                 // Reached end of current WAL file; check if next segment has been written
                 File nextFile = sequenceTracker.advanceToNextFile();
                 if (nextFile != null) {
+                    List<PostgresWalRecord> flushed = transactionBuffer.flushAll();
+                    for (PostgresWalRecord r : flushed) {
+                        if (operationFilter != null && !operationFilter.matches(r.getOperationType())) continue;
+                        CdcEvent event = convertToCdcEvent(r);
+                        if (event != null) {
+                            if (results.size() < maxEvents) {
+                                results.add(event);
+                            } else {
+                                pendingEvents.add(event);
+                            }
+                        }
+                    }
                     log.info("Reached end of WAL file {}. Rotating to next segment: {}", currentFileName, nextFile.getName());
                     closeCurrentFile();
                     openFile(nextFile, 0L);
+                    if (!results.isEmpty()) break;
                 } else {
+                    List<PostgresWalRecord> flushed = transactionBuffer.flushAll();
+                    for (PostgresWalRecord r : flushed) {
+                        if (operationFilter != null && !operationFilter.matches(r.getOperationType())) continue;
+                        CdcEvent event = convertToCdcEvent(r);
+                        if (event != null) {
+                            if (results.size() < maxEvents) {
+                                results.add(event);
+                            } else {
+                                pendingEvents.add(event);
+                            }
+                        }
+                    }
+                    if (!results.isEmpty()) break;
                     long remaining = deadline - System.currentTimeMillis();
                     if (remaining > 0) {
                         Thread.sleep(Math.min(remaining, 50));
@@ -196,6 +228,9 @@ public class PostgresWalFileReader implements CdcSourceReader {
     public synchronized boolean hasNext() {
         if (!isOpen.get()) return false;
         try {
+            if (!pendingEvents.isEmpty()) {
+                return true;
+            }
             if (currentChannel != null && currentChannel.position() < currentChannel.size()) {
                 return true;
             }
@@ -210,6 +245,7 @@ public class PostgresWalFileReader implements CdcSourceReader {
         isOpen.set(false);
         closeCurrentFile();
         transactionBuffer.clear();
+        pendingEvents.clear();
         log.info("Closed PostgresWalFileReader");
     }
 

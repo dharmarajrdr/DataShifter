@@ -4,43 +4,22 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 
-/**
- * Manages in-memory transaction boundaries for PostgreSQL WAL records.
- * Buffers mutations until a COMMIT marker is read, discarding aborted transactions
- * and ensuring atomic replay to the target system.
- */
+// In-memory transaction boundaries for PostgreSQL WAL records
 @Slf4j
 public class PostgresTransactionBuffer {
-
     private final int maxBufferSizePerTx;
     private final Map<String, List<PostgresWalRecord>> openTransactions = new LinkedHashMap<>();
     private final Set<String> overflowedTransactions = new HashSet<>();
 
-    public PostgresTransactionBuffer() {
-        this(PostgresWalConstants.DEFAULT_MAX_TX_BUFFER_SIZE);
-    }
+    public PostgresTransactionBuffer() { this(PostgresWalConstants.DEFAULT_MAX_TX_BUFFER_SIZE); }
+    public PostgresTransactionBuffer(int maxBufferSizePerTx) { this.maxBufferSizePerTx = maxBufferSizePerTx; }
 
-    public PostgresTransactionBuffer(int maxBufferSizePerTx) {
-        this.maxBufferSizePerTx = maxBufferSizePerTx;
-    }
-
-    /**
-     * Processes an incoming WAL record according to transactional boundaries.
-     *
-     * @param record incoming parsed WAL record
-     * @return list of records ready to be emitted, or empty list if record is buffered or aborted
-     */
     public synchronized List<PostgresWalRecord> processRecord(PostgresWalRecord record) {
         if (record == null) return Collections.emptyList();
-
         String txId = record.getTransactionId();
-
-        // 1. Standalone record without transaction ID -> Emit immediately
         if (txId == null || txId.isBlank()) {
             return record.isTransactionBoundary() ? Collections.emptyList() : List.of(record);
         }
-
-        // 2. COMMIT marker received -> Flush buffered transaction
         if (record.isCommit()) {
             List<PostgresWalRecord> buffered = openTransactions.remove(txId);
             overflowedTransactions.remove(txId);
@@ -101,8 +80,18 @@ public class PostgresTransactionBuffer {
         return openTransactions.size();
     }
 
+    public synchronized List<PostgresWalRecord> flushAll() {
+        if (openTransactions.isEmpty()) return Collections.emptyList();
+        List<PostgresWalRecord> all = new ArrayList<>();
+        openTransactions.values().forEach(all::addAll);
+        openTransactions.clear();
+        overflowedTransactions.clear();
+        return all;
+    }
+
     public synchronized void clear() {
         openTransactions.clear();
         overflowedTransactions.clear();
     }
 }
+

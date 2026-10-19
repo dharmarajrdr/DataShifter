@@ -31,6 +31,9 @@ public class PostgresWalSequenceTracker {
         String regex = (filePatternStr != null && !filePatternStr.isBlank() && !filePatternStr.equals(".*"))
                 ? filePatternStr
                 : PostgresWalConstants.DEFAULT_WAL_FILE_PATTERN;
+        if (regex.contains("*") && !regex.contains(".*")) {
+            regex = regex.replaceAll("(?<!\\.)\\*", ".*");
+        }
         this.filePattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
     }
 
