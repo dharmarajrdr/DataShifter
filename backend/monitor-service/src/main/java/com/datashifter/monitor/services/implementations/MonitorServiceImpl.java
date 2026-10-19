@@ -56,15 +56,22 @@ public class MonitorServiceImpl implements MonitorService {
         String workflowId = nodeOpt.map(n -> n.getWorkflow().getId()).orElse(null);
         String workflowName = nodeOpt.map(n -> n.getWorkflow().getName()).orElse(null);
 
-        // In-flight records are delivered via SSE (Kafka → notification-service → browser).
-        // On initial page load (before SSE connects), we return an empty list.
-        // The frontend populates inflight records from the first SSE progress event.
+        // In-flight records: read from Redis cache if available, falling back to empty list.
+        List<Map<String, Object>> inflight = List.of();
+        try {
+            String inflightJson = redisTemplate.opsForValue().get("pipeline:" + pipelineId + ":inflight");
+            if (inflightJson != null && !inflightJson.isBlank()) {
+                inflight = objectMapper.readValue(inflightJson, new TypeReference<List<Map<String, Object>>>() {});
+            }
+        } catch (Exception ignored) {}
 
         long errorLogsCount = errorLogRepo.countByPipelineId(pipelineId);
         long errorsSkipped = Math.max(getLongFromMap(stats, "errorsSkipped"), errorLogsCount);
         if (errorsSkipped > getLongFromMap(stats, "errorsSkipped")) {
             try { redisTemplate.opsForHash().put(statsKey, "errorsSkipped", String.valueOf(errorsSkipped)); } catch (Exception ignored) {}
         }
+
+        boolean isCdc = pipeline.getPipelineMode() != null && pipeline.getPipelineMode().name().equalsIgnoreCase("CDC");
 
         return LiveMonitorResponse.builder()
                 .pipelineId(pipelineId)
@@ -77,10 +84,15 @@ public class MonitorServiceImpl implements MonitorService {
                 .eta(getStringFromMap(stats, "eta"))
                 .overallProgress(getDoubleFromMap(stats, "overallProgress"))
                 .previewInflightRecords(pipeline.getPreviewInflightRecords() != null ? pipeline.getPreviewInflightRecords() : true)
-                .inflightRecords(List.of())
+                .inflightRecords(inflight != null ? inflight : List.of())
                 .validationErrors(parseValidationErrors(pipeline.getValidationErrors()))
                 .workflowId(workflowId)
                 .workflowName(workflowName)
+                .pipelineMode(pipeline.getPipelineMode() != null ? pipeline.getPipelineMode().name() : null)
+                .isCdc(isCdc)
+                .currentLsn(getStringFromMap(stats, "currentLsn"))
+                .currentScn(getStringFromMap(stats, "currentScn"))
+                .currentSourceFile(getStringFromMap(stats, "currentSourceFile"))
                 .build();
     }
 

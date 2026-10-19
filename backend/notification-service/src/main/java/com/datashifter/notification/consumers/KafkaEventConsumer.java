@@ -65,6 +65,11 @@ public class KafkaEventConsumer {
         }
         payload.put("inflightRecords", inflight);
         payload.put("eta", event.getEta() != null ? event.getEta() : "—");
+        if (event.getEta() != null && event.getEta().startsWith("LSN: ")) {
+            payload.put("currentLsn", event.getEta().substring(5));
+        } else if (event.getEta() != null && event.getEta().startsWith("SCN: ")) {
+            payload.put("currentScn", event.getEta().substring(5));
+        }
 
         dispatcher.dispatch(SseEvent.builder()
                 .channel("pipeline:" + event.getPipelineId())

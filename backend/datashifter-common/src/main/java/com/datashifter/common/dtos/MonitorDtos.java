@@ -28,6 +28,11 @@ public class MonitorDtos {
         private List<String> validationErrors;
         private String workflowId;
         private String workflowName;
+        private String pipelineMode;
+        private boolean isCdc;
+        private String currentLsn;
+        private String currentScn;
+        private String currentSourceFile;
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

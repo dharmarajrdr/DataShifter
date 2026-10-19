@@ -1,6 +1,7 @@
 package com.datashifter.execution.cdc;
 
 import com.datashifter.common.cdc.*;
+import com.datashifter.common.enums.CdcOperationType;
 import com.datashifter.common.enums.DatabaseType;
 import com.datashifter.common.enums.PipelineMode;
 import com.datashifter.common.enums.PipelineStatus;
@@ -198,6 +199,10 @@ public class CdcStreamExecutor {
         AtomicLong totalEventsProcessed = new AtomicLong(0);
         long lastProgressPublishMs = System.currentTimeMillis();
 
+        boolean previewEnabled = pipeline.getPreviewInflightRecords() == null || Boolean.TRUE.equals(pipeline.getPreviewInflightRecords());
+        List<Map<String, Object>> inflightBuffer = Collections.synchronizedList(new ArrayList<>());
+        boolean firstBatchPublished = false;
+
         try {
             if (reader != null) {
                 reader.open(readerConfig);
@@ -256,13 +261,36 @@ public class CdcStreamExecutor {
                 if (rawEvents != null && !rawEvents.isEmpty()) {
                     for (CdcEvent raw : rawEvents) {
                         Optional<CdcEvent> transformed = segregationEngine.filterAndTransform(raw);
-                        transformed.ifPresent(aggregator::add);
+                        transformed.ifPresent(evt -> {
+                            aggregator.add(evt);
+                            if (previewEnabled && evt.getOperationType() != CdcOperationType.BEGIN
+                                    && evt.getOperationType() != CdcOperationType.COMMIT) {
+                                Map<String, Object> previewRow = new LinkedHashMap<>();
+                                previewRow.put("id", evt.getEventId() != null ? evt.getEventId() : UUID.randomUUID().toString());
+                                previewRow.put("table", evt.getTableName() != null ? evt.getTableName() : "UNKNOWN");
+                                previewRow.put("op", evt.getOperationType() != null ? evt.getOperationType().name() : "INSERT");
+                                Map<String, Object> rowData = (evt.getAfterData() != null && !evt.getAfterData().isEmpty())
+                                        ? evt.getAfterData() : evt.getBeforeData();
+                                if (rowData != null) {
+                                    previewRow.putAll(rowData);
+                                }
+                                synchronized (inflightBuffer) {
+                                    inflightBuffer.add(previewRow);
+                                    if (inflightBuffer.size() > 50) {
+                                        inflightBuffer.remove(0);
+                                    }
+                                }
+                            }
+                        });
                     }
                 }
 
                 // Check micro-batch flush criteria
                 if (aggregator.shouldFlush()) {
                     flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, targetAdapterWriter, targetAdapterConfig);
+                    CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
+                    publishProgress(pipelineId, executionLogId, totalEventsProcessed.get(), streamStartedAt, pos, getInflightSnapshot(inflightBuffer));
+                    lastProgressPublishMs = System.currentTimeMillis();
                 } else if (rawEvents == null || rawEvents.isEmpty()) {
                     // Back off slightly on empty stream to prevent tight loop CPU spinning
                     try {
@@ -273,11 +301,12 @@ public class CdcStreamExecutor {
                     }
                 }
 
-                // Publish progress every 1 second
+                // Publish progress every 1 second or immediately on initial batch
                 long now = System.currentTimeMillis();
-                if (now - lastProgressPublishMs >= 1000) {
+                if ((!firstBatchPublished && !inflightBuffer.isEmpty()) || (now - lastProgressPublishMs >= 1000)) {
                     CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
-                    publishProgress(pipelineId, executionLogId, totalEventsProcessed.get(), streamStartedAt, pos);
+                    publishProgress(pipelineId, executionLogId, totalEventsProcessed.get(), streamStartedAt, pos, getInflightSnapshot(inflightBuffer));
+                    firstBatchPublished = true;
                     lastProgressPublishMs = now;
                 }
             }
@@ -402,9 +431,18 @@ public class CdcStreamExecutor {
                 .build());
     }
 
+    private List<Map<String, Object>> getInflightSnapshot(List<Map<String, Object>> buffer) {
+        if (buffer == null || buffer.isEmpty()) return Collections.emptyList();
+        synchronized (buffer) {
+            int size = buffer.size();
+            return new ArrayList<>(buffer.subList(Math.max(0, size - 25), size));
+        }
+    }
+
     private void publishProgress(String pipelineId, String executionLogId,
                                  long totalRowsProcessed, Instant startedAt,
-                                 CdcPosition currentPos) {
+                                 CdcPosition currentPos,
+                                 List<Map<String, Object>> inflightRecords) {
         long elapsedSec = Math.max(1, (Instant.now().toEpochMilli() - startedAt.toEpochMilli()) / 1000);
         long avgRate = totalRowsProcessed / elapsedSec;
 
@@ -429,6 +467,7 @@ public class CdcStreamExecutor {
                 .avgRowsPerSec(avgRate)
                 .eta(posDisplay)
                 .timestamp(Instant.now())
+                .inflightRecords(inflightRecords)
                 .build());
     }
 
