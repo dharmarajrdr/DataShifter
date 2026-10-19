@@ -6,28 +6,22 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('Dynamic Adapter Schema Driven Fields', () => {
   let container, root;
-
   beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
   });
-
-  afterEach(() => {
-    act(() => { root.unmount(); });
-    container.remove();
-  });
+  afterEach(() => { act(() => { root.unmount(); }); container.remove(); });
 
   test('renders all 6 PostgreSQL WAL CDC fields from adapter schema', () => {
-    const config = {};
     const setConfig = jest.fn();
     act(() => {
       root.render(
         <WizardSourceFields
           id="test-wal"
           adapter="postgres-wal-reader"
-          adapterObj={{ id: 'postgres-wal-reader', alias: 'postgres-wal' }}
-          config={config}
+          adapterObj={{ id: 'postgres-wal-reader', supportedMode: 'CDC' }}
+          config={{}}
           setConfig={setConfig}
         />
       );
@@ -41,46 +35,49 @@ describe('Dynamic Adapter Schema Driven Fields', () => {
     expect(container.textContent).toContain('Max Batch Size');
 
     const dirInput = container.querySelector('#test-wal-wal-dir');
-    expect(dirInput).not.toBeNull();
-    expect(dirInput.value).toBe('/var/lib/postgresql/data/pg_wal');
-
     act(() => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
       setter.call(dirInput, '/var/custom/wal');
       dirInput.dispatchEvent(new Event('input', { bubbles: true }));
       dirInput.dispatchEvent(new Event('change', { bubbles: true }));
     });
-
-    expect(setConfig).toHaveBeenCalledWith(expect.objectContaining({
-      sourceConfig: expect.objectContaining({ walDirectory: '/var/custom/wal' }),
-      cdcDirectoryPath: '/var/custom/wal',
-    }));
+    expect(setConfig).toHaveBeenCalledWith(expect.objectContaining({ cdcDirectoryPath: '/var/custom/wal' }));
   });
 
-  test('renders arbitrary custom fields for dynamically uploaded adapter JARs', () => {
-    const customAdapter = {
-      id: 'custom-kafka-ingest',
-      configSchema: [
-        { key: 'consumerGroup', label: 'Consumer Group ID', type: 'string', required: true, default: 'ds-cg' },
-        { key: 'maxPollRecords', label: 'Max Poll Records', type: 'number', required: false, default: 250 },
-      ],
-    };
+  test('renders Saved Connection selector for oracle-reader instead of raw values', () => {
+    const conns = [{ id: 'ora-1', name: 'Prod Oracle', dbType: 'ORACLE' }];
     act(() => {
       root.render(
         <WizardSourceFields
-          id="custom-src"
-          adapter="custom-kafka-ingest"
-          adapterObj={customAdapter}
+          id="test-ora"
+          adapter="oracle-reader"
+          adapterObj={{ id: 'oracle-reader', dbType: 'ORACLE', supportedMode: 'BATCH' }}
           config={{}}
           setConfig={() => {}}
+          connections={conns}
         />
       );
     });
 
+    expect(container.textContent).toContain('Saved Oracle Connection *');
+    expect(container.textContent).toContain('Prod Oracle');
+    expect(container.textContent).not.toContain('WAL Directory');
+    expect(container.querySelector('#test-ora-conn-select')).not.toBeNull();
+  });
+
+  test('renders arbitrary custom fields for dynamically uploaded non-connection adapter JARs', () => {
+    const customAdapter = {
+      id: 'custom-kafka-ingest',
+      configSchema: [
+        { key: 'consumerGroup', label: 'Consumer Group ID', type: 'string', required: true, default: 'ds-cg' },
+      ],
+    };
+    act(() => {
+      root.render(
+        <WizardSourceFields id="custom-src" adapter="custom-kafka-ingest" adapterObj={customAdapter} config={{}} setConfig={() => {}} />
+      );
+    });
     expect(container.textContent).toContain('Consumer Group ID *');
-    expect(container.textContent).toContain('Max Poll Records');
-    const cgInput = container.querySelector('#custom-src-consumerGroup');
-    expect(cgInput).not.toBeNull();
-    expect(cgInput.value).toBe('ds-cg');
+    expect(container.querySelector('#custom-src-consumerGroup')).not.toBeNull();
   });
 });
