@@ -33,6 +33,10 @@ public class MonitorDtos {
         private String currentLsn;
         private String currentScn;
         private String currentSourceFile;
+        private Long insertCount;
+        private Long updateCount;
+        private Long deleteCount;
+        private Long filteredCount;
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

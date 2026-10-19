@@ -63,6 +63,10 @@ public class PipelineEvents {
         private Instant timestamp;
         private String eta;
         private List<Map<String, Object>> inflightRecords;
+        private Long insertCount;
+        private Long updateCount;
+        private Long deleteCount;
+        private Long filteredCount;
     }
 
     /* ===== pipeline.errors ===== */
