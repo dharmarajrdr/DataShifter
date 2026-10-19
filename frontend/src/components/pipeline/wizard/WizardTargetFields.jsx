@@ -6,17 +6,17 @@ const SELECT_CLS = 'w-full max-w-[320px] px-3 py-2 text-xs border border-slate-2
 
 export const WizardTargetFields = ({
   id = 'wizard-target-fields',
-  adapter = 's3-writer',
+  adapter = 'oracle-writer',
   config,
   setConfig,
   connections = [],
   errors = {},
 }) => {
-  if (adapter === 'postgres-writer' || adapter === 'oracle-writer') {
+  if (adapter.includes('writer') && !adapter.includes('kafka') && !adapter.includes('s3') && !adapter.includes('snowflake')) {
     return <TargetConnectionField id={id} adapter={adapter} config={config} setConfig={setConfig} connections={connections} errors={errors} />;
   }
 
-  if (adapter === 's3-writer') {
+  if (adapter === 's3-writer' || adapter.includes('file')) {
     const s3Conns = connections.filter((c) => (c.dbType || '').toUpperCase() === 'S3');
     return (
       <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-row flex-wrap gap-3">

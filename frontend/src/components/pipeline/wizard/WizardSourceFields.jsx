@@ -11,54 +11,39 @@ export const WizardSourceFields = ({
   connections = [],
   errors = {},
 }) => {
-  if (adapter === 'oracle-trail') {
+  if (adapter === 'oracle-trail' || adapter === 'oracle-gg-reader') {
     return (
       <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-row flex-wrap gap-3">
-        <div className="w-full max-w-[320px]">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Trail Directory *</label>
-          <input id={`${id}-gg-dir`} className={INPUT_CLS} value={config.cdcDirectoryPath || ''} onChange={(e) => setConfig({ ...config, cdcDirectoryPath: e.target.value })} placeholder="/u01/app/oracle/dirdat" />
-        </div>
-        <div className="w-full max-w-[320px]">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Trail File Pattern</label>
-          <input id={`${id}-gg-pattern`} className={INPUT_CLS} value={config.cdcFilePattern || 'aa.*'} onChange={(e) => setConfig({ ...config, cdcFilePattern: e.target.value })} placeholder="aa.*" />
-        </div>
-        <div className="w-full max-w-[320px]">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Starting SCN / RBA</label>
-          <input id={`${id}-gg-scn`} className={INPUT_CLS} value={config.cdcStartingScn || ''} onChange={(e) => setConfig({ ...config, cdcStartingScn: e.target.value })} placeholder="0 (Head)" />
-        </div>
-        <div className="w-full max-w-[320px]">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Flush Interval (ms)</label>
-          <input id={`${id}-gg-flush`} type="number" className={NUM_CLS} value={config.cdcFlushIntervalMs || 200} onChange={(e) => setConfig({ ...config, cdcFlushIntervalMs: e.target.value })} />
-        </div>
-        <div className="w-full max-w-[320px]">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Max Batch Size</label>
-          <input id={`${id}-gg-batch`} type="number" className={NUM_CLS} value={config.cdcBatchSize || 500} onChange={(e) => setConfig({ ...config, cdcBatchSize: e.target.value })} />
-        </div>
+        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Trail Directory *</label><input id={`${id}-gg-dir`} className={INPUT_CLS} value={config.cdcDirectoryPath || ''} onChange={(e) => setConfig({ ...config, cdcDirectoryPath: e.target.value })} placeholder="/u01/app/oracle/dirdat" /></div>
+        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Trail File Pattern</label><input id={`${id}-gg-pattern`} className={INPUT_CLS} value={config.cdcFilePattern || 'aa.*'} onChange={(e) => setConfig({ ...config, cdcFilePattern: e.target.value })} placeholder="aa.*" /></div>
+        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Starting SCN / RBA</label><input id={`${id}-gg-scn`} className={INPUT_CLS} value={config.cdcStartingScn || ''} onChange={(e) => setConfig({ ...config, cdcStartingScn: e.target.value })} placeholder="0 (Head)" /></div>
+        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Flush Interval (ms)</label><input id={`${id}-gg-flush`} type="number" className={NUM_CLS} value={config.cdcFlushIntervalMs || 200} onChange={(e) => setConfig({ ...config, cdcFlushIntervalMs: e.target.value })} /></div>
+        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Max Batch Size</label><input id={`${id}-gg-batch`} type="number" className={NUM_CLS} value={config.cdcBatchSize || 500} onChange={(e) => setConfig({ ...config, cdcBatchSize: e.target.value })} /></div>
       </div>
     );
   }
 
-  if (adapter === 'postgres-wal') {
+  if (adapter === 'postgres-wal' || adapter === 'postgres-wal-reader') {
     return (
       <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-row flex-wrap gap-3">
-        <div className="w-full max-w-[320px]">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">WAL Directory</label>
-          <input id={`${id}-wal-dir`} className={INPUT_CLS} value={config.cdcDirectoryPath || ''} onChange={(e) => setConfig({ ...config, cdcDirectoryPath: e.target.value })} placeholder="/var/lib/postgresql/data/pg_wal" />
-        </div>
-        <div className="w-full max-w-[320px]">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Replication Slot</label>
-          <input id={`${id}-wal-slot`} className={INPUT_CLS} value={config.cdcSlotName || 'datashifter_cdc_slot'} onChange={(e) => setConfig({ ...config, cdcSlotName: e.target.value })} />
-        </div>
+        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">WAL Directory</label><input id={`${id}-wal-dir`} className={INPUT_CLS} value={config.cdcDirectoryPath || ''} onChange={(e) => setConfig({ ...config, cdcDirectoryPath: e.target.value })} placeholder="/var/lib/postgresql/data/pg_wal" /></div>
+        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Replication Slot</label><input id={`${id}-wal-slot`} className={INPUT_CLS} value={config.cdcSlotName || 'datashifter_cdc_slot'} onChange={(e) => setConfig({ ...config, cdcSlotName: e.target.value })} /></div>
       </div>
     );
   }
 
-  if (adapter === 'oracle-jdbc' || adapter === 'postgres-jdbc') {
-    const isOracle = adapter === 'oracle-jdbc';
-    const labelText = isOracle ? 'Oracle' : 'PostgreSQL';
+  const isOracle = adapter.includes('oracle');
+  const isSpanner = adapter.includes('spanner');
+  const isBq = adapter.includes('bigquery');
+  const isBt = adapter.includes('bigtable');
+  const isPg = adapter.includes('postgres');
+
+  if (isOracle || isPg || isSpanner || isBq || isBt) {
+    const labelText = isOracle ? 'Oracle' : isSpanner ? 'Spanner' : isBq ? 'BigQuery' : isBt ? 'BigTable' : 'PostgreSQL';
+    const targetType = isOracle ? 'ORACLE' : isSpanner ? 'SPANNER' : isBq ? 'BIGQUERY' : isBt ? 'BIGTABLE' : 'POSTGRESQL';
     const filtered = connections.filter((c) => {
       const t = (c.dbType || '').toUpperCase();
-      return isOracle ? t === 'ORACLE' : (t === 'POSTGRESQL' || t === 'POSTGRES');
+      return t === targetType || (targetType === 'POSTGRESQL' && t === 'POSTGRES');
     });
 
     return (
@@ -81,14 +66,8 @@ export const WizardSourceFields = ({
 
   return (
     <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-row flex-wrap gap-3">
-      <div className="w-full max-w-[320px]">
-        <label className="block text-xs font-semibold text-slate-700 mb-1">Source File Directory *</label>
-        <input id={`${id}-fs-dir`} className={INPUT_CLS} value={config.cdcDirectoryPath || ''} onChange={(e) => setConfig({ ...config, cdcDirectoryPath: e.target.value })} placeholder="/data/raw/source_files" />
-      </div>
-      <div className="w-full max-w-[320px]">
-        <label className="block text-xs font-semibold text-slate-700 mb-1">File Ingestion Pattern</label>
-        <input id={`${id}-fs-pattern`} className={INPUT_CLS} value={config.cdcFilePattern || '*.parquet'} onChange={(e) => setConfig({ ...config, cdcFilePattern: e.target.value })} placeholder="*.parquet, *.csv" />
-      </div>
+      <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Source File Directory *</label><input id={`${id}-fs-dir`} className={INPUT_CLS} value={config.cdcDirectoryPath || ''} onChange={(e) => setConfig({ ...config, cdcDirectoryPath: e.target.value })} placeholder="/data/raw/source_files" /></div>
+      <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">File Ingestion Pattern</label><input id={`${id}-fs-pattern`} className={INPUT_CLS} value={config.cdcFilePattern || '*.parquet'} onChange={(e) => setConfig({ ...config, cdcFilePattern: e.target.value })} placeholder="*.parquet, *.csv" /></div>
     </div>
   );
 };

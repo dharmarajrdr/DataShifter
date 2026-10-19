@@ -1,15 +1,19 @@
 import React from 'react';
 
 /**
- * Filtered Connection selector for Oracle & PostgreSQL targets (<= 100 lines).
+ * Filtered Connection selector for Relational & GCP targets (<= 100 lines).
  */
 export const TargetConnectionField = ({ id, adapter, config, setConfig, connections = [], errors = {} }) => {
-  const isOracle = adapter === 'oracle-writer';
-  const labelText = isOracle ? 'Oracle' : 'PostgreSQL';
+  const isOracle = adapter === 'oracle-writer' || adapter.includes('oracle');
+  const isSpanner = adapter.includes('spanner');
+  const isBq = adapter.includes('bigquery');
+  const isBt = adapter.includes('bigtable');
+  const labelText = isOracle ? 'Oracle' : isSpanner ? 'Spanner' : isBq ? 'BigQuery' : isBt ? 'BigTable' : 'PostgreSQL';
+  const targetType = isOracle ? 'ORACLE' : isSpanner ? 'SPANNER' : isBq ? 'BIGQUERY' : isBt ? 'BIGTABLE' : 'POSTGRESQL';
 
   const filtered = connections.filter((c) => {
     const t = (c.dbType || '').toUpperCase();
-    return isOracle ? t === 'ORACLE' : (t === 'POSTGRESQL' || t === 'POSTGRES');
+    return t === targetType || (targetType === 'POSTGRESQL' && t === 'POSTGRES');
   });
 
   return (
@@ -45,4 +49,3 @@ export const TargetConnectionField = ({ id, adapter, config, setConfig, connecti
 };
 
 export default TargetConnectionField;
-
