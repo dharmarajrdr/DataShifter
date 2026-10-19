@@ -4,9 +4,11 @@ import DdlSliderDrawer from './DdlSliderDrawer';
 import WizardStepEntitiesRow from './WizardStepEntitiesRow';
 
 export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setConfig, errors = {} }) => {
-  const isSourceDb = ['oracle-jdbc', 'postgres-jdbc'].includes(config.sourceAdapter || '');
-  const isSourceCdc = ['oracle-trail', 'postgres-wal'].includes(config.sourceAdapter || '') || !config.sourceAdapter;
-  const isTargetDb = ['postgres-writer', 'oracle-writer'].includes(config.targetAdapter || '');
+  const src = config.sourceAdapter || '';
+  const tgt = config.targetAdapter || '';
+  const isSourceCdc = ['oracle-trail', 'oracle-gg-reader', 'postgres-wal', 'postgres-wal-reader'].includes(src) || src.includes('wal') || src.includes('trail') || src.includes('gg');
+  const isSourceDb = !isSourceCdc && (['oracle-jdbc', 'postgres-jdbc', 'postgres-reader', 'oracle-reader', 'spanner-reader', 'bigquery-reader', 'bigtable-reader'].includes(src) || src.includes('reader') || !src);
+  const isTargetDb = ['postgres-writer', 'oracle-writer', 'spanner-writer', 'bigquery-writer', 'bigtable-writer'].includes(tgt) || (tgt.includes('writer') && !tgt.includes('kafka') && !tgt.includes('s3') && !tgt.includes('file') && !tgt.includes('snowflake'));
 
   const [sourceTables, setSourceTables] = useState([]);
   const [targetTables, setTargetTables] = useState([]);

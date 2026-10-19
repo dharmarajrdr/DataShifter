@@ -28,14 +28,14 @@ describe('WizardStepEntities DB, CDC, and Non-DB Adaptation', () => {
     container = null;
   });
 
-  test('renders database table dropdowns when source and target are databases', async () => {
-    connectionApi.listTables.mockResolvedValue({ data: ['HR.CUSTOMERS', 'SALES.ORDERS'] });
+  test('renders database table dropdowns when source is postgres-reader and target is postgres-writer', async () => {
+    connectionApi.listTables.mockResolvedValue({ data: ['public.users', 'public.orders'] });
     const cfg = {
-      sourceAdapter: 'oracle-jdbc',
+      sourceAdapter: 'postgres-reader',
       targetAdapter: 'postgres-writer',
-      source: 'c-ora-1',
-      target: 'c-pg-1',
-      entityPairs: [{ sourceEntity: 'HR.CUSTOMERS', targetEntity: 'customers' }],
+      source: 'c-pg-1',
+      target: 'c-pg-2',
+      entityPairs: [{ sourceEntity: 'public.users', targetEntity: 'users' }],
     };
 
     await act(async () => {
@@ -44,6 +44,7 @@ describe('WizardStepEntities DB, CDC, and Non-DB Adaptation', () => {
 
     expect(container.querySelector('select#test-step4-source-0')).not.toBeNull();
     expect(container.querySelector('select#test-step4-target-0')).not.toBeNull();
+    expect(container.textContent).not.toContain('Feature not available');
   });
 
   test('renders CDC entity input with DDL slider and non-DB feature not available', () => {

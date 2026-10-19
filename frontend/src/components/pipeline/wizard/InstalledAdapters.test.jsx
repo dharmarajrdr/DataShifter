@@ -81,3 +81,4 @@ describe('Wizard Installed Adapters & Labels', () => {
     expect(hookResult.targetAdapters.some((a) => a.id === 'oracle-writer')).toBe(true);
   });
 });
+

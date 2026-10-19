@@ -30,6 +30,9 @@ export const WizardStepEntitiesRow = ({
             <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Source Database Table *</label>
             <select id={`${id}-source-${idx}`} className={SELECT_CLS} value={pair.sourceEntity || ''} onChange={(e) => onUpdate(idx, 'sourceEntity', e.target.value)}>
               <option value="">Select source table...</option>
+              {pair.sourceEntity && !sourceTables.includes(pair.sourceEntity) && (
+                <option value={pair.sourceEntity}>{pair.sourceEntity}</option>
+              )}
               {sourceTables.map((t) => (<option key={t} value={t}>{t}</option>))}
             </select>
           </div>
@@ -62,6 +65,9 @@ export const WizardStepEntitiesRow = ({
             <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Destination Table *</label>
             <select id={`${id}-target-${idx}`} className={SELECT_CLS} value={pair.targetEntity || ''} onChange={(e) => onUpdate(idx, 'targetEntity', e.target.value)}>
               <option value="">Select target table...</option>
+              {pair.targetEntity && !targetTables.includes(pair.targetEntity) && (
+                <option value={pair.targetEntity}>{pair.targetEntity}</option>
+              )}
               {targetTables.map((t) => (<option key={t} value={t}>{t}</option>))}
             </select>
           </div>

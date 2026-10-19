@@ -80,3 +80,4 @@ export const useInstalledAdapters = (config, setConfig) => {
 };
 
 export default useInstalledAdapters;
+
