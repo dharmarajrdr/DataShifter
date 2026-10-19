@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Play } from 'lucide-react';
+import { Download } from 'lucide-react';
 import AdapterConfigTable from './AdapterConfigTable';
 import AdapterPayloadPreview from './AdapterPayloadPreview';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -7,7 +7,7 @@ import { adapterApi } from '../../services/adapterApi';
 
 const formatBytes = (b) => (!b ? '—' : b < 1048576 ? `${Math.ceil(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`);
 
-export const AdapterDetailPane = ({ adapter, onCreatePipeline }) => {
+export const AdapterDetailPane = ({ adapter }) => {
   const notification = useNotification();
   const [downloading, setDownloading] = useState(false);
 
@@ -55,13 +55,6 @@ export const AdapterDetailPane = ({ adapter, onCreatePipeline }) => {
             >
               <Download id="adapter-download-icon" className={`w-3.5 h-3.5 text-content-secondary ${downloading ? 'animate-pulse' : ''}`} />
               <span>{downloading ? 'Downloading...' : 'Download JAR'}</span>
-            </button>
-            <button
-              id="adapter-create-pipe-btn" type="button" onClick={() => onCreatePipeline && onCreatePipeline(adapter)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-hover rounded-lg shadow-subtle transition-colors"
-            >
-              <Play id="adapter-play-icon" className="w-3 h-3 fill-current" />
-              <span>Create Pipeline</span>
             </button>
           </div>
         </div>

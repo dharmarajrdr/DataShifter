@@ -44,15 +44,16 @@ describe('Library Components', () => {
   });
 
   test('AdapterDetailPane displays schema properties table and sample payload', () => {
-    act(() => { root.render(<AdapterDetailPane adapter={MOCK_ADAPTERS[0]} onCreatePipeline={jest.fn()} />); });
+    act(() => { root.render(<AdapterDetailPane adapter={MOCK_ADAPTERS[0]} />); });
     expect(container.querySelector('#adapter-detail-name').textContent).toBe('Oracle GoldenGate CDC Reader');
     expect(container.querySelector('#th-config-key').textContent).toBe('Parameter Key');
     expect(container.querySelector('#adapter-cfg-key-0').textContent).toBe('trailDirPath');
     expect(container.querySelector('#adapter-config-scroll').className).not.toContain('overflow-y-auto');
+    expect(container.querySelector('#adapter-create-pipe-btn')).toBeNull();
   });
 
   test('AdapterDetailPane toggles expand and collapse for config properties', () => {
-    act(() => { root.render(<AdapterDetailPane adapter={MOCK_ADAPTERS[0]} onCreatePipeline={jest.fn()} />); });
+    act(() => { root.render(<AdapterDetailPane adapter={MOCK_ADAPTERS[0]} />); });
     const toggleBtn = container.querySelector('#adapter-config-toggle-btn');
     expect(toggleBtn.textContent).toContain('Collapse');
     act(() => { toggleBtn.click(); });
