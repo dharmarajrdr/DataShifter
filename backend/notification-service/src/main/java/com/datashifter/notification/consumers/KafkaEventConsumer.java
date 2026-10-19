@@ -70,6 +70,10 @@ public class KafkaEventConsumer {
         } else if (event.getEta() != null && event.getEta().startsWith("SCN: ")) {
             payload.put("currentScn", event.getEta().substring(5));
         }
+        if (event.getInsertCount() != null) payload.put("insertCount", event.getInsertCount());
+        if (event.getUpdateCount() != null) payload.put("updateCount", event.getUpdateCount());
+        if (event.getDeleteCount() != null) payload.put("deleteCount", event.getDeleteCount());
+        if (event.getFilteredCount() != null) payload.put("filteredCount", event.getFilteredCount());
 
         dispatcher.dispatch(SseEvent.builder()
                 .channel("pipeline:" + event.getPipelineId())

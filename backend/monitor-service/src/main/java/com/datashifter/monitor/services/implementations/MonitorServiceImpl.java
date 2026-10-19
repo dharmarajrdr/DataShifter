@@ -72,12 +72,20 @@ public class MonitorServiceImpl implements MonitorService {
         }
 
         boolean isCdc = pipeline.getPipelineMode() != null && pipeline.getPipelineMode().name().equalsIgnoreCase("CDC");
+        long rowsProcessed = getLongFromMap(stats, "rowsProcessed");
+        long insertCount = getLongFromMap(stats, "insertCount");
+        long updateCount = getLongFromMap(stats, "updateCount");
+        long deleteCount = getLongFromMap(stats, "deleteCount");
+        long filteredCount = getLongFromMap(stats, "filteredCount");
+        if (isCdc && rowsProcessed > 0 && insertCount == 0 && updateCount == 0 && deleteCount == 0) {
+            insertCount = rowsProcessed;
+        }
 
         return LiveMonitorResponse.builder()
                 .pipelineId(pipelineId)
                 .pipelineName(pipeline.getName())
                 .status(pipeline.getStatus())
-                .rowsProcessed(getLongFromMap(stats, "rowsProcessed"))
+                .rowsProcessed(rowsProcessed)
                 .rowsPerSec(getLongFromMap(stats, "rowsPerSec"))
                 .avgRowsPerSec(getLongFromMap(stats, "avgRowsPerSec"))
                 .errorsSkipped(errorsSkipped)
@@ -93,6 +101,10 @@ public class MonitorServiceImpl implements MonitorService {
                 .currentLsn(getStringFromMap(stats, "currentLsn"))
                 .currentScn(getStringFromMap(stats, "currentScn"))
                 .currentSourceFile(getStringFromMap(stats, "currentSourceFile"))
+                .insertCount(insertCount)
+                .updateCount(updateCount)
+                .deleteCount(deleteCount)
+                .filteredCount(filteredCount)
                 .build();
     }
 

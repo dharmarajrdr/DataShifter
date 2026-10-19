@@ -197,6 +197,10 @@ public class CdcStreamExecutor {
 
         Instant streamStartedAt = Instant.now();
         AtomicLong totalEventsProcessed = new AtomicLong(0);
+        AtomicLong totalInserts = new AtomicLong(0);
+        AtomicLong totalUpdates = new AtomicLong(0);
+        AtomicLong totalDeletes = new AtomicLong(0);
+        AtomicLong totalFiltered = new AtomicLong(0);
         long lastProgressPublishMs = System.currentTimeMillis();
 
         boolean previewEnabled = pipeline.getPreviewInflightRecords() == null || Boolean.TRUE.equals(pipeline.getPreviewInflightRecords());
@@ -213,7 +217,7 @@ public class CdcStreamExecutor {
                 // Check command registry for PAUSE command
                 if (commandRegistry.isPauseRequested(pipelineId)) {
                     log.info("CDC pipeline {} received PAUSE request. Committing state...", pipelineId);
-                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, targetAdapterWriter, targetAdapterConfig);
+                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, totalInserts, totalUpdates, totalDeletes, targetAdapterWriter, targetAdapterConfig);
                     CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
                     checkpointDurable(pipelineId, pos, totalEventsProcessed.get());
                     commandRegistry.clearCommand(pipelineId);
@@ -227,7 +231,7 @@ public class CdcStreamExecutor {
                 // Check command registry for STOP command
                 if (commandRegistry.isStopRequested(pipelineId)) {
                     log.info("CDC pipeline {} received STOP request. Committing state...", pipelineId);
-                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, targetAdapterWriter, targetAdapterConfig);
+                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, totalInserts, totalUpdates, totalDeletes, targetAdapterWriter, targetAdapterConfig);
                     CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
                     checkpointDurable(pipelineId, pos, totalEventsProcessed.get());
                     commandRegistry.clearCommand(pipelineId);
@@ -261,7 +265,8 @@ public class CdcStreamExecutor {
                 if (rawEvents != null && !rawEvents.isEmpty()) {
                     for (CdcEvent raw : rawEvents) {
                         Optional<CdcEvent> transformed = segregationEngine.filterAndTransform(raw);
-                        transformed.ifPresent(evt -> {
+                        if (transformed.isPresent()) {
+                            CdcEvent evt = transformed.get();
                             aggregator.add(evt);
                             if (previewEnabled && evt.getOperationType() != CdcOperationType.BEGIN
                                     && evt.getOperationType() != CdcOperationType.COMMIT) {
@@ -281,15 +286,18 @@ public class CdcStreamExecutor {
                                     }
                                 }
                             }
-                        });
+                        } else {
+                            totalFiltered.incrementAndGet();
+                        }
                     }
                 }
 
                 // Check micro-batch flush criteria
                 if (aggregator.shouldFlush()) {
-                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, targetAdapterWriter, targetAdapterConfig);
+                    flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, totalInserts, totalUpdates, totalDeletes, targetAdapterWriter, targetAdapterConfig);
                     CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
-                    publishProgress(pipelineId, executionLogId, totalEventsProcessed.get(), streamStartedAt, pos, getInflightSnapshot(inflightBuffer));
+                    publishProgress(pipelineId, executionLogId, totalEventsProcessed.get(), streamStartedAt, pos, getInflightSnapshot(inflightBuffer),
+                            totalInserts.get(), totalUpdates.get(), totalDeletes.get(), totalFiltered.get());
                     lastProgressPublishMs = System.currentTimeMillis();
                 } else if (rawEvents == null || rawEvents.isEmpty()) {
                     // Back off slightly on empty stream to prevent tight loop CPU spinning
@@ -305,7 +313,8 @@ public class CdcStreamExecutor {
                 long now = System.currentTimeMillis();
                 if ((!firstBatchPublished && !inflightBuffer.isEmpty()) || (now - lastProgressPublishMs >= 1000)) {
                     CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
-                    publishProgress(pipelineId, executionLogId, totalEventsProcessed.get(), streamStartedAt, pos, getInflightSnapshot(inflightBuffer));
+                    publishProgress(pipelineId, executionLogId, totalEventsProcessed.get(), streamStartedAt, pos, getInflightSnapshot(inflightBuffer),
+                            totalInserts.get(), totalUpdates.get(), totalDeletes.get(), totalFiltered.get());
                     firstBatchPublished = true;
                     lastProgressPublishMs = now;
                 }
@@ -314,7 +323,7 @@ public class CdcStreamExecutor {
         } catch (Exception e) {
             log.error("Fatal exception in CDC stream execution for pipeline {}: {}", pipelineId, e.getMessage(), e);
             try {
-                flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, targetAdapterWriter, targetAdapterConfig);
+                flushAggregator(aggregator, targetConfig, pipelineId, totalEventsProcessed, totalInserts, totalUpdates, totalDeletes, targetAdapterWriter, targetAdapterConfig);
                 CdcPosition pos = (reader != null) ? reader.getCurrentPosition() : null;
                 checkpointDurable(pipelineId, pos, totalEventsProcessed.get());
             } catch (Exception flushErr) {
@@ -344,10 +353,14 @@ public class CdcStreamExecutor {
                                  ConnectionConfig targetConfig,
                                  String pipelineId,
                                  AtomicLong totalEventsProcessed,
+                                 AtomicLong totalInserts,
+                                 AtomicLong totalUpdates,
+                                 AtomicLong totalDeletes,
                                  com.datashifter.adapter.sdk.DataWriter targetAdapterWriter,
                                  com.datashifter.adapter.sdk.AdapterConfig targetAdapterConfig) {
         List<CdcEvent> batch = aggregator.drain();
         if (!batch.isEmpty()) {
+            CdcWriteResult result = null;
             if (targetAdapterWriter != null) {
                 try {
                     adapterExecutionBridge.applyCdcEvents(targetAdapterWriter, targetAdapterConfig, null, batch, null);
@@ -356,11 +369,26 @@ public class CdcStreamExecutor {
                     throw new RuntimeException("CDC adapter replay failed: " + e.getMessage(), e);
                 }
             } else if (replayCoordinator != null && targetConfig != null) {
-                CdcWriteResult result = replayCoordinator.replayBatch(targetConfig, batch, pipelineId);
+                result = replayCoordinator.replayBatch(targetConfig, batch, pipelineId);
+            }
+            if (result != null && (result.getAppliedInserts() > 0 || result.getAppliedUpdates() > 0 || result.getAppliedDeletes() > 0)) {
+                totalInserts.addAndGet(result.getAppliedInserts());
+                totalUpdates.addAndGet(result.getAppliedUpdates());
+                totalDeletes.addAndGet(result.getAppliedDeletes());
+            } else {
+                for (CdcEvent evt : batch) {
+                    if (evt.getOperationType() == CdcOperationType.INSERT) {
+                        totalInserts.incrementAndGet();
+                    } else if (evt.getOperationType() == CdcOperationType.UPDATE) {
+                        totalUpdates.incrementAndGet();
+                    } else if (evt.getOperationType() == CdcOperationType.DELETE) {
+                        totalDeletes.incrementAndGet();
+                    }
+                }
             }
             long total = totalEventsProcessed.addAndGet(batch.size());
-            log.debug("CDC replayed batch of {} events for pipeline {}. Total processed: {}",
-                    batch.size(), pipelineId, total);
+            log.debug("CDC replayed batch of {} events for pipeline {}. Total processed: {}, Inserts: {}, Updates: {}, Deletes: {}",
+                    batch.size(), pipelineId, total, totalInserts.get(), totalUpdates.get(), totalDeletes.get());
         }
     }
 
@@ -442,7 +470,9 @@ public class CdcStreamExecutor {
     private void publishProgress(String pipelineId, String executionLogId,
                                  long totalRowsProcessed, Instant startedAt,
                                  CdcPosition currentPos,
-                                 List<Map<String, Object>> inflightRecords) {
+                                 List<Map<String, Object>> inflightRecords,
+                                 long insertCount, long updateCount,
+                                 long deleteCount, long filteredCount) {
         long elapsedSec = Math.max(1, (Instant.now().toEpochMilli() - startedAt.toEpochMilli()) / 1000);
         long avgRate = totalRowsProcessed / elapsedSec;
 
@@ -468,6 +498,10 @@ public class CdcStreamExecutor {
                 .eta(posDisplay)
                 .timestamp(Instant.now())
                 .inflightRecords(inflightRecords)
+                .insertCount(insertCount)
+                .updateCount(updateCount)
+                .deleteCount(deleteCount)
+                .filteredCount(filteredCount)
                 .build());
     }
 

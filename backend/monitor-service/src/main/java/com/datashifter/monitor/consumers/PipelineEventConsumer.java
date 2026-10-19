@@ -46,6 +46,10 @@ public class PipelineEventConsumer {
         } else if (event.getEta() != null && event.getEta().startsWith("SCN: ")) {
             stats.put("currentScn", event.getEta().substring(5));
         }
+        if (event.getInsertCount() != null) stats.put("insertCount", String.valueOf(event.getInsertCount()));
+        if (event.getUpdateCount() != null) stats.put("updateCount", String.valueOf(event.getUpdateCount()));
+        if (event.getDeleteCount() != null) stats.put("deleteCount", String.valueOf(event.getDeleteCount()));
+        if (event.getFilteredCount() != null) stats.put("filteredCount", String.valueOf(event.getFilteredCount()));
         redisTemplate.opsForHash().putAll(statsKey, stats);
 
         if (event.getInflightRecords() != null && !event.getInflightRecords().isEmpty()) {
