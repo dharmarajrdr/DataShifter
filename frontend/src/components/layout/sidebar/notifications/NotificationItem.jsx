@@ -10,7 +10,7 @@ const getIcon = (type) => {
 
 export const NotificationItem = ({ item, onRespond, onDismiss, responding, onClose }) => {
   return (
-    <div className={`p-2.5 rounded-xl border transition-all ${item.isUnread ? 'bg-white border-indigo-200 shadow-xs' : 'bg-slate-50/70 border-slate-200'}`}>
+    <div className={`p-3 rounded-xl border transition-all bg-white ${item.isUnread ? 'border-indigo-200 shadow-xs' : 'border-slate-200'}`}>
       <div className="flex gap-2.5">
         {getIcon(item.type)}
         <div className="flex-1 min-w-0">
@@ -58,3 +58,4 @@ export const NotificationItem = ({ item, onRespond, onDismiss, responding, onClo
 };
 
 export default NotificationItem;
+

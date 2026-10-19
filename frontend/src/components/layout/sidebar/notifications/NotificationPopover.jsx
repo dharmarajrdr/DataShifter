@@ -17,7 +17,7 @@ export const NotificationPopover = ({
   ];
 
   return (
-    <div className={`absolute bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 w-96 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${isCollapsed ? 'left-full bottom-0 ml-3' : 'bottom-full left-2 mb-2'}`}>
+    <div className={`absolute bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 w-96 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${isCollapsed ? 'left-full bottom-0 ml-3' : 'bottom-full left-0 mb-2'}`}>
       <div className="p-3.5 border-b border-slate-100 bg-white">
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-2">
@@ -39,13 +39,13 @@ export const NotificationPopover = ({
           {tabs.map((t) => (
             <button key={t.key} type="button" onClick={() => onSelectTab(t.key)} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all flex items-center gap-1 ${activeTab === t.key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               <span>{t.label}</span>
-              <span className={`text-[9px] px-1 rounded-full ${activeTab === t.key ? 'bg-white/20' : 'bg-slate-200 text-slate-600'}`}>{t.count}</span>
+              <span className={`text-[9px] px-1 rounded-full ${activeTab === t.key ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-600'}`}>{t.count}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="max-h-80 overflow-y-auto p-2.5 space-y-2 bg-slate-50/50">
+      <div className="max-h-80 overflow-y-auto p-2.5 space-y-2 bg-white">
         {filtered.length === 0 ? (
           <div className="py-8 text-center flex flex-col items-center justify-center">
             <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-2">
@@ -76,3 +76,4 @@ export const NotificationPopover = ({
 };
 
 export default NotificationPopover;
+
