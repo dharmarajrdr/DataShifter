@@ -8,3 +8,4 @@ export { default as WizardStepEntities } from './WizardStepEntities';
 export { default as WizardStepReview } from './WizardStepReview';
 export { default as WizardFooter } from './WizardFooter';
 export { default as usePipelineWizard } from './usePipelineWizard';
+export { default as useInstalledAdapters } from './useInstalledAdapters';

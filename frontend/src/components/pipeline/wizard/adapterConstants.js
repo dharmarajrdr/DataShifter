@@ -1,49 +1,39 @@
-export const SOURCE_ADAPTER_LIST = [
+export const DEFAULT_INSTALLED_SOURCES = [
   {
-    id: 'oracle-jdbc',
+    id: 'postgres-reader',
+    name: 'PostgreSQL Database Reader',
+    sub: 'Direct Relational DB Query',
+    dbType: 'POSTGRESQL',
+    badge: 'JDBC',
+    alias: 'postgres-jdbc',
+  },
+  {
+    id: 'postgres-wal-reader',
+    name: 'PostgreSQL WAL CDC Reader',
+    sub: 'Logical Replication Slot',
+    dbType: 'POSTGRESQL',
+    badge: 'CDC',
+    alias: 'postgres-wal',
+  },
+  {
+    id: 'oracle-reader',
     name: 'Oracle JDBC Reader',
     sub: 'Direct Relational DB Query',
     dbType: 'ORACLE',
     badge: 'JDBC',
+    alias: 'oracle-jdbc',
   },
   {
-    id: 'oracle-trail',
+    id: 'oracle-gg-reader',
     name: 'Oracle GoldenGate Trail',
     sub: 'Binary Trail CDC Stream',
     dbType: 'ORACLE',
     badge: 'CDC',
-  },
-  {
-    id: 'postgres-jdbc',
-    name: 'PostgreSQL JDBC Reader',
-    sub: 'Direct DB Table Query',
-    dbType: 'POSTGRESQL',
-    badge: 'JDBC',
-  },
-  {
-    id: 'postgres-wal',
-    name: 'PostgreSQL WAL Reader',
-    sub: 'Logical Replication Slot',
-    dbType: 'POSTGRESQL',
-    badge: 'CDC',
-  },
-  {
-    id: 'filesystem',
-    name: 'FileSystem Ingestion',
-    sub: 'Parquet / CSV / JSONL Files',
-    dbType: 'FILE',
-    badge: 'FILE',
+    alias: 'oracle-trail',
   },
 ];
 
-export const TARGET_ADAPTER_LIST = [
-  {
-    id: 'postgres-writer',
-    name: 'PostgreSQL Writer',
-    sub: 'JDBC Batch Upsert & Insert',
-    dbType: 'POSTGRESQL',
-    badge: 'JDBC',
-  },
+export const DEFAULT_INSTALLED_TARGETS = [
   {
     id: 'oracle-writer',
     name: 'Oracle Writer',
@@ -52,34 +42,54 @@ export const TARGET_ADAPTER_LIST = [
     badge: 'JDBC',
   },
   {
-    id: 's3-writer',
-    name: 'Amazon S3 / Lakehouse',
-    sub: 'Parquet / Delta Lake Storage',
-    dbType: 'S3',
-    badge: 'CLOUD',
-  },
-  {
-    id: 'kafka-writer',
-    name: 'Apache Kafka Broker',
-    sub: 'Event Stream Topic Producer',
-    dbType: 'KAFKA',
-    badge: 'STREAM',
-  },
-  {
-    id: 'snowflake-writer',
-    name: 'Snowflake DW',
-    sub: 'Cloud Data Warehouse Table',
-    dbType: 'SNOWFLAKE',
-    badge: 'DW',
+    id: 'postgres-writer',
+    name: 'PostgreSQL Writer',
+    sub: 'JDBC Batch Upsert & Insert',
+    dbType: 'POSTGRESQL',
+    badge: 'JDBC',
   },
 ];
 
-export const isDbAdapter = (adapterId = '') =>
-  adapterId.startsWith('oracle-') || adapterId.startsWith('postgres-');
+export const SOURCE_ADAPTER_LIST = DEFAULT_INSTALLED_SOURCES;
+export const TARGET_ADAPTER_LIST = DEFAULT_INSTALLED_TARGETS;
 
-export const getExpectedDbType = (adapterId = '') => {
-  if (adapterId.startsWith('oracle-')) return 'ORACLE';
-  if (adapterId.startsWith('postgres-')) return 'POSTGRESQL';
-  return null;
+export const formatAdapterForDropdown = (adp) => {
+  const k = (adp.adapterKey || adp.id || '').toLowerCase();
+  const isPg = k.includes('postgres');
+  const isOra = k.includes('oracle');
+  const isKf = k.includes('kafka');
+  const isFs = k.includes('file') || k.includes('s3');
+  const isSpanner = k.includes('spanner');
+  const isBq = k.includes('bigquery');
+  const isBt = k.includes('bigtable');
+  const isSf = k.includes('snowflake');
+
+  const dbType = isPg ? 'POSTGRESQL' : isOra ? 'ORACLE' : isKf ? 'KAFKA' : isFs ? 'S3' : isSpanner ? 'SPANNER' : isBq ? 'BIGQUERY' : isBt ? 'BIGTABLE' : isSf ? 'SNOWFLAKE' : (adp.dbType || 'OTHER');
+  const isCdc = adp.supportedMode === 'CDC' || k.includes('wal') || k.includes('trail') || k.includes('gg');
+  const badge = isCdc ? 'CDC' : isKf ? 'STREAM' : isFs ? 'FILE' : isSf ? 'DW' : (adp.badge || 'JDBC');
+
+  const alias = k === 'oracle-gg-reader' ? 'oracle-trail' : k === 'postgres-wal-reader' ? 'postgres-wal' : k === 'postgres-reader' ? 'postgres-jdbc' : k === 'oracle-reader' ? 'oracle-jdbc' : null;
+
+  return {
+    id: adp.adapterKey || adp.id,
+    name: adp.name,
+    sub: adp.description || adp.sub || (adp.adapterType === 'READER' ? 'Source Reader' : 'Target Writer'),
+    dbType,
+    badge,
+    alias,
+    adapterKey: adp.adapterKey || adp.id,
+    adapterType: adp.adapterType,
+    supportedMode: adp.supportedMode,
+  };
 };
 
+export const isDbAdapter = (id = '') => id.includes('oracle') || id.includes('postgres') || id.includes('spanner') || id.includes('bigquery') || id.includes('bigtable');
+
+export const getExpectedDbType = (id = '') => {
+  if (id.includes('oracle')) return 'ORACLE';
+  if (id.includes('postgres')) return 'POSTGRESQL';
+  if (id.includes('spanner')) return 'SPANNER';
+  if (id.includes('bigquery')) return 'BIGQUERY';
+  if (id.includes('bigtable')) return 'BIGTABLE';
+  return null;
+};

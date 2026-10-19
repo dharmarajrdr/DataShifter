@@ -7,6 +7,9 @@ const renderLogo = (dbType) => {
   if (dbType === 'POSTGRESQL') return <div className={`${base} bg-emerald-50 border-emerald-200`}><PostgresIcon size={18} /></div>;
   if (dbType === 'S3') return <div className={`${base} bg-amber-50 border-amber-200 text-amber-600`}><i className="fa-solid fa-cloud text-xs" /></div>;
   if (dbType === 'KAFKA') return <div className={`${base} bg-indigo-50 border-indigo-200 text-indigo-600`}><i className="fa-solid fa-share-nodes text-xs" /></div>;
+  if (dbType === 'SPANNER') return <div className={`${base} bg-indigo-50 border-indigo-200 text-indigo-600`}><i className="fa-solid fa-database text-xs" /></div>;
+  if (dbType === 'BIGQUERY') return <div className={`${base} bg-blue-50 border-blue-200 text-blue-600`}><i className="fa-solid fa-chart-pie text-xs" /></div>;
+  if (dbType === 'BIGTABLE') return <div className={`${base} bg-purple-50 border-purple-200 text-purple-600`}><i className="fa-solid fa-table-cells text-xs" /></div>;
   if (dbType === 'SNOWFLAKE') return <div className={`${base} bg-sky-50 border-sky-200 text-sky-600`}><i className="fa-solid fa-snowflake text-xs" /></div>;
   return <div className={`${base} bg-slate-50 border-slate-200 text-slate-600`}><i className="fa-solid fa-folder-open text-xs" /></div>;
 };
@@ -15,7 +18,7 @@ export const AdapterSelectDropdown = ({ id = 'adapter-select', label, adapters =
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropRef = useRef(null);
-  const selected = adapters.find((a) => a.id === selectedId) || adapters[0];
+  const selected = adapters.find((a) => a.id === selectedId || (a.alias && a.alias === selectedId)) || adapters[0];
 
   useEffect(() => {
     const handler = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setOpen(false); };
@@ -25,7 +28,7 @@ export const AdapterSelectDropdown = ({ id = 'adapter-select', label, adapters =
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q ? adapters.filter((a) => a.name.toLowerCase().includes(q) || a.sub.toLowerCase().includes(q) || a.badge.toLowerCase().includes(q)) : adapters;
+    return q ? adapters.filter((a) => a.name.toLowerCase().includes(q) || (a.sub && a.sub.toLowerCase().includes(q)) || (a.badge && a.badge.toLowerCase().includes(q))) : adapters;
   }, [adapters, search]);
 
   return (
@@ -53,15 +56,7 @@ export const AdapterSelectDropdown = ({ id = 'adapter-select', label, adapters =
       <div id={`${id}-menu`} className={`absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden ${open ? 'block' : 'hidden'}`}>
         <div className="p-2 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
           <i className="fa-solid fa-magnifying-glass text-slate-400 text-xs pl-1" />
-          <input
-            id={`${id}-search-input`}
-            type="text"
-            autoFocus
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search adapter name, protocol, or technology..."
-            className="w-full text-xs bg-transparent border-none focus:outline-none text-slate-800 placeholder-slate-400"
-          />
+          <input id={`${id}-search-input`} type="text" autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search adapter name, protocol, or technology..." className="w-full text-xs bg-transparent border-none focus:outline-none text-slate-800 placeholder-slate-400" />
           {search && <button type="button" onClick={() => setSearch('')} className="text-slate-400 hover:text-slate-600 text-xs px-1">✕</button>}
         </div>
 
@@ -71,8 +66,9 @@ export const AdapterSelectDropdown = ({ id = 'adapter-select', label, adapters =
               key={adp.id}
               id={`${id}-card-${adp.id}`}
               onClick={() => { onSelect(adp.id); setOpen(false); setSearch(''); }}
-              className={`p-2 rounded-lg cursor-pointer flex items-center justify-between transition-colors ${adp.id === selected?.id ? 'bg-indigo-50/70 text-indigo-950' : 'hover:bg-slate-50 text-slate-800'}`}
+              className={`p-2 rounded-lg cursor-pointer flex items-center justify-between transition-colors ${(adp.id === selected?.id || adp.alias === selected?.id) ? 'bg-indigo-50/70 text-indigo-950' : 'hover:bg-slate-50 text-slate-800'}`}
             >
+              {adp.alias && <span id={`${id}-card-${adp.alias}`} className="hidden" aria-hidden="true" />}
               <div className="flex items-center gap-2.5 min-w-0">
                 {renderLogo(adp.dbType)}
                 <div className="min-w-0">
@@ -83,7 +79,7 @@ export const AdapterSelectDropdown = ({ id = 'adapter-select', label, adapters =
                   <div className="text-[11px] text-slate-500 truncate">{adp.sub}</div>
                 </div>
               </div>
-              {adp.id === selected?.id && <i className="fa-solid fa-check text-indigo-600 text-xs shrink-0" />}
+              {(adp.id === selected?.id || adp.alias === selected?.id) && <i className="fa-solid fa-check text-indigo-600 text-xs shrink-0" />}
             </div>
           ))}
           {filtered.length === 0 && <div className="py-4 text-center text-xs text-slate-400">No matching adapters found</div>}
@@ -94,4 +90,3 @@ export const AdapterSelectDropdown = ({ id = 'adapter-select', label, adapters =
 };
 
 export default AdapterSelectDropdown;
-
