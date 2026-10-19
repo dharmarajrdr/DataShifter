@@ -59,7 +59,7 @@ describe('Dynamic Adapter Schema Driven Fields', () => {
       );
     });
 
-    expect(container.textContent).toContain('Saved Oracle Connection *');
+    expect(container.textContent).toContain('Oracle Source Connection *');
     expect(container.textContent).toContain('Prod Oracle');
     expect(container.textContent).not.toContain('WAL Directory');
     expect(container.querySelector('#test-ora-conn-select')).not.toBeNull();

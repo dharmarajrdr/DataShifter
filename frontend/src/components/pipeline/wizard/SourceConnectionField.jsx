@@ -20,8 +20,8 @@ export const SourceConnectionField = ({ id, adapter, adapterObj, config, setConf
     <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-row flex-wrap gap-3">
       <div className="w-full max-w-[320px]">
         <div className="flex items-center justify-between mb-1">
-          <label className="block text-xs font-semibold text-slate-700">Saved {labelText} Connection *</label>
-          <span className="text-[11px] text-slate-500 font-medium">{filtered.length} available</span>
+          <label className="block text-xs font-semibold text-slate-700">{labelText} Source Connection *</label>
+          <span className="text-[11px] text-slate-500 font-medium">{filtered.length} {labelText} connection{filtered.length === 1 ? '' : 's'} available</span>
         </div>
         <select
           id={`${id}-conn-select`}
@@ -30,14 +30,15 @@ export const SourceConnectionField = ({ id, adapter, adapterObj, config, setConf
           value={config.source || ''}
           onChange={(e) => setConfig({ ...config, source: e.target.value })}
         >
-          <option value="">{`Select Saved ${labelText} Connection...`}</option>
+          <option value="">{`Select ${labelText} source connection...`}</option>
           {filtered.map((c) => (<option key={c.id} value={c.id}>{c.name} ({c.dbType})</option>))}
         </select>
         {errors.source && <p id={`${id}-source-error`} className="text-xs text-rose-500 mt-1">{errors.source}</p>}
-        {filtered.length === 0 && <p className="text-[11px] text-amber-600 mt-1">No saved {labelText} connections configured.</p>}
+        {filtered.length === 0 && <p className="text-[11px] text-amber-600 mt-1">No {labelText} connections configured. Create one in Connections.</p>}
       </div>
     </div>
   );
 };
 
 export default SourceConnectionField;
+
