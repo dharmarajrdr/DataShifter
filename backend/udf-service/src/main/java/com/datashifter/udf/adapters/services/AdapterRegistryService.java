@@ -16,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -46,7 +45,7 @@ public class AdapterRegistryService {
     private final AdapterDiscovery discovery;
     private final AdapterArtifactStorage storage;
     private final BuiltInAdapterSeeder seeder;
-    private final JdbcTemplate jdbcTemplate;
+    private final AdapterReferenceService referenceService;
 
     @Transactional
     public AdapterResponse uploadAdapter(String name, String description, MultipartFile file) {
@@ -138,11 +137,12 @@ public class AdapterRegistryService {
             }
         }
 
+        Map<String, Set<String>> refMap = referenceService.getPipelineReferences();
         return byKey.values().stream()
                 .filter(a -> type == null || a.getAdapterType() == type)
                 .filter(a -> mode == null || a.getSupportedMode() == mode || a.getSupportedMode() == AdapterMode.BOTH)
                 .filter(a -> category == null || category.isBlank() || category.equalsIgnoreCase(a.getCategory()))
-                .map(a -> toResponse(a, true))
+                .map(a -> toResponse(a, true, referenceService.countPipelines(a.getId(), a.getAdapterKey(), refMap)))
                 .toList();
     }
 
@@ -153,7 +153,7 @@ public class AdapterRegistryService {
 
         validateOrgAccess(entity);
         boolean isPurchased = isPurchasedOrOfficial(entity);
-        return toResponse(entity, isPurchased);
+        return toResponse(entity, isPurchased, referenceService.countPipelines(entity.getId(), entity.getAdapterKey()));
     }
 
     @Transactional(readOnly = true)
@@ -170,7 +170,7 @@ public class AdapterRegistryService {
 
         validateOrgAccess(entity);
         boolean isPurchased = isPurchasedOrOfficial(entity);
-        return toResponse(entity, isPurchased);
+        return toResponse(entity, isPurchased, referenceService.countPipelines(entity.getId(), entity.getAdapterKey()));
     }
 
     @Transactional
@@ -187,16 +187,9 @@ public class AdapterRegistryService {
             throw new DatashifterException("Access denied: adapter belongs to another organization");
         }
 
-        // Check reference count in pipelines table
-        try {
-            String sql = "SELECT COUNT(*) FROM pipelines WHERE source_adapter_id = ? OR target_adapter_id = ? OR source_adapter_id = ? OR target_adapter_id = ?";
-            Integer count = jdbcTemplate.queryForObject(sql, Integer.class, entity.getId(), entity.getId(), entity.getAdapterKey(), entity.getAdapterKey());
-            if (count != null && count > 0) {
-                throw new DatashifterException("Cannot delete adapter '" + entity.getName() + "' because it is referenced in " + count + " pipeline(s)");
-            }
-        } catch (Exception e) {
-            if (e instanceof DatashifterException de) throw de;
-            log.warn("Could not check pipeline references for adapter {}: {}", id, e.getMessage());
+        int count = referenceService.countPipelines(entity.getId(), entity.getAdapterKey());
+        if (count > 0) {
+            throw new DatashifterException("Cannot delete adapter '" + entity.getName() + "' because it is referenced in " + count + " pipeline(s)");
         }
 
         if (entity.getStorageKey() != null && !entity.getStorageKey().isBlank()) {
@@ -257,7 +250,7 @@ public class AdapterRegistryService {
         }
     }
 
-    private AdapterResponse toResponse(AdapterDefinition entity, boolean isPurchased) {
+    private AdapterResponse toResponse(AdapterDefinition entity, boolean isPurchased, int pipelineCount) {
         return AdapterResponse.builder()
                 .id(entity.getId())
                 .organizationId(entity.getOrganizationId())
@@ -275,9 +268,14 @@ public class AdapterRegistryService {
                 .configSchema(entity.getConfigSchema())
                 .isOfficial(Boolean.TRUE.equals(entity.getIsOfficial()))
                 .isPurchased(isPurchased)
+                .pipelineCount(pipelineCount)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
+    }
+
+    private AdapterResponse toResponse(AdapterDefinition entity, boolean isPurchased) {
+        return toResponse(entity, isPurchased, 0);
     }
 
     private String requireContext(String value, String label) {

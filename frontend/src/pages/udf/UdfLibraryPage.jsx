@@ -62,7 +62,7 @@ export const UdfLibraryPage = () => {
           canViewAdapters ? (
             <div id="library-adapters-split" className="flex flex-1 overflow-hidden flex-col md:flex-row">
               <AdapterMasterList adapters={filteredAdapters} selectedId={selectedAdapter?.id} onSelectAdapter={setSelectedAdapterId} searchQuery={adapterQuery} onSearchChange={setAdapterQuery} typeFilter={adapterFilter} onTypeFilterChange={setAdapterFilter} />
-              <AdapterDetailPane adapter={selectedAdapter} onCreatePipeline={(a) => notification.info(`Starting pipeline with ${a.name}...`)} />
+              <AdapterDetailPane adapter={selectedAdapter} />
             </div>
           ) : (
             <div id="section-forbidden-adapters" className="flex-1 flex items-center justify-center p-6 bg-surface-50"><ForbiddenPage compact missingPermission="adapter:view" title="Access Restricted" message="You don't have permission to view Connector Adapters." showHome={false} showBack={false} /></div>

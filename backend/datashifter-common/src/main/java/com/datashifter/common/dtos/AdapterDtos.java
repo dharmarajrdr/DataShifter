@@ -37,6 +37,8 @@ public final class AdapterDtos {
         private String configSchema;
         private boolean isOfficial;
         private boolean isPurchased;
+        @Builder.Default
+        private Integer pipelineCount = 0;
         private Instant createdAt;
         private Instant updatedAt;
     }

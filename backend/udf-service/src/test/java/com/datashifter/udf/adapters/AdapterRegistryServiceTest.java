@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
+import com.datashifter.udf.adapters.services.AdapterReferenceService;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.IOException;
@@ -55,14 +55,14 @@ class AdapterRegistryServiceTest {
     private BuiltInAdapterSeeder seeder;
 
     @Mock
-    private JdbcTemplate jdbcTemplate;
+    private AdapterReferenceService referenceService;
 
     private AdapterRegistryService service;
 
     @BeforeEach
     void setUp() {
         service = new AdapterRegistryService(
-                repository, purchasedRepo, validator, discovery, storage, seeder, jdbcTemplate
+                repository, purchasedRepo, validator, discovery, storage, seeder, referenceService
         );
 
         UserContext.set(UserContext.Context.builder()
@@ -104,15 +104,19 @@ class AdapterRegistryServiceTest {
 
         when(repository.findAllAvailableForOrg("org-123")).thenReturn(List.of(officialReader, customWriter));
         when(purchasedRepo.findByOrganizationIdAndStatus("org-123", "ACTIVE")).thenReturn(List.of(purchase));
+        when(referenceService.getPipelineReferences()).thenReturn(java.util.Map.of("oracle-reader", java.util.Set.of("p1", "p2")));
+        when(referenceService.countPipelines(any(), eq("oracle-reader"), any())).thenReturn(2);
 
         List<AdapterResponse> all = service.getAllAvailable(null, null, null);
         assertEquals(2, all.size());
         assertTrue(all.get(0).isOfficial());
         assertTrue(all.get(0).isPurchased());
+        assertEquals(2, all.get(0).getPipelineCount());
 
         List<AdapterResponse> readersOnly = service.getAllAvailable(AdapterType.READER, null, null);
         assertEquals(1, readersOnly.size());
         assertEquals("oracle-reader", readersOnly.get(0).getAdapterKey());
+        assertEquals(2, readersOnly.get(0).getPipelineCount());
     }
 
     @Test
@@ -172,7 +176,7 @@ class AdapterRegistryServiceTest {
         custom.setId("ad-3");
 
         when(repository.findById("ad-3")).thenReturn(Optional.of(custom));
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), any(), any(), any(), any())).thenReturn(0);
+        when(referenceService.countPipelines("ad-3", "custom-adapter")).thenReturn(0);
 
         service.deleteAdapter("ad-3");
 
