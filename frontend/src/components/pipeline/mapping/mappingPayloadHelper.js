@@ -1,5 +1,6 @@
 import { COLOR_KEYS } from '../../../constants/transformMeta';
 import { parseDdlColumns } from '../../../utils/ddlParser';
+import { splitTableCol } from './DragBoardConstants';
 
 const toCol = (c) => ({ name: c.name, type: c.dataType || c.type, nullable: c.nullable, primaryKey: c.primaryKey });
 
@@ -8,8 +9,8 @@ export const parseMappingsFromResponse = (data) => {
   if (data?.tablePairs?.length) {
     data.tablePairs.forEach((p) => {
       (p.mappings || p.columnMappings || []).forEach((m) => {
-        const sCol = m.sourceColumn || (m.source?.includes('.') ? m.source.split('.')[1] : m.source);
-        const tCol = m.targetColumn || (m.target?.includes('.') ? m.target.split('.')[1] : m.target);
+        const sCol = m.sourceColumn || (m.source?.includes('.') ? splitTableCol(m.source)[1] : m.source);
+        const tCol = m.targetColumn || (m.target?.includes('.') ? splitTableCol(m.target)[1] : m.target);
         ex.push({
           id: m.id, source: sCol ? `${p.sourceTable}.${sCol}` : null, target: `${p.targetTable}.${tCol}`,
           color: m.color || COLOR_KEYS[ex.length % COLOR_KEYS.length], defaultValue: m.defaultValue, targetOnly: !sCol,
@@ -60,10 +61,10 @@ export const buildSavePayload = (mappings = [], filters = {}, sourceTables = [])
   const tm = {}, toMappings = {};
   mappings.forEach((m) => {
     if (m.targetOnly || !m.source) {
-      const [tt, tc] = m.target.split('.');
+      const [tt, tc] = splitTableCol(m.target);
       (toMappings[tt] = toMappings[tt] || []).push({ sc: null, tc, transforms: m.transforms || [], defaultValue: m.defaultValue });
     } else {
-      const [st, sc] = m.source.split('.'), [tt, tc] = m.target.split('.');
+      const [st, sc] = splitTableCol(m.source), [tt, tc] = splitTableCol(m.target);
       const k = `${st}::${tt}`;
       (tm[k] = tm[k] || { st, tt, cols: [] }).cols.push({ sc, tc, transforms: m.transforms || [], defaultValue: m.defaultValue });
     }

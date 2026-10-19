@@ -51,4 +51,20 @@ describe('mappingPayloadHelper', () => {
     expect(payload[0].targetMappings[0].columnMappings[0].sourceColumn).toBe('order_number');
     expect(payload[0].targetMappings[0].columnMappings[0].targetColumn).toBe('ORDER_NO');
   });
+
+  test('handles schema-qualified table names in buildSavePayload', () => {
+    const mappings = [
+      { source: 'public.customers.customer_id', target: 'CUSTOMERS.ID', transforms: [] },
+      { source: null, target: 'CUSTOMERS.CREATED_AT', targetOnly: true, transforms: [] },
+    ];
+    const sourceTables = [{ tableName: 'public.customers' }];
+    const payload = buildSavePayload(mappings, {}, sourceTables);
+    expect(payload).toHaveLength(1);
+    expect(payload[0].sourceTable).toBe('public.customers');
+    expect(payload[0].targetMappings[0].targetTable).toBe('CUSTOMERS');
+    expect(payload[0].targetMappings[0].columnMappings[0].sourceColumn).toBe('customer_id');
+    expect(payload[0].targetMappings[0].columnMappings[0].targetColumn).toBe('ID');
+    expect(payload[0].targetMappings[0].columnMappings[1].sourceColumn).toBeNull();
+    expect(payload[0].targetMappings[0].columnMappings[1].targetColumn).toBe('CREATED_AT');
+  });
 });

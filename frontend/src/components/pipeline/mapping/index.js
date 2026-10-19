@@ -13,4 +13,5 @@ export { default as TransformFunctionGrid } from './TransformFunctionGrid';
 export { default as TransformPreviewBox } from './TransformPreviewBox';
 export { default as TransformPanel } from './TransformPanel';
 export { default as useMappingState } from './useMappingState';
+export { splitTableCol } from './DragBoardConstants';
 export * from './mappingPayloadHelper';
