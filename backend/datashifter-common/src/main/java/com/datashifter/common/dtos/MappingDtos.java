@@ -48,6 +48,7 @@ public class MappingDtos {
         private String targetTable;
         private WriteMode writeMode;
         private int executionOrder;
+        private String sourceSchemaSql;
 
         /** Live column metadata fetched from source database */
         private List<ColumnInfo> sourceColumns;

@@ -33,6 +33,9 @@ public class PipelineTable extends BaseEntity {
     @Builder.Default
     private TableMappingType mappingType = TableMappingType.ONE_TO_ONE;
 
+    @Column(name = "source_schema_sql", columnDefinition = "TEXT")
+    private String sourceSchemaSql;
+
     /** Target table mappings — supports 1:1 and 1:N */
     @OneToMany(mappedBy = "pipelineTable", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
