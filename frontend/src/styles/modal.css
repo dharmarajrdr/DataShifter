@@ -4,7 +4,7 @@
    to bottom while modal body contents scroll smoothly.
    ============================================================ */
 
-div[style*="1000"] > div,
+div[style*="1000"]>div,
 .ds-modal-card {
   position: relative !important;
   display: flex !important;
@@ -13,7 +13,7 @@ div[style*="1000"] > div,
   overflow: hidden !important;
 }
 
-div[style*="1000"] > div > div:first-child,
+div[style*="1000"]>div>div:first-child,
 .ds-modal-header,
 .modal-header {
   flex-shrink: 0 !important;
@@ -25,8 +25,8 @@ div[style*="1000"] > div > div:first-child,
   border-top-right-radius: inherit;
 }
 
-div[style*="1000"] > div > form,
-.ds-modal-card > form {
+div[style*="1000"]>div>form,
+.ds-modal-card>form {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   overflow-y: auto !important;
@@ -35,7 +35,7 @@ div[style*="1000"] > div > form,
   scroll-behavior: smooth;
 }
 
-div[style*="1000"] > div form > div:last-child,
+div[style*="1000"]>div form>div:last-child,
 .ds-modal-footer,
 .modal-footer {
   flex-shrink: 0 !important;
@@ -46,14 +46,4 @@ div[style*="1000"] > div form > div:last-child,
   border-bottom-left-radius: inherit;
   border-bottom-right-radius: inherit;
   border-top: 1px solid #E2E8F0 !important;
-}
-
-/* Explicit notification protection */
-.ds-notification-item,
-.ds-notification-popup,
-.ds-notification-toast,
-[id*="notification"],
-[id*="notification"] * {
-  background-color: inherit;
-  padding-bottom: 0;
 }
