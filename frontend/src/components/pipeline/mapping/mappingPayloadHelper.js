@@ -1,4 +1,5 @@
 import { COLOR_KEYS } from '../../../constants/transformMeta';
+import { parseDdlColumns } from '../../../utils/ddlParser';
 
 const toCol = (c) => ({ name: c.name, type: c.dataType || c.type, nullable: c.nullable, primaryKey: c.primaryKey });
 
@@ -36,7 +37,12 @@ export const extractTablesFromResponse = (data) => {
   const srcS = new Set(), tgtS = new Set();
   (data?.tablePairs || []).forEach((p) => {
     if (p.sourceTable && !srcS.has(p.sourceTable)) {
-      srcS.add(p.sourceTable); sourceTables.push({ tableName: p.sourceTable, columns: (p.sourceColumns || []).map(toCol) });
+      srcS.add(p.sourceTable);
+      let cols = (p.sourceColumns || []).map(toCol);
+      if ((!cols || cols.length === 0) && p.sourceSchemaSql) {
+        cols = parseDdlColumns(p.sourceSchemaSql).map(toCol);
+      }
+      sourceTables.push({ tableName: p.sourceTable, columns: cols, sourceSchemaSql: p.sourceSchemaSql });
     }
     if (p.targetTable && !tgtS.has(p.targetTable)) {
       tgtS.add(p.targetTable); targetTables.push({ tableName: p.targetTable, columns: (p.targetColumns || []).map(toCol) });
@@ -65,7 +71,8 @@ export const buildSavePayload = (mappings = [], filters = {}, sourceTables = [])
   const toCm = (c, j) => ({ sourceColumn: c.sc || null, targetColumn: c.tc, mappingOrder: j, defaultValue: c.defaultValue, transformations: (c.transforms || []).map((t, k) => ({ functionName: t.fn, arguments: t.args || '', executionOrder: k })) });
   const en = {};
   Object.values(tm).forEach(({ st, tt, cols }) => {
-    if (!en[st]) en[st] = { sourceTable: st, executionOrder: sourceTables.findIndex((s) => s.tableName === st), targetMappings: [], filters: filters[st] || [] };
+    const sObj = sourceTables.find((s) => s.tableName === st);
+    if (!en[st]) en[st] = { sourceTable: st, executionOrder: sourceTables.findIndex((s) => s.tableName === st), targetMappings: [], filters: filters[st] || [], sourceSchemaSql: sObj?.sourceSchemaSql };
     const allCols = [...cols, ...(toMappings[tt] || [])];
     delete toMappings[tt];
     en[st].targetMappings.push({ targetTable: tt, columnMappings: allCols.map(toCm) });
@@ -73,13 +80,13 @@ export const buildSavePayload = (mappings = [], filters = {}, sourceTables = [])
   Object.entries(toMappings).forEach(([tt, cols]) => {
     const fSrc = sourceTables[0]?.tableName;
     if (!fSrc) return;
-    if (!en[fSrc]) en[fSrc] = { sourceTable: fSrc, executionOrder: 0, targetMappings: [], filters: filters[fSrc] || [] };
+    if (!en[fSrc]) en[fSrc] = { sourceTable: fSrc, executionOrder: 0, targetMappings: [], filters: filters[fSrc] || [], sourceSchemaSql: sourceTables[0]?.sourceSchemaSql };
     const exT = en[fSrc].targetMappings.find((t) => t.targetTable === tt);
     if (exT) exT.columnMappings.push(...cols.map((c, j) => toCm(c, exT.columnMappings.length + j)));
     else en[fSrc].targetMappings.push({ targetTable: tt, columnMappings: cols.map(toCm) });
   });
   sourceTables.forEach((s, i) => {
-    if (!en[s.tableName]) en[s.tableName] = { sourceTable: s.tableName, executionOrder: i, targetMappings: [], filters: filters[s.tableName] || [] };
+    if (!en[s.tableName]) en[s.tableName] = { sourceTable: s.tableName, executionOrder: i, targetMappings: [], filters: filters[s.tableName] || [], sourceSchemaSql: s.sourceSchemaSql };
   });
   return Object.values(en);
 };

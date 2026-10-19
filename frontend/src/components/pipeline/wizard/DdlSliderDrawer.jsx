@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseDdlColumns } from '../../../utils/ddlParser';
 
 export const DdlSliderDrawer = ({ isOpen, onClose, entityName, ddlSql, onSave }) => {
   const [val, setVal] = useState(ddlSql || '');
@@ -7,18 +8,12 @@ export const DdlSliderDrawer = ({ isOpen, onClose, entityName, ddlSql, onSave })
     setVal(ddlSql || '');
   }, [ddlSql, isOpen]);
 
-  const countColumns = (sql) => {
-    if (!sql) return 0;
-    const lines = sql.split('\n').filter((l) => l.trim() && !l.trim().startsWith('CREATE') && !l.trim().startsWith(');'));
-    return Math.max(1, lines.length);
-  };
-
   const handleTemplate = () => {
     const name = entityName || 'CUSTOMERS';
     setVal(`CREATE TABLE ${name} (\n  ID NUMBER(10) PRIMARY KEY,\n  NAME VARCHAR2(100) NOT NULL,\n  EMAIL VARCHAR2(255),\n  STATUS VARCHAR2(20),\n  UPDATED_AT TIMESTAMP\n);`);
   };
 
-  const cols = countColumns(val);
+  const cols = parseDdlColumns(val).length;
 
   return (
     <>

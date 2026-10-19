@@ -65,11 +65,14 @@ export const usePipelineWizard = () => {
       const isCdc = ['oracle-trail', 'oracle-gg-reader', 'postgres-wal', 'postgres-wal-reader'].includes(config.sourceAdapter);
       const payload = {
         name: config.name.trim(), description: config.description?.trim() || '',
-        namespaceId: config.namespaceId || null, sourceConnectionId: config.source || config.sourceAdapter,
-        targetConnectionId: config.target || config.targetAdapter, sourceAdapterId: config.sourceAdapter,
+        namespaceId: config.namespaceId || null, sourceConnectionId: config.source || null,
+        targetConnectionId: config.target || null, sourceAdapterId: config.sourceAdapter,
         targetAdapterId: config.targetAdapter, sourceTables: config.entityPairs.map((p) => p.sourceEntity),
         targetTables: config.entityPairs.map((p) => p.targetEntity),
-        tables: config.entityPairs.map((p, i) => ({ sourceTable: p.sourceEntity, targetTable: p.targetEntity, executionOrder: i })),
+        tables: config.entityPairs.map((p, i) => ({
+          sourceTable: p.sourceEntity, targetTable: p.targetEntity,
+          sourceSchemaSql: p.sourceSchemaSql || '', executionOrder: i,
+        })),
         pipelineMode: isCdc ? 'CDC' : 'BATCH', cdcDirectoryPath: config.cdcDirectoryPath, cdcFilePattern: config.cdcFilePattern,
       };
       const res = await pipelineApi.create(payload);
