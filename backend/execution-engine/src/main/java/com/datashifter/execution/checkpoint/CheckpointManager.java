@@ -133,6 +133,9 @@ public class CheckpointManager {
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
         }
+        redisTemplate.delete("cdc:checkpoint:" + pipelineId);
+        redisTemplate.delete("pipeline:" + pipelineId + ":cdc:checkpoint");
+        redisTemplate.delete("pipeline:" + pipelineId + ":stats");
 
         // Clear Postgres
         cursorRepository.deleteByPipelineId(pipelineId);
