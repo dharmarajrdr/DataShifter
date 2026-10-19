@@ -261,4 +261,23 @@ class PostgresWalFileReaderTest {
         assertEquals(1, events.size());
         assertEquals("2", String.valueOf(events.get(0).getAfterData().get("id")));
     }
+
+    @Test
+    void testReadTmpWal() throws Exception {
+        File dir = new File("/tmp/wal");
+        if (!dir.exists()) return;
+        CdcReaderConfig config = CdcReaderConfig.builder()
+                .pipelineId("pipe-test")
+                .databaseType(DatabaseType.POSTGRESQL)
+                .directoryPath("/tmp/wal")
+                .filePattern("0000000100000000000000*")
+                .build();
+        reader.open(config);
+        List<CdcEvent> events = reader.poll(100, Duration.ofMillis(1000));
+        System.out.println("Read events count: " + events.size());
+        assertTrue(events.size() > 0);
+        for (CdcEvent e : events) {
+            System.out.println("Event: " + e.getTableName() + " " + e.getOperationType() + " " + e.getAfterData());
+        }
+    }
 }

@@ -164,7 +164,7 @@ public class CdcCheckpointManager {
 
             cp.setSourceFile(pos.getSourceFile());
             cp.setFileOffset(pos.getFileOffset());
-            if (pos.getScn() > 0) cp.setLastScn(String.valueOf(pos.getScn()));
+            if (pos.getScn() != null && pos.getScn() > 0) cp.setLastScn(String.valueOf(pos.getScn()));
             if (pos.getLsn() != null) {
                 cp.setLastLsn(String.valueOf(pos.getLsn()));
             } else if (pos.getToken() != null) {

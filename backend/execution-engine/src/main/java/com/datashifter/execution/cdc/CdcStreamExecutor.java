@@ -10,6 +10,8 @@ import com.datashifter.common.exceptions.ResourceNotFoundException;
 import com.datashifter.common.models.Connection;
 import com.datashifter.common.models.Pipeline;
 import com.datashifter.common.models.PipelineTable;
+import com.datashifter.common.models.TargetTableMapping;
+import com.datashifter.common.models.ColumnMapping;
 import com.datashifter.common.utils.EncryptionUtil;
 import com.datashifter.connector.cdc.checkpoint.CdcCheckpointManager;
 import com.datashifter.connector.cdc.replay.CdcMicroBatchAggregator;
@@ -89,7 +91,9 @@ public class CdcStreamExecutor {
         // Check if dynamic target/source adapters are configured
         com.datashifter.adapter.sdk.DataWriter targetAdapterWriter = null;
         com.datashifter.adapter.sdk.AdapterConfig targetAdapterConfig = null;
-        if (pipeline.getTargetAdapterId() != null && !pipeline.getTargetAdapterId().isBlank()) {
+        if (pipeline.getTargetAdapterId() != null && !pipeline.getTargetAdapterId().isBlank()
+                && !"oracle-writer".equalsIgnoreCase(pipeline.getTargetAdapterId())
+                && !"postgres-writer".equalsIgnoreCase(pipeline.getTargetAdapterId())) {
             targetAdapterConfig = adapterExecutionManager.parseConfig(pipeline.getTargetConfig());
             targetAdapterWriter = adapterExecutionManager.getWriter(pipeline.getTargetAdapterId(), targetAdapterConfig);
             log.info("Initialized CDC target adapter: {}", pipeline.getTargetAdapterId());
@@ -97,7 +101,12 @@ public class CdcStreamExecutor {
 
         com.datashifter.adapter.sdk.DataReader sourceAdapterReader = null;
         com.datashifter.adapter.sdk.AdapterConfig sourceAdapterConfig = null;
-        if (pipeline.getSourceAdapterId() != null && !pipeline.getSourceAdapterId().isBlank()) {
+        CdcSourceReader reader = null;
+
+        if (pipeline.getSourceAdapterId() != null && "postgres-wal-reader".equalsIgnoreCase(pipeline.getSourceAdapterId())) {
+            reader = readerFactory.getReader(DatabaseType.POSTGRESQL);
+            log.info("Initialized built-in PostgreSQL WAL reader for pipeline {}", pipelineId);
+        } else if (pipeline.getSourceAdapterId() != null && !pipeline.getSourceAdapterId().isBlank()) {
             sourceAdapterConfig = adapterExecutionManager.parseConfig(pipeline.getSourceConfig());
             sourceAdapterReader = adapterExecutionManager.getReader(pipeline.getSourceAdapterId(), sourceAdapterConfig);
             log.info("Initialized CDC source adapter: {}", pipeline.getSourceAdapterId());
@@ -116,26 +125,64 @@ public class CdcStreamExecutor {
                 ? CdcTableFilter.allowAll()
                 : new CdcTableFilter(selectedTables);
 
+        List<CdcTableMappingConfig> tableMappingConfigs = new ArrayList<>();
+        if (pipeline.getPipelineTables() != null) {
+            for (PipelineTable pt : pipeline.getPipelineTables()) {
+                String srcTable = pt.getSourceTable();
+                String srcSchema = "public";
+                if (srcTable != null && srcTable.contains(".")) {
+                    String[] parts = srcTable.split("\\.", 2);
+                    srcSchema = parts[0];
+                    srcTable = parts[1];
+                }
+                if (pt.getTargetTableMappings() != null) {
+                    for (TargetTableMapping ttm : pt.getTargetTableMappings()) {
+                        List<CdcColumnTransformation> colTransforms = new ArrayList<>();
+                        if (ttm.getColumnMappings() != null) {
+                            for (ColumnMapping cm : ttm.getColumnMappings()) {
+                                colTransforms.add(CdcColumnTransformation.builder()
+                                        .sourceColumn(cm.getSourceColumn())
+                                        .targetColumn(cm.getTargetColumn())
+                                        .build());
+                            }
+                        }
+                        tableMappingConfigs.add(CdcTableMappingConfig.builder()
+                                .sourceSchema(srcSchema)
+                                .sourceTable(srcTable)
+                                .targetTable(ttm.getTargetTable())
+                                .columnMappings(colTransforms)
+                                .build());
+                    }
+                }
+            }
+        }
+
         CdcSegregationEngine segregationEngine = new CdcSegregationEngine(
                 tableFilter,
                 CdcOperationFilter.allowAll(),
-                Collections.emptyList()
+                tableMappingConfigs
         );
 
         int batchSize = pipeline.getCdcBatchSize() != null ? pipeline.getCdcBatchSize() : 500;
         int flushIntervalMs = pipeline.getCdcFlushIntervalMs() != null ? pipeline.getCdcFlushIntervalMs() : 200;
 
+        String rawPattern = pipeline.getCdcFilePattern() != null ? pipeline.getCdcFilePattern() : ".*";
+        if (rawPattern.contains("*") && !rawPattern.contains(".*")) {
+            rawPattern = rawPattern.replaceAll("(?<!\\.)\\*", ".*");
+        }
+        String walDir = pipeline.getCdcDirectoryPath() != null && !pipeline.getCdcDirectoryPath().isBlank()
+                ? pipeline.getCdcDirectoryPath() : "/tmp/wal";
+
         CdcReaderConfig readerConfig = CdcReaderConfig.builder()
                 .pipelineId(pipelineId)
-                .directoryPath(pipeline.getCdcDirectoryPath())
-                .filePattern(pipeline.getCdcFilePattern() != null ? pipeline.getCdcFilePattern() : ".*")
+                .directoryPath(walDir)
+                .filePattern(rawPattern)
                 .batchSize(batchSize)
                 .startingPosition(startPosition)
                 .targetTableNames(selectedTables)
                 .build();
 
-        CdcSourceReader reader = null;
-        if (sourceAdapterReader == null && sourceConn != null) {
+        if (sourceAdapterReader == null && reader == null && sourceConn != null) {
             DatabaseType readerDbType = sourceConn.getDbType();
             if ("POSTGRES_WAL".equalsIgnoreCase(pipeline.getCdcLogType())) {
                 readerDbType = DatabaseType.POSTGRESQL;

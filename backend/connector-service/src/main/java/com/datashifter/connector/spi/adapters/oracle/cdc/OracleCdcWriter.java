@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.*;
 
 /**
@@ -22,10 +23,13 @@ import java.util.*;
  */
 @Component
 @Slf4j
-@RequiredArgsConstructor
 public class OracleCdcWriter implements CdcTargetWriter {
 
     private final ConnectionPoolManager poolManager;
+
+    public OracleCdcWriter(ConnectionPoolManager poolManager) {
+        this.poolManager = poolManager;
+    }
 
     @Override
     public DatabaseType getSupportedType() {
@@ -154,7 +158,7 @@ public class OracleCdcWriter implements CdcTargetWriter {
 
         try (PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
             for (int i = 0; i < columns.size(); i++) {
-                stmt.setObject(i + 1, data.get(columns.get(i)));
+                bindValue(stmt, i + 1, data.get(columns.get(i)));
             }
             stmt.executeUpdate();
         }
@@ -175,7 +179,7 @@ public class OracleCdcWriter implements CdcTargetWriter {
 
         try (PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
             for (int i = 0; i < columns.size(); i++) {
-                stmt.setObject(i + 1, data.get(columns.get(i)));
+                bindValue(stmt, i + 1, data.get(columns.get(i)));
             }
             stmt.executeUpdate();
         }
@@ -222,5 +226,32 @@ public class OracleCdcWriter implements CdcTargetWriter {
             return event.getAfterData().get(pkCol);
         }
         return null;
+    }
+
+    private void bindValue(PreparedStatement stmt, int idx, Object val) throws SQLException {
+        if (val == null) {
+            stmt.setObject(idx, null);
+        } else if (val instanceof Boolean b) {
+            stmt.setInt(idx, b ? 1 : 0);
+        } else if (val instanceof String s) {
+            if (s.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*")) {
+                try {
+                    String norm = s.endsWith("Z") ? s : (s.contains("+") ? s : s + "Z");
+                    stmt.setTimestamp(idx, java.sql.Timestamp.from(Instant.parse(norm)));
+                } catch (Exception e) {
+                    stmt.setObject(idx, s);
+                }
+            } else if (s.matches("^\\d{4}-\\d{2}-\\d{2}$")) {
+                try {
+                    stmt.setDate(idx, java.sql.Date.valueOf(s));
+                } catch (Exception e) {
+                    stmt.setObject(idx, s);
+                }
+            } else {
+                stmt.setObject(idx, s);
+            }
+        } else {
+            stmt.setObject(idx, val);
+        }
     }
 }
