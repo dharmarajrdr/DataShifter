@@ -4,6 +4,7 @@ import UdfPickerModal from '../UdfPickerModal';
 import { ALL_FUNCTIONS, FN_META } from '../../../constants/transformMeta';
 import { checkTargetCompatibility, normalizeDataType, validateInputForType } from '../../../utils/typeValidation';
 import { getSampleData } from '../../../utils/transformSimulator';
+import { splitTableCol } from './DragBoardConstants';
 import TransformChainList from './TransformChainList';
 import TransformFunctionGrid from './TransformFunctionGrid';
 import TransformPanelHeader from './TransformPanelHeader';
@@ -11,7 +12,7 @@ import TransformPreviewBox from './TransformPreviewBox';
 
 export const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetTables = [], onApply, onClose }) => {
   const isSystemValue = mapping?.targetOnly;
-  const [sT, sC] = (mapping?.source || '').split('.'); const [tT, tC] = (mapping?.target || '').split('.');
+  const [sT, sC] = splitTableCol(mapping?.source || ''); const [tT, tC] = splitTableCol(mapping?.target || '');
   const sourceCol = sourceTables.find((t) => t.tableName === sT)?.columns?.find((c) => c.name === sC);
   const targetCol = targetTables.find((t) => t.tableName === tT)?.columns?.find((c) => c.name === tC);
   const rawSourceType = sourceCol?.type || mapping?.sourceType || '';
@@ -70,7 +71,7 @@ export const TransformPanel = ({ mapping, mappingIdx, sourceTables = [], targetT
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { onApply(mappingIdx, effectiveSteps); onClose(); }}>Apply</Button>
       </div>
-      {udfModalOpen && <UdfPickerModal targetColumn={mapping?.target?.split('.')?.[1] || mapping?.target || ''} sourceTables={sourceTables} onApply={(cfg) => { setSteps((p) => [...p, { id: `s${Date.now()}`, fn: 'UDF', args: JSON.stringify(cfg), start: '', end: '', isSystemStep: false }]); setUdfModalOpen(false); }} onClose={() => setUdfModalOpen(false)} />}
+      {udfModalOpen && <UdfPickerModal targetColumn={splitTableCol(mapping?.target || '')[1] || mapping?.target || ''} sourceTables={sourceTables} onApply={(cfg) => { setSteps((p) => [...p, { id: `s${Date.now()}`, fn: 'UDF', args: JSON.stringify(cfg), start: '', end: '', isSystemStep: false }]); setUdfModalOpen(false); }} onClose={() => setUdfModalOpen(false)} />}
     </div>
   );
 };

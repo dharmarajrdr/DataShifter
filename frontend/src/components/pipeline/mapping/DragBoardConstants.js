@@ -20,6 +20,11 @@ export const ZOOM_STEP = 0.15;
 export const WHEEL_ZOOM_FACTOR = 0.01;
 
 export const toKey = (t, c) => `${t}.${c}`;
+export const splitTableCol = (k) => {
+  if (!k || typeof k !== 'string') return ['', ''];
+  const lastDot = k.lastIndexOf('.');
+  return lastDot === -1 ? [k, ''] : [k.slice(0, lastDot), k.slice(lastDot + 1)];
+};
 export const getLC = (m) => LINE_COLORS.find((c) => c.key === m.color) || LINE_COLORS[0];
 
 export const SYSTEM_VALUES = [

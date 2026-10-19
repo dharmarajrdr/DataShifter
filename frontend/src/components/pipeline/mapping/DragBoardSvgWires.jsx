@@ -1,5 +1,5 @@
 import React from 'react';
-import { getLC } from './DragBoardConstants';
+import { getLC, splitTableCol } from './DragBoardConstants';
 
 const bz = (x1, y1, x2, y2) => {
   const d = Math.abs(x2 - x1) * 0.4;
@@ -22,8 +22,8 @@ export const DragBoardSvgWires = ({
   <>
     {mappings.map((m, i) => {
       if (m.targetOnly || !m.source) return null;
-      const [sT, sC] = m.source.split('.');
-      const [tT, tC] = m.target.split('.');
+      const [sT, sC] = splitTableCol(m.source);
+      const [tT, tC] = splitTableCol(m.target);
       const st = sourceTables.find((t) => t.tableName === sT);
       const tt = targetTables.find((t) => t.tableName === tT);
       const si = st?.columns?.findIndex((c) => c.name === sC) ?? -1;

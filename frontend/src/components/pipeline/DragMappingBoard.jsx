@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { COL_ROW_H, DOT_R, LINE_COLORS, MAX_ZOOM, MIN_ZOOM, organize, TBL_HEADER_H, TBL_PAD, TBL_WIDTH, WHEEL_ZOOM_FACTOR, ZOOM_STEP } from './mapping/DragBoardConstants';
+import { COL_ROW_H, DOT_R, LINE_COLORS, MAX_ZOOM, MIN_ZOOM, organize, splitTableCol, TBL_HEADER_H, TBL_PAD, TBL_WIDTH, WHEEL_ZOOM_FACTOR, ZOOM_STEP } from './mapping/DragBoardConstants';
 import DragBoardSvgWires from './mapping/DragBoardSvgWires';
 import DragBoardTableCard from './mapping/DragBoardTableCard';
 import DragBoardToolbar from './mapping/DragBoardToolbar';
@@ -52,7 +52,7 @@ export const DragMappingBoard = ({
 
   const onDD = useCallback((e, k, s) => {
     e.stopPropagation(); e.preventDefault();
-    const [tn, cn] = k.split('.'); const tbls = s === 'source' ? sourceTables : targetTables;
+    const [tn, cn] = splitTableCol(k); const tbls = s === 'source' ? sourceTables : targetTables;
     const tbl = tbls.find((t) => t.tableName === tn); const ci = tbl?.columns?.findIndex((c) => c.name === cn) ?? -1;
     const p = dotP(tn, ci, s); if (!p) return;
     setDLine({ fk: k, fs: s, sx: p.x, sy: p.y, cx: p.x, cy: p.y }); setSel(null);
