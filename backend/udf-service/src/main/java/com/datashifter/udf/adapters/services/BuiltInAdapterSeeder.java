@@ -149,12 +149,12 @@ public class BuiltInAdapterSeeder implements CommandLineRunner {
                 AdapterType.READER, AdapterMode.CDC, "streaming", "1.0.0",
                 "com.datashifter.adapter.postgres.wal.PostgresWalReader",
                 List.of(
-                        prop("connectionId", "Connection", "connection", "Configured PostgreSQL connection identifier", true, ""),
-                        prop("slotName", "Replication Slot", "string", "PostgreSQL logical replication slot name", true, "datashifter_cdc_slot"),
-                        prop("publicationName", "Publication Name", "string", "PostgreSQL logical publication name", true, "datashifter_pub"),
-                        prop("pollIntervalMs", "Poll Interval (ms)", "number", "Interval between replication stream polls", false, "500"),
-                        prop("maxBatchSize", "Max Batch Size", "number", "Max events buffered per batch", false, "1000"),
-                        prop("startLsn", "Start LSN", "string", "Initial Log Sequence Number (LSN) position", false, "0/0")
+                        prop("walDirectory", "WAL Directory", "directory", "Directory containing PostgreSQL WAL files", true, "/var/lib/postgresql/data/pg_wal"),
+                        prop("filePattern", "File Pattern", "string", "Regex or prefix pattern for WAL segment files", false, "000000010000.*"),
+                        prop("startingLsn", "Starting LSN", "string", "Initial Log Sequence Number (LSN) position", false, ""),
+                        prop("slotName", "Replication Slot", "string", "PostgreSQL logical replication slot name", false, "datashifter_cdc_slot"),
+                        prop("flushIntervalMs", "Flush Interval (ms)", "number", "Interval between replication stream flushes", false, "200"),
+                        prop("maxBatchSize", "Max Batch Size", "number", "Max events buffered per micro-batch", false, "500")
                 )
         ));
 

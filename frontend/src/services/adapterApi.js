@@ -1,4 +1,5 @@
 import { apiClient, USE_MOCK as CLIENT_USE_MOCK } from './apiClient';
+import { DEFAULT_CDC_SCHEMAS } from '../components/pipeline/wizard/adapterSchemaHelper';
 
 const USE_MOCK = process.env.REACT_APP_USE_MOCK === 'true' || CLIENT_USE_MOCK;
 
@@ -7,13 +8,13 @@ export const MOCK_ADAPTERS = [
     id: 'adp-1', name: 'Oracle GoldenGate CDC Reader', adapterKey: 'oracle-gg-reader',
     adapterType: 'READER', supportedMode: 'CDC', category: 'CDC_STREAM', version: '1.2.0',
     isOfficial: true, className: 'com.datashifter.adapter.oracle.gg.OracleGGReader', artifactName: 'oracle-gg-reader-1.2.0.jar', sizeBytes: 4200000, pipelineCount: 3, description: 'High-throughput CDC engine from Oracle GoldenGate trail files.',
-    configSchema: [{ key: 'trailDirPath', type: 'String', required: true, default: '/u01/app/oracle/dirdat', desc: 'Trail files directory' }]
+    configSchema: DEFAULT_CDC_SCHEMAS['oracle-gg-reader'],
   },
   {
     id: 'adp-2', name: 'PostgreSQL WAL Streaming Reader', adapterKey: 'postgres-wal-reader',
     adapterType: 'READER', supportedMode: 'CDC', category: 'CDC_STREAM', version: '1.1.0',
     isOfficial: true, className: 'com.datashifter.adapter.postgres.wal.PostgresWalReader', artifactName: 'postgres-wal-reader-1.1.0.jar', sizeBytes: 3800000, pipelineCount: 5, description: 'Zero-latency replication using PostgreSQL logical decoding replication slots.',
-    configSchema: [{ key: 'slotName', type: 'String', required: true, default: 'datashifter_slot', desc: 'Replication slot name' }]
+    configSchema: DEFAULT_CDC_SCHEMAS['postgres-wal-reader'],
   },
   {
     id: 'adp-3', name: 'Apache Kafka Event Writer', adapterKey: 'kafka-writer',
@@ -37,6 +38,7 @@ export function normalizeAdapter(a) {
   const configSchema = raw.map((p) => ({
     key: p.key || p.name || '', type: p.type || 'String', required: Boolean(p.required),
     default: p.default ?? p.defaultValue ?? '', desc: p.desc || p.description || '',
+    label: p.label || p.key || p.name || '',
   }));
   return { ...a, isOfficial: Boolean(a.isOfficial ?? a.official), configSchema };
 }
