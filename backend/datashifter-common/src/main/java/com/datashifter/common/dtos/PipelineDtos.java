@@ -157,6 +157,7 @@ public class PipelineDtos {
         @NotBlank private String sourceTable;
         @NotNull  private Integer executionOrder;
         private TableMappingType mappingType;
+        private String sourceSchemaSql;
         private List<TargetTableMappingRequest> targetMappings;
         private List<FilterRequest> filters;
     }
@@ -167,6 +168,7 @@ public class PipelineDtos {
         private String sourceTable;
         private Integer executionOrder;
         private TableMappingType mappingType;
+        private String sourceSchemaSql;
         private List<TargetTableMappingResponse> targetMappings;
         private List<FilterResponse> filters;
     }
@@ -318,6 +320,7 @@ public class PipelineDtos {
         private String sourceTable;
         private Integer executionOrder;
         private TableMappingType mappingType;
+        private String sourceSchemaSql;
         private List<TargetTableMappingConfigDto> targetMappings;
         private List<FilterConfigDto> filters;
     }

@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -112,6 +113,7 @@ public class PipelineServiceImpl implements PipelineService {
                 PipelineTable pt = PipelineTable.builder()
                         .pipeline(entity)
                         .sourceTable(tReq.getSourceTable())
+                        .sourceSchemaSql(tReq.getSourceSchemaSql())
                         .executionOrder(tReq.getExecutionOrder())
                         .mappingType(determineMappingType(targetTableNames.size()))
                         .build();
@@ -481,13 +483,23 @@ public class PipelineServiceImpl implements PipelineService {
             @ToolParam(description = "The unique ID of the pipeline") String pipelineId,
             @ToolParam(description = "Full list of source→target table mapping definitions including columnMappings, transformations, and filters") List<PipelineTableRequest> tables) {
         Pipeline entity = findEntity(pipelineId);
+        Map<String, String> existingSqlByTable = new HashMap<>();
+        for (PipelineTable existing : entity.getPipelineTables()) {
+            if (existing.getSourceSchemaSql() != null && !existing.getSourceSchemaSql().isBlank()) {
+                existingSqlByTable.put(existing.getSourceTable(), existing.getSourceSchemaSql());
+            }
+        }
         entity.getPipelineTables().clear();
 
         if (tables != null) {
             for (PipelineTableRequest tReq : tables) {
+                String ddl = (tReq.getSourceSchemaSql() != null && !tReq.getSourceSchemaSql().isBlank())
+                        ? tReq.getSourceSchemaSql()
+                        : existingSqlByTable.get(tReq.getSourceTable());
                 PipelineTable pt = PipelineTable.builder()
                         .pipeline(entity)
                         .sourceTable(tReq.getSourceTable())
+                        .sourceSchemaSql(ddl)
                         .executionOrder(tReq.getExecutionOrder())
                         .mappingType(tReq.getMappingType() != null ? tReq.getMappingType() : TableMappingType.ONE_TO_ONE)
                         .build();
@@ -587,6 +599,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .map(pt -> PipelineTableResponse.builder()
                         .id(pt.getId())
                         .sourceTable(pt.getSourceTable())
+                        .sourceSchemaSql(pt.getSourceSchemaSql())
                         .executionOrder(pt.getExecutionOrder())
                         .mappingType(pt.getMappingType())
                         .targetMappings(pt.getTargetTableMappings().stream()
@@ -751,6 +764,7 @@ public class PipelineServiceImpl implements PipelineService {
                 .sorted(Comparator.comparing(PipelineTable::getExecutionOrder))
                 .map(pt -> PipelineTableConfigDto.builder()
                         .sourceTable(pt.getSourceTable())
+                        .sourceSchemaSql(pt.getSourceSchemaSql())
                         .executionOrder(pt.getExecutionOrder())
                         .mappingType(pt.getMappingType())
                         .targetMappings(pt.getTargetTableMappings().stream()
@@ -1005,6 +1019,7 @@ public class PipelineServiceImpl implements PipelineService {
                 PipelineTable pt = PipelineTable.builder()
                         .pipeline(pipeline)
                         .sourceTable(tDto.getSourceTable())
+                        .sourceSchemaSql(tDto.getSourceSchemaSql())
                         .executionOrder(tDto.getExecutionOrder() != null ? tDto.getExecutionOrder() : tableCount)
                         .mappingType(tDto.getMappingType() != null ? tDto.getMappingType() : TableMappingType.ONE_TO_ONE)
                         .build();

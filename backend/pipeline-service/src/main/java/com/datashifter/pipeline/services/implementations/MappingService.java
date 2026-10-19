@@ -7,6 +7,7 @@ import com.datashifter.common.models.*;
 import com.datashifter.connector.factories.ConnectorFactory;
 import com.datashifter.connector.spi.interfaces.ConnectionConfig;
 import com.datashifter.connector.spi.interfaces.DatabaseConnector;
+import com.datashifter.common.utils.DdlSchemaParser;
 import com.datashifter.common.utils.EncryptionUtil;
 import com.datashifter.pipeline.repositories.PipelineRepository;
 import com.datashifter.pipeline.validation.PipelineValidationChain;
@@ -62,16 +63,20 @@ public class MappingService {
         Pipeline pipeline = pipelineRepository.findById(pipelineId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pipeline", pipelineId));
 
-        Connection sourceConn = connectionRepository.findById(pipeline.getSourceConnectionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Source connection", pipeline.getSourceConnectionId()));
-        Connection targetConn = connectionRepository.findById(pipeline.getTargetConnectionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Target connection", pipeline.getTargetConnectionId()));
+        Connection sourceConn = pipeline.getSourceConnectionId() != null
+                ? connectionRepository.findById(pipeline.getSourceConnectionId()).orElse(null)
+                : null;
+        Connection targetConn = pipeline.getTargetConnectionId() != null
+                ? connectionRepository.findById(pipeline.getTargetConnectionId()).orElse(null)
+                : null;
 
-        ConnectionConfig sourceConfig = toConfig(sourceConn);
-        ConnectionConfig targetConfig = toConfig(targetConn);
+        ConnectionConfig sourceConfig = sourceConn != null ? toConfig(sourceConn) : null;
+        ConnectionConfig targetConfig = targetConn != null ? toConfig(targetConn) : null;
 
-        DatabaseConnector sourceConnector = connectorFactory.getConnector(sourceConn.getDbType());
-        DatabaseConnector targetConnector = connectorFactory.getConnector(targetConn.getDbType());
+        DatabaseConnector sourceConnector = sourceConn != null && sourceConn.getDbType() != null
+                ? connectorFactory.getConnector(sourceConn.getDbType()) : null;
+        DatabaseConnector targetConnector = targetConn != null && targetConn.getDbType() != null
+                ? connectorFactory.getConnector(targetConn.getDbType()) : null;
 
         Map<String, List<ColumnMetadata>> sourceColumnCache = new HashMap<>();
         Map<String, List<ColumnMetadata>> targetColumnCache = new HashMap<>();
@@ -82,8 +87,18 @@ public class MappingService {
             List<ColumnMetadata> sourceCols = sourceColumnCache.computeIfAbsent(
                     pt.getSourceTable(),
                     table -> {
-                        try { return sourceConnector.getColumns(sourceConfig, table); }
-                        catch (Exception e) { log.warn("Failed to fetch source columns for {}: {}", table, e.getMessage()); return List.of(); }
+                        if (sourceConnector != null && sourceConfig != null) {
+                            try {
+                                List<ColumnMetadata> cols = sourceConnector.getColumns(sourceConfig, table);
+                                if (cols != null && !cols.isEmpty()) return cols;
+                            } catch (Exception e) {
+                                log.warn("Failed to fetch source columns for {}: {}", table, e.getMessage());
+                            }
+                        }
+                        if (pt.getSourceSchemaSql() != null && !pt.getSourceSchemaSql().isBlank()) {
+                            return DdlSchemaParser.parseColumns(pt.getSourceSchemaSql());
+                        }
+                        return List.of();
                     });
 
             // Build filter entries for this source table
@@ -103,8 +118,15 @@ public class MappingService {
                 List<ColumnMetadata> targetCols = targetColumnCache.computeIfAbsent(
                         ttm.getTargetTable(),
                         table -> {
-                            try { return targetConnector.getColumns(targetConfig, table); }
-                            catch (Exception e) { log.warn("Failed to fetch target columns for {}: {}", table, e.getMessage()); return List.of(); }
+                            if (targetConnector != null && targetConfig != null) {
+                                try {
+                                    List<ColumnMetadata> cols = targetConnector.getColumns(targetConfig, table);
+                                    if (cols != null && !cols.isEmpty()) return cols;
+                                } catch (Exception e) {
+                                    log.warn("Failed to fetch target columns for {}: {}", table, e.getMessage());
+                                }
+                            }
+                            return List.of();
                         });
 
                 Set<String> mappedSourceCols = ttm.getColumnMappings().stream().map(ColumnMapping::getSourceColumn).collect(Collectors.toSet());
@@ -134,6 +156,7 @@ public class MappingService {
                         .targetTableMappingId(ttm.getId())
                         .sourceTable(pt.getSourceTable())
                         .targetTable(ttm.getTargetTable())
+                        .sourceSchemaSql(pt.getSourceSchemaSql())
                         .writeMode(ttm.getWriteMode())
                         .executionOrder(pt.getExecutionOrder())
                         .sourceColumns(sourceColInfo)
@@ -153,6 +176,7 @@ public class MappingService {
                         .pipelineTableId(pt.getId())
                         .sourceTable(pt.getSourceTable())
                         .targetTable(null)
+                        .sourceSchemaSql(pt.getSourceSchemaSql())
                         .writeMode(pipeline.getDefaultWriteMode())
                         .executionOrder(pt.getExecutionOrder())
                         .sourceColumns(sourceColInfo)
