@@ -10,6 +10,8 @@ import { errorApi } from '../services/api';
 import { ForbiddenPage } from './ErrorPage';
 import ErrorLogEntry from '../components/monitor/ErrorLogEntry';
 import ErrorDetailDrawer from '../components/monitor/ErrorDetailDrawer';
+import ErrorZeroState from '../components/monitor/ErrorZeroState';
+import ErrorFilterEmptyState from '../components/monitor/ErrorFilterEmptyState';
 import { exportFormats, downloadFile } from '../utils/errorExportUtils';
 
 const ERROR_TYPE_COLORS = {
@@ -118,16 +120,16 @@ const ErrorLogViewer = () => {
       // Map API field names to frontend field names
       const mappedErrors = (raw.errors || []).map(e => ({
         id: e.id,
-        type: e.errorType,
-        sourceTable: e.sourceTable,
-        targetTable: e.targetTable,
-        chunk: e.chunkNumber,
-        row: e.rowNumber,
-        message: e.errorMessage,
-        sourceData: e.sourceRowData,
-        timestamp: e.createdAt,
+        type: e.errorType || e.type,
+        sourceTable: e.sourceTable || e.tableName || e.table || '',
+        targetTable: e.targetTable || '',
+        chunk: e.chunkNumber ?? e.chunk ?? 0,
+        row: e.rowNumber ?? e.row ?? 1,
+        message: e.errorMessage || e.message || e.reason || '',
+        sourceData: e.sourceRowData || e.sourceData,
+        timestamp: e.createdAt || e.timestamp,
       }));
-      const mappedTypes = (raw.errorsByType || []).map(et => ({ type: et.type, count: et.count }));
+      const mappedTypes = (raw.errorsByType || raw.errorTypes || []).map(et => ({ type: et.type, count: et.count }));
       setData({ ...raw, errors: mappedErrors, errorTypes: mappedTypes });
       setError(null);
     }).catch(err => {
@@ -150,8 +152,8 @@ const ErrorLogViewer = () => {
     return matchesSearch && matchesTable && matchesType;
   });
 
-  const uniqueTables = [...new Set(allErrors.map(e => e.sourceTable))];
-  const uniqueTypes = [...new Set(allErrors.map(e => e.type))];
+  const uniqueTables = [...new Set(allErrors.map(e => e.sourceTable).filter(Boolean))];
+  const uniqueTypes = [...new Set(allErrors.map(e => e.type).filter(Boolean))];
 
   const [confirmClear, setConfirmClear] = useState(false);
   const notification = useNotification();
@@ -240,69 +242,91 @@ const ErrorLogViewer = () => {
 
           {/* Metrics */}
           <div style={{ ...FRSC, gap: SPACING.sm, marginBottom: SPACING.lg, flexShrink: 0 }}>
-            <MetricCard label={ERRORS.totalErrors} value={totalErrors} color={COLORS.status.errorDark} />
-            <MetricCard label={ERRORS.skipped} value={data.skipped || 0} color={COLORS.status.warningDark} />
-            <MetricCard label={ERRORS.pipelineStopped} value={data.pipelineStopped || 0} color={COLORS.status.errorDark} />
-            <MetricCard label={ERRORS.errorRate} value={data.errorRate || 0} />
+            <MetricCard
+              label={ERRORS.totalErrors}
+              value={totalErrors}
+              color={totalErrors === 0 ? COLORS.status.successDark : COLORS.status.errorDark}
+            />
+            <MetricCard
+              label={ERRORS.skipped}
+              value={data.skipped || 0}
+              color={totalErrors === 0 ? COLORS.status.successDark : COLORS.status.warningDark}
+            />
+            <MetricCard
+              label={ERRORS.pipelineStopped}
+              value={data.pipelineStopped || 0}
+              color={totalErrors === 0 ? COLORS.status.successDark : COLORS.status.errorDark}
+            />
+            <MetricCard
+              label={totalErrors === 0 ? 'DATA INTEGRITY' : ERRORS.errorRate}
+              value={totalErrors === 0 ? '100%' : (data.errorRate || 0)}
+              color={totalErrors === 0 ? COLORS.status.infoDark : undefined}
+            />
           </div>
 
-          {/* Error type chips */}
-          {data.errorTypes?.length > 0 && (
-            <div style={{ marginBottom: SPACING.md, flexShrink: 0 }}>
-              <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary, marginBottom: SPACING.xs }}>
-                {ERRORS.errorsByType}
-              </p>
-              <div style={{ ...FRWSC, gap: '6px' }}>
-                {data.errorTypes.map(et => (
-                  <Chip key={et.type}
-                    label={`${et.type} (${et.count})`}
-                    colorScheme={ERROR_TYPE_COLORS[et.type] || 'default'}
-                    onClick={() => setFilterType(filterType === et.type ? 'all' : et.type)}
-                    style={filterType === et.type ? { outline: `2px solid ${COLORS.brand.primary}` } : {}}
-                  />
-                ))}
-                {filterType !== 'all' && (
-                  <span onClick={() => setFilterType('all')} style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, cursor: 'pointer', textDecoration: 'underline' }}>Clear</span>
+          {totalErrors === 0 ? (
+            <div style={{ flex: 1, minHeight: 0, overflow: 'auto', paddingBottom: SPACING.md }}>
+              <ErrorZeroState pipelineId={pipelineId} />
+            </div>
+          ) : (
+            <>
+              {/* Error type chips */}
+              {data.errorTypes?.length > 0 && (
+                <div style={{ marginBottom: SPACING.md, flexShrink: 0 }}>
+                  <p style={{ fontSize: FONT.size.xs, fontWeight: FONT.weight.medium, color: COLORS.text.secondary, marginBottom: SPACING.xs }}>
+                    {ERRORS.errorsByType}
+                  </p>
+                  <div style={{ ...FRWSC, gap: '6px' }}>
+                    {data.errorTypes.map(et => (
+                      <Chip key={et.type}
+                        label={`${et.type} (${et.count})`}
+                        colorScheme={ERROR_TYPE_COLORS[et.type] || 'default'}
+                        onClick={() => setFilterType(filterType === et.type ? 'all' : et.type)}
+                        style={filterType === et.type ? { outline: `2px solid ${COLORS.brand.primary}` } : {}}
+                      />
+                    ))}
+                    {filterType !== 'all' && (
+                      <span onClick={() => setFilterType('all')} style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary, cursor: 'pointer', textDecoration: 'underline' }}>Clear</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Search + filters */}
+              <div style={{ ...FRSC, gap: SPACING.xs, marginBottom: SPACING.sm, flexShrink: 0 }}>
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={ERRORS.searchPlaceholder}
+                  style={{ flex: 1, padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm }} />
+                <select value={filterTable} onChange={e => setFilterTable(e.target.value)}
+                  style={{ padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm, background: '#fff' }}>
+                  <option value="all">All tables</option>
+                  {uniqueTables.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={filterType} onChange={e => setFilterType(e.target.value)}
+                  style={{ padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm, background: '#fff' }}>
+                  <option value="all">All types</option>
+                  {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              {/* Scrollable error list — fills remaining space */}
+              <div style={{
+                flex: 1, minHeight: 0, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md,
+                overflow: 'auto', background: '#f8fafc', padding: SPACING.md,
+              }}>
+                {filteredErrors.length === 0 ? (
+                  <ErrorFilterEmptyState onReset={() => { setSearch(''); setFilterTable('all'); setFilterType('all'); }} />
+                ) : (
+                  filteredErrors.map((error) => (
+                    <ErrorLogEntry
+                      key={error.id}
+                      error={error}
+                      onOpenDetails={(err) => setSelectedError(err)}
+                    />
+                  ))
                 )}
               </div>
-            </div>
+            </>
           )}
-
-          {/* Search + filters */}
-          <div style={{ ...FRSC, gap: SPACING.xs, marginBottom: SPACING.sm, flexShrink: 0 }}>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={ERRORS.searchPlaceholder}
-              style={{ flex: 1, padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm }} />
-            <select value={filterTable} onChange={e => setFilterTable(e.target.value)}
-              style={{ padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm, background: '#fff' }}>
-              <option value="all">All tables</option>
-              {uniqueTables.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <select value={filterType} onChange={e => setFilterType(e.target.value)}
-              style={{ padding: '7px 10px', border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.sm, background: '#fff' }}>
-              <option value="all">All types</option>
-              {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          {/* Scrollable error list — fills remaining space */}
-          <div style={{
-            flex: 1, minHeight: 0, border: `1px solid ${COLORS.border.light}`, borderRadius: BORDER_RADIUS.md,
-            overflow: 'auto', background: '#f8fafc', padding: SPACING.md,
-          }}>
-            {filteredErrors.length === 0 ? (
-              <div style={{ padding: SPACING.xl, textAlign: 'center', color: COLORS.text.secondary, fontSize: FONT.size.md }}>
-                {totalErrors === 0 ? 'No errors recorded for this pipeline.' : 'No errors match your filters.'}
-              </div>
-            ) : (
-              filteredErrors.map((error) => (
-                <ErrorLogEntry
-                  key={error.id}
-                  error={error}
-                  onOpenDetails={(err) => setSelectedError(err)}
-                />
-              ))
-            )}
-          </div>
 
           {/* Pagination — always visible at bottom */}
           {totalErrors > 0 && (
