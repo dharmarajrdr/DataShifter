@@ -35,7 +35,12 @@ export const PipelineSettingsCdcCheckpoint = ({ pipelineId, settings, isRunning 
       setShowResetModal(false);
       setResetTargetScn('');
       notification.success('CDC checkpoint reset successfully');
-      cdcApi.getCheckpoint(pipelineId).then((cp) => setCdcCheckpoint(cp.data)).catch(() => {});
+      try {
+        const cp = await cdcApi.getCheckpoint(pipelineId);
+        setCdcCheckpoint(cp?.data || null);
+      } catch {
+        setCdcCheckpoint(null);
+      }
     } catch (e) {
       notification.error('Failed to reset checkpoint: ' + (e?.response?.data?.message || e.message));
     } finally {

@@ -183,6 +183,24 @@ public class CdcCheckpointManager {
         }
     }
 
+    public void clearCheckpoint(String pipelineId) {
+        if (redisTemplate != null) {
+            redisTemplate.delete(REDIS_KEY_PREFIX + pipelineId);
+            redisTemplate.delete("pipeline:" + pipelineId + ":cdc:checkpoint");
+            redisTemplate.delete("pipeline:" + pipelineId + ":stats");
+            redisTemplate.delete("pipeline:" + pipelineId + ":inflight");
+        }
+        if (checkpointRepository != null) {
+            try {
+                checkpointRepository.deleteByPipelineId(pipelineId);
+            } catch (Exception e) {
+                log.warn("Failed to delete durable checkpoint for pipeline {}: {}", pipelineId, e.getMessage());
+            }
+        }
+        lastDurableSyncTimes.remove(pipelineId);
+        log.info("CDC checkpoint fully cleared for pipeline {}", pipelineId);
+    }
+
     private Long parseLongSafe(String str) {
         if (str == null || str.isBlank()) return null;
         try {

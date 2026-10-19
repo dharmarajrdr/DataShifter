@@ -38,6 +38,18 @@ public class CdcCheckpointServiceImpl implements CdcCheckpointService {
     public CdcCheckpointResponse resetCheckpoint(String pipelineId, ResetCdcCheckpointRequest request) {
         assertPipelineExists(pipelineId);
 
+        boolean hasTarget = request != null && (
+                (request.getTargetScn() != null && !request.getTargetScn().isBlank()) ||
+                (request.getTargetSourceFile() != null && !request.getTargetSourceFile().isBlank()) ||
+                request.getTargetLsn() != null ||
+                request.getTargetFileOffset() != null
+        );
+
+        if (!hasTarget) {
+            clearCheckpoint(pipelineId);
+            return null;
+        }
+
         CdcCheckpoint checkpoint = checkpointRepository.findByPipelineId(pipelineId)
                 .orElse(CdcCheckpoint.builder()
                         .pipelineId(pipelineId)
@@ -46,15 +58,34 @@ public class CdcCheckpointServiceImpl implements CdcCheckpointService {
 
         if (request.getTargetSourceFile() != null) checkpoint.setSourceFile(request.getTargetSourceFile());
         if (request.getTargetFileOffset() != null) checkpoint.setFileOffset(request.getTargetFileOffset());
-        if (request.getTargetScn() != null) checkpoint.setLastScn(request.getTargetScn());
+        if (request.getTargetScn() != null && !request.getTargetScn().isBlank()) {
+            String scn = request.getTargetScn().trim();
+            checkpoint.setLastScn(scn);
+            if (scn.contains("/")) {
+                try {
+                    String[] parts = scn.split("/");
+                    long hi = Long.parseUnsignedLong(parts[0], 16);
+                    long lo = Long.parseUnsignedLong(parts[1], 16);
+                    checkpoint.setLastLsn(String.valueOf((hi << 32) | lo));
+                } catch (Exception ignored) {
+                    checkpoint.setLastLsn(scn);
+                }
+            } else {
+                checkpoint.setLastLsn(scn);
+            }
+        }
         if (request.getTargetLsn() != null) checkpoint.setLastLsn(request.getTargetLsn());
+        checkpoint.setEventsProcessed(0L);
+        checkpoint.setStatus("ACTIVE");
         checkpoint.setCheckpointAt(Instant.now());
 
         checkpoint = checkpointRepository.save(checkpoint);
 
-        // Invalidate Redis hot cache key so CDC reader picks up new reset coordinates
-        String redisKey = "pipeline:" + pipelineId + ":cdc:checkpoint";
-        redisTemplate.delete(redisKey);
+        // Invalidate Redis hot cache keys so CDC reader picks up new reset coordinates
+        redisTemplate.delete("cdc:checkpoint:" + pipelineId);
+        redisTemplate.delete("pipeline:" + pipelineId + ":cdc:checkpoint");
+        redisTemplate.delete("pipeline:" + pipelineId + ":stats");
+        redisTemplate.delete("pipeline:" + pipelineId + ":inflight");
 
         log.info("CDC checkpoint reset for pipeline {}: file={}, offset={}, SCN={}, LSN={}",
                 pipelineId, checkpoint.getSourceFile(), checkpoint.getFileOffset(),
@@ -68,8 +99,10 @@ public class CdcCheckpointServiceImpl implements CdcCheckpointService {
     public void clearCheckpoint(String pipelineId) {
         assertPipelineExists(pipelineId);
         checkpointRepository.deleteByPipelineId(pipelineId);
-        String redisKey = "pipeline:" + pipelineId + ":cdc:checkpoint";
-        redisTemplate.delete(redisKey);
+        redisTemplate.delete("cdc:checkpoint:" + pipelineId);
+        redisTemplate.delete("pipeline:" + pipelineId + ":cdc:checkpoint");
+        redisTemplate.delete("pipeline:" + pipelineId + ":stats");
+        redisTemplate.delete("pipeline:" + pipelineId + ":inflight");
         log.info("CDC checkpoint cleared for pipeline {}", pipelineId);
     }
 
