@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { connectionApi, namespaceApi, pipelineApi } from '../../../services/api';
-
 import { validateWizardStep } from './wizardValidation';
+import useInstalledAdapters from './useInstalledAdapters';
 
 /**
  * Custom hook managing 5-Step Pipeline Wizard state & actions (<= 100 lines).
@@ -17,13 +17,14 @@ export const usePipelineWizard = () => {
   const [showCreateNs, setShowCreateNs] = useState(false);
 
   const [config, setConfig] = useState({
-    name: '', description: '', namespaceId: '', sourceAdapter: 'oracle-trail',
-    targetAdapter: 's3-writer', source: '', target: '', s3Bucket: 'datashifter-analytics-lake/raw',
+    name: '', description: '', namespaceId: '', sourceAdapter: 'postgres-reader',
+    targetAdapter: 'oracle-writer', source: '', target: '', s3Bucket: 'datashifter-analytics-lake/raw',
     s3Region: 'us-east-1', s3AccessKey: '', s3SecretKey: '', cdcDirectoryPath: '/u01/app/oracle/dirdat',
     cdcFilePattern: 'aa.*', cdcStartingScn: '', cdcFlushIntervalMs: 200, cdcBatchSize: 500,
     entityPairs: [{ sourceEntity: '', targetEntity: '' }],
   });
 
+  const { sourceAdapters, targetAdapters } = useInstalledAdapters(config, setConfig);
   const navigate = useNavigate();
   const notification = useNotification();
 
@@ -61,19 +62,15 @@ export const usePipelineWizard = () => {
   const handleCreate = async () => {
     setCreating(true);
     try {
-      const isCdc = ['oracle-trail', 'postgres-wal'].includes(config.sourceAdapter);
+      const isCdc = ['oracle-trail', 'oracle-gg-reader', 'postgres-wal', 'postgres-wal-reader'].includes(config.sourceAdapter);
       const payload = {
-        name: config.name.trim(),
-        description: config.description?.trim() || '',
-        namespaceId: config.namespaceId || null,
-        sourceConnectionId: config.source || config.sourceAdapter,
-        targetConnectionId: config.target || config.targetAdapter,
-        sourceTables: config.entityPairs.map((p) => p.sourceEntity),
+        name: config.name.trim(), description: config.description?.trim() || '',
+        namespaceId: config.namespaceId || null, sourceConnectionId: config.source || config.sourceAdapter,
+        targetConnectionId: config.target || config.targetAdapter, sourceAdapterId: config.sourceAdapter,
+        targetAdapterId: config.targetAdapter, sourceTables: config.entityPairs.map((p) => p.sourceEntity),
         targetTables: config.entityPairs.map((p) => p.targetEntity),
         tables: config.entityPairs.map((p, i) => ({ sourceTable: p.sourceEntity, targetTable: p.targetEntity, executionOrder: i })),
-        pipelineMode: isCdc ? 'CDC' : 'BATCH',
-        cdcDirectoryPath: config.cdcDirectoryPath,
-        cdcFilePattern: config.cdcFilePattern,
+        pipelineMode: isCdc ? 'CDC' : 'BATCH', cdcDirectoryPath: config.cdcDirectoryPath, cdcFilePattern: config.cdcFilePattern,
       };
       const res = await pipelineApi.create(payload);
       notification.success(`Pipeline "${config.name.trim()}" created successfully!`);
@@ -81,14 +78,13 @@ export const usePipelineWizard = () => {
     } catch (err) {
       setErrors({ create: err.message || 'Failed to create pipeline' });
       notification.error(err.message || 'Failed to create pipeline');
-    } finally {
-      setCreating(false);
-    }
+    } finally { setCreating(false); }
   };
 
   return {
     step, setStep, config, setConfig, namespaces, setNamespaces, connections,
     creating, errors, showCreateNs, setShowCreateNs, handleNext, handleBack, handleCreate,
+    sourceAdapters, targetAdapters,
   };
 };
 

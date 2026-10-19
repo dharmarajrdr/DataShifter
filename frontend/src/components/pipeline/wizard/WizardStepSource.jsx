@@ -12,17 +12,19 @@ export const WizardStepSource = ({
   setConfig,
   connections = [],
   errors = {},
+  adapters,
 }) => {
-  const selectedAdapter = config.sourceAdapter || 'oracle-trail';
+  const adapterList = adapters && adapters.length > 0 ? adapters : SOURCE_ADAPTER_LIST;
+  const selectedAdapter = config.sourceAdapter || adapterList[0]?.id || 'postgres-reader';
 
   const handleSelectAdapter = (adapterId) => {
-    const isCdc = adapterId === 'oracle-trail' || adapterId === 'postgres-wal';
+    const isCdc = adapterId === 'oracle-trail' || adapterId === 'oracle-gg-reader' || adapterId === 'postgres-wal' || adapterId === 'postgres-wal-reader';
     setConfig({
       ...config,
       sourceAdapter: adapterId,
       pipelineMode: isCdc ? 'CDC' : 'BATCH',
-      cdcLogType: adapterId === 'oracle-trail' ? 'ORACLE_TRAIL' : adapterId === 'postgres-wal' ? 'POSTGRES_WAL' : null,
-      cdcFilePattern: adapterId === 'oracle-trail' ? 'aa.*' : adapterId === 'postgres-wal' ? '000000010000.*' : '',
+      cdcLogType: (adapterId === 'oracle-trail' || adapterId === 'oracle-gg-reader') ? 'ORACLE_TRAIL' : (adapterId === 'postgres-wal' || adapterId === 'postgres-wal-reader') ? 'POSTGRES_WAL' : null,
+      cdcFilePattern: (adapterId === 'oracle-trail' || adapterId === 'oracle-gg-reader') ? 'aa.*' : (adapterId === 'postgres-wal' || adapterId === 'postgres-wal-reader') ? '000000010000.*' : '',
     });
   };
 
@@ -39,8 +41,8 @@ export const WizardStepSource = ({
 
       <AdapterSelectDropdown
         id={id}
-        label="Source Technology Adapter"
-        adapters={SOURCE_ADAPTER_LIST}
+        label="Installed Adapters"
+        adapters={adapterList}
         selectedId={selectedAdapter}
         onSelect={handleSelectAdapter}
       />

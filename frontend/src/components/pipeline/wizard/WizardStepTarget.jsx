@@ -12,8 +12,10 @@ export const WizardStepTarget = ({
   setConfig,
   connections = [],
   errors = {},
+  adapters,
 }) => {
-  const selectedAdapter = config.targetAdapter || 's3-writer';
+  const adapterList = adapters && adapters.length > 0 ? adapters : TARGET_ADAPTER_LIST;
+  const selectedAdapter = config.targetAdapter || adapterList[0]?.id || 'oracle-writer';
 
   const handleSelectAdapter = (adapterId) => {
     setConfig({
@@ -35,8 +37,8 @@ export const WizardStepTarget = ({
 
       <AdapterSelectDropdown
         id={id}
-        label="Target Destination Adapter"
-        adapters={TARGET_ADAPTER_LIST}
+        label="Installed Adapters"
+        adapters={adapterList}
         selectedId={selectedAdapter}
         onSelect={handleSelectAdapter}
       />

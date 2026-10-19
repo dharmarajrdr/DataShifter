@@ -25,8 +25,8 @@ export const PipelineWizardPage = () => {
 
   const stepContents = [
     <WizardStepBasics config={wiz.config} setConfig={wiz.setConfig} namespaces={wiz.namespaces} onCreateNamespace={() => wiz.setShowCreateNs(true)} errors={wiz.errors} />,
-    <WizardStepSource config={wiz.config} setConfig={wiz.setConfig} connections={wiz.connections} errors={wiz.errors} />,
-    <WizardStepTarget config={wiz.config} setConfig={wiz.setConfig} connections={wiz.connections} errors={wiz.errors} />,
+    <WizardStepSource config={wiz.config} setConfig={wiz.setConfig} connections={wiz.connections} errors={wiz.errors} adapters={wiz.sourceAdapters} />,
+    <WizardStepTarget config={wiz.config} setConfig={wiz.setConfig} connections={wiz.connections} errors={wiz.errors} adapters={wiz.targetAdapters} />,
     <WizardStepEntities config={wiz.config} setConfig={wiz.setConfig} errors={wiz.errors} />,
     <WizardStepReview config={wiz.config} namespaces={wiz.namespaces} />,
   ];
