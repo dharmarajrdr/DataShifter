@@ -80,6 +80,7 @@ export const formatAdapterForDropdown = (adp) => {
     adapterKey: adp.adapterKey || adp.id,
     adapterType: adp.adapterType,
     supportedMode: adp.supportedMode,
+    configSchema: adp.configSchema || [],
   };
 };
 

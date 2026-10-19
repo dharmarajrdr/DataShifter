@@ -50,6 +50,7 @@ export const WizardStepSource = ({
       <WizardSourceFields
         id={`${id}-fields`}
         adapter={selectedAdapter}
+        adapterObj={adapterList.find((a) => a.id === selectedAdapter || a.adapterKey === selectedAdapter || a.alias === selectedAdapter)}
         config={config}
         setConfig={setConfig}
         connections={connections}

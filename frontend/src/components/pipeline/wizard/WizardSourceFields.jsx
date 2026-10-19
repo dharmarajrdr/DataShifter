@@ -1,33 +1,48 @@
 import React from 'react';
+import { normalizeSchemaProperties, getPropertyValue, updateConfigProperty } from './adapterSchemaHelper';
 
-const INPUT_CLS = 'w-full max-w-[320px] px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500';
-const NUM_CLS = 'w-full max-w-[320px] px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500';
+const INPUT_CLS = 'w-full max-w-[320px] px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all';
+const NUM_CLS = 'w-full max-w-[320px] px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all';
 
 export const WizardSourceFields = ({
   id = 'wizard-source-fields',
   adapter = 'oracle-jdbc',
-  config,
+  adapterObj,
+  config = {},
   setConfig,
   connections = [],
   errors = {},
 }) => {
-  if (adapter === 'oracle-trail' || adapter === 'oracle-gg-reader') {
-    return (
-      <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-row flex-wrap gap-3">
-        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Trail Directory *</label><input id={`${id}-gg-dir`} className={INPUT_CLS} value={config.cdcDirectoryPath || ''} onChange={(e) => setConfig({ ...config, cdcDirectoryPath: e.target.value })} placeholder="/u01/app/oracle/dirdat" /></div>
-        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Trail File Pattern</label><input id={`${id}-gg-pattern`} className={INPUT_CLS} value={config.cdcFilePattern || 'aa.*'} onChange={(e) => setConfig({ ...config, cdcFilePattern: e.target.value })} placeholder="aa.*" /></div>
-        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Starting SCN / RBA</label><input id={`${id}-gg-scn`} className={INPUT_CLS} value={config.cdcStartingScn || ''} onChange={(e) => setConfig({ ...config, cdcStartingScn: e.target.value })} placeholder="0 (Head)" /></div>
-        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Flush Interval (ms)</label><input id={`${id}-gg-flush`} type="number" className={NUM_CLS} value={config.cdcFlushIntervalMs || 200} onChange={(e) => setConfig({ ...config, cdcFlushIntervalMs: e.target.value })} /></div>
-        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Max Batch Size</label><input id={`${id}-gg-batch`} type="number" className={NUM_CLS} value={config.cdcBatchSize || 500} onChange={(e) => setConfig({ ...config, cdcBatchSize: e.target.value })} /></div>
-      </div>
-    );
-  }
+  const schemaProps = normalizeSchemaProperties(adapterObj || { id: adapter, alias: adapter });
 
-  if (adapter === 'postgres-wal' || adapter === 'postgres-wal-reader') {
+  if (schemaProps.length > 0) {
     return (
       <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-row flex-wrap gap-3">
-        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">WAL Directory</label><input id={`${id}-wal-dir`} className={INPUT_CLS} value={config.cdcDirectoryPath || ''} onChange={(e) => setConfig({ ...config, cdcDirectoryPath: e.target.value })} placeholder="/var/lib/postgresql/data/pg_wal" /></div>
-        <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Replication Slot</label><input id={`${id}-wal-slot`} className={INPUT_CLS} value={config.cdcSlotName || 'datashifter_cdc_slot'} onChange={(e) => setConfig({ ...config, cdcSlotName: e.target.value })} /></div>
+        {schemaProps.map((p) => {
+          const val = getPropertyValue(config, p);
+          const isNum = p.type === 'number';
+          const inputId = p.key === 'walDirectory' ? `${id}-wal-dir` :
+            p.key === 'slotName' ? `${id}-wal-slot` :
+            p.key === 'trailDirPath' ? `${id}-gg-dir` :
+            p.key === 'startingScn' ? `${id}-gg-scn` :
+            `${id}-${p.key}`;
+
+          return (
+            <div key={p.key} className="w-full max-w-[320px]">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                {p.label} {p.required && <span className="text-rose-500">*</span>}
+              </label>
+              <input
+                id={inputId}
+                type={isNum ? 'number' : 'text'}
+                className={isNum ? NUM_CLS : INPUT_CLS}
+                value={val ?? ''}
+                placeholder={p.desc || String(p.default ?? '')}
+                onChange={(e) => setConfig(updateConfigProperty(config, p.key, isNum ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value))}
+              />
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -65,9 +80,8 @@ export const WizardSourceFields = ({
   }
 
   return (
-    <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-row flex-wrap gap-3">
-      <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">Source File Directory *</label><input id={`${id}-fs-dir`} className={INPUT_CLS} value={config.cdcDirectoryPath || ''} onChange={(e) => setConfig({ ...config, cdcDirectoryPath: e.target.value })} placeholder="/data/raw/source_files" /></div>
-      <div className="w-full max-w-[320px]"><label className="block text-xs font-semibold text-slate-700 mb-1">File Ingestion Pattern</label><input id={`${id}-fs-pattern`} className={INPUT_CLS} value={config.cdcFilePattern || '*.parquet'} onChange={(e) => setConfig({ ...config, cdcFilePattern: e.target.value })} placeholder="*.parquet, *.csv" /></div>
+    <div id={id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500">
+      No additional configuration required for this adapter.
     </div>
   );
 };
