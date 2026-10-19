@@ -53,15 +53,17 @@ export const DragBoardTableCard = ({
             {iS ? (
               <>
                 {col.primaryKey && <text x={8} y={cy + 3} fontSize="7" fill="#854F0B">PK</text>}
-                {!col.nullable && !col.primaryKey && <text x={8} y={cy + 3} fontSize="9" fill="#A32D2D">*</text>}
-                <text x={col.primaryKey || !col.nullable ? 22 : 10} y={cy + 3} fontSize="10" fill="#1A1A1A" fontFamily="system-ui">{col.name}</text>
+                <text x={col.primaryKey ? 22 : 10} y={cy + 3} fontSize="10" fill="#1A1A1A" fontFamily="system-ui">
+                  {col.name}{!col.nullable && !col.primaryKey && <tspan fill="#A32D2D" dx="2">*</tspan>}
+                </text>
                 <text x={TBL_WIDTH - DOT_R * 2 - 14} y={cy + 3} fontSize="8" fill="#9B9B9B" fontFamily="monospace" textAnchor="end">{col.type}</text>
               </>
             ) : (
               <>
                 {col.primaryKey && <text x={DOT_R * 2 + 8} y={cy + 3} fontSize="7" fill="#854F0B">PK</text>}
-                {!col.nullable && !col.primaryKey && <text x={DOT_R * 2 + 8} y={cy + 3} fontSize="9" fill="#A32D2D">*</text>}
-                <text x={col.primaryKey || !col.nullable ? DOT_R * 2 + 20 : DOT_R * 2 + 14} y={cy + 3} fontSize="10" fill="#1A1A1A" fontFamily="system-ui">{col.name}</text>
+                <text x={col.primaryKey ? DOT_R * 2 + 20 : DOT_R * 2 + 10} y={cy + 3} fontSize="10" fill="#1A1A1A" fontFamily="system-ui">
+                  {col.name}{!col.nullable && !col.primaryKey && <tspan fill="#A32D2D" dx="2">*</tspan>}
+                </text>
                 <text x={!col.primaryKey ? TBL_WIDTH - 22 : TBL_WIDTH - 8} y={cy + 3} fontSize="8" fill="#9B9B9B" fontFamily="monospace" textAnchor="end">{col.type}</text>
                 {!col.primaryKey && !hasRegularMapping && (
                   <g transform={`translate(${TBL_WIDTH - 16},${cy - 5})`} style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); if (hasSysMapping) onSelectMapping(toMap[k].idx); else onOpenSysTarget(table.tableName, col.name); }}>
