@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { Button } from '../components/common';
 
 const inputStyle = {
@@ -12,20 +13,19 @@ const inputStyle = {
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
   const { login, loading } = useAuth();
+  const notification = useNotification();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/pipelines';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
     try {
       await login(email, password);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err.message || 'Login failed');
+      notification.error(err.message || 'Login failed');
     }
   };
 
@@ -55,16 +55,6 @@ const LoginPage = () => {
           <input type="password" value={password} onChange={e => setPassword(e.target.value)}
             style={inputStyle} placeholder="Enter your password" required />
         </div>
-
-        {error && (
-          <div style={{
-            background: COLORS.status.errorLight, color: COLORS.status.errorText,
-            padding: '8px 12px', borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.xs,
-            marginBottom: SPACING.md,
-          }}>
-            {error}
-          </div>
-        )}
 
         <Button type="submit" style={{ width: '100%', opacity: loading ? 0.6 : 1 }}>
           {loading ? 'Signing in...' : 'Sign in'}

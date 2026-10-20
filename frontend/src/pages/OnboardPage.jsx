@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { Button } from '../components/common';
 import { authApi } from '../services/authApi';
 
@@ -15,11 +16,11 @@ const OnboardPage = () => {
   const [orgName, setOrgName] = useState('');
   const [orgSlug, setOrgSlug] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [pendingRequest, setPendingRequest] = useState(null);
   const { user, token, logout, refreshToken } = useAuth();
+  const notification = useNotification();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,7 +35,7 @@ const OnboardPage = () => {
   }, [token]);
 
   const handleAcceptInvite = async (inviteId) => {
-    setLoading(true); setError(null);
+    setLoading(true);
     try {
       await authApi.handleInvitation(inviteId, 'ACCEPT');
       setSuccess('Invitation accepted! Redirecting...');
@@ -42,34 +43,34 @@ const OnboardPage = () => {
         try { await refreshToken(); navigate('/pipelines', { replace: true }); }
         catch { navigate('/login', { replace: true }); }
       }, 1000);
-    } catch (err) { setError(err.message || 'Failed to accept'); }
+    } catch (err) { notification.error(err.message || 'Failed to accept'); }
     finally { setLoading(false); }
   };
 
   const handleDeclineInvite = async (inviteId) => {
     try { await authApi.handleInvitation(inviteId, 'REJECT'); setPendingInvites(p => p.filter(i => i.id !== inviteId)); }
-    catch (err) { setError(err.message || 'Failed to decline'); }
+    catch (err) { notification.error(err.message || 'Failed to decline'); }
   };
 
   const handleCreateOrg = async (e) => {
     e.preventDefault();
-    if (!orgName.trim()) { setError('Organization name is required'); return; }
-    setLoading(true); setError(null);
+    if (!orgName.trim()) { notification.error('Organization name is required'); return; }
+    setLoading(true);
     try { await authApi.createOrg({ name: orgName }); navigate('/login', { replace: true }); }
-    catch (err) { setError(err.message || 'Failed to create organization'); }
+    catch (err) { notification.error(err.message || 'Failed to create organization'); }
     finally { setLoading(false); }
   };
 
   const handleRequestAccess = async (e) => {
     e.preventDefault();
-    if (!orgSlug.trim()) { setError('Organization slug is required'); return; }
-    setLoading(true); setError(null);
+    if (!orgSlug.trim()) { notification.error('Organization slug is required'); return; }
+    setLoading(true);
     try {
       const res = await authApi.requestAccess({ orgSlug });
       setPendingRequest(res.data);
       setSuccess('Access request sent! An admin will review your request.');
       setMode(null);
-    } catch (err) { setError(err.message || 'Failed to send request'); }
+    } catch (err) { notification.error(err.message || 'Failed to send request'); }
     finally { setLoading(false); }
   };
 
@@ -142,9 +143,8 @@ const OnboardPage = () => {
                 <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>Organization name</label>
                 <input value={orgName} onChange={e => setOrgName(e.target.value)} style={inputStyle} placeholder="e.g., Acme Corp" required autoFocus />
               </div>
-              {error && <div style={{ background: COLORS.status.errorLight, color: COLORS.status.errorText, padding: '8px 12px', borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.xs, marginBottom: SPACING.md }}>{error}</div>}
               <div style={{ display: 'flex', gap: SPACING.xs }}>
-                <Button variant="secondary" onClick={() => { setMode(null); setError(null); }}>Back</Button>
+                <Button variant="secondary" onClick={() => setMode(null)}>Back</Button>
                 <Button type="submit" style={{ flex: 1, opacity: loading ? 0.6 : 1 }}>{loading ? 'Creating...' : 'Create organization'}</Button>
               </div>
             </form>
@@ -155,9 +155,8 @@ const OnboardPage = () => {
                 <input value={orgSlug} onChange={e => setOrgSlug(e.target.value)} style={inputStyle} placeholder="e.g., acme-corp" required autoFocus />
                 <p style={{ fontSize: '11px', color: COLORS.text.tertiary, marginTop: '4px' }}>Ask your team admin for the organization slug</p>
               </div>
-              {error && <div style={{ background: COLORS.status.errorLight, color: COLORS.status.errorText, padding: '8px 12px', borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.xs, marginBottom: SPACING.md }}>{error}</div>}
               <div style={{ display: 'flex', gap: SPACING.xs }}>
-                <Button variant="secondary" onClick={() => { setMode(null); setError(null); }}>Back</Button>
+                <Button variant="secondary" onClick={() => setMode(null)}>Back</Button>
                 <Button type="submit" style={{ flex: 1, opacity: loading ? 0.6 : 1 }}>{loading ? 'Sending...' : 'Request access'}</Button>
               </div>
             </form>

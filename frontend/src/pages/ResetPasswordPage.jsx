@@ -3,6 +3,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { authApi } from '../services/authApi';
 import { Button } from '../components/common';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
+import { useNotification } from '../contexts/NotificationContext';
 
 const inputStyle = {
   width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border.light}`,
@@ -13,11 +14,11 @@ export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
+  const notification = useNotification();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
   if (!token) {
@@ -41,16 +42,15 @@ export default function ResetPasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      notification.error("Passwords do not match");
       return;
     }
     setLoading(true);
-    setError(null);
     try {
       await authApi.resetPassword({ token, newPassword: password });
       setSuccess(true);
     } catch (err) {
-      setError(err.message || 'Something went wrong. The link may have expired.');
+      notification.error(err.message || 'Something went wrong. The link may have expired.');
     } finally {
       setLoading(false);
     }
@@ -80,16 +80,6 @@ export default function ResetPasswordPage() {
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
-          {error && (
-            <div style={{
-              background: COLORS.status.errorLight, color: COLORS.status.errorText,
-              padding: '8px 12px', borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.xs,
-              marginBottom: SPACING.md,
-            }}>
-              {error}
-            </div>
-          )}
-          
           <div style={{ marginBottom: SPACING.md }}>
             <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
               New Password

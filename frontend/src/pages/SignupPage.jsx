@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { Button } from '../components/common';
 
 const inputStyle = {
@@ -19,8 +20,8 @@ const SignupPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [orgName, setOrgName] = useState('');
-  const [error, setError] = useState(null);
   const { signup, loading } = useAuth();
+  const notification = useNotification();
   const navigate = useNavigate();
 
   const handleChoose = (chosen) => {
@@ -30,10 +31,9 @@ const SignupPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
 
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
-    if (path === 'create_org' && !orgName.trim()) { setError('Organization name is required'); return; }
+    if (password.length < 8) { notification.error('Password must be at least 8 characters'); return; }
+    if (path === 'create_org' && !orgName.trim()) { notification.error('Organization name is required'); return; }
 
     try {
       await signup({
@@ -43,7 +43,7 @@ const SignupPage = () => {
       });
       navigate(path === 'skip' ? '/onboard' : '/pipelines', { replace: true });
     } catch (err) {
-      setError(err.message || 'Signup failed');
+      notification.error(err.message || 'Signup failed');
     }
   };
 
@@ -135,22 +135,12 @@ const SignupPage = () => {
           </div>
         )}
 
-        {error && (
-          <div style={{
-            background: COLORS.status.errorLight, color: COLORS.status.errorText,
-            padding: '8px 12px', borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.xs,
-            marginBottom: SPACING.md,
-          }}>
-            {error}
-          </div>
-        )}
-
         <Button type="submit" style={{ width: '100%', opacity: loading ? 0.6 : 1 }}>
           {loading ? 'Creating account...' : (path === 'create_org' ? 'Create org & sign up' : 'Sign up')}
         </Button>
 
         {step === 'form' && !inviteToken && (
-          <button type="button" onClick={() => { setStep('choose'); setPath(null); setError(null); }}
+          <button type="button" onClick={() => { setStep('choose'); setPath(null); }}
             style={{
               display: 'block', width: '100%', marginTop: SPACING.sm, padding: '8px',
               background: 'none', border: 'none', color: COLORS.text.secondary,

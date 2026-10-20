@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { authApi } from '../services/authApi';
 import { Button } from '../components/common';
 import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
+import { useNotification } from '../contexts/NotificationContext';
 
 const inputStyle = {
   width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border.light}`,
@@ -13,17 +14,16 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState(null);
+  const notification = useNotification();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     try {
       await authApi.forgotPassword({ email });
       setSuccess(true);
     } catch (err) {
-      setError(err.message || 'Something went wrong');
+      notification.error(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -53,16 +53,6 @@ export default function ForgotPasswordPage() {
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
-          {error && (
-            <div style={{
-              background: COLORS.status.errorLight, color: COLORS.status.errorText,
-              padding: '8px 12px', borderRadius: BORDER_RADIUS.md, fontSize: FONT.size.xs,
-              marginBottom: SPACING.md,
-            }}>
-              {error}
-            </div>
-          )}
-          
           <div style={{ marginBottom: SPACING.md }}>
             <label style={{ fontSize: FONT.size.sm, color: COLORS.text.secondary, display: 'block', marginBottom: '4px' }}>
               Email address
