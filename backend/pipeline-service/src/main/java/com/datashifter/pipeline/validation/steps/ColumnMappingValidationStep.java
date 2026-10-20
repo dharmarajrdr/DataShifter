@@ -1,11 +1,13 @@
 package com.datashifter.pipeline.validation.steps;
 
 import com.datashifter.common.dtos.ConnectionDtos.ColumnMetadata;
+import com.datashifter.common.enums.TransformFunction;
 import com.datashifter.common.enums.WriteMode;
 import com.datashifter.common.models.ColumnMapping;
 import com.datashifter.common.models.Pipeline;
 import com.datashifter.common.models.PipelineTable;
 import com.datashifter.common.models.TargetTableMapping;
+import com.datashifter.common.models.Transformation;
 import com.datashifter.pipeline.validation.PipelineValidationContext;
 import com.datashifter.pipeline.validation.PipelineValidationStep;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +69,7 @@ public class ColumnMappingValidationStep implements PipelineValidationStep {
                 if (isTargetAdapter) {
                     if (ttm.getColumnMappings() != null && !ttm.getColumnMappings().isEmpty()) {
                         boolean anyMapped = ttm.getColumnMappings().stream()
-                                .anyMatch(cm -> cm.getTargetColumn() != null && !cm.getTargetColumn().isBlank());
+                                .anyMatch(ColumnMappingValidationStep::isTargetColumnMapped);
                         if (!anyMapped) {
                             errors.add(String.format("%s: At least one column must be mapped", targetTable));
                         }
@@ -98,7 +100,7 @@ public class ColumnMappingValidationStep implements PipelineValidationStep {
                 Set<String> mappedTargetCols = new HashSet<>();
                 if (ttm.getColumnMappings() != null) {
                     for (ColumnMapping cm : ttm.getColumnMappings()) {
-                        if (cm.getTargetColumn() != null && !cm.getTargetColumn().isBlank()) {
+                        if (isTargetColumnMapped(cm)) {
                             mappedTargetCols.add(cm.getTargetColumn().trim().toLowerCase());
                         }
                     }
@@ -109,7 +111,7 @@ public class ColumnMappingValidationStep implements PipelineValidationStep {
                 }
 
                 for (ColumnMetadata col : targetCols) {
-                    boolean isMapped = mappedTargetCols.contains(col.getColumnName().toLowerCase());
+                    boolean isMapped = mappedTargetCols.contains(col.getColumnName().trim().toLowerCase());
                     if (!col.isNullable() && !isMapped) {
                         errors.add(String.format("%s: \"%s\" is %s — needs mapping",
                                 targetTable,
@@ -128,6 +130,42 @@ public class ColumnMappingValidationStep implements PipelineValidationStep {
         }
 
         return errors;
+    }
+
+    /**
+     * Determines whether a target column mapping is valid and produces a value.
+     * A column is considered mapped if it has:
+     * 1. A mapped source column, OR
+     * 2. A non-blank default value, OR
+     * 3. A system value or value-generating transformation (e.g. CURRENT_TIMESTAMP, CURRENT_DATE, STATIC_VALUE, UUID, ROW_NUMBER, UDF).
+     */
+    public static boolean isTargetColumnMapped(ColumnMapping cm) {
+        if (cm == null || cm.getTargetColumn() == null || cm.getTargetColumn().isBlank()) {
+            return false;
+        }
+        if (cm.getSourceColumn() != null && !cm.getSourceColumn().isBlank()) {
+            return true;
+        }
+        if (cm.getDefaultValue() != null && !cm.getDefaultValue().isBlank()) {
+            return true;
+        }
+        if (cm.getTransformations() != null) {
+            for (Transformation t : cm.getTransformations()) {
+                if (t != null && t.getFunctionName() != null && isValueGenerator(t.getFunctionName(), t.getArguments())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static boolean isValueGenerator(TransformFunction fn, String arguments) {
+        if (fn == null) return false;
+        return switch (fn) {
+            case CURRENT_TIMESTAMP, CURRENT_DATE, UUID, ROW_NUMBER, UDF -> true;
+            case STATIC_VALUE -> arguments != null && !arguments.isBlank();
+            default -> false;
+        };
     }
 }
 

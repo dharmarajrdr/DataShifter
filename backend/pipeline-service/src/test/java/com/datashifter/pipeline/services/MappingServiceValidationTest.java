@@ -2,6 +2,7 @@ package com.datashifter.pipeline.services;
 
 import com.datashifter.common.dtos.ConnectionDtos.ColumnMetadata;
 import com.datashifter.common.enums.DatabaseType;
+import com.datashifter.common.enums.TransformFunction;
 import com.datashifter.common.enums.WriteMode;
 import com.datashifter.common.models.*;
 import com.datashifter.connector.factories.ConnectorFactory;
@@ -141,6 +142,124 @@ class MappingServiceValidationTest {
         List<String> errors = mappingService.validatePipeline(pipeline);
 
         assertTrue(errors.isEmpty(), "Expected no validation errors, got: " + errors);
+    }
+
+    @Test
+    void testValidationFailsWhenNotNullColumnMappingHasNoSourceAndNoSystemValue() throws Exception {
+        String targetConnId = "conn-target-1";
+        Connection targetConn = Connection.builder()
+                .dbType(DatabaseType.POSTGRESQL)
+                .host("localhost")
+                .port(5432)
+                .databaseName("testdb")
+                .encryptedPassword(com.datashifter.common.utils.EncryptionUtil.encrypt("test"))
+                .build();
+        targetConn.setId(targetConnId);
+
+        when(connectionRepository.findById(targetConnId)).thenReturn(Optional.of(targetConn));
+        when(connectorFactory.getConnector(DatabaseType.POSTGRESQL)).thenReturn(databaseConnector);
+
+        List<ColumnMetadata> targetCols = List.of(
+                ColumnMetadata.builder().columnName("id").dataType("bigint").nullable(false).primaryKey(true).build(),
+                ColumnMetadata.builder().columnName("name").dataType("varchar").nullable(false).primaryKey(false).build()
+        );
+        when(databaseConnector.getColumns(any(ConnectionConfig.class), eq("users"))).thenReturn(targetCols);
+
+        Pipeline pipeline = Pipeline.builder().targetConnectionId(targetConnId).build();
+        PipelineTable pt = PipelineTable.builder().pipeline(pipeline).sourceTable("src_users").build();
+        TargetTableMapping ttm = TargetTableMapping.builder().pipelineTable(pt).targetTable("users").writeMode(WriteMode.INSERT_IGNORE).build();
+
+        // 'id' is mapped from source, but 'name' entry has NO source, NO default value, and NO system value
+        ttm.getColumnMappings().add(ColumnMapping.builder().targetTableMapping(ttm).sourceColumn("id").targetColumn("id").build());
+        ttm.getColumnMappings().add(ColumnMapping.builder().targetTableMapping(ttm).sourceColumn(null).targetColumn("name").build());
+        pt.getTargetTableMappings().add(ttm);
+        pipeline.getPipelineTables().add(pt);
+
+        List<String> errors = mappingService.validatePipeline(pipeline);
+
+        assertFalse(errors.isEmpty());
+        assertTrue(errors.stream().anyMatch(e -> e.contains("name") && e.contains("NOT NULL")));
+    }
+
+    @Test
+    void testValidationPassesWhenNotNullColumnHasSystemValue() throws Exception {
+        String targetConnId = "conn-target-1";
+        Connection targetConn = Connection.builder()
+                .dbType(DatabaseType.POSTGRESQL)
+                .host("localhost")
+                .port(5432)
+                .databaseName("testdb")
+                .encryptedPassword(com.datashifter.common.utils.EncryptionUtil.encrypt("test"))
+                .build();
+        targetConn.setId(targetConnId);
+
+        when(connectionRepository.findById(targetConnId)).thenReturn(Optional.of(targetConn));
+        when(connectorFactory.getConnector(DatabaseType.POSTGRESQL)).thenReturn(databaseConnector);
+
+        List<ColumnMetadata> targetCols = List.of(
+                ColumnMetadata.builder().columnName("id").dataType("bigint").nullable(false).primaryKey(true).build(),
+                ColumnMetadata.builder().columnName("created_at").dataType("timestamp").nullable(false).primaryKey(false).build()
+        );
+        when(databaseConnector.getColumns(any(ConnectionConfig.class), eq("users"))).thenReturn(targetCols);
+
+        Pipeline pipeline = Pipeline.builder().targetConnectionId(targetConnId).build();
+        PipelineTable pt = PipelineTable.builder().pipeline(pipeline).sourceTable("src_users").build();
+        TargetTableMapping ttm = TargetTableMapping.builder().pipelineTable(pt).targetTable("users").writeMode(WriteMode.INSERT_IGNORE).build();
+
+        ttm.getColumnMappings().add(ColumnMapping.builder().targetTableMapping(ttm).sourceColumn("id").targetColumn("id").build());
+        ttm.getColumnMappings().add(ColumnMapping.builder()
+                .targetTableMapping(ttm)
+                .sourceColumn(null)
+                .targetColumn("created_at")
+                .transformations(Set.of(Transformation.builder().functionName(TransformFunction.CURRENT_TIMESTAMP).build()))
+                .build());
+        pt.getTargetTableMappings().add(ttm);
+        pipeline.getPipelineTables().add(pt);
+
+        List<String> errors = mappingService.validatePipeline(pipeline);
+
+        assertTrue(errors.isEmpty(), "Expected no validation errors with CURRENT_TIMESTAMP system value, got: " + errors);
+    }
+
+    @Test
+    void testValidationFailsWhenStaticValueArgumentIsBlank() throws Exception {
+        String targetConnId = "conn-target-1";
+        Connection targetConn = Connection.builder()
+                .dbType(DatabaseType.POSTGRESQL)
+                .host("localhost")
+                .port(5432)
+                .databaseName("testdb")
+                .encryptedPassword(com.datashifter.common.utils.EncryptionUtil.encrypt("test"))
+                .build();
+        targetConn.setId(targetConnId);
+
+        when(connectionRepository.findById(targetConnId)).thenReturn(Optional.of(targetConn));
+        when(connectorFactory.getConnector(DatabaseType.POSTGRESQL)).thenReturn(databaseConnector);
+
+        List<ColumnMetadata> targetCols = List.of(
+                ColumnMetadata.builder().columnName("id").dataType("bigint").nullable(false).primaryKey(true).build(),
+                ColumnMetadata.builder().columnName("status").dataType("varchar").nullable(false).primaryKey(false).build()
+        );
+        when(databaseConnector.getColumns(any(ConnectionConfig.class), eq("users"))).thenReturn(targetCols);
+
+        Pipeline pipeline = Pipeline.builder().targetConnectionId(targetConnId).build();
+        PipelineTable pt = PipelineTable.builder().pipeline(pipeline).sourceTable("src_users").build();
+        TargetTableMapping ttm = TargetTableMapping.builder().pipelineTable(pt).targetTable("users").writeMode(WriteMode.INSERT_IGNORE).build();
+
+        ttm.getColumnMappings().add(ColumnMapping.builder().targetTableMapping(ttm).sourceColumn("id").targetColumn("id").build());
+        ttm.getColumnMappings().add(ColumnMapping.builder()
+                .targetTableMapping(ttm)
+                .sourceColumn(null)
+                .targetColumn("status")
+                .transformations(Set.of(Transformation.builder().functionName(TransformFunction.STATIC_VALUE).arguments("   ").build()))
+                .build());
+        pt.getTargetTableMappings().add(ttm);
+        pipeline.getPipelineTables().add(pt);
+
+        List<String> errors = mappingService.validatePipeline(pipeline);
+
+        assertFalse(errors.isEmpty());
+        assertTrue(errors.stream().anyMatch(e -> e.contains("status") && e.contains("NOT NULL")));
     }
 
     @Test

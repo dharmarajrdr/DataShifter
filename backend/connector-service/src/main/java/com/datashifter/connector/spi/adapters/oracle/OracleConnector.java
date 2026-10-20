@@ -83,8 +83,15 @@ public class OracleConnector implements DatabaseConnector {
         int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
         try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            String schema = config.getSchemaName().toUpperCase();
+            String schema = (config.getSchemaName() != null && !config.getSchemaName().isBlank())
+                    ? config.getSchemaName().toUpperCase()
+                    : (config.getUsername() != null ? config.getUsername().toUpperCase() : "");
             String table = tableName.toUpperCase();
+            if (tableName.contains(".")) {
+                String[] parts = tableName.split("\\.", 2);
+                schema = parts[0].toUpperCase();
+                table = parts[1].toUpperCase();
+            }
             ps.setString(1, schema); ps.setString(2, table);
             ps.setString(3, schema); ps.setString(4, table);
             ResultSet rs = ps.executeQuery();
@@ -117,8 +124,17 @@ public class OracleConnector implements DatabaseConnector {
         int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
         try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, config.getSchemaName().toUpperCase());
-            ps.setString(2, tableName.toUpperCase());
+            String schema = (config.getSchemaName() != null && !config.getSchemaName().isBlank())
+                    ? config.getSchemaName().toUpperCase()
+                    : (config.getUsername() != null ? config.getUsername().toUpperCase() : "");
+            String table = tableName.toUpperCase();
+            if (tableName.contains(".")) {
+                String[] parts = tableName.split("\\.", 2);
+                schema = parts[0].toUpperCase();
+                table = parts[1].toUpperCase();
+            }
+            ps.setString(1, schema);
+            ps.setString(2, table);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 fks.add(ForeignKeyMetadata.builder()
@@ -140,8 +156,17 @@ public class OracleConnector implements DatabaseConnector {
         int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
         try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, config.getSchemaName().toUpperCase());
-            ps.setString(2, tableName.toUpperCase());
+            String schema = (config.getSchemaName() != null && !config.getSchemaName().isBlank())
+                    ? config.getSchemaName().toUpperCase()
+                    : (config.getUsername() != null ? config.getUsername().toUpperCase() : "");
+            String table = tableName.toUpperCase();
+            if (tableName.contains(".")) {
+                String[] parts = tableName.split("\\.", 2);
+                schema = parts[0].toUpperCase();
+                table = parts[1].toUpperCase();
+            }
+            ps.setString(1, schema);
+            ps.setString(2, table);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getLong("num_rows");
         } catch (Exception e) {
@@ -161,8 +186,17 @@ public class OracleConnector implements DatabaseConnector {
         int maxPoolSize = config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10;
         try (java.sql.Connection conn = poolManager.getConnection(config, maxPoolSize);
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, config.getSchemaName().toUpperCase());
-            ps.setString(2, tableName.toUpperCase());
+            String schema = (config.getSchemaName() != null && !config.getSchemaName().isBlank())
+                    ? config.getSchemaName().toUpperCase()
+                    : (config.getUsername() != null ? config.getUsername().toUpperCase() : "");
+            String table = tableName.toUpperCase();
+            if (tableName.contains(".")) {
+                String[] parts = tableName.split("\\.", 2);
+                schema = parts[0].toUpperCase();
+                table = parts[1].toUpperCase();
+            }
+            ps.setString(1, schema);
+            ps.setString(2, table);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getString("column_name");
         } catch (Exception e) {

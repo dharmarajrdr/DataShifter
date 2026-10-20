@@ -11,6 +11,7 @@ import com.datashifter.common.utils.DdlSchemaParser;
 import com.datashifter.common.utils.EncryptionUtil;
 import com.datashifter.pipeline.repositories.PipelineRepository;
 import com.datashifter.pipeline.validation.PipelineValidationChain;
+import com.datashifter.pipeline.validation.steps.ColumnMappingValidationStep;
 import com.datashifter.pipeline.validation.PipelineValidationContext;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -129,15 +130,22 @@ public class MappingService {
                             return List.of();
                         });
 
-                Set<String> mappedSourceCols = ttm.getColumnMappings().stream().map(ColumnMapping::getSourceColumn).collect(Collectors.toSet());
-                Set<String> mappedTargetCols = ttm.getColumnMappings().stream().map(ColumnMapping::getTargetColumn).collect(Collectors.toSet());
+                Set<String> mappedSourceCols = ttm.getColumnMappings().stream()
+                        .map(ColumnMapping::getSourceColumn)
+                        .filter(s -> s != null && !s.isBlank())
+                        .map(s -> s.trim().toLowerCase())
+                        .collect(Collectors.toSet());
+                Set<String> mappedTargetCols = ttm.getColumnMappings().stream()
+                        .filter(ColumnMappingValidationStep::isTargetColumnMapped)
+                        .map(cm -> cm.getTargetColumn().trim().toLowerCase())
+                        .collect(Collectors.toSet());
 
                 List<ColumnInfo> sourceColInfo = sourceCols.stream()
-                        .map(c -> ColumnInfo.builder().name(c.getColumnName()).dataType(c.getDataType()).nullable(c.isNullable()).primaryKey(c.isPrimaryKey()).mapped(mappedSourceCols.contains(c.getColumnName())).build())
+                        .map(c -> ColumnInfo.builder().name(c.getColumnName()).dataType(c.getDataType()).nullable(c.isNullable()).primaryKey(c.isPrimaryKey()).mapped(mappedSourceCols.contains(c.getColumnName().trim().toLowerCase())).build())
                         .toList();
 
                 List<ColumnInfo> targetColInfo = targetCols.stream()
-                        .map(c -> ColumnInfo.builder().name(c.getColumnName()).dataType(c.getDataType()).nullable(c.isNullable()).primaryKey(c.isPrimaryKey()).mapped(mappedTargetCols.contains(c.getColumnName())).build())
+                        .map(c -> ColumnInfo.builder().name(c.getColumnName()).dataType(c.getDataType()).nullable(c.isNullable()).primaryKey(c.isPrimaryKey()).mapped(mappedTargetCols.contains(c.getColumnName().trim().toLowerCase())).build())
                         .toList();
 
                 List<ColumnMappingEntry> mappingEntries = ttm.getColumnMappings().stream()

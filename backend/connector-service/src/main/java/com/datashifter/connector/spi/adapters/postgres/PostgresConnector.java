@@ -83,12 +83,18 @@ public class PostgresConnector implements DatabaseConnector {
     @Override
     public List<ColumnMetadata> getColumns(ConnectionConfig config, String tableName) {
         String schema = resolveSchema(config);
+        String table = tableName;
+        if (tableName.contains(".")) {
+            String[] parts = tableName.split("\\.", 2);
+            schema = parts[0];
+            table = parts[1];
+        }
         String sql = "SELECT column_name, data_type, is_nullable, character_maximum_length, numeric_precision " +
                      "FROM information_schema.columns WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position";
         try (Connection conn = poolManager.getConnection(config, config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, schema);
-            ps.setString(2, tableName);
+            ps.setString(2, table);
             ResultSet rs = ps.executeQuery();
             List<ColumnMetadata> columns = new ArrayList<>();
             while (rs.next()) {
@@ -111,6 +117,12 @@ public class PostgresConnector implements DatabaseConnector {
     @Override
     public List<ForeignKeyMetadata> getForeignKeys(ConnectionConfig config, String tableName) {
         String schema = resolveSchema(config);
+        String table = tableName;
+        if (tableName.contains(".")) {
+            String[] parts = tableName.split("\\.", 2);
+            schema = parts[0];
+            table = parts[1];
+        }
         String sql = """
             SELECT
                 kcu.column_name AS fk_column,
@@ -128,7 +140,7 @@ public class PostgresConnector implements DatabaseConnector {
         try (Connection conn = poolManager.getConnection(config, config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, schema);
-            ps.setString(2, tableName);
+            ps.setString(2, table);
             ResultSet rs = ps.executeQuery();
             List<ForeignKeyMetadata> fks = new ArrayList<>();
             while (rs.next()) {
@@ -148,13 +160,19 @@ public class PostgresConnector implements DatabaseConnector {
     @Override
     public long getEstimatedRowCount(ConnectionConfig config, String tableName) {
         String schema = resolveSchema(config);
+        String table = tableName;
+        if (tableName.contains(".")) {
+            String[] parts = tableName.split("\\.", 2);
+            schema = parts[0];
+            table = parts[1];
+        }
         String sql = "SELECT reltuples::bigint AS estimate FROM pg_class c " +
                      "JOIN pg_namespace n ON n.oid = c.relnamespace " +
                      "WHERE n.nspname = ? AND c.relname = ?";
         try (Connection conn = poolManager.getConnection(config, config.getMaxPoolSize() != null ? config.getMaxPoolSize() : 10);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, schema);
-            ps.setString(2, tableName);
+            ps.setString(2, table);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
                 long est = rs.getLong("estimate");
