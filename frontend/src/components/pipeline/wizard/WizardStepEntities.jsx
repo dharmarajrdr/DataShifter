@@ -55,13 +55,6 @@ export const WizardStepEntities = ({ id = 'wizard-step-entities', config, setCon
         </button>
       </div>
 
-      {errors.entityPairs && (
-        <div id={`${id}-error`} className="mb-3 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-          <i className="fa-solid fa-circle-exclamation text-rose-600" />
-          <span>{errors.entityPairs}</span>
-        </div>
-      )}
-
       {hasDuplicate && (
         <div id={`${id}-duplicate-warn`} className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
           <i className="fa-solid fa-triangle-exclamation text-amber-600" />

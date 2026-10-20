@@ -79,7 +79,6 @@ export const usePipelineWizard = () => {
       notification.success(`Pipeline "${config.name.trim()}" created successfully!`);
       navigate(res.data?.id ? `/pipelines/${res.data.id}/mapping` : '/pipelines');
     } catch (err) {
-      setErrors({ create: err.message || 'Failed to create pipeline' });
       notification.error(err.message || 'Failed to create pipeline');
     } finally { setCreating(false); }
   };

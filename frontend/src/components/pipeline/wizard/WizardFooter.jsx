@@ -33,11 +33,6 @@ export const WizardFooter = ({
       </Button>
 
       <div id={`${id}-actions-group`} className="flex items-center gap-2">
-        {error && (
-          <span id={`${id}-error-text`} className="text-xs text-rose-600 font-medium mr-2">
-            {error}
-          </span>
-        )}
         {!isFinalStep ? (
           <Button
             id={`${id}-next-btn`}

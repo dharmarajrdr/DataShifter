@@ -52,7 +52,6 @@ export const PipelineWizardPage = () => {
           onNext={wiz.handleNext}
           onCreate={wiz.handleCreate}
           creating={wiz.creating}
-          error={wiz.errors.create}
         />
       </div>
       {wiz.showCreateNs && (
