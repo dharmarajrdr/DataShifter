@@ -9,7 +9,6 @@ import { UploadIcon } from '../layout/Icons';
 export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
   const [file, setFile] = useState(null);
   const [jsonConfig, setJsonConfig] = useState(null);
-  const [validationError, setValidationError] = useState(null);
   const [stage, setStage] = useState('select'); // 'select' | 'importing' | 'summary' | 'error'
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
@@ -25,7 +24,6 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
   const handleReset = () => {
     setFile(null);
     setJsonConfig(null);
-    setValidationError(null);
     setStage('select');
     setProgressPercent(0);
     setProgressMessage('');
@@ -43,11 +41,11 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
-    if (selectedFile.type !== 'application/json') {
-      return setValidationError('Invalid file type. Please select a JSON file.');
+    if (selectedFile.type !== 'application/json' && !selectedFile.name.endsWith('.json')) {
+      notification.error('Invalid file type. Please select a JSON file.');
+      return;
     }
 
-    setValidationError(null);
     setFile(selectedFile);
 
     const reader = new FileReader();
@@ -75,12 +73,12 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
 
         setJsonConfig(parsed);
       } catch (err) {
-        setValidationError(err.message || 'Failed to parse JSON file.');
+        notification.error(err.message || 'Failed to parse JSON file.');
         setJsonConfig(null);
       }
     };
     reader.onerror = () => {
-      setValidationError('Failed to read file from disk.');
+      notification.error('Failed to read file from disk.');
       setJsonConfig(null);
     };
     reader.readAsText(selectedFile);
@@ -234,7 +232,7 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
                     Select an exported JSON configuration file to create connections, pipeline tables, and column transformations.
                   </p>
                   <div style={{
-                    border: `2px dashed ${validationError ? COLORS.status.errorDark : COLORS.border.medium}`,
+                    border: `2px dashed ${COLORS.border.medium}`,
                     borderRadius: BORDER_RADIUS.md,
                     padding: SPACING.xl,
                     textAlign: 'center',
@@ -258,23 +256,7 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
                   </div>
                 </>}
 
-                {validationError && (
-                  <div
-                    style={{
-                      background: '#FAECE7',
-                      border: `1px solid ${COLORS.status.errorDark}`,
-                      color: COLORS.status.errorDark,
-                      padding: `${SPACING.sm} ${SPACING.md}`,
-                      borderRadius: BORDER_RADIUS.sm,
-                      fontSize: FONT.size.xs,
-                      marginBottom: SPACING.md,
-                    }}
-                  >
-                    <strong>Validation Error:</strong> {validationError}
-                  </div>
-                )}
-
-                {jsonConfig && !validationError && (
+                {jsonConfig && (
                   <div
                     style={{
                       background: COLORS.background.secondary,
@@ -435,7 +417,7 @@ export const ImportPipelineModal = ({ isOpen, onClose, onImportSuccess }) => {
                 </Button>
                 <Button
                   variant="primary"
-                  disabled={!jsonConfig || !!validationError}
+                  disabled={!jsonConfig}
                   onClick={handleStartImport}
                 >
                   Start Import

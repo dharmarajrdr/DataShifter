@@ -3,6 +3,7 @@ import { Button } from '../../common';
 import { CloseIcon } from '../../layout/Icons';
 import { PERMISSION_GROUPS } from './roleConstants';
 import { PermissionGroupItem } from './PermissionGroupItem';
+import { useNotification } from '../../../contexts/NotificationContext';
 
 export const RoleEditorModal = ({ role, onClose, onSave }) => {
   const isEdit = !!role?.id;
@@ -10,7 +11,7 @@ export const RoleEditorModal = ({ role, onClose, onSave }) => {
   const [description, setDescription] = useState(role?.description || '');
   const [permissions, setPermissions] = useState(new Set(role?.permissions || []));
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  const notification = useNotification();
 
   const togglePerm = (perm) => {
     setPermissions((prev) => {
@@ -31,14 +32,13 @@ export const RoleEditorModal = ({ role, onClose, onSave }) => {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) return setError('Role name is required');
+    if (!name.trim()) return notification.error('Role name is required');
     setSaving(true);
-    setError(null);
     try {
       await onSave({ name, description, permissions: [...permissions] });
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to save role');
+      notification.error(err.message || 'Failed to save role');
     } finally {
       setSaving(false);
     }
@@ -56,7 +56,6 @@ export const RoleEditorModal = ({ role, onClose, onSave }) => {
         </div>
 
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
-          {error && <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-xs font-medium">{error}</div>}
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">Role name</label>
             <input value={name} onChange={(e) => setName(e.target.value)} disabled={role?.system} placeholder="e.g., Moderator"

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { X, FileCode2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { X, FileCode2, ShieldCheck } from 'lucide-react';
 import { udfApi } from '../../services/api';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const formatBytes = (bytes) => {
   if (!bytes) return '—';
@@ -13,32 +14,30 @@ export const UdfUploadModal = ({ onClose, onUploaded }) => {
   const [file, setFile] = useState(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const notification = useNotification();
 
   const chooseFile = (selected) => {
     const next = selected?.[0];
     if (!next) return;
     if (!next.name.toLowerCase().endsWith('.jar')) {
-      setError('Only Java .jar files are accepted.');
+      notification.error('Only Java .jar files are accepted.');
       return;
     }
-    setError(null);
     setFile(next);
     setName(next.name.replace(/\.jar$/i, ''));
   };
 
   const handleSubmit = async () => {
-    if (!name.trim()) return setError('Enter a name for this UDF.');
-    if (!file) return setError('Choose a Java .jar file to upload.');
+    if (!name.trim()) return notification.error('Enter a name for this UDF.');
+    if (!file) return notification.error('Choose a Java .jar file to upload.');
     setUploading(true);
-    setError(null);
     try {
       const response = await udfApi.upload(file, { name: name.trim(), description: description.trim() });
       onUploaded(response.data);
       onClose();
     } catch (err) {
-      setError(err.message || 'Upload failed.');
+      notification.error(err.message || 'Upload failed.');
     } finally {
       setUploading(false);
     }
@@ -58,12 +57,6 @@ export const UdfUploadModal = ({ onClose, onUploaded }) => {
         </div>
 
         <div id="udf-upload-body" className="p-6 flex flex-col gap-4">
-          {error && (
-            <div id="udf-upload-error" role="alert" className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-status-danger flex items-center gap-2">
-              <AlertCircle id="udf-upload-error-icon" className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
           <div>
             <label id="udf-upload-label-name" className="block text-xs font-medium text-content-secondary mb-1">UDF Identifier <span className="text-status-danger">*</span></label>
             <input id="udf-upload-input-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. security-masking" className="w-full px-3 py-2 text-xs bg-surface-50 border border-surface-300 rounded-lg text-content-primary focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none" />

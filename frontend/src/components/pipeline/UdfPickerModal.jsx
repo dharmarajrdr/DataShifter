@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BORDER_RADIUS, COLORS, FONT, SPACING } from '../../constants/design';
 import { FRBC, FREC } from '../../constants/layouts';
 import { udfApi } from '../../services/api';
+import { useNotification } from '../../contexts/NotificationContext';
 import { Loader } from '../common';
 import { CloseIcon, InfoIcon } from '../layout/Icons';
 
@@ -291,7 +292,7 @@ const UdfPickerModal = ({
 }) => {
   const [udfs, setUdfs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(null);
+  const notification = useNotification();
 
   const [selectedUdfId, setSelectedUdfId] = useState('');
   const [selectedMethodName, setSelectedMethodName] = useState(initialConfig?.methodName || '');
@@ -335,7 +336,7 @@ const UdfPickerModal = ({
           }
         }
       } catch (err) {
-        if (mounted) setFetchError(err.message || 'Failed to load UDFs');
+        if (mounted) notification.error(err.message || 'Failed to load UDFs');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -559,19 +560,6 @@ const UdfPickerModal = ({
           {loading ? (
             <div style={{ padding: `${SPACING.xxl} 0`, textAlign: 'center' }}>
               <Loader message="Loading UDFs..." />
-            </div>
-          ) : fetchError ? (
-            <div
-              style={{
-                background: COLORS.status.errorLight,
-                border: `1px solid ${COLORS.status.error}`,
-                borderRadius: BORDER_RADIUS.md,
-                padding: `${SPACING.sm} ${SPACING.md}`,
-                color: COLORS.status.errorDark,
-                fontSize: FONT.size.sm,
-              }}
-            >
-              <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />{fetchError}
             </div>
           ) : udfs.length === 0 ? (
             <div

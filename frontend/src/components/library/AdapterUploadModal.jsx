@@ -1,25 +1,25 @@
 import React, { useState } from 'react';
 import { UploadCloud, X } from 'lucide-react';
 import { adapterApi } from '../../services/adapterApi';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export const AdapterUploadModal = ({ onClose, onUploaded }) => {
   const [file, setFile] = useState(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
+  const notification = useNotification();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return;
     setUploading(true);
-    setError(null);
     try {
       const res = await adapterApi.upload(file, { name, description });
       onUploaded(res.data);
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to upload adapter');
+      notification.error(err.message || 'Failed to upload adapter');
     } finally {
       setUploading(false);
     }
@@ -34,8 +34,6 @@ export const AdapterUploadModal = ({ onClose, onUploaded }) => {
             <X id="adapter-upload-close-icon" className="w-4 h-4" />
           </button>
         </div>
-
-        {error && <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">{error}</div>}
 
         <form id="adapter-upload-form" onSubmit={handleSubmit} className="space-y-4">
           <label id="adapter-dropzone-label" className="border-2 border-dashed border-surface-300 rounded-xl p-6 text-center bg-surface-50 hover:bg-surface-100/50 transition-colors cursor-pointer block">
