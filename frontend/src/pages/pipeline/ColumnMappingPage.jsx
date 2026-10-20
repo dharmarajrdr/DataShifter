@@ -7,6 +7,7 @@ import {
   MappingStatsBar, MappingValidationErrors, TransformPanel,
   splitTableCol,
 } from '../../components/pipeline/mapping';
+import { isMappingValidForTarget } from '../../components/pipeline/mapping/mappingPayloadHelper';
 import useMappingState from '../../components/pipeline/mapping/useMappingState';
 import { useAuth } from '../../contexts/AuthContext';
 import { ForbiddenPage } from '../ErrorPage';
@@ -32,7 +33,11 @@ export const ColumnMappingPage = () => {
   if (!canView) return <ForbiddenPage missingPermission="pipeline:view" message="No permission to view pipelines." />;
 
   const unmappedReq = targetTables.reduce((n, tt) => {
-    const mp = new Set(mappings.filter((m) => m.target.startsWith(tt.tableName + '.')).map((m) => splitTableCol(m.target)[1]));
+    const mp = new Set(
+      mappings
+        .filter((m) => m.target.startsWith(tt.tableName + '.') && isMappingValidForTarget(m))
+        .map((m) => splitTableCol(m.target)[1])
+    );
     return n + (tt.columns || []).filter((c) => !c.nullable && !mp.has(c.name)).length;
   }, 0);
   const totalFilters = Object.values(filters).flat().length;

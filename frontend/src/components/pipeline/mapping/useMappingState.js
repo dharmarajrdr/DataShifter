@@ -33,6 +33,7 @@ export const useMappingState = (pipelineId, canViewPipeline, canEdit) => {
         });
         setFilters(loadedFilters);
         savedState.current = { mappings: initM, filters: loadedFilters };
+        setValidateDisabled(initM.length === 0);
       } catch (err) { setError(err); } finally { setLoading(false); }
     })();
   }, [pipelineId, canViewPipeline]);

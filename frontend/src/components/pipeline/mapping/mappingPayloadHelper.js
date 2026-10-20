@@ -4,6 +4,24 @@ import { splitTableCol } from './DragBoardConstants';
 
 const toCol = (c) => ({ name: c.name, type: c.dataType || c.type, nullable: c.nullable, primaryKey: c.primaryKey });
 
+export const isSystemValueTransform = (t) => {
+  if (!t) return false;
+  const fn = t.fn || t.functionName;
+  if (['CURRENT_TIMESTAMP', 'CURRENT_DATE', 'UUID', 'ROW_NUMBER', 'UDF'].includes(fn)) return true;
+  if (fn === 'STATIC_VALUE') return Boolean(t.args && t.args.trim());
+  return false;
+};
+
+export const isMappingValidForTarget = (m) => {
+  if (!m || !m.target) return false;
+  if (m.source) return true;
+  if (m.defaultValue && m.defaultValue.trim()) return true;
+  if (m.transforms && m.transforms.length > 0) {
+    return m.transforms.some(isSystemValueTransform);
+  }
+  return false;
+};
+
 export const parseMappingsFromResponse = (data) => {
   const ex = [];
   if (data?.tablePairs?.length) {

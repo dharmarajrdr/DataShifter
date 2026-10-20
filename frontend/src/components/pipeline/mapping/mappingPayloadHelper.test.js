@@ -1,4 +1,4 @@
-import { parseMappingsFromResponse, extractTablesFromResponse, buildSavePayload } from './mappingPayloadHelper';
+import { parseMappingsFromResponse, extractTablesFromResponse, buildSavePayload, isSystemValueTransform, isMappingValidForTarget } from './mappingPayloadHelper';
 
 describe('mappingPayloadHelper', () => {
   const sampleBackendData = {
@@ -66,5 +66,17 @@ describe('mappingPayloadHelper', () => {
     expect(payload[0].targetMappings[0].columnMappings[0].targetColumn).toBe('ID');
     expect(payload[0].targetMappings[0].columnMappings[1].sourceColumn).toBeNull();
     expect(payload[0].targetMappings[0].columnMappings[1].targetColumn).toBe('CREATED_AT');
+  });
+
+  test('isMappingValidForTarget recognizes source, system values, and default values', () => {
+    expect(isMappingValidForTarget({ target: 'T.C', source: 'S.C' })).toBe(true);
+    expect(isMappingValidForTarget({ target: 'T.C', source: null, defaultValue: 'VAL' })).toBe(true);
+    expect(isMappingValidForTarget({ target: 'T.C', source: null, transforms: [{ fn: 'CURRENT_TIMESTAMP' }] })).toBe(true);
+    expect(isMappingValidForTarget({ target: 'T.C', source: null, transforms: [{ fn: 'STATIC_VALUE', args: 'CONST' }] })).toBe(true);
+    // Invalid when no source, no default, and blank static value or no transforms
+    expect(isMappingValidForTarget({ target: 'T.C', source: null, transforms: [{ fn: 'STATIC_VALUE', args: '   ' }] })).toBe(false);
+    expect(isMappingValidForTarget({ target: 'T.C', source: null, transforms: [] })).toBe(false);
+    expect(isMappingValidForTarget({ target: 'T.C', source: null })).toBe(false);
+    expect(isMappingValidForTarget(null)).toBe(false);
   });
 });
