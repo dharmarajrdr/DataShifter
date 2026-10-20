@@ -4,6 +4,7 @@ import { FRSC, FRBC, FREC } from '../../constants/layouts';
 import { Button } from '../common';
 import { CloseIcon } from '../layout/Icons';
 import { namespaceApi } from '../../services/api';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const PRESET_COLORS = [
   '#534AB7', '#1D9E75', '#D85A30', '#D4537E', '#378ADD',
@@ -11,22 +12,21 @@ const PRESET_COLORS = [
 ];
 
 const CreateNamespaceModal = ({ onClose, onCreated }) => {
+  const notification = useNotification();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(PRESET_COLORS[0]);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
 
   const handleCreate = async () => {
-    if (!name.trim()) { setError('Namespace name is required'); return; }
+    if (!name.trim()) { notification.error('Namespace name is required'); return; }
     setSaving(true);
-    setError(null);
     try {
       const res = await namespaceApi.create({ name: name.trim(), description, color });
       onCreated(res.data);
       onClose();
     } catch (e) {
-      setError(e.message || 'Failed to create namespace');
+      notification.error(e.message || 'Failed to create namespace');
     } finally {
       setSaving(false);
     }
@@ -120,17 +120,6 @@ const CreateNamespaceModal = ({ onClose, onCreated }) => {
               <span style={{ fontSize: FONT.size.xs, color: COLORS.text.tertiary }}> — {description}</span>
             )}
           </div>
-
-          {/* Error */}
-          {error && (
-            <div style={{
-              background: COLORS.status.errorLight, color: COLORS.status.errorText,
-              padding: `${SPACING.xs} ${SPACING.sm}`, borderRadius: BORDER_RADIUS.md,
-              fontSize: FONT.size.xs, marginBottom: SPACING.sm,
-            }}>
-              {error}
-            </div>
-          )}
 
           {/* Actions */}
           <div style={{ ...FREC, gap: SPACING.xs, paddingTop: SPACING.sm, borderTop: `1px solid ${COLORS.border.light}` }}>

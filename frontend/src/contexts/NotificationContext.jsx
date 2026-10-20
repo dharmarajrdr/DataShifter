@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import PopupNotification from '../components/common/PopupNotification';
 import { sanitizeErrorMessage } from '../services/apiClient';
 
@@ -15,12 +15,25 @@ export const NotificationProvider = ({ children }) => {
     ({ type = 'info', title, message, duration = 4000, position = 'bottom-right' }) => {
       const id = Date.now() + Math.random().toString(36).substring(2, 9);
       const safeMessage = typeof message === 'string' ? sanitizeErrorMessage(message, 500) : message;
-      const newNotification = { id, type, title, message: safeMessage, duration, position };
-      setNotifications((prev) => [...prev, newNotification]);
+      setNotifications((prev) => {
+        const isDuplicate = prev.some((n) => n.message === safeMessage && n.type === type);
+        if (isDuplicate) return prev;
+        return [...prev, { id, type, title, message: safeMessage, duration, position }];
+      });
       return id;
     },
     []
   );
+
+  useEffect(() => {
+    const handleGlobalNotification = (event) => {
+      if (event?.detail) {
+        notify(event.detail);
+      }
+    };
+    window.addEventListener('ds-notification', handleGlobalNotification);
+    return () => window.removeEventListener('ds-notification', handleGlobalNotification);
+  }, [notify]);
 
   const success = useCallback((message, title, options = {}) => notify({ type: 'success', message, title, ...options }), [notify]);
   const error = useCallback((message, title, options = {}) => notify({ type: 'error', message, title, ...options }), [notify]);

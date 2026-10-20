@@ -139,7 +139,13 @@ async function request(method, path, body = null, options = {}) {
       throw new ApiError('Request timed out', 408);
     }
     if (error.message == 'Failed to fetch') {
-      throw new ApiError('Network error — is the backend running?', 500);
+      const networkMsg = 'Network error — is the backend running?';
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('ds-notification', {
+          detail: { type: 'error', message: networkMsg, title: 'Network Error' },
+        }));
+      }
+      throw new ApiError(networkMsg, 500);
     }
     throw new ApiError(sanitizeErrorMessage(error.message, error.status || 500), error.status || 500);
   } finally {
