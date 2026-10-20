@@ -263,6 +263,48 @@ class MappingServiceValidationTest {
     }
 
     @Test
+    void testValidationFailsWhenTargetAdapterHasRelationalConnectionAndNotNullColumnUnmapped() throws Exception {
+        String targetConnId = "conn-target-1";
+        Connection targetConn = Connection.builder()
+                .dbType(DatabaseType.ORACLE)
+                .host("localhost")
+                .port(1521)
+                .databaseName("FREEPDB1")
+                .encryptedPassword(com.datashifter.common.utils.EncryptionUtil.encrypt("test"))
+                .build();
+        targetConn.setId(targetConnId);
+
+        when(connectionRepository.findById(targetConnId)).thenReturn(Optional.of(targetConn));
+        when(connectorFactory.getConnector(DatabaseType.ORACLE)).thenReturn(databaseConnector);
+
+        List<ColumnMetadata> targetCols = List.of(
+                ColumnMetadata.builder().columnName("ID").dataType("NUMBER").nullable(false).primaryKey(true).build(),
+                ColumnMetadata.builder().columnName("QTY").dataType("NUMBER").nullable(false).primaryKey(false).build(),
+                ColumnMetadata.builder().columnName("PRICE_EACH").dataType("NUMBER").nullable(false).primaryKey(false).build()
+        );
+        when(databaseConnector.getColumns(any(ConnectionConfig.class), eq("SALES_ORDER_LINE"))).thenReturn(targetCols);
+
+        // Pipeline with targetAdapterId ("oracle-writer") AND relational targetConnectionId
+        Pipeline pipeline = Pipeline.builder()
+                .targetConnectionId(targetConnId)
+                .targetAdapterId("oracle-writer")
+                .build();
+        PipelineTable pt = PipelineTable.builder().pipeline(pipeline).sourceTable("order_items").build();
+        TargetTableMapping ttm = TargetTableMapping.builder().pipelineTable(pt).targetTable("SALES_ORDER_LINE").writeMode(WriteMode.INSERT_IGNORE).build();
+
+        // Only ID is mapped, QTY and PRICE_EACH are unmapped
+        ttm.getColumnMappings().add(ColumnMapping.builder().targetTableMapping(ttm).sourceColumn("order_item_id").targetColumn("ID").build());
+        pt.getTargetTableMappings().add(ttm);
+        pipeline.getPipelineTables().add(pt);
+
+        List<String> errors = mappingService.validatePipeline(pipeline);
+
+        assertFalse(errors.isEmpty(), "Should fail validation when NOT NULL columns are unmapped even with targetAdapterId");
+        assertTrue(errors.stream().anyMatch(e -> e.contains("QTY") && e.contains("NOT NULL")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("PRICE_EACH") && e.contains("NOT NULL")));
+    }
+
+    @Test
     void testStep2FailsWhenNumberMappedDirectlyToTimestamp() {
         String sourceConnId = "conn-source-pg";
         String targetConnId = "conn-target-ora";

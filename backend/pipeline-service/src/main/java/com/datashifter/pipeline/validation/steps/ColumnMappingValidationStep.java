@@ -47,8 +47,8 @@ public class ColumnMappingValidationStep implements PipelineValidationStep {
             return errors;
         }
 
-        boolean isTargetAdapter = pipeline.getTargetAdapterId() != null;
-        if (!isTargetAdapter && (context.getTargetConnection() == null || context.getTargetConnector() == null)) {
+        boolean hasTargetConnection = context.getTargetConnection() != null && context.getTargetConnector() != null;
+        if (!hasTargetConnection && pipeline.getTargetAdapterId() == null) {
             errors.add("Target connection not found: " + pipeline.getTargetConnectionId());
             return errors;
         }
@@ -66,7 +66,7 @@ public class ColumnMappingValidationStep implements PipelineValidationStep {
                     continue;
                 }
 
-                if (isTargetAdapter) {
+                if (!hasTargetConnection) {
                     if (ttm.getColumnMappings() != null && !ttm.getColumnMappings().isEmpty()) {
                         boolean anyMapped = ttm.getColumnMappings().stream()
                                 .anyMatch(ColumnMappingValidationStep::isTargetColumnMapped);
