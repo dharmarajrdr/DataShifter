@@ -36,7 +36,6 @@ export const SourceConnectionField = ({ id, adapter, adapterObj, config, setConf
           <option key={c.id} value={c.id}>{c.name} ({c.dbType})</option>
         ))}
       </select>
-      {errors.source && <p id={`${id}-source-error`} className="text-xs text-rose-500 mt-1">{errors.source}</p>}
       {filtered.length === 0 && (
         <p className="text-[11px] text-amber-600">
           No {labelText} connections configured. Create one in Connections.

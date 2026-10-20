@@ -29,7 +29,6 @@ export const WizardTargetFields = ({
             <option value="">Select AWS S3 Connection...</option>
             {s3Conns.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
           </select>
-          {errors.target && <p id={`${id}-target-error`} className="text-xs text-rose-500 mt-1">{errors.target}</p>}
           {s3Conns.length === 0 && <p className="text-[11px] text-amber-600 mt-1">No AWS connections configured.</p>}
         </div>
         <div className="w-full max-w-[320px]">
@@ -43,7 +42,6 @@ export const WizardTargetFields = ({
         <div className="w-full max-w-[320px]">
           <label className="block text-xs font-semibold text-slate-700 mb-1">S3 Bucket Name &amp; Base Prefix *</label>
           <input id={`${id}-s3-bucket`} className={INPUT_CLS} style={{ borderColor: errors.s3Bucket ? '#EF4444' : undefined }} value={config.s3Bucket || ''} onChange={(e) => setConfig({ ...config, s3Bucket: e.target.value })} placeholder="datashifter-analytics-lake/raw" />
-          {errors.s3Bucket && <p id={`${id}-bucket-error`} className="text-xs text-rose-500 mt-1">{errors.s3Bucket}</p>}
         </div>
       </div>
     );

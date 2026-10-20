@@ -38,7 +38,6 @@ export const TargetConnectionField = ({ id, adapter, config, setConfig, connecti
           <option key={c.id} value={c.id}>{c.name} ({c.dbType})</option>
         ))}
       </select>
-      {errors.target && <p id={`${id}-target-error`} className="text-xs text-rose-500 mt-1">{errors.target}</p>}
       {filtered.length === 0 && (
         <p className="text-[11px] text-amber-600">
           No {labelText} connections configured. Create one in Connections.

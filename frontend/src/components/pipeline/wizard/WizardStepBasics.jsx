@@ -36,11 +36,6 @@ export const WizardStepBasics = ({
         onChange={(e) => setConfig({ ...config, name: e.target.value })}
         placeholder="e.g., Oracle to S3 Analytics Stream"
       />
-      {errors.name && (
-        <p id={`${id}-name-error`} className="text-xs text-rose-500 mt-1">
-          {errors.name}
-        </p>
-      )}
     </div>
 
     {/* Description */}
