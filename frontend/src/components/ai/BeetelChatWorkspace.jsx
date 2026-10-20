@@ -5,6 +5,7 @@ import { AGENT } from '../../constants/literals';
 import { Button, BarLoader, SpinnerLoader, SkeletonLoader } from '../common';
 import { BeetelIcon } from '../layout/Icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { aiApi } from '../../services/aiApi';
 import { pipelineApi, workflowApi, connectionApi, udfApi } from '../../services/api';
 import BeetelMarkdownRenderer from './BeetelMarkdownRenderer';
@@ -539,17 +540,16 @@ const ShareConversationModal = ({
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [shareError, setShareError] = useState(null);
+  const notification = useNotification();
 
   useEffect(() => {
     if (!open) return;
     setSearch('');
     setSelectedIds([]);
-    setShareError(null);
     setLoadingMembers(true);
     aiApi.listOrgMembers()
       .then(res => setOrgMembers(res.data || []))
-      .catch(e => setShareError(e?.message || 'Failed to load organization members'))
+      .catch(e => notification.error(e?.message || 'Failed to load organization members'))
       .finally(() => setLoadingMembers(false));
   }, [open]);
 
@@ -577,7 +577,6 @@ const ShareConversationModal = ({
   const handleGrantAccess = async () => {
     if (selectedIds.length === 0 || submitting) return;
     setSubmitting(true);
-    setShareError(null);
     try {
       const res = await aiApi.shareSession(session.id, selectedIds);
       const updated = res?.data || res;
@@ -587,7 +586,7 @@ const ShareConversationModal = ({
       setSelectedIds([]);
       onClose();
     } catch (e) {
-      setShareError(e?.message || 'Failed to share conversation');
+      notification.error(e?.message || 'Failed to share conversation');
     } finally {
       setSubmitting(false);
     }
@@ -842,19 +841,6 @@ const ShareConversationModal = ({
             })
           )}
         </div>
-
-        {shareError && (
-          <div style={{
-            margin: `0 ${SPACING.lg}`,
-            padding: '6px 10px',
-            borderRadius: BORDER_RADIUS.sm,
-            background: '#FCEBEB',
-            color: '#A32D2D',
-            fontSize: '11px',
-          }}>
-            {shareError}
-          </div>
-        )}
 
         {/* Modal Footer */}
         <div style={{

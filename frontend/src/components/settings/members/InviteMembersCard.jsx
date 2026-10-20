@@ -11,7 +11,6 @@ export const InviteMembersCard = ({
   onInvite,
   inviting = false,
   inviteSuccess,
-  error,
 }) => (
   <div id="invite-members-section">
     <SettingsSectionHeader
@@ -53,11 +52,6 @@ export const InviteMembersCard = ({
       {inviteSuccess && (
         <p className="text-xs text-emerald-600 font-medium mt-2 mb-0">
           {inviteSuccess}
-        </p>
-      )}
-      {error && typeof error === 'string' && (
-        <p className="text-xs text-rose-600 font-medium mt-2 mb-0">
-          {error}
         </p>
       )}
     </div>

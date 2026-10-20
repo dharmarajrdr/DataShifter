@@ -60,7 +60,6 @@ export const OrgSettingsPage = () => {
       updateUser?.({ orgName: updated.name });
       refreshOrganizations?.();
     } catch (err) {
-      setError(err.message || 'Failed to update organization');
       notification.error(err.message || 'Failed to update organization');
     } finally { setSaving(false); }
   };

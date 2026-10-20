@@ -3,6 +3,7 @@ import { COLORS, FONT, SPACING, BORDER_RADIUS } from '../constants/design';
 import { FRSC, FRBC } from '../constants/layouts';
 import { PageHeader, Button, Chip, Loader, ApiGuard } from '../components/common';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { paymentApi } from '../services/paymentApi';
 import SettingsTabs from '../components/common/SettingsTabs';
 
@@ -147,6 +148,7 @@ const PlanCard = ({ plan, cycle, currentPlanId, onSelect, selecting }) => {
    ================================================================ */
 const BillingPage = () => {
   const { user } = useAuth();
+  const notification = useNotification();
   const [billing, setBilling] = useState(null);
   const [cycle, setCycle] = useState('YEARLY');
   const [loading, setLoading] = useState(true);
@@ -181,7 +183,7 @@ const BillingPage = () => {
       const checkout = res.data;
       openRazorpay(checkout);
     } catch (e) {
-      setError(e);
+      notification.error(e?.message || 'Failed to initialize checkout');
       setSelecting(false);
     }
   };
@@ -202,9 +204,10 @@ const BillingPage = () => {
             razorpayPaymentId: response.razorpay_payment_id,
             razorpaySignature: response.razorpay_signature,
           });
+          notification.success('Payment verified successfully');
           fetchBilling();
           fetchHistory(0);
-        } catch (e) { setError(e); }
+        } catch (e) { notification.error(e?.message || 'Payment verification failed'); }
         finally { setSelecting(false); }
       },
       prefill: { email: user?.email },

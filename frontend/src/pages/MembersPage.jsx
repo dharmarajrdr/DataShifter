@@ -12,7 +12,7 @@ export const MembersPage = () => {
         <SettingsTabs title="Organization settings" subtitle={d.user?.orgName || 'Your organization'} />
         <div className="w-full flex flex-col gap-6">
           {d.canManageInvites && (
-            <InviteMembersCard inviteEmail={d.inviteEmail} onInviteEmailChange={d.setInviteEmail} inviteRoleId={d.inviteRoleId} onInviteRoleIdChange={d.setInviteRoleId} roles={d.roles} onInvite={d.handleInvite} inviting={d.inviting} inviteSuccess={d.inviteSuccess} error={d.error} />
+            <InviteMembersCard inviteEmail={d.inviteEmail} onInviteEmailChange={d.setInviteEmail} inviteRoleId={d.inviteRoleId} onInviteRoleIdChange={d.setInviteRoleId} roles={d.roles} onInvite={d.handleInvite} inviting={d.inviting} inviteSuccess={d.inviteSuccess} />
           )}
           {d.canManageInvites && d.invitations.length > 0 && (
             <PendingInvitesCard invitations={d.invitations} onAction={d.handleInvitationAction} />
