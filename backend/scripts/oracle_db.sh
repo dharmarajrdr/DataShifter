@@ -4,6 +4,7 @@
 #
 # Usage:
 #   ./oracle_db.sh                       # Connect as SYSTEM to FREEPDB1
+#   ./oracle_db.sh dev                   # Connect as DEV_USER to FREEPDB1
 #   ./oracle_db.sh sys                   # Connect as SYSDBA (/ as sysdba)
 #   ./oracle_db.sh <user>/<pass>@<pdb>   # Connect with custom credentials
 # ==============================================================================
@@ -29,6 +30,9 @@ fi
 
 if [ $# -eq 0 ]; then
   TARGET="${DEFAULT_TARGET}"
+elif [ "$1" = "dev" ] || [ "$1" = "dev_user" ]; then
+  TARGET="DEV_USER/Dev123@FREEPDB1"
+  shift
 elif [ "$1" = "sys" ] || [ "$1" = "sysdba" ]; then
   TARGET="/ as sysdba"
   shift
