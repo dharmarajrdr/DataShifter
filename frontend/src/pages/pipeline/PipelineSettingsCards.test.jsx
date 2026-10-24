@@ -76,13 +76,14 @@ describe('PipelineSettings bg-white card sections', () => {
     });
 
     const bgWhiteCards = Array.from(container.querySelectorAll('.bg-white'));
-    expect(bgWhiteCards.length).toBeGreaterThanOrEqual(6);
+    expect(bgWhiteCards.length).toBeGreaterThanOrEqual(5);
 
     const text = container.textContent;
     expect(text).toContain('General');
     expect(text).not.toContain('Execution mode & CDC');
     expect(text).toContain('Table pairs');
-    expect(text).toContain('Table write modes');
+    expect(text).not.toContain('Table write modes');
+    expect(text).toContain('Write mode');
     expect(text).toContain('Processing');
     expect(text).toContain('Connection pool');
     expect(text).toContain('Error handling');

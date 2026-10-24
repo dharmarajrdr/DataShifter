@@ -9,7 +9,6 @@ import { usePipelineSettings } from '../components/pipeline/settings/usePipeline
 import PipelineSettingsGeneralCard from '../components/pipeline/settings/PipelineSettingsGeneralCard';
 import PipelineSettingsCdcCard from '../components/pipeline/settings/PipelineSettingsCdcCard';
 import PipelineSettingsTablePairsCard from '../components/pipeline/settings/PipelineSettingsTablePairsCard';
-import PipelineSettingsWriteModesCard from '../components/pipeline/settings/PipelineSettingsWriteModesCard';
 import PipelineSettingsProcessingCard from '../components/pipeline/settings/PipelineSettingsProcessingCard';
 import PipelineSettingsErrorCard from '../components/pipeline/settings/PipelineSettingsErrorCard';
 import PipelineSettingsDangerCard from '../components/pipeline/settings/PipelineSettingsDangerCard';
@@ -69,8 +68,13 @@ export const PipelineSettings = () => {
         <div style={{ maxWidth: '65%', paddingBottom: '3rem' }}>
           <PipelineSettingsGeneralCard settings={settings} update={update} />
           <PipelineSettingsCdcCard pipelineId={pipelineId} settings={settings} update={update} />
-          <PipelineSettingsTablePairsCard pipelineId={pipelineId} settings={settings} allTargetMappings={allTargetMappings} fetchSettings={fetchSettings} />
-          <PipelineSettingsWriteModesCard allTargetMappings={allTargetMappings} updateTableWriteMode={updateTableWriteMode} />
+          <PipelineSettingsTablePairsCard
+            pipelineId={pipelineId}
+            settings={settings}
+            allTargetMappings={allTargetMappings}
+            updateTableWriteMode={updateTableWriteMode}
+            fetchSettings={fetchSettings}
+          />
           <PipelineSettingsProcessingCard settings={settings} update={update} />
           <PipelineSettingsErrorCard settings={settings} update={update} />
           <PipelineSettingsDangerCard pipelineId={pipelineId} settings={settings} />
